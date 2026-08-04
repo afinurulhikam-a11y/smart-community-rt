@@ -83,7 +83,9 @@ class PatrolProvider extends ChangeNotifier {
   Future<Map<String, dynamic>> submitAttendance({
     int? scheduleId,
     String? kodeQr,
+    String? tipeAbsen,
     String? catatan,
+    String? fotoUrl,
   }) async {
     _isLoading = true;
     notifyListeners();
@@ -92,7 +94,9 @@ class PatrolProvider extends ChangeNotifier {
       body: {
         if (scheduleId != null) 'schedule_id': scheduleId,
         'kode_qr': kodeQr ?? 'POS_RONDA_OFFICIAL_QR',
+        if (tipeAbsen != null) 'tipe_absen': tipeAbsen,
         if (catatan != null) 'catatan': catatan,
+        if (fotoUrl != null) 'foto_url': fotoUrl,
       },
     );
     _isLoading = false;

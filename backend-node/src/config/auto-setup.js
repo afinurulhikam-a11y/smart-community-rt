@@ -28,12 +28,20 @@ async function autoSetupCloud() {
         user_id UUID REFERENCES users(id) ON DELETE CASCADE,
         nama_petugas VARCHAR(150) NOT NULL,
         tanggal DATE DEFAULT CURRENT_DATE,
+        tipe_absen VARCHAR(20) DEFAULT 'Masuk',
         waktu_scan TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        waktu_masuk TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        waktu_pulang TIMESTAMP WITH TIME ZONE,
         lokasi_pos VARCHAR(150) DEFAULT 'Pos Ronda Utama',
-        status VARCHAR(50) DEFAULT 'Hadir',
+        status VARCHAR(50) DEFAULT 'Aktif Ronda',
         catatan TEXT,
+        foto_url TEXT,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+      ALTER TABLE patrol_attendances ADD COLUMN IF NOT EXISTS tipe_absen VARCHAR(20) DEFAULT 'Masuk';
+      ALTER TABLE patrol_attendances ADD COLUMN IF NOT EXISTS waktu_masuk TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+      ALTER TABLE patrol_attendances ADD COLUMN IF NOT EXISTS waktu_pulang TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE patrol_attendances ADD COLUMN IF NOT EXISTS foto_url TEXT;
     `);
     console.log('✅ Skema tabel Siskamling (patrol_schedules & patrol_attendances) terverifikasi.');
   } catch (e) {

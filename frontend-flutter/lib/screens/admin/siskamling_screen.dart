@@ -356,7 +356,7 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                   padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
                   child: TabelResponsif(
                     labelAksi: 'STATUS',
-                    kolom: const ['NO', 'WAKTU SCAN', 'NAMA PETUGAS', 'LOKASI POS', 'STATUS', 'CATATAN'],
+                    kolom: const ['NO', 'NAMA PETUGAS', 'JAM MASUK', 'JAM PULANG', 'LOKASI POS', 'STATUS', 'CATATAN'],
                     kosong: const Padding(
                       padding: EdgeInsets.all(32),
                       child: Center(child: Text('Belum ada data absensi ronda')),
@@ -364,25 +364,37 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                     baris: attendances.asMap().entries.map((entry) {
                       final i = entry.key + 1;
                       final a = entry.value;
-                      final tglStr = a['waktu_scan'] != null
-                          ? DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(a['waktu_scan']))
+                      final masukStr = a['waktu_masuk'] != null
+                          ? DateFormat('dd/MM HH:mm').format(DateTime.parse(a['waktu_masuk']))
+                          : (a['waktu_scan'] != null ? DateFormat('dd/MM HH:mm').format(DateTime.parse(a['waktu_scan'])) : '-');
+                      final pulangStr = a['waktu_pulang'] != null
+                          ? DateFormat('dd/MM HH:mm').format(DateTime.parse(a['waktu_pulang']))
                           : '-';
-                      final status = a['status'] ?? 'Hadir';
+                      final status = a['status'] ?? 'Aktif Ronda';
+
+                      Color warnaBg = Colors.blue.withValues(alpha: 0.15);
+                      Color warnaTeks = Colors.blue.shade800;
+                      if (status == 'Selesai Tugas') {
+                        warnaBg = Colors.green.withValues(alpha: 0.15);
+                        warnaTeks = Colors.green.shade800;
+                      } else if (status == 'Tepat Waktu' || status == 'Hadir') {
+                        warnaBg = const Color(0xFF1B7A6A).withValues(alpha: 0.15);
+                        warnaTeks = const Color(0xFF1B7A6A);
+                      }
 
                       return BarisTabel(
                         sel: [
                           SelTabel.teks('NO', i.toString(), sembunyiDiKartu: true),
-                          SelTabel.teks('WAKTU SCAN', tglStr, utama: true),
-                          SelTabel.teks('NAMA PETUGAS', a['nama_petugas'] ?? '-'),
+                          SelTabel.teks('NAMA PETUGAS', a['nama_petugas'] ?? '-', utama: true),
+                          SelTabel.teks('JAM MASUK', masukStr),
+                          SelTabel.teks('JAM PULANG', pulangStr),
                           SelTabel.teks('LOKASI POS', a['lokasi_pos'] ?? 'Pos Ronda Utama'),
                           SelTabel(
                             'STATUS',
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: status == 'Tepat Waktu'
-                                    ? Colors.green.withValues(alpha: 0.15)
-                                    : Colors.orange.withValues(alpha: 0.15),
+                                color: warnaBg,
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
@@ -390,7 +402,7 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
-                                  color: status == 'Tepat Waktu' ? Colors.green : Colors.orange,
+                                  color: warnaTeks,
                                 ),
                               ),
                             ),
@@ -511,59 +523,135 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
 
   void _showAbsenDialog(BuildContext context) {
     final noteCtrl = TextEditingController();
+    String tipeAbsen = 'Masuk';
+
     showDialog(
       context: context,
-      builder: (c) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.qr_code_scanner, color: Color(0xFF1B7A6A)),
-            SizedBox(width: 8),
-            Text('Absensi Pos Ronda'),
-          ],
-        ),
-        content: SizedBox(
-          width: 450,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+      builder: (c) => StatefulBuilder(
+        builder: (dialogCtx, setSt) => AlertDialog(
+          title: const Row(
             children: [
-              const Text(
-                'Tekan tombol di bawah untuk mencatatkan kehadiran ronda malam Anda di Pos Ronda hari ini.',
-                style: TextStyle(fontSize: 13),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: noteCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Catatan Petugas (Opsional)',
-                  hintText: 'Misal: Ronda bersama Pak Budi & Pak Slamet',
-                ),
-              ),
+              Icon(Icons.qr_code_scanner, color: Color(0xFF1B7A6A)),
+              SizedBox(width: 8),
+              Text('Absensi Pos Ronda'),
             ],
           ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c), child: const Text('Batal')),
-          ElevatedButton.icon(
-            onPressed: () async {
-              Navigator.pop(c);
-              final res = await context.read<PatrolProvider>().submitAttendance(
-                catatan: noteCtrl.text.trim().isNotEmpty ? noteCtrl.text.trim() : null,
-              );
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(res['message'] ?? ''),
-                    backgroundColor: res['success'] == true ? Colors.green : Colors.red,
+          content: SizedBox(
+            width: 450,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Pilih status absensi tugas ronda Anda hari ini:',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => setSt(() => tipeAbsen = 'Masuk'),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                          decoration: BoxDecoration(
+                            color: tipeAbsen == 'Masuk' ? const Color(0xFF1B7A6A).withValues(alpha: 0.12) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: tipeAbsen == 'Masuk' ? const Color(0xFF1B7A6A) : Colors.grey.shade300,
+                              width: tipeAbsen == 'Masuk' ? 2 : 1,
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(Icons.login, color: tipeAbsen == 'Masuk' ? const Color(0xFF1B7A6A) : Colors.grey),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Absen Masuk',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  color: tipeAbsen == 'Masuk' ? const Color(0xFF1B7A6A) : Colors.black87,
+                                ),
+                              ),
+                              const Text('Mulai Ronda', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => setSt(() => tipeAbsen = 'Pulang'),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                          decoration: BoxDecoration(
+                            color: tipeAbsen == 'Pulang' ? Colors.green.withValues(alpha: 0.12) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: tipeAbsen == 'Pulang' ? Colors.green : Colors.grey.shade300,
+                              width: tipeAbsen == 'Pulang' ? 2 : 1,
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(Icons.logout, color: tipeAbsen == 'Pulang' ? Colors.green : Colors.grey),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Absen Pulang',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  color: tipeAbsen == 'Pulang' ? Colors.green : Colors.black87,
+                                ),
+                              ),
+                              const Text('Selesai Tugas', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: noteCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Catatan Laporan (Opsional)',
+                    hintText: 'Misal: Patroli jam 02:00 situasi aman kondusif',
                   ),
-                );
-              }
-            },
-            icon: const Icon(Icons.check, size: 16),
-            label: const Text('Kirim Absensi'),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1B7A6A), foregroundColor: Colors.white),
+                ),
+              ],
+            ),
           ),
-        ],
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c), child: const Text('Batal')),
+            ElevatedButton.icon(
+              onPressed: () async {
+                Navigator.pop(c);
+                final res = await context.read<PatrolProvider>().submitAttendance(
+                  tipeAbsen: tipeAbsen,
+                  catatan: noteCtrl.text.trim().isNotEmpty ? noteCtrl.text.trim() : null,
+                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(res['message'] ?? ''),
+                      backgroundColor: res['success'] == true ? Colors.green : Colors.red,
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.check, size: 16),
+              label: Text(tipeAbsen == 'Masuk' ? 'Kirim Absen Masuk' : 'Kirim Absen Pulang'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: tipeAbsen == 'Masuk' ? const Color(0xFF1B7A6A) : Colors.green,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

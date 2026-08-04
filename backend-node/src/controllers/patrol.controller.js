@@ -108,7 +108,7 @@ async function getAttendances(req, res) {
 
 async function submitAttendance(req, res) {
   try {
-    const { schedule_id, kode_qr, lokasi_pos, catatan } = req.body;
+    const { schedule_id, kode_qr, tipe_absen, lokasi_pos, catatan, foto_url } = req.body;
     const userId = req.user.id;
     const namaPetugas = req.user.nama || req.user.username || 'Warga';
 
@@ -117,39 +117,63 @@ async function submitAttendance(req, res) {
       return res.status(400).json({ success: false, message: 'Kode QR Pos Ronda tidak valid!' });
     }
 
-    // Cek apakah sudah absen hari ini
     const today = new Date().toISOString().split('T')[0];
-    const checkExisting = await pool.query(
-      'SELECT id FROM patrol_attendances WHERE user_id = $1 AND tanggal = $2',
+    const existing = await pool.query(
+      `SELECT * FROM patrol_attendances WHERE user_id = $1 AND tanggal = $2 ORDER BY created_at DESC LIMIT 1`,
       [userId, today]
     );
 
-    if (checkExisting.rows.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Anda sudah melakukan absensi ronda hari ini!',
+    const hasActiveCheckin = existing.rows.length > 0 && !existing.rows[0].waktu_pulang;
+
+    // Jika tipe_absen dispesifikasikan 'Pulang' atau sudah ada aktif check-in hari ini:
+    if (tipe_absen === 'Pulang' || (hasActiveCheckin && tipe_absen !== 'Masuk')) {
+      if (!hasActiveCheckin) {
+        return res.status(400).json({
+          success: false,
+          message: 'Anda belum melakukan Absen Masuk Tugas ronda hari ini!',
+        });
+      }
+
+      const activeRow = existing.rows[0];
+      const updated = await pool.query(
+        `UPDATE patrol_attendances
+         SET waktu_pulang = NOW(),
+             status = 'Selesai Tugas',
+             catatan = COALESCE($1, catatan),
+             foto_url = COALESCE($2, foto_url)
+         WHERE id = $3 RETURNING *`,
+        [catatan || 'Telah menyelesaikan tugas ronda malam.', foto_url || null, activeRow.id]
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: 'Absensi Selesai Tugas berhasil dicatat. Terima kasih atas pengabdian Anda!',
+        data: updated.rows[0],
+      });
+    } else {
+      // Absen Masuk Tugas
+      if (hasActiveCheckin) {
+        return res.status(400).json({
+          success: false,
+          message: 'Anda sedang dalam masa tugas ronda! Gunakan Absen Selesai Tugas untuk mengakhiri.',
+        });
+      }
+
+      const result = await pool.query(
+        `INSERT INTO patrol_attendances (schedule_id, user_id, nama_petugas, tanggal, tipe_absen, waktu_scan, waktu_masuk, lokasi_pos, status, catatan, foto_url)
+         VALUES ($1, $2, $3, $4, 'Masuk', NOW(), NOW(), $5, 'Aktif Ronda', $6, $7) RETURNING *`,
+        [schedule_id || null, userId, namaPetugas, today, lokasi_pos || 'Pos Ronda Utama', catatan || 'Absen Masuk Pos Ronda', foto_url || null]
+      );
+
+      return res.status(201).json({
+        success: true,
+        message: 'Absen Masuk Tugas ronda berhasil dicatat. Selamat bertugas!',
+        data: result.rows[0],
       });
     }
-
-    const now = new Date();
-    const hours = now.getHours();
-    // Tepat waktu jika diisi antara jam 20:00 - 05:00
-    const status = (hours >= 20 || hours < 5) ? 'Tepat Waktu' : 'Hadir Terlambat';
-
-    const result = await pool.query(
-      `INSERT INTO patrol_attendances (schedule_id, user_id, nama_petugas, tanggal, waktu_scan, lokasi_pos, status, catatan)
-       VALUES ($1, $2, $3, $4, NOW(), $5, $6, $7) RETURNING *`,
-      [schedule_id || null, userId, namaPetugas, today, lokasi_pos || 'Pos Ronda Utama', status, catatan || 'Absensi via QR Code Pos Ronda']
-    );
-
-    return res.status(201).json({
-      success: true,
-      message: 'Absensi ronda berhasil dicatat. Terima kasih atas partisipasinya!',
-      data: result.rows[0],
-    });
   } catch (err) {
     console.error('SubmitAttendance Error:', err.message);
-    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+    return res.status(500).json({ success: false, message: err.message || 'Terjadi kesalahan server.' });
   }
 }
 
