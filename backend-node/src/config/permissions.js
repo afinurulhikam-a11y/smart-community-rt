@@ -13,6 +13,7 @@
 const N = { view: false, create: false, update: false, delete: false }; // tidak ada akses
 const V = { view: true, create: false, update: false, delete: false };  // lihat saja
 const VC = { view: true, create: true, update: false, delete: false };  // lihat + ajukan
+const VCD = { view: true, create: true, update: false, delete: true }; // lihat + ajukan + batal
 const VU = { view: true, create: false, update: true, delete: false };  // lihat + setujui
 const F = { view: true, create: true, update: true, delete: true };     // penuh
 
