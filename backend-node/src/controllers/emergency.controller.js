@@ -36,6 +36,16 @@ async function triggerAlarm(req, res) {
       longitude: alert.longitude,
       timestamp: alert.created_at,
     });
+
+    // Panggil WhatsApp Notification Service (Async)
+    const { sendEmergencyWA } = require('../services/whatsapp.service');
+    sendEmergencyWA({
+      userNama: user.nama,
+      alamat: user.alamat,
+      noHp: user.no_hp,
+      tipeEmergency: message || 'Sinyal Darurat Panic Button',
+    }).catch((e) => console.log('ℹ️ Catatan WA Alarm:', e.message));
+
     return res.status(201).json({
       success: true,
       message: `Sinyal darurat berhasil dikirim ke ${sentCount} perangkat yang terhubung.`,
