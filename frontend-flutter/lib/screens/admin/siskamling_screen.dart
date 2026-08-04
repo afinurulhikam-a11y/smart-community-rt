@@ -570,11 +570,13 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
     final shiftCtrl = TextEditingController(text: 'Shift Malam (22:00 - 04:00)');
     final petugasCtrl = TextEditingController();
     final ketCtrl = TextEditingController();
+    String? errorPetugas;
+    String? errorShift;
 
     showDialog(
       context: context,
       builder: (c) => StatefulBuilder(
-        builder: (context, setSt) => AlertDialog(
+        builder: (dialogCtx, setSt) => AlertDialog(
           title: const Text('Tambah Jadwal Siskamling'),
           content: SingleChildScrollView(
             child: Column(
@@ -597,15 +599,25 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                 const SizedBox(height: 12),
                 TextField(
                   controller: shiftCtrl,
-                  decoration: const InputDecoration(labelText: 'Shift Jam *'),
+                  decoration: InputDecoration(
+                    labelText: 'Shift Jam *',
+                    errorText: errorShift,
+                  ),
+                  onChanged: (_) {
+                    if (errorShift != null) setSt(() => errorShift = null);
+                  },
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: petugasCtrl,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Petugas Warga *',
                     hintText: 'Misal: Budi, Agus, Slamet, Afi',
+                    errorText: errorPetugas,
                   ),
+                  onChanged: (_) {
+                    if (errorPetugas != null) setSt(() => errorPetugas = null);
+                  },
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -619,19 +631,37 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
             TextButton(onPressed: () => Navigator.pop(c), child: const Text('Batal')),
             ElevatedButton(
               onPressed: () async {
-                if (petugasCtrl.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Petugas ronda wajib diisi!'), backgroundColor: Colors.red),
-                  );
-                  return;
+                bool hasError = false;
+                if (shiftCtrl.text.trim().isEmpty) {
+                  setSt(() => errorShift = 'Shift jam wajib diisi');
+                  hasError = true;
                 }
+                if (petugasCtrl.text.trim().isEmpty) {
+                  setSt(() => errorPetugas = 'Nama petugas ronda wajib diisi');
+                  hasError = true;
+                }
+                if (hasError) return;
+
                 Navigator.pop(c);
-                await context.read<PatrolProvider>().createSchedule(
+                final success = await context.read<PatrolProvider>().createSchedule(
                   hari: selectedHari,
                   shift: shiftCtrl.text.trim(),
                   petugasWarga: petugasCtrl.text.trim(),
                   keterangan: ketCtrl.text.trim().isNotEmpty ? ketCtrl.text.trim() : null,
                 );
+
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        success
+                            ? 'Jadwal ronda berhasil ditambahkan!'
+                            : 'Gagal menambahkan jadwal ronda.',
+                      ),
+                      backgroundColor: success ? Colors.green : Colors.red,
+                    ),
+                  );
+                }
               },
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1B7A6A), foregroundColor: Colors.white),
               child: const Text('Simpan'),
