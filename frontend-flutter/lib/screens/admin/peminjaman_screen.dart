@@ -5,7 +5,6 @@ import '../../core/responsif.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/services/api_service.dart';
 import '../../../providers/aksi_utama_provider.dart';
-import '../../../providers/auth_provider.dart';
 import '../../../providers/inventory_provider.dart';
 import '../../../models/borrowing_model.dart';
 import '../../../providers/permission_provider.dart';
@@ -606,7 +605,7 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
               icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF3B82F6)),
               onPressed: () => _showFormPinjam(b),
             ),
-          if (_bolehHapus || (context.watch<AuthProvider>().user?.id == b.userId && !b.isDikembalikan))
+          if (_bolehHapus || (context.watch<AuthService>().userId == b.userId && !b.isDikembalikan))
             IconButton(
               tooltip: b.bisaDibatalkan
                   ? 'Batalkan catatan'
