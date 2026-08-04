@@ -2,6 +2,7 @@ require('dotenv').config();
 const { Client } = require('pg');
 const fs = require('fs');
 const path = require('path');
+const { pool } = require('./src/config/database');
 
 /**
  * Membuat database dan memuat `database/schema.sql`.
@@ -27,6 +28,19 @@ const koneksi = (database) => new Client({
 });
 
 async function run() {
+  const berkas = path.join(__dirname, 'database', 'schema.sql');
+  const sql = fs.readFileSync(berkas, 'utf8');
+
+  if (process.env.DATABASE_URL) {
+    console.log('Memuat database/schema.sql via DATABASE_URL...');
+    await pool.query(sql);
+    const t = await pool.query(
+      "SELECT COUNT(*)::int n FROM pg_tables WHERE schemaname = 'public'"
+    );
+    console.log(`Skema termuat: ${t.rows[0].n} tabel.`);
+    return;
+  }
+
   const admin = koneksi('postgres');
   await admin.connect();
   try {
