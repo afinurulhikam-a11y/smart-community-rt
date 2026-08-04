@@ -15,39 +15,59 @@ async function autoSetupCloud() {
       console.log('✅ Skema tabel database PostgreSQL terverifikasi.');
     }
 
-    // Check if admin user exists
-    const adminCheck = await pool.query("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
-    if (adminCheck.rows.length === 0) {
-      console.log('🌱 Menanam data master & akun administrator awal...');
-      for (let i = 0; i < MENU_ITEMS.length; i++) {
-        const m = MENU_ITEMS[i];
+    // Always seed/update Menu Items
+    for (let i = 0; i < MENU_ITEMS.length; i++) {
+      const m = MENU_ITEMS[i];
+      await pool.query(
+        `INSERT INTO menu_items (kode, nama, grup, menu_index, urutan, is_sistem)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (kode) DO UPDATE SET
+           nama = EXCLUDED.nama, grup = EXCLUDED.grup,
+           menu_index = EXCLUDED.menu_index, urutan = EXCLUDED.urutan,
+           is_sistem = EXCLUDED.is_sistem`,
+        [m.kode, m.nama, m.grup, m.menu_index, i, m.is_sistem === true]
+      );
+    }
+
+    // Always seed/update Role Permissions
+    for (const [role, menus] of Object.entries(DEFAULT_PERMISSIONS)) {
+      for (const [kode, p] of Object.entries(menus)) {
         await pool.query(
-          `INSERT INTO menu_items (kode, nama, grup, menu_index, urutan, is_sistem)
+          `INSERT INTO role_permissions (role, menu_kode, can_view, can_create, can_update, can_delete)
            VALUES ($1, $2, $3, $4, $5, $6)
-           ON CONFLICT (kode) DO NOTHING`,
-          [m.kode, m.nama, m.grup, m.menu_index, i, m.is_sistem === true]
+           ON CONFLICT (role, menu_kode) DO NOTHING`,
+          [role, kode, p.view, p.create, p.update, p.delete]
         );
       }
-      for (const [role, menus] of Object.entries(DEFAULT_PERMISSIONS)) {
-        for (const [kode, p] of Object.entries(menus)) {
-          await pool.query(
-            `INSERT INTO role_permissions (role, menu_kode, can_view, can_create, can_update, can_delete)
-             VALUES ($1, $2, $3, $4, $5, $6)
-             ON CONFLICT (role, menu_kode) DO NOTHING`,
-            [role, kode, p.view, p.create, p.update, p.delete]
-          );
-        }
-      }
-      const salt = await bcrypt.genSalt(10);
-      const hash = await bcrypt.hash(ADMIN_AWAL.password, salt);
-      await pool.query(
-        `INSERT INTO users (nama, email, username, password_hash, role)
-         VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT (email) DO NOTHING`,
-        [ADMIN_AWAL.nama, ADMIN_AWAL.email, ADMIN_AWAL.username, hash, ADMIN_AWAL.role]
-      );
-      console.log(`✅ Akun Admin (${ADMIN_AWAL.email} / ${ADMIN_AWAL.password}) berhasil ditanam.`);
     }
+
+    // ALWAYS ensure Admin user exists with password 'admin123'
+    const saltAdmin = await bcrypt.genSalt(10);
+    const hashAdmin = await bcrypt.hash('admin123', saltAdmin);
+
+    await pool.query(
+      `INSERT INTO users (nama, email, username, password_hash, role, is_active)
+       VALUES ($1, $2, $3, $4, $5, true)
+       ON CONFLICT (email) DO UPDATE SET
+         password_hash = EXCLUDED.password_hash,
+         role = 'admin',
+         is_active = true`,
+      ['Administrator', 'admin@example.com', 'admin', hashAdmin, 'admin']
+    );
+    console.log('✅ Akun Admin terverifikasi: admin@example.com / admin123 (atau username: admin).');
+
+    // ALWAYS ensure Warga Uji user exists with password '123456'
+    const saltWarga = await bcrypt.genSalt(10);
+    const hashWarga = await bcrypt.hash('123456', saltWarga);
+    await pool.query(
+      `INSERT INTO users (nama, email, username, nik, password_hash, role, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, true)
+       ON CONFLICT (email) DO UPDATE SET
+         password_hash = EXCLUDED.password_hash,
+         is_active = true`,
+      ['Warga Uji Coba', 'warga@example.com', 'warga', '3171010101010001', hashWarga, 'warga']
+    );
+    console.log('✅ Akun Warga terverifikasi: warga@example.com / 123456 (atau NIK: 3171010101010001).');
 
     // Check if inventory data exists
     const invCheck = await pool.query("SELECT id FROM inventory LIMIT 1");
