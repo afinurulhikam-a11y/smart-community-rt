@@ -605,7 +605,7 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
               icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF3B82F6)),
               onPressed: () => _showFormPinjam(b),
             ),
-          if (_bolehHapus || (context.watch<AuthService>().userId == b.userId && !b.isDikembalikan))
+          if (_bolehHapus || (context.watch<AuthService>().userId.toString() == b.userId && !b.isDikembalikan))
             IconButton(
               tooltip: b.bisaDibatalkan
                   ? 'Batalkan catatan'
