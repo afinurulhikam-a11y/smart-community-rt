@@ -5,6 +5,7 @@ import '../../core/responsif.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/services/api_service.dart';
 import '../../../providers/aksi_utama_provider.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/inventory_provider.dart';
 import '../../../models/borrowing_model.dart';
 import '../../../providers/permission_provider.dart';
@@ -461,7 +462,7 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
         ? _merah
         : (b.isDikembalikan
             ? _hijauTerang
-            : (isPending ? const Color(0xFFD97706) : (isDitolak ? _merah : const Color(0xFFEA580C))));
+            : (isPending ? _kuning : (isDitolak ? _merah : const Color(0xFFEA580C))));
     final latarStatus = terlambat
         ? const Color(0xFFFEE2E2)
         : (b.isDikembalikan
@@ -586,7 +587,7 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
               ),
               child: const Text('Tolak', style: TextStyle(fontSize: 11)),
             ),
-          ] else if (!b.isDikembalikan && !isDitolak && _bolehUbah) ...[
+          ] else if ((isDipinjam || !b.isDikembalikan) && !isDitolak && _bolehUbah) ...[
             ElevatedButton(
               onPressed: () => _kembalikan(b),
               style: ElevatedButton.styleFrom(
