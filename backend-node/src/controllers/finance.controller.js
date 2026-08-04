@@ -1,0 +1,401 @@
+const { pool } = require('../config/database');
+const ExcelJS = require('exceljs');
+const PDFDocument = require('pdfkit-table');
+const { logActivity, rupiah } = require('../services/log.service');
+
+/**
+ * Tata letak kolom export. Excel dan PDF sama-sama membacanya supaya keduanya
+ * tidak bisa lepas sinkron — pola yang sama dipakai di warga.controller.js
+ * dan bill.controller.js.
+ */
+const KOLOM = [
+  { header: 'NO', key: 'no', width: 5 },
+  { header: 'TANGGAL', key: 'tanggal', width: 14 },
+  { header: 'JENIS', key: 'jenis', width: 14 },
+  { header: 'KATEGORI', key: 'kategori', width: 28 },
+  { header: 'KETERANGAN', key: 'deskripsi', width: 40 },
+  { header: 'PEMASUKAN', key: 'pemasukan', width: 16 },
+  { header: 'PENGELUARAN', key: 'pengeluaran', width: 16 },
+  { header: 'SALDO', key: 'saldo_berjalan', width: 16 },
+  { header: 'SUMBER', key: 'sumber', width: 12 },
+  { header: 'DICATAT OLEH', key: 'created_by_nama', width: 22 },
+];
+
+const pad = (n) => n.toString().padStart(2, '0');
+
+function formatTanggal(nilai) {
+  if (!nilai) return '';
+  const d = nilai instanceof Date ? nilai : new Date(nilai);
+  if (isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** Bangun klausa WHERE bersama untuk daftar dan export. */
+function buildFilter(req) {
+  const { tipe, bulan, tahun, kategori_id, search, dari, sampai } = req.query;
+  const kondisi = [];
+  const params = [];
+  const p = () => `$${params.length}`;
+
+  if (tipe) { params.push(tipe); kondisi.push(`f.tipe = ${p()}`); }
+  if (bulan) { params.push(`${bulan}%`); kondisi.push(`f.tanggal::TEXT LIKE ${p()}`); }
+  if (tahun && !bulan) { params.push(`${tahun}-%`); kondisi.push(`f.tanggal::TEXT LIKE ${p()}`); }
+  if (kategori_id) { params.push(kategori_id); kondisi.push(`f.kategori_id = ${p()}`); }
+  if (dari) { params.push(dari); kondisi.push(`f.tanggal >= ${p()}`); }
+  if (sampai) { params.push(sampai); kondisi.push(`f.tanggal <= ${p()}`); }
+  if (search) {
+    params.push(`%${search}%`);
+    kondisi.push(`(f.deskripsi ILIKE ${p()} OR f.kategori ILIKE ${p()})`);
+  }
+
+  const where = kondisi.length ? `WHERE ${kondisi.join(' AND ')}` : '';
+  return { where, params };
+}
+
+/**
+ * Saldo berjalan dihitung di SQL lewat window function, bukan di klien, supaya
+ * daftar dan laporan memakai angka yang sama persis.
+ */
+function buildQuery(where) {
+  return `
+    SELECT f.*,
+           u.nama AS created_by_nama,
+           kk.tipe AS kategori_tipe,
+           SUM(CASE WHEN f.tipe = 'pemasukan' THEN f.jumlah ELSE -f.jumlah END)
+             OVER (ORDER BY f.tanggal, f.created_at
+                   ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_berjalan
+    FROM finances f
+    LEFT JOIN users u ON f.created_by = u.id
+    LEFT JOIN kategori_kas kk ON f.kategori_id = kk.id
+    ${where}
+    ORDER BY f.tanggal DESC, f.created_at DESC
+  `;
+}
+
+async function getTransactions(req, res) {
+  try {
+    const { where, params } = buildFilter(req);
+    let query = buildQuery(where);
+
+    if (req.query.limit) {
+      params.push(parseInt(req.query.limit, 10));
+      query += ` LIMIT $${params.length}`;
+    }
+
+    const result = await pool.query(query, params);
+    return res.status(200).json({ success: true, count: result.rows.length, data: result.rows });
+  } catch (err) {
+    console.error('GetTransactions Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
+/**
+ * Ringkasan untuk tiga kartu di layar Kas RT, yang cakupannya BERBEDA:
+ * dua kartu pertama bulan berjalan, kartu ketiga saldo sepanjang masa.
+ *
+ * Field total_pemasukan/total_pengeluaran/saldo dipertahankan apa adanya
+ * karena dipakai layar BOP, Laporan Keuangan, dan dashboard.
+ */
+async function getSummary(req, res) {
+  try {
+    const { bulan } = req.query;
+
+    // Field lama mengikuti filter bulan seperti perilaku sebelumnya.
+    const paramsLama = [];
+    let kondisiLama = '';
+    if (bulan) {
+      paramsLama.push(`${bulan}%`);
+      kondisiLama = `WHERE tanggal::TEXT LIKE $${paramsLama.length}`;
+    }
+
+    // Periode untuk kartu "bulan ini": pakai yang diminta, atau bulan berjalan.
+    const periode = bulan || `${new Date().getFullYear()}-${pad(new Date().getMonth() + 1)}`;
+
+    const [lama, baru] = await Promise.all([
+      pool.query(`
+        SELECT
+          COALESCE(SUM(CASE WHEN tipe = 'pemasukan' THEN jumlah ELSE 0 END), 0)::float8 AS total_pemasukan,
+          COALESCE(SUM(CASE WHEN tipe = 'pengeluaran' THEN jumlah ELSE 0 END), 0)::float8 AS total_pengeluaran,
+          COALESCE(SUM(CASE WHEN tipe = 'pemasukan' THEN jumlah ELSE -jumlah END), 0)::float8 AS saldo
+        FROM finances ${kondisiLama}
+      `, paramsLama),
+      pool.query(`
+        SELECT
+          COALESCE(SUM(CASE WHEN tipe = 'pemasukan' AND tanggal::TEXT LIKE $1 THEN jumlah ELSE 0 END), 0)::float8 AS pemasukan_bulan,
+          COALESCE(SUM(CASE WHEN tipe = 'pengeluaran' AND tanggal::TEXT LIKE $1 THEN jumlah ELSE 0 END), 0)::float8 AS pengeluaran_bulan,
+          -- Saldo kas selalu sepanjang masa, tidak pernah disaring periode.
+          COALESCE(SUM(CASE WHEN tipe = 'pemasukan' THEN jumlah ELSE -jumlah END), 0)::float8 AS saldo_total,
+          COUNT(*)::int AS jumlah_transaksi
+        FROM finances
+      `, [`${periode}%`]),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      data: { periode, ...lama.rows[0], ...baru.rows[0] },
+    });
+  } catch (err) {
+    console.error('GetSummary Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
+/**
+ * Ambil kategori dan pastikan tipenya cocok dengan jenis transaksi.
+ * Kategori IN hanya untuk pemasukan, OUT hanya untuk pengeluaran.
+ */
+async function validasiKategori(kategoriId, tipe) {
+  if (!kategoriId) return { ok: true, kategori: null };
+
+  const r = await pool.query('SELECT * FROM kategori_kas WHERE id = $1', [kategoriId]);
+  if (r.rows.length === 0) {
+    return { ok: false, pesan: 'Kategori kas tidak ditemukan.' };
+  }
+  const kategori = r.rows[0];
+  const diharapkan = kategori.tipe === 'IN' ? 'pemasukan' : 'pengeluaran';
+  if (tipe !== diharapkan) {
+    return {
+      ok: false,
+      pesan: `Kategori "${kategori.nama_kategori}" hanya bisa dipakai untuk ${diharapkan}.`,
+    };
+  }
+  return { ok: true, kategori };
+}
+
+async function createTransaction(req, res) {
+  try {
+    const { tipe, jumlah, deskripsi, kategori_id, kategori, tanggal } = req.body;
+
+    // Pakai perbandingan eksplisit: `!jumlah` akan menganggap angka 0 sebagai
+    // kosong sehingga pesan salahnya menyesatkan.
+    if (!tipe || jumlah === undefined || jumlah === null || jumlah === '' || !deskripsi) {
+      return res.status(400).json({ success: false, message: 'tipe, jumlah, dan deskripsi wajib diisi.' });
+    }
+    if (!['pemasukan', 'pengeluaran'].includes(tipe)) {
+      return res.status(400).json({ success: false, message: 'tipe harus "pemasukan" atau "pengeluaran".' });
+    }
+    if (Number(jumlah) <= 0) {
+      return res.status(400).json({ success: false, message: 'Jumlah harus lebih dari 0.' });
+    }
+
+    const cek = await validasiKategori(kategori_id, tipe);
+    if (!cek.ok) return res.status(400).json({ success: false, message: cek.pesan });
+
+    // Nama kategori disimpan sebagai snapshot agar catatan lama tidak ikut
+    // berubah bila master di-rename.
+    const namaKategori = cek.kategori ? cek.kategori.nama_kategori : (kategori || 'Umum');
+
+    const result = await pool.query(
+      `INSERT INTO finances (tipe, jumlah, deskripsi, kategori, kategori_id, tanggal, created_by, sumber)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'manual') RETURNING *`,
+      [
+        tipe, jumlah, deskripsi, namaKategori, kategori_id || null,
+        tanggal || new Date().toISOString().split('T')[0], req.user.id,
+      ]
+    );
+    await logActivity(
+      req,
+      'CREATE',
+      `Mencatat ${tipe} Kas RT ${rupiah(jumlah)} — ${namaKategori}: ${deskripsi || '-'}`
+    );
+    return res.status(201).json({ success: true, message: 'Transaksi berhasil dicatat.', data: result.rows[0] });
+  } catch (err) {
+    console.error('CreateTransaction Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
+/** Transaksi hasil pembayaran iuran tidak boleh disunting dari buku kas. */
+async function pastikanManual(id) {
+  const r = await pool.query('SELECT sumber, deskripsi FROM finances WHERE id = $1', [id]);
+  if (r.rows.length === 0) return { ok: false, kode: 404, pesan: 'Transaksi tidak ditemukan.' };
+  if (r.rows[0].sumber && r.rows[0].sumber !== 'manual') {
+    return {
+      ok: false,
+      kode: 409,
+      pesan: 'Transaksi ini berasal dari pembayaran iuran sehingga tidak bisa diubah atau dihapus dari Kas RT. Perbaiki lewat data Iuran Warga bila keliru.',
+    };
+  }
+  return { ok: true };
+}
+
+async function updateTransaction(req, res) {
+  try {
+    const { id } = req.params;
+    const { tipe, jumlah, deskripsi, kategori_id, tanggal } = req.body;
+
+    const boleh = await pastikanManual(id);
+    if (!boleh.ok) return res.status(boleh.kode).json({ success: false, message: boleh.pesan });
+
+    if (tipe && !['pemasukan', 'pengeluaran'].includes(tipe)) {
+      return res.status(400).json({ success: false, message: 'tipe harus "pemasukan" atau "pengeluaran".' });
+    }
+    if (jumlah !== undefined && Number(jumlah) <= 0) {
+      return res.status(400).json({ success: false, message: 'Jumlah harus lebih dari 0.' });
+    }
+
+    let namaKategori = null;
+    if (kategori_id) {
+      const lama = await pool.query('SELECT tipe FROM finances WHERE id = $1', [id]);
+      const cek = await validasiKategori(kategori_id, tipe || lama.rows[0].tipe);
+      if (!cek.ok) return res.status(400).json({ success: false, message: cek.pesan });
+      namaKategori = cek.kategori ? cek.kategori.nama_kategori : null;
+    }
+
+    const result = await pool.query(
+      `UPDATE finances SET
+         tipe        = COALESCE($1, tipe),
+         jumlah      = COALESCE($2, jumlah),
+         deskripsi   = COALESCE($3, deskripsi),
+         kategori    = COALESCE($4, kategori),
+         kategori_id = COALESCE($5, kategori_id),
+         tanggal     = COALESCE($6, tanggal),
+         updated_at  = NOW()
+       WHERE id = $7 RETURNING *`,
+      [tipe || null, jumlah ?? null, deskripsi || null, namaKategori, kategori_id || null, tanggal || null, id]
+    );
+    const baru = result.rows[0];
+    await logActivity(
+      req,
+      'UPDATE',
+      `Mengubah transaksi Kas RT ${rupiah(baru.jumlah)} — ${baru.kategori}: ${baru.deskripsi || '-'}`
+    );
+    return res.status(200).json({ success: true, message: 'Transaksi berhasil diperbarui.', data: baru });
+  } catch (err) {
+    console.error('UpdateTransaction Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
+async function deleteTransaction(req, res) {
+  try {
+    const { id } = req.params;
+
+    const boleh = await pastikanManual(id);
+    if (!boleh.ok) return res.status(boleh.kode).json({ success: false, message: boleh.pesan });
+
+    const result = await pool.query(
+      'DELETE FROM finances WHERE id = $1 RETURNING id, deskripsi, jumlah, tipe',
+      [id]
+    );
+    const hapus = result.rows[0];
+    await logActivity(
+      req,
+      'DELETE',
+      `Menghapus ${hapus.tipe} Kas RT ${rupiah(hapus.jumlah)} — ${hapus.deskripsi || '-'}`
+    );
+    return res.status(200).json({ success: true, message: 'Transaksi berhasil dihapus.', data: hapus });
+  } catch (err) {
+    console.error('DeleteTransaction Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
+/** Ubah satu baris database menjadi baris export sesuai urutan KOLOM. */
+function toRow(t, index) {
+  const masuk = t.tipe === 'pemasukan';
+  return {
+    no: index + 1,
+    tanggal: formatTanggal(t.tanggal),
+    jenis: masuk ? 'Pemasukan' : 'Pengeluaran',
+    kategori: t.kategori || '-',
+    deskripsi: t.deskripsi || '-',
+    pemasukan: masuk ? Number(t.jumlah) : 0,
+    pengeluaran: masuk ? 0 : Number(t.jumlah),
+    saldo_berjalan: Number(t.saldo_berjalan) || 0,
+    sumber: t.sumber === 'iuran' ? 'Iuran' : 'Manual',
+    created_by_nama: t.created_by_nama || '-',
+  };
+}
+
+async function exportFinances(req, res) {
+  try {
+    const format = (req.query.format || 'excel').toLowerCase();
+    const { where, params } = buildFilter(req);
+    const result = await pool.query(buildQuery(where), params);
+    const rows = result.rows;
+
+    const totalMasuk = rows.filter((r) => r.tipe === 'pemasukan').reduce((s, r) => s + Number(r.jumlah), 0);
+    const totalKeluar = rows.filter((r) => r.tipe === 'pengeluaran').reduce((s, r) => s + Number(r.jumlah), 0);
+
+    if (format === 'pdf') {
+      const doc = new PDFDocument({ margin: 30, size: 'A4', layout: 'landscape' });
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename=Buku_Kas_RT.pdf');
+      doc.pipe(res);
+
+      doc.fontSize(18).text('Buku Kas RT', { align: 'center' });
+      doc.fontSize(10).text(
+        `Pemasukan: Rp ${totalMasuk.toLocaleString('id-ID')}  |  ` +
+        `Pengeluaran: Rp ${totalKeluar.toLocaleString('id-ID')}  |  ` +
+        `Saldo: Rp ${(totalMasuk - totalKeluar).toLocaleString('id-ID')}`,
+        { align: 'center' }
+      );
+      doc.moveDown();
+
+      await doc.table({
+        title: 'Riwayat Transaksi',
+        headers: KOLOM.map((k) => k.header),
+        rows: rows.map((t, i) => {
+          const r = toRow(t, i);
+          return KOLOM.map((k) => {
+            const v = r[k.key];
+            return ['pemasukan', 'pengeluaran', 'saldo_berjalan'].includes(k.key)
+              ? (v === 0 && k.key !== 'saldo_berjalan' ? '-' : `Rp ${v.toLocaleString('id-ID')}`)
+              : String(v);
+          });
+        }),
+      }, {
+        prepareHeader: () => doc.font('Helvetica-Bold').fontSize(8),
+        prepareRow: () => doc.font('Helvetica').fontSize(7),
+      });
+
+      doc.end();
+      return;
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Buku Kas RT');
+    worksheet.columns = KOLOM;
+    worksheet.getRow(1).font = { bold: true };
+
+    rows.forEach((t, i) => {
+      const row = worksheet.addRow(toRow(t, i));
+      ['pemasukan', 'pengeluaran', 'saldo_berjalan'].forEach((k) => {
+        row.getCell(k).numFmt = '#,##0';
+      });
+    });
+
+    // Baris total di akhir agar laporan bisa dibaca tanpa menghitung ulang.
+    const total = worksheet.addRow({
+      deskripsi: 'TOTAL',
+      pemasukan: totalMasuk,
+      pengeluaran: totalKeluar,
+      saldo_berjalan: totalMasuk - totalKeluar,
+    });
+    total.font = { bold: true };
+    ['pemasukan', 'pengeluaran', 'saldo_berjalan'].forEach((k) => {
+      total.getCell(k).numFmt = '#,##0';
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=Buku_Kas_RT.xlsx');
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error('ExportFinances Error:', err.message);
+    if (!res.headersSent) {
+      return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat export.' });
+    }
+  }
+}
+
+module.exports = {
+  getTransactions,
+  getSummary,
+  createTransaction,
+  updateTransaction,
+  deleteTransaction,
+  exportFinances,
+};

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Mengizinkan HTTP polos (tanpa TLS).
+
+    Sejak Android 9 (API 28) cleartext diblokir secara bawaan, dan proyek ini
+    memakai targetSdk 36. Tanpa berkas ini SETIAP panggilan ke
+    http://ip-lan:3001 gagal, dan aplikasi tampak seperti "tidak connect"
+    padahal backend-nya hidup.
+
+    Sengaja dibuka menyeluruh alih-alih didaftar per-IP, karena alamat server
+    memang berpindah-pindah lewat dart-define API_HOST saat pengujian di
+    jaringan yang berbeda-beda.
+
+    PERINGATAN: ini pantas untuk pengujian di jaringan lokal, BUKAN untuk
+    aplikasi yang dipublikasikan. Saat backend sudah dipasang sungguhan, pindah
+    ke HTTPS lalu perketat berkas ini menjadi domain-config untuk host itu
+    saja, atau hapus rujukannya dari AndroidManifest.
+
+    CATATAN: komentar XML tidak boleh memuat dua tanda hubung berurutan, jadi
+    jangan menuliskan opsi baris perintah Flutter apa adanya di sini.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

@@ -1,0 +1,476 @@
+const { pool } = require('../config/database');
+const { logActivity } = require('../services/log.service');
+const bcrypt = require('bcryptjs');
+const ExcelJS = require('exceljs');
+const PDFDocument = require('pdfkit-table');
+const { jenisKelamin: normalJk, labelJenisKelamin } = require('../utils/normalisasi');
+
+/**
+ * Tata letak kolom Excel/PDF. Export menulis dengan urutan ini dan import
+ * membaca dengan urutan ini, sehingga siklus export → edit → import selalu
+ * konsisten. Kolom A–H sengaja tidak diubah agar file lama tetap bisa diimpor.
+ */
+const KOLOM = [
+  { header: 'NO', key: 'no', width: 5 },
+  { header: 'NIK', key: 'nik', width: 20 },
+  { header: 'NAMA LENGKAP', key: 'nama', width: 30 },
+  { header: 'NO KK', key: 'no_kk', width: 20 },
+  { header: 'STATUS HUBUNGAN', key: 'status_hubungan', width: 22 },
+  { header: 'DOMISILI', key: 'domisili', width: 12 },
+  { header: 'STATUS', key: 'status', width: 12 },
+  { header: 'KTP', key: 'ktp', width: 8 },
+  { header: 'JENIS KELAMIN', key: 'jenis_kelamin', width: 14 },
+  { header: 'TANGGAL LAHIR', key: 'tanggal_lahir', width: 15 },
+  { header: 'STATUS PERKAWINAN', key: 'status_pernikahan', width: 20 },
+  { header: 'AGAMA', key: 'agama', width: 14 },
+  { header: 'PENDIDIKAN', key: 'pendidikan', width: 18 },
+  { header: 'PEKERJAAN', key: 'pekerjaan', width: 22 },
+  { header: 'STATUS RUMAH', key: 'status_rumah', width: 16 },
+  // Ditambahkan di urutan terakhir agar kolom A-O tidak bergeser dan file
+  // Excel hasil export lama tetap bisa diimpor.
+  { header: 'NO HP', key: 'no_hp', width: 16 },
+];
+
+const BASE_QUERY = `
+  SELECT
+    ak.*,
+    k.no_kk, k.alamat, k.rt, k.rw, k.kelurahan, k.kecamatan, k.status_rumah
+  FROM anggota_keluarga ak
+  JOIN keluarga k ON ak.keluarga_id = k.id
+  WHERE 1=1
+`;
+
+/** Bangun query daftar warga beserta parameter pencariannya. */
+function buildWargaQuery(search) {
+  let query = BASE_QUERY;
+  const params = [];
+  if (search) {
+    params.push(`%${search}%`);
+    query += ` AND (
+      ak.nama ILIKE $${params.length} OR
+      ak.nik ILIKE $${params.length} OR
+      k.no_kk ILIKE $${params.length} OR
+      ak.status_keluarga ILIKE $${params.length} OR
+      k.alamat ILIKE $${params.length} OR
+      ak.domisili ILIKE $${params.length} OR
+      ak.agama ILIKE $${params.length} OR
+      ak.pendidikan ILIKE $${params.length} OR
+      ak.pekerjaan ILIKE $${params.length} OR
+      ak.status_pernikahan ILIKE $${params.length} OR
+      (ak.is_aktif = true AND 'aktif' ILIKE $${params.length}) OR
+      (ak.is_aktif = false AND 'tidak aktif' ILIKE $${params.length}) OR
+      (ak.has_ktp = true AND 'sudah' ILIKE $${params.length}) OR
+      (ak.has_ktp = false AND 'belum' ILIKE $${params.length})
+    )`;
+  }
+  query += ' ORDER BY k.no_kk, ak.id ASC';
+  return { query, params };
+}
+
+const pad = (n) => n.toString().padStart(2, '0');
+
+/**
+ * Format DATE dari Postgres menjadi YYYY-MM-DD.
+ *
+ * Memakai komponen waktu LOKAL, bukan toISOString(): node-postgres mengembalikan
+ * kolom DATE sebagai tengah malam waktu lokal, sehingga konversi ke UTC akan
+ * memundurkan tanggal satu hari di zona waktu Indonesia.
+ */
+function formatTanggal(nilai) {
+  if (!nilai) return '';
+  const d = nilai instanceof Date ? nilai : new Date(nilai);
+  if (isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/**
+ * Baca tanggal dari sel Excel. ExcelJS mengembalikan Date untuk sel bertipe
+ * tanggal, tetapi string bila kolomnya diformat sebagai teks — keduanya
+ * ditangani. Mengembalikan null bila kosong atau tidak bisa diurai, sehingga
+ * baris tetap tersimpan dan warga masuk kategori "Tidak Diisi".
+ */
+function parseTanggalExcel(nilai) {
+  if (nilai === null || nilai === undefined || nilai === '') return null;
+  // ExcelJS memberi Date berbasis UTC untuk sel bertipe tanggal, jadi di sini
+  // justru komponen UTC yang benar (kebalikan dari formatTanggal di atas).
+  if (nilai instanceof Date) {
+    return `${nilai.getUTCFullYear()}-${pad(nilai.getUTCMonth() + 1)}-${pad(nilai.getUTCDate())}`;
+  }
+
+  const teks = nilai.toString().trim();
+  if (!teks) return null;
+
+  // Format lokal DD/MM/YYYY atau DD-MM-YYYY.
+  const lokal = teks.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (lokal) {
+    const [, dd, mm, yyyy] = lokal;
+    return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+  }
+
+  const d = new Date(teks);
+  return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+}
+
+/** Ubah satu baris database menjadi baris Excel/PDF sesuai urutan KOLOM. */
+function toRow(warga, index) {
+  return {
+    no: index + 1,
+    nik: warga.nik || '-',
+    nama: warga.nama || '-',
+    no_kk: warga.no_kk || '-',
+    status_hubungan: warga.status_hubungan_dalam_keluarga || warga.status_keluarga || '-',
+    domisili: warga.domisili || 'Tetap',
+    status: warga.is_aktif ? 'Aktif' : 'Tidak Aktif',
+    ktp: warga.has_ktp ? 'Sudah' : 'Belum',
+    // Ditulis sebagai kata utuh, bukan 'L'/'P'. Berkas ini disunting manusia,
+    // dan huruf tunggal mengundang pengisian bebas seperti "Pria" yang dulu
+    // salah dipetakan saat diimpor kembali.
+    jenis_kelamin: labelJenisKelamin(warga.jenis_kelamin),
+    tanggal_lahir: formatTanggal(warga.tanggal_lahir),
+    status_pernikahan: warga.status_pernikahan || '',
+    agama: warga.agama || '',
+    pendidikan: warga.pendidikan || '',
+    pekerjaan: warga.pekerjaan || '',
+    status_rumah: warga.status_rumah || '',
+    no_hp: warga.no_hp || '',
+  };
+}
+
+/** Kosongkan string kosong menjadi null agar tersimpan sebagai NULL di database. */
+function atauNull(nilai) {
+  if (nilai === undefined || nilai === null) return null;
+  const teks = nilai.toString().trim();
+  return teks === '' ? null : teks;
+}
+
+async function getWarga(req, res) {
+  try {
+    const { query, params } = buildWargaQuery(req.query.search);
+    const result = await pool.query(query, params);
+    const sanitizedData = result.rows.map(warga => ({
+      ...warga,
+      nik: warga.nik || '-',
+      nama: warga.nama || '-',
+      no_kk: warga.no_kk || '-',
+      jenis_kelamin: labelJenisKelamin(warga.jenis_kelamin),
+      status_keluarga: warga.status_keluarga || '-',
+      alamat: warga.alamat || '-',
+      domisili: warga.domisili || 'Tetap',
+      tanggal_lahir: formatTanggal(warga.tanggal_lahir),
+      status_pernikahan: warga.status_pernikahan || '-',
+      agama: warga.agama || '-',
+      pendidikan: warga.pendidikan || '-',
+      pekerjaan: warga.pekerjaan || '-',
+      status_rumah: warga.status_rumah || '-',
+      is_aktif: warga.is_aktif !== false,
+      has_ktp: warga.has_ktp === true,
+    }));
+    return res.status(200).json({ success: true, count: sanitizedData.length, data: sanitizedData });
+  } catch (err) {
+    console.error('GetWarga Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
+async function exportWargaExcel(req, res) {
+  try {
+    const { query, params } = buildWargaQuery(req.query.search);
+    const result = await pool.query(query, params);
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Data Warga');
+    worksheet.columns = KOLOM;
+
+    // Buat kolom NO menjadi rata kiri
+    worksheet.getColumn('no').alignment = { horizontal: 'left' };
+
+    result.rows.forEach((warga, index) => worksheet.addRow(toRow(warga, index)));
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=Data_Warga.xlsx');
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error('Export Warga Excel Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat export excel.' });
+  }
+}
+
+async function exportWargaPdf(req, res) {
+  try {
+    const { query, params } = buildWargaQuery(req.query.search);
+    const result = await pool.query(query, params);
+
+    const doc = new PDFDocument({ margin: 30, size: 'A4', layout: 'landscape' });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=Data_Warga.pdf');
+    doc.pipe(res);
+
+    doc.fontSize(18).text('Data Warga RT', { align: 'center' });
+    doc.moveDown();
+
+    const table = {
+      title: 'Rekapitulasi Penduduk',
+      headers: KOLOM.map(k => k.header),
+      rows: result.rows.map((warga, index) => {
+        const row = toRow(warga, index);
+        return KOLOM.map(k => (row[k.key] === '' ? '-' : row[k.key].toString()));
+      }),
+    };
+
+    await doc.table(table, {
+      prepareHeader: () => doc.font('Helvetica-Bold').fontSize(8),
+      prepareRow: () => doc.font('Helvetica').fontSize(7),
+    });
+
+    doc.end();
+  } catch (err) {
+    console.error('Export Warga PDF Error:', err.message);
+    if (!res.headersSent) {
+      return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat export pdf.' });
+    }
+  }
+}
+
+async function tambahWargaLengkap(req, res) {
+  const client = await pool.connect();
+  try {
+    const {
+      nik, nama, no_kk, no_hp, jenis_kelamin, alamat, status_keluarga, has_ktp,
+      tanggal_lahir, status_pernikahan, agama, pendidikan, pekerjaan, status_rumah,
+    } = req.body;
+
+    if (!nik || !nama || !no_kk || !no_hp) {
+      return res.status(400).json({ success: false, message: 'NIK, Nama, No KK, dan Nomor HP wajib diisi.' });
+    }
+
+    if (!tanggal_lahir || !status_pernikahan || !agama || !pendidikan || !pekerjaan) {
+      return res.status(400).json({
+        success: false,
+        message: 'Data demografi (Tanggal Lahir, Status Perkawinan, Agama, Pendidikan, Pekerjaan) wajib diisi.',
+      });
+    }
+
+    if (status_keluarga === 'Kepala Keluarga' && !status_rumah) {
+      return res.status(400).json({
+        success: false,
+        message: 'Status Rumah wajib diisi untuk Kepala Keluarga.',
+      });
+    }
+
+    await client.query('BEGIN');
+
+    const statusRumah = atauNull(status_rumah);
+
+    // 1. Cek atau Buat Keluarga (KK)
+    let keluargaId;
+    const resKeluarga = await client.query('SELECT id FROM keluarga WHERE no_kk = $1', [no_kk]);
+    if (resKeluarga.rows.length > 0) {
+      keluargaId = resKeluarga.rows[0].id;
+      // If family exists and this new person is Kepala Keluarga, update the KK head
+      if (status_keluarga === 'Kepala Keluarga') {
+        await client.query('UPDATE keluarga SET kepala_keluarga = $1 WHERE id = $2', [nama, keluargaId]);
+      }
+      // Status rumah adalah properti KK — perbarui hanya bila dikirim.
+      if (statusRumah) {
+        await client.query('UPDATE keluarga SET status_rumah = $1 WHERE id = $2', [statusRumah, keluargaId]);
+      }
+    } else {
+      // Bila anggota pertama bukan Kepala Keluarga, namanya dipakai sementara
+      // agar kolom kepala keluarga tidak pernah kosong. Nilai ini otomatis
+      // tertimpa begitu anggota berstatus Kepala Keluarga ditambahkan.
+      // Untuk membedakan mana yang sementara, pembaca memakai kolom turunan
+      // kepala_terkonfirmasi — bukan menebak dari isi nama.
+      const newKk = await client.query(
+        'INSERT INTO keluarga (no_kk, kepala_keluarga, alamat, rt, rw, kelurahan, kecamatan, status_rumah) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
+        [no_kk, nama, alamat || '-', '001', '001', '-', '-', statusRumah || 'Milik Sendiri']
+      );
+      keluargaId = newKk.rows[0].id;
+    }
+
+    // 2. Insert ke anggota_keluarga
+    const resWarga = await client.query('SELECT id FROM anggota_keluarga WHERE nik = $1', [nik]);
+    if (resWarga.rows.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, message: 'Warga dengan NIK tersebut sudah ada di data kependudukan.' });
+    }
+
+    const ktpStatus = has_ktp !== undefined ? has_ktp : true;
+    await client.query(
+      `INSERT INTO anggota_keluarga
+        (keluarga_id, nik, nama, jenis_kelamin, status_keluarga, has_ktp, no_hp,
+         tanggal_lahir, status_pernikahan, agama, pendidikan, pekerjaan)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      [
+        // Dinormalisasi: kolomnya varchar(1), dan form mana pun bisa saja
+        // mengirim "Laki-laki" yang akan ditolak database.
+        keluargaId, nik, nama, normalJk(jenis_kelamin, 'L'), status_keluarga || 'Anggota Keluarga',
+        ktpStatus, atauNull(no_hp), atauNull(tanggal_lahir), atauNull(status_pernikahan),
+        atauNull(agama), atauNull(pendidikan), atauNull(pekerjaan),
+      ]
+    );
+
+    // 3. Insert ke users (Akun Login Otomatis)
+    const resUser = await client.query('SELECT id FROM users WHERE username = $1 OR email = $1', [nik]);
+    if (resUser.rows.length === 0) {
+      const salt = await bcrypt.genSalt(10);
+      const passwordHash = await bcrypt.hash('123456', salt);
+
+      // Note: we insert NIK into username. We also use NIK for email since email is unique but maybe required by old queries
+      await client.query(
+        'INSERT INTO users (username, email, password_hash, nama, no_hp, no_kk, alamat, role, is_active, nik) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+        [nik, nik, passwordHash, nama, no_hp, no_kk, alamat, 'warga', true, nik]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    await logActivity(req, 'CREATE', `Menambah data warga ${nama} (NIK ${nik}) dan membuat akun loginnya`);
+    return res.status(201).json({
+      success: true,
+      message: 'Data warga berhasil ditambahkan dan akun login (123456) otomatis dibuat.',
+      data: { username: nik, password: '123456' }
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Tambah Warga Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Gagal menambah warga: ' + err.message });
+  } finally {
+    client.release();
+  }
+}
+
+async function importWargaExcel(req, res) {
+  const client = await pool.connect();
+  try {
+    const { fileBase64 } = req.body;
+    if (!fileBase64) {
+      return res.status(400).json({ success: false, message: 'File tidak ditemukan.' });
+    }
+
+    const buffer = Buffer.from(fileBase64, 'base64');
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer);
+
+    const worksheet = workbook.worksheets[0];
+    if (!worksheet) {
+      return res.status(400).json({ success: false, message: 'Format Excel tidak valid.' });
+    }
+
+    await client.query('BEGIN');
+
+    let successCount = 0;
+    let failedCount = 0;
+    const errors = [];
+
+    // Urutan kolom mengikuti konstanta KOLOM di atas (baris 1 = header).
+    const rowCount = worksheet.rowCount;
+    for (let rowNumber = 2; rowNumber <= rowCount; rowNumber++) {
+      const row = worksheet.getRow(rowNumber);
+      try {
+        const teks = (kolom) => row.getCell(kolom).value?.toString().trim() || null;
+
+        const nik = teks(2);
+        const nama = teks(3);
+        const no_kk = teks(4);
+        const statusHubungan = teks(5) || 'Anggota Keluarga';
+        const domisili = teks(6) || 'Tetap';
+        const isAktif = (teks(7) || 'Aktif').toLowerCase() !== 'tidak aktif';
+        const has_ktp = (teks(8) || '').toLowerCase() === 'sudah';
+        // Dulu `jkRaw.startsWith('P') ? 'P' : 'L'`, yang MEMBALIK dua kata
+        // paling umum: "PRIA" menjadi P dan "WANITA" menjadi L — tanpa error,
+        // sehingga Statistik melaporkan angka gender yang salah diam-diam.
+        // Bawaan 'L' dipertahankan agar baris berkolom kosong tetap terimpor
+        // seperti sebelumnya.
+        const jenis_kelamin = normalJk(teks(9), 'L');
+        const tanggal_lahir = parseTanggalExcel(row.getCell(10).value);
+        const status_pernikahan = teks(11);
+        const agama = teks(12);
+        const pendidikan = teks(13);
+        const pekerjaan = teks(14);
+        const status_rumah = teks(15);
+        // Excel sering menghapus angka nol di depan nomor HP, jadi nilainya
+        // dikembalikan ke bentuk 08xx bila terbaca sebagai 8xx.
+        let no_hp = teks(16);
+        if (no_hp) {
+          no_hp = no_hp.replace(/[^0-9+]/g, '');
+          if (no_hp.startsWith('8')) no_hp = `0${no_hp}`;
+        }
+
+        if (!nik || !nama || !no_kk) continue; // Skip invalid rows
+
+        // Check if exist
+        const resWarga = await client.query('SELECT id FROM anggota_keluarga WHERE nik = $1', [nik]);
+        if (resWarga.rows.length > 0) {
+          failedCount++;
+          errors.push(`Baris ${rowNumber}: NIK ${nik} sudah terdaftar.`);
+          continue;
+        }
+
+        let keluargaId;
+        const resKeluarga = await client.query('SELECT id FROM keluarga WHERE no_kk = $1', [no_kk]);
+        if (resKeluarga.rows.length > 0) {
+          keluargaId = resKeluarga.rows[0].id;
+          if (statusHubungan.toLowerCase() === 'kepala keluarga') {
+            await client.query('UPDATE keluarga SET kepala_keluarga = $1 WHERE id = $2', [nama, keluargaId]);
+          }
+          if (status_rumah) {
+            await client.query('UPDATE keluarga SET status_rumah = $1 WHERE id = $2', [status_rumah, keluargaId]);
+          }
+        } else {
+          const newKk = await client.query(
+            'INSERT INTO keluarga (no_kk, kepala_keluarga, alamat, rt, rw, kelurahan, kecamatan, status_rumah) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
+            [no_kk, nama, '-', '001', '001', '-', '-', status_rumah || 'Milik Sendiri']
+          );
+          keluargaId = newKk.rows[0].id;
+        }
+
+        await client.query(
+          `INSERT INTO anggota_keluarga
+            (keluarga_id, nik, nama, jenis_kelamin, status_keluarga, has_ktp, domisili, is_aktif,
+             tanggal_lahir, status_pernikahan, agama, pendidikan, pekerjaan, no_hp)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+          [
+            keluargaId, nik, nama, jenis_kelamin, statusHubungan, has_ktp, domisili, isAktif,
+            tanggal_lahir, status_pernikahan, agama, pendidikan, pekerjaan, no_hp,
+          ]
+        );
+
+        const resUser = await client.query('SELECT id FROM users WHERE username = $1', [nik]);
+        if (resUser.rows.length === 0) {
+          const salt = await bcrypt.genSalt(10);
+          const passwordHash = await bcrypt.hash('123456', salt);
+          await client.query(
+            'INSERT INTO users (username, email, password_hash, nama, no_hp, no_kk, alamat, role, is_active, nik) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+            [nik, nik, passwordHash, nama, no_hp || '-', no_kk, '-', 'warga', true, nik]
+          );
+        }
+
+        successCount++;
+      } catch (err) {
+        failedCount++;
+        errors.push(`Baris ${rowNumber}: ${err.message}`);
+      }
+    }
+
+    await client.query('COMMIT');
+
+    await logActivity(req, 'IMPORT', `Mengimpor data warga dari Excel: ${successCount} berhasil, ${failedCount} gagal`);
+    return res.status(200).json({
+      success: true,
+      message: `Berhasil mengimpor ${successCount} data warga. Gagal: ${failedCount}.`,
+      errors: errors.slice(0, 5) // max 5 errors shown
+    });
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Import Warga Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Gagal mengimpor data: ' + err.message });
+  } finally {
+    client.release();
+  }
+}
+
+module.exports = { getWarga, exportWargaExcel, exportWargaPdf, tambahWargaLengkap, importWargaExcel };

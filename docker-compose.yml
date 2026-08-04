@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # 1. Database Service PostgreSQL
+  postgres_db:
+    image: postgres:16-alpine
+    container_name: smart_rt_db
+    restart: always
+    environment:
+      POSTGRES_DB: smart_community_rt
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Backend Node.js Service (REST API & WebSocket)
+  backend_api:
+    build:
+      context: ./backend-node
+      dockerfile: Dockerfile
+    container_name: smart_rt_backend
+    restart: always
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      DB_HOST: postgres_db
+      DB_PORT: 5432
+      DB_NAME: smart_community_rt
+      DB_USER: postgres
+      DB_PASSWORD: postgrespassword
+      JWT_SECRET: supersecretjwtkey_smartcommunity_2026
+      JWT_EXPIRES_IN: 7d
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+
+  # 3. Frontend Flutter Web Service (Served via Nginx)
+  frontend_webapp:
+    build:
+      context: ./frontend-flutter
+      dockerfile: Dockerfile
+    container_name: smart_rt_frontend_webapp
+    restart: always
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend_api
+
+volumes:
+  postgres_data:

@@ -1,0 +1,23 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+npm-debug.log*
+*.log
+
+# Flutter / Dart
+.dart_tool/
+.packages
+build/
+*.iml
+frontend-flutter/build/
+frontend-flutter/build_log.txt
+
+# Editor / OS
+.idea/
+.vscode/
+Thumbs.db
+desktop.ini

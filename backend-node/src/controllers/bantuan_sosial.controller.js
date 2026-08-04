@@ -1,0 +1,217 @@
+const { pool } = require('../config/database');
+const ExcelJS = require('exceljs');
+const PDFDocument = require('pdfkit-table');
+
+async function getBantuanSosial(req, res) {
+  try {
+    const { tahun, jenis_bantuan, status, search } = req.query;
+    let query = `SELECT bs.*, u.nama AS nama_warga, COALESCE(u.nik, u.username) AS nik_warga, c.nama AS created_by_nama FROM bantuan_sosial bs JOIN users u ON bs.user_id = u.id LEFT JOIN users c ON bs.created_by = c.id WHERE 1=1`;
+    const params = [];
+    if (tahun && tahun !== 'Semua') { params.push(parseInt(tahun)); query += ` AND bs.tahun = $${params.length}`; }
+    if (jenis_bantuan && jenis_bantuan !== 'Semua Jenis') { params.push(jenis_bantuan); query += ` AND bs.jenis_bantuan = $${params.length}`; }
+    if (status && status !== 'Semua Status') { params.push(status); query += ` AND bs.status = $${params.length}`; }
+    if (search) { params.push(`%${search}%`); query += ` AND (u.nama ILIKE $${params.length} OR COALESCE(u.nik, u.username) ILIKE $${params.length})`; }
+    query += ' ORDER BY bs.created_at DESC';
+    const result = await pool.query(query, params);
+    return res.status(200).json({ success: true, count: result.rows.length, data: result.rows });
+  } catch (err) {
+    console.error('GetBantuanSosial Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
+async function getBantuanSosialStats(req, res) {
+  try {
+    const totalResult = await pool.query('SELECT COUNT(*) as count FROM bantuan_sosial');
+    const aktifResult = await pool.query("SELECT COUNT(*) as count FROM bantuan_sosial WHERE status = 'Aktif'");
+    const reviewResult = await pool.query("SELECT COUNT(*) as count FROM bantuan_sosial WHERE status = 'Selesai'");
+    const jenisResult = await pool.query("SELECT COUNT(DISTINCT jenis_bantuan) as count FROM bantuan_sosial WHERE status = 'Aktif'");
+    return res.status(200).json({
+      success: true,
+      data: {
+        total_penerima: parseInt(totalResult.rows[0].count),
+        aktif: parseInt(aktifResult.rows[0].count),
+        selesai: parseInt(reviewResult.rows[0].count),
+        jenis_aktif: parseInt(jenisResult.rows[0].count),
+      }
+    });
+  } catch (err) {
+    console.error('GetBantuanSosialStats Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
+async function createBantuanSosial(req, res) {
+  try {
+    const { user_id, jenis_bantuan, tahun, nominal, keterangan } = req.body;
+    if (!user_id || !jenis_bantuan || !tahun) return res.status(400).json({ success: false, message: 'user_id, jenis_bantuan, dan tahun wajib diisi.' });
+    
+    // Validasi user exists
+    const userCheck = await pool.query('SELECT id FROM users WHERE id = $1', [user_id]);
+    if (userCheck.rows.length === 0) return res.status(404).json({ success: false, message: 'Warga tidak ditemukan.' });
+
+    // Validasi duplikasi
+    const dupCheck = await pool.query('SELECT id FROM bantuan_sosial WHERE user_id = $1 AND jenis_bantuan = $2 AND tahun = $3', [user_id, jenis_bantuan, tahun]);
+    if (dupCheck.rows.length > 0) return res.status(409).json({ success: false, message: 'Warga sudah terdaftar untuk jenis bantuan ini di tahun tersebut.' });
+
+    const result = await pool.query(
+      `INSERT INTO bantuan_sosial (user_id, jenis_bantuan, tahun, nominal, keterangan, created_by) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [user_id, jenis_bantuan, tahun, nominal || 0, keterangan || null, req.user.id]
+    );
+    return res.status(201).json({ success: true, message: 'Penerima bantuan berhasil ditambahkan.', data: result.rows[0] });
+  } catch (err) {
+    console.error('CreateBantuanSosial Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
+async function updateBantuanSosial(req, res) {
+  try {
+    const { id } = req.params;
+    const { jenis_bantuan, tahun, nominal, status, keterangan } = req.body;
+    
+    // Get old data
+    const oldData = await pool.query('SELECT * FROM bantuan_sosial WHERE id = $1', [id]);
+    if (oldData.rows.length === 0) return res.status(404).json({ success: false, message: 'Data bantuan tidak ditemukan.' });
+    
+    const old = oldData.rows[0];
+
+    const result = await pool.query(
+      `UPDATE bantuan_sosial SET jenis_bantuan = COALESCE($1, jenis_bantuan), tahun = COALESCE($2, tahun), nominal = COALESCE($3, nominal), status = COALESCE($4, status), keterangan = COALESCE($5, keterangan), updated_at = NOW() WHERE id = $6 RETURNING *`,
+      [jenis_bantuan, tahun, nominal, status, keterangan, id]
+    );
+    
+    // Log if anything changed
+    const changes = [];
+    if (jenis_bantuan && old.jenis_bantuan !== jenis_bantuan) changes.push('Jenis Bantuan');
+    if (tahun && old.tahun !== Number(tahun)) changes.push('Tahun');
+    if (nominal !== undefined && Number(old.nominal) !== Number(nominal)) changes.push('Nominal');
+    if (keterangan !== undefined && old.keterangan !== keterangan) changes.push('Keterangan');
+    if (status && old.status !== status) changes.push('Status');
+
+    if (changes.length > 0) {
+      const ket_log = `Mengubah: ${changes.join(', ')}`;
+      await pool.query(
+        'INSERT INTO bantuan_sosial_log (bantuan_sosial_id, changed_by, old_status, new_status, keterangan_log) VALUES ($1, $2, $3, $4, $5)',
+        [id, req.user.id, old.status, status || old.status, ket_log]
+      );
+    }
+    
+    return res.status(200).json({ success: true, message: 'Data bantuan berhasil diperbarui.', data: result.rows[0] });
+  } catch (err) {
+    console.error('UpdateBantuanSosial Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
+async function getBantuanSosialHistory(req, res) {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      `SELECT log.*, u.nama AS changed_by_name 
+       FROM bantuan_sosial_log log 
+       LEFT JOIN users u ON log.changed_by = u.id 
+       WHERE log.bantuan_sosial_id = $1 
+       ORDER BY log.created_at DESC`,
+      [id]
+    );
+    return res.status(200).json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error('GetBantuanSosialHistory Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
+async function deleteBantuanSosial(req, res) {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('DELETE FROM bantuan_sosial WHERE id = $1 RETURNING id', [id]);
+    if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Data bantuan tidak ditemukan.' });
+    return res.status(200).json({ success: true, message: 'Data bantuan berhasil dihapus.', data: result.rows[0] });
+  } catch (err) {
+    console.error('DeleteBantuanSosial Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
+async function exportBantuanSosial(req, res) {
+  try {
+    const { tahun, jenis_bantuan, status, search, format } = req.query;
+    let query = `SELECT bs.*, u.nama AS nama_warga, COALESCE(u.nik, u.username) AS nik_warga, c.nama AS created_by_nama FROM bantuan_sosial bs JOIN users u ON bs.user_id = u.id LEFT JOIN users c ON bs.created_by = c.id WHERE 1=1`;
+    const params = [];
+    if (tahun && tahun !== 'Semua') { params.push(parseInt(tahun)); query += ` AND bs.tahun = $${params.length}`; }
+    if (jenis_bantuan && jenis_bantuan !== 'Semua Jenis') { params.push(jenis_bantuan); query += ` AND bs.jenis_bantuan = $${params.length}`; }
+    if (status && status !== 'Semua Status') { params.push(status); query += ` AND bs.status = $${params.length}`; }
+    if (search) { params.push(`%${search}%`); query += ` AND (u.nama ILIKE $${params.length} OR COALESCE(u.nik, u.username) ILIKE $${params.length})`; }
+    query += ' ORDER BY bs.created_at DESC';
+    const result = await pool.query(query, params);
+    const data = result.rows;
+
+    if (format === 'pdf') {
+      const doc = new PDFDocument({ margin: 30, size: 'A4' });
+      res.setHeader('Content-disposition', 'attachment; filename=Data_Bantuan_Sosial.pdf');
+      res.setHeader('Content-type', 'application/pdf');
+      doc.pipe(res);
+      
+      doc.fontSize(16).text('Laporan Data Bantuan Sosial', { align: 'center' }).moveDown();
+      
+      const table = {
+        headers: ['No', 'Nama Warga', 'NIK', 'Jenis Bantuan', 'Tahun', 'Status', 'Nominal', 'Keterangan'],
+        rows: data.map((d, i) => [
+          (i + 1).toString(),
+          d.nama_warga || '-',
+          d.nik_warga || '-',
+          d.jenis_bantuan || '-',
+          d.tahun?.toString() || '-',
+          d.status || '-',
+          d.nominal ? `Rp ${parseInt(d.nominal).toLocaleString('id-ID')}` : '-',
+          d.keterangan || '-'
+        ])
+      };
+      
+      await doc.table(table, {
+        prepareHeader: () => doc.font('Helvetica-Bold').fontSize(9),
+        prepareRow: () => doc.font('Helvetica').fontSize(9)
+      });
+      doc.end();
+    } else {
+      // Default to excel
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet('Data Bantuan');
+      
+      sheet.columns = [
+        { header: 'No', key: 'no', width: 5 },
+        { header: 'Nama Warga', key: 'nama', width: 25 },
+        { header: 'NIK', key: 'nik', width: 20 },
+        { header: 'Jenis Bantuan', key: 'jenis', width: 20 },
+        { header: 'Tahun', key: 'tahun', width: 10 },
+        { header: 'Status', key: 'status', width: 15 },
+        { header: 'Nominal', key: 'nominal', width: 15 },
+        { header: 'Keterangan', key: 'ket', width: 30 }
+      ];
+      
+      data.forEach((d, i) => {
+        sheet.addRow({
+          no: i + 1,
+          nama: d.nama_warga,
+          nik: d.nik_warga,
+          jenis: d.jenis_bantuan,
+          tahun: d.tahun,
+          status: d.status,
+          nominal: d.nominal,
+          ket: d.keterangan
+        });
+      });
+      
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename=Data_Bantuan_Sosial.xlsx');
+      await workbook.xlsx.write(res);
+      res.end();
+    }
+  } catch (err) {
+    console.error('ExportBantuanSosial Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Gagal export data.' });
+  }
+}
+
+module.exports = { getBantuanSosial, getBantuanSosialStats, createBantuanSosial, updateBantuanSosial, deleteBantuanSosial, exportBantuanSosial, getBantuanSosialHistory };
