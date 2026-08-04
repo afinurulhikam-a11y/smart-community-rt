@@ -17,7 +17,7 @@ async function autoSetupCloud() {
         shift VARCHAR(50) DEFAULT 'Shift Malam (22:00 - 04:00)',
         petugas_warga TEXT NOT NULL,
         keterangan TEXT,
-        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_by UUID REFERENCES users(id) ON DELETE SET NULL,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
@@ -25,7 +25,7 @@ async function autoSetupCloud() {
       CREATE TABLE IF NOT EXISTS patrol_attendances (
         id SERIAL PRIMARY KEY,
         schedule_id INTEGER REFERENCES patrol_schedules(id) ON DELETE SET NULL,
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
         nama_petugas VARCHAR(150) NOT NULL,
         tanggal DATE DEFAULT CURRENT_DATE,
         waktu_scan TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
