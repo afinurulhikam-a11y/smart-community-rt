@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../../../core/responsif.dart';
-import '../../../providers/patrol_provider.dart';
-import '../../../providers/permission_provider.dart';
-import '../../../widgets/tabel_responsif.dart';
+import '../../core/responsif.dart';
+import '../../providers/patrol_provider.dart';
+import '../../providers/permission_provider.dart';
+import '../../widgets/tabel_responsif.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
 
