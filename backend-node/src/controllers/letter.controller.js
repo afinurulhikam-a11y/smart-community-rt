@@ -44,7 +44,31 @@ async function updateLetterStatus(req, res) {
       [status, req.user.id, response_note || null, id]
     );
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Surat tidak ditemukan.' });
-    return res.status(200).json({ success: true, message: `Surat berhasil di-${status}.`, data: result.rows[0] });
+
+    const updatedLetter = result.rows[0];
+
+    // Panggil WhatsApp Service saat status disetujui / ditolak (Async)
+    const { sendLetterApprovedWA, sendWA } = require('../services/whatsapp.service');
+    (async () => {
+      const userRes = await pool.query('SELECT nama, no_hp FROM users WHERE id = $1', [updatedLetter.user_id]);
+      if (userRes.rows.length > 0) {
+        const u = userRes.rows[0];
+        if (status === 'disetujui') {
+          await sendLetterApprovedWA({
+            userNama: u.nama,
+            noHp: u.no_hp,
+            jenisSurat: updatedLetter.jenis_surat,
+          });
+        } else if (status === 'ditolak') {
+          await sendWA({
+            target: u.no_hp,
+            message: `📄 *PERMOHONAN SURAT DITOLAK*\n\nHalo Bpk/Ibu *${u.nama}*,\n\nPermohonan *${updatedLetter.jenis_surat}* Anda belum dapat disetujui.\nCatatan: ${response_note || 'Harap lengkapi persyaratan'}\n\n— *Pengurus RT 05*`,
+          });
+        }
+      }
+    })().catch((e) => console.log('ℹ️ Catatan WA Surat:', e.message));
+
+    return res.status(200).json({ success: true, message: `Surat berhasil di-${status}.`, data: updatedLetter });
   } catch (err) {
     console.error('UpdateLetterStatus Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });

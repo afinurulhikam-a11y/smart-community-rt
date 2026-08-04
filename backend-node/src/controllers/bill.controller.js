@@ -265,6 +265,26 @@ async function generateBills(req, res) {
       `Menerbitkan tagihan ${jenis.nama_iuran} periode ${bulan}: ` +
         `${jumlahDibuat} dibuat, ${jumlahDilewati} dilewati`
     );
+
+    // Panggil WhatsApp Service secara otomatis untuk memberitahu warga (Async)
+    const { sendBillWA } = require('../services/whatsapp.service');
+    (async () => {
+      if (jumlahDibuat > 0) {
+        const wargaList = await pool.query(
+          `SELECT u.nama, u.no_hp FROM users u JOIN keluarga k ON u.no_kk = k.no_kk WHERE u.no_hp IS NOT NULL AND u.no_hp <> ''`
+        );
+        for (const w of wargaList.rows) {
+          await sendBillWA({
+            userNama: w.nama,
+            noHp: w.no_hp,
+            namaIuran: jenis.nama_iuran,
+            nominal: nominalFinal,
+            bulan: bulan,
+          });
+        }
+      }
+    })().catch((e) => console.log('ℹ️ Catatan WA Tagihan:', e.message));
+
     return res.status(201).json({
       success: true,
       message: `Tagihan ${jenis.nama_iuran} periode ${bulan}: ${jumlahDibuat} dibuat, ${jumlahDilewati} dilewati (sudah ada).`,
