@@ -5,7 +5,6 @@ import '../../core/responsif.dart';
 import '../../providers/patrol_provider.dart';
 import '../../providers/permission_provider.dart';
 import '../../widgets/tabel_responsif.dart';
-import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
 
 const String _kodeIzin = 'kegiatan.ronda';
@@ -416,7 +415,7 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
         return SingleChildScrollView(
           child: Center(
             child: Container(
-              maxWidth: 450,
+              constraints: const BoxConstraints(maxWidth: 450),
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 color: context.latarKartu,
