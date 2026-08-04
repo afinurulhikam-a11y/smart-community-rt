@@ -40,9 +40,14 @@ class ApiConstants {
       return s;
     }
 
+    // Jika di-build untuk Release (Deploy Vercel / APK Production)
+    if (kReleaseMode) {
+      return 'https://smart-community-rt-production.up.railway.app';
+    }
+
     final host = _hostOverride.isNotEmpty
         ? _hostOverride
-        // Flutter Web berjalan di mesin yang sama dengan backend.
+        // Flutter Web berjalan di mesin yang sama dengan backend saat dev lokal.
         : (kIsWeb ? 'localhost' : _hostBawaan);
     return 'http://$host:$_portBawaan';
   }
