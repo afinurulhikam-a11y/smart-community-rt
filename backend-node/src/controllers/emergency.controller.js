@@ -70,10 +70,27 @@ async function dismissAlarm(req, res) {
       });
     }
 
+    // Pastikan alert ada dan periksa otorisasi (Pemilik alarm ATAU Pengurus/Admin)
+    const alertCheck = await pool.query('SELECT id, user_id, status FROM emergency_alerts WHERE id = $1', [id]);
+    if (alertCheck.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Alert tidak ditemukan.' });
+    }
+
+    const alertItem = alertCheck.rows[0];
+    const isOwner = alertItem.user_id === req.user.id;
+    const isPengurus = ['admin', 'ketua_rt', 'sekretaris', 'bendahara', 'pengurus_rt'].includes(req.user.role);
+
+    if (!isOwner && !isPengurus) {
+      return res.status(403).json({
+        success: false,
+        message: 'Anda tidak memiliki hak untuk mematikan sinyal darurat milik warga lain.',
+      });
+    }
+
     // Pastikan user ID pelaksana valid di tabel users untuk menghindari FK violation
     const userCheck = await pool.query('SELECT id, nama FROM users WHERE id = $1', [req.user.id]);
     const validUserId = (userCheck.rows && userCheck.rows.length > 0) ? req.user.id : null;
-    const adminName = (userCheck.rows && userCheck.rows.length > 0) ? userCheck.rows[0].nama : (req.user?.nama || 'Administrator');
+    const adminName = (userCheck.rows && userCheck.rows.length > 0) ? userCheck.rows[0].nama : (req.user?.nama || 'Pengurus/Pelapor');
 
     const result = await pool.query(
       `UPDATE emergency_alerts SET status = 'dismissed', dismissed_by = $1, dismissed_at = NOW() WHERE id = $2 AND status = 'active' RETURNING *`,

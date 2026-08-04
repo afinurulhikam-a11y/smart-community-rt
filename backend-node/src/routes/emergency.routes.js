@@ -5,9 +5,9 @@ const { authMiddleware, roleGuard, requirePermission } = require('../middleware/
 
 router.use(authMiddleware);
 
-// Semua pengguna terautentikasi (warga, admin, pengurus) dapat memicu sinyal/simulasi darurat
+// Semua pengguna terautentikasi (warga pelapor, admin, pengurus) dapat memicu sinyal/simulasi darurat
 router.post('/trigger', triggerAlarm);
-router.post('/dismiss/:id', requirePermission('aspirasi.darurat', 'create'), dismissAlarm);
+router.post('/dismiss/:id', dismissAlarm);
 router.get('/alerts', requirePermission('aspirasi.darurat', 'view'), getAlerts);
 router.get('/active', requirePermission('aspirasi.darurat', 'view'), getActiveAlerts);
 
