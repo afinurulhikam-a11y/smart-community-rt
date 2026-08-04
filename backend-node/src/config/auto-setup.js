@@ -6,16 +6,22 @@ const { MENU_ITEMS, DEFAULT_PERMISSIONS } = require('./permissions');
 const { ADMIN_AWAL } = require('./master-data');
 
 async function autoSetupCloud() {
+  console.log('🔄 Memeriksa & menginisialisasi database PostgreSQL...');
+
+  // 1. Skema database (Abaikan jika tabel sudah ada)
   try {
-    console.log('🔄 Memeriksa & menginisialisasi database PostgreSQL...');
     const schemaPath = path.join(__dirname, '..', '..', 'database', 'schema.sql');
     if (fs.existsSync(schemaPath)) {
       const sql = fs.readFileSync(schemaPath, 'utf8');
       await pool.query(sql);
       console.log('✅ Skema tabel database PostgreSQL terverifikasi.');
     }
+  } catch (e) {
+    console.log('ℹ️ Catatan Skema (Lanjut):', e.message);
+  }
 
-    // Always seed/update Menu Items
+  // 2. Menu items
+  try {
     for (let i = 0; i < MENU_ITEMS.length; i++) {
       const m = MENU_ITEMS[i];
       await pool.query(
@@ -28,8 +34,12 @@ async function autoSetupCloud() {
         [m.kode, m.nama, m.grup, m.menu_index, i, m.is_sistem === true]
       );
     }
+  } catch (e) {
+    console.log('ℹ️ Catatan Menu:', e.message);
+  }
 
-    // Always seed/update Role Permissions
+  // 3. Permissions
+  try {
     for (const [role, menus] of Object.entries(DEFAULT_PERMISSIONS)) {
       for (const [kode, p] of Object.entries(menus)) {
         await pool.query(
@@ -40,11 +50,16 @@ async function autoSetupCloud() {
         );
       }
     }
+  } catch (e) {
+    console.log('ℹ️ Catatan Permission:', e.message);
+  }
 
-    // ALWAYS ensure Admin user exists with password 'admin123'
+  // 4. ALWAYS Upsert Admin User (Email: admin@example.com, Username: Developer & admin, Pass: admin123)
+  try {
     const saltAdmin = await bcrypt.genSalt(10);
     const hashAdmin = await bcrypt.hash('admin123', saltAdmin);
 
+    // Upsert email admin@example.com
     await pool.query(
       `INSERT INTO users (nama, email, username, password_hash, role, is_active)
        VALUES ($1, $2, $3, $4, $5, true)
@@ -52,11 +67,27 @@ async function autoSetupCloud() {
          password_hash = EXCLUDED.password_hash,
          role = 'admin',
          is_active = true`,
-      ['Administrator', 'admin@example.com', 'admin', hashAdmin, 'admin']
+      ['Administrator', 'admin@example.com', 'Developer', hashAdmin, 'admin']
     );
-    console.log('✅ Akun Admin terverifikasi: admin@example.com / admin123 (atau username: admin).');
 
-    // ALWAYS ensure Warga Uji user exists with password '123456'
+    // Also ensure username 'admin' or 'Developer' is upserted if searching by username
+    await pool.query(
+      `INSERT INTO users (nama, email, username, password_hash, role, is_active)
+       VALUES ($1, $2, $3, $4, $5, true)
+       ON CONFLICT (username) DO UPDATE SET
+         password_hash = EXCLUDED.password_hash,
+         role = 'admin',
+         is_active = true`,
+      ['Administrator Secondary', 'admin_dev@example.com', 'admin', hashAdmin, 'admin']
+    );
+
+    console.log('✅ Akun Admin berhasil ditanam dan diaktifkan (admin@example.com / admin123).');
+  } catch (e) {
+    console.error('❌ Admin Upsert Error:', e.message);
+  }
+
+  // 5. ALWAYS Upsert Warga User (Email: warga@example.com, NIK: 3171010101010001, Pass: 123456)
+  try {
     const saltWarga = await bcrypt.genSalt(10);
     const hashWarga = await bcrypt.hash('123456', saltWarga);
     await pool.query(
@@ -67,9 +98,13 @@ async function autoSetupCloud() {
          is_active = true`,
       ['Warga Uji Coba', 'warga@example.com', 'warga', '3171010101010001', hashWarga, 'warga']
     );
-    console.log('✅ Akun Warga terverifikasi: warga@example.com / 123456 (atau NIK: 3171010101010001).');
+    console.log('✅ Akun Warga berhasil ditanam dan diaktifkan (warga@example.com / 123456).');
+  } catch (e) {
+    console.error('❌ Warga Upsert Error:', e.message);
+  }
 
-    // Check if inventory data exists
+  // 6. Seed dummy inventory
+  try {
     const invCheck = await pool.query("SELECT id FROM inventory LIMIT 1");
     if (invCheck.rows.length === 0) {
       const dummyItems = [
@@ -87,8 +122,8 @@ async function autoSetupCloud() {
       }
       console.log('✅ Data barang ready terisi.');
     }
-  } catch (err) {
-    console.error('⚠️ AutoSetup Error:', err.message);
+  } catch (e) {
+    console.log('ℹ️ Catatan Inventaris:', e.message);
   }
 }
 
