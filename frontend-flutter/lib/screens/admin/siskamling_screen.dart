@@ -521,23 +521,26 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
             Text('Absensi Pos Ronda'),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Tekan tombol di bawah untuk mencatatkan kehadiran ronda malam Anda di Pos Ronda hari ini.',
-              style: TextStyle(fontSize: 13),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: noteCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Catatan Petugas (Opsional)',
-                hintText: 'Misal: Ronda bersama Pak Budi & Pak Slamet',
+        content: SizedBox(
+          width: 450,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Tekan tombol di bawah untuk mencatatkan kehadiran ronda malam Anda di Pos Ronda hari ini.',
+                style: TextStyle(fontSize: 13),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              TextField(
+                controller: noteCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Catatan Petugas (Opsional)',
+                  hintText: 'Misal: Ronda bersama Pak Budi & Pak Slamet',
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c), child: const Text('Batal')),
@@ -578,53 +581,56 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
       builder: (c) => StatefulBuilder(
         builder: (dialogCtx, setSt) => AlertDialog(
           title: const Text('Tambah Jadwal Siskamling'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  initialValue: selectedHari,
-                  decoration: const InputDecoration(labelText: 'Hari Ronda *'),
-                  items: const [
-                    DropdownMenuItem(value: 'Senin', child: Text('Senin')),
-                    DropdownMenuItem(value: 'Selasa', child: Text('Selasa')),
-                    DropdownMenuItem(value: 'Rabu', child: Text('Rabu')),
-                    DropdownMenuItem(value: 'Kamis', child: Text('Kamis')),
-                    DropdownMenuItem(value: 'Jumat', child: Text('Jumat')),
-                    DropdownMenuItem(value: 'Sabtu', child: Text('Sabtu')),
-                    DropdownMenuItem(value: 'Minggu', child: Text('Minggu')),
-                  ],
-                  onChanged: (v) => setSt(() => selectedHari = v!),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: shiftCtrl,
-                  decoration: InputDecoration(
-                    labelText: 'Shift Jam *',
-                    errorText: errorShift,
+          content: SizedBox(
+            width: 450,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedHari,
+                    decoration: const InputDecoration(labelText: 'Hari Ronda *'),
+                    items: const [
+                      DropdownMenuItem(value: 'Senin', child: Text('Senin')),
+                      DropdownMenuItem(value: 'Selasa', child: Text('Selasa')),
+                      DropdownMenuItem(value: 'Rabu', child: Text('Rabu')),
+                      DropdownMenuItem(value: 'Kamis', child: Text('Kamis')),
+                      DropdownMenuItem(value: 'Jumat', child: Text('Jumat')),
+                      DropdownMenuItem(value: 'Sabtu', child: Text('Sabtu')),
+                      DropdownMenuItem(value: 'Minggu', child: Text('Minggu')),
+                    ],
+                    onChanged: (v) => setSt(() => selectedHari = v!),
                   ),
-                  onChanged: (_) {
-                    if (errorShift != null) setSt(() => errorShift = null);
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: petugasCtrl,
-                  decoration: InputDecoration(
-                    labelText: 'Petugas Warga *',
-                    hintText: 'Misal: Budi, Agus, Slamet, Afi',
-                    errorText: errorPetugas,
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: shiftCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Shift Jam *',
+                      errorText: errorShift,
+                    ),
+                    onChanged: (_) {
+                      if (errorShift != null) setSt(() => errorShift = null);
+                    },
                   ),
-                  onChanged: (_) {
-                    if (errorPetugas != null) setSt(() => errorPetugas = null);
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: ketCtrl,
-                  decoration: const InputDecoration(labelText: 'Keterangan'),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: petugasCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Petugas Warga *',
+                      hintText: 'Misal: Budi, Agus, Slamet, Afi',
+                      errorText: errorPetugas,
+                    ),
+                    onChanged: (_) {
+                      if (errorPetugas != null) setSt(() => errorPetugas = null);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: ketCtrl,
+                    decoration: const InputDecoration(labelText: 'Keterangan'),
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
