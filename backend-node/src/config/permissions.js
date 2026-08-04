@@ -15,6 +15,7 @@ const V = { view: true, create: false, update: false, delete: false };  // lihat
 const VC = { view: true, create: true, update: false, delete: false };  // lihat + ajukan
 const VCD = { view: true, create: true, update: false, delete: true }; // lihat + ajukan + batal
 const VU = { view: true, create: false, update: true, delete: false };  // lihat + setujui
+const VCU = { view: true, create: true, update: true, delete: false }; // lihat + buat + checkout
 const F = { view: true, create: true, update: true, delete: true };     // penuh
 
 /**
@@ -141,7 +142,7 @@ const DEFAULT_PERMISSIONS = {
     // Warga meminjam barang, bukan mengelola daftar inventarisnya.
     'inventaris.barang': N,
     'inventaris.peminjaman': VCD,
-    'layanan.visitor': N,
+    'layanan.visitor': VCU,
     'layanan.surat': VC,
     'kegiatan.agenda': V,
     'aspirasi.darurat': VC,

@@ -51,7 +51,11 @@ async function run() {
         const r = await client.query(
           `INSERT INTO role_permissions (role, menu_kode, can_view, can_create, can_update, can_delete)
            VALUES ($1, $2, $3, $4, $5, $6)
-           ON CONFLICT (role, menu_kode) DO NOTHING
+           ON CONFLICT (role, menu_kode) DO UPDATE SET
+             can_view = EXCLUDED.can_view,
+             can_create = EXCLUDED.can_create,
+             can_update = EXCLUDED.can_update,
+             can_delete = EXCLUDED.can_delete
            RETURNING id`,
           [role, kode, p.view, p.create, p.update, p.delete]
         );
