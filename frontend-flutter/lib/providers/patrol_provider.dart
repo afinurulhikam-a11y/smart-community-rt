@@ -91,7 +91,7 @@ class PatrolProvider extends ChangeNotifier {
       ApiConstants.patrolAttendances,
       body: {
         if (scheduleId != null) 'schedule_id': scheduleId,
-        'kode_qr': kodeQr ?? 'POS_RONDA_RT05_OFFICIAL_QR',
+        'kode_qr': kodeQr ?? 'POS_RONDA_OFFICIAL_QR',
         if (catatan != null) 'catatan': catatan,
       },
     );

@@ -13,7 +13,7 @@ void main() {
   /// Sepanjang yang mungkin ditulis bendahara di kolom keterangan.
   const keteranganPanjang =
       'Pembelian 4 galon air mineral, 2 dus snack kotak, dan sewa tenda '
-      'untuk kegiatan kerja bakti bulanan RT 05 RW 03 tanggal 17 Agustus';
+      'untuk kegiatan kerja bakti bulanan RT tanggal 17 Agustus';
 
   List<BarisTabel> contohBaris({int jumlah = 3}) {
     return List.generate(jumlah, (i) {

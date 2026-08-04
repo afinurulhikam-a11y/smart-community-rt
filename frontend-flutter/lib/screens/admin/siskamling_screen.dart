@@ -374,7 +374,7 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                           SelTabel.teks('NO', i.toString(), sembunyiDiKartu: true),
                           SelTabel.teks('WAKTU SCAN', tglStr, utama: true),
                           SelTabel.teks('NAMA PETUGAS', a['nama_petugas'] ?? '-'),
-                          SelTabel.teks('LOKASI POS', a['lokasi_pos'] ?? 'Pos Ronda RT 05'),
+                          SelTabel.teks('LOKASI POS', a['lokasi_pos'] ?? 'Pos Ronda Utama'),
                           SelTabel(
                             'STATUS',
                             Container(

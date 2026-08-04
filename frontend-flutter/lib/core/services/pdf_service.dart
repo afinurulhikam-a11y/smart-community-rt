@@ -63,7 +63,7 @@ class PdfService {
                     ),
                     pw.SizedBox(height: 4),
                     pw.Text(
-                      'Nomor: 005/RT05-RW02/SURAT/${letter.id.substring(0, 6).toUpperCase()}',
+                      'Nomor: SURAT/${letter.id.substring(0, 6).toUpperCase()}',
                       style: const pw.TextStyle(fontSize: 11),
                     ),
                   ],
@@ -73,7 +73,7 @@ class PdfService {
 
               // Body
               pw.Text(
-                'Yang bertanda tangan di bawah ini, Ketua RT 05 RW 02 Kelurahan Purwantoro, Kecamatan Blimbing, Kota Malang, menerangkan dengan sebenarnya bahwa:',
+                'Yang bertanda tangan di bawah ini, Pengurus RT menerangkan dengan sebenarnya bahwa:',
                 style: const pw.TextStyle(fontSize: 11, height: 1.5),
               ),
               pw.SizedBox(height: 16),
@@ -84,7 +84,7 @@ class PdfService {
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    _buildFieldRow('Nama Pemohon', letter.namaPemohon ?? 'Warga RT 05'),
+                    _buildFieldRow('Nama Pemohon', letter.namaPemohon ?? 'Warga'),
                     pw.SizedBox(height: 6),
                     _buildFieldRow('Jenis Surat', letter.jenisSurat),
                     pw.SizedBox(height: 6),
@@ -124,11 +124,11 @@ class PdfService {
                   ),
                   pw.Column(
                     children: [
-                      pw.Text('Malang, $responseDateStr', style: const pw.TextStyle(fontSize: 11)),
-                      pw.Text('Ketua RT 05 RW 02,', style: const pw.TextStyle(fontSize: 11)),
+                      pw.Text('Tanggal: $responseDateStr', style: const pw.TextStyle(fontSize: 11)),
+                      pw.Text('Pengurus RT,', style: const pw.TextStyle(fontSize: 11)),
                       pw.SizedBox(height: 50),
                       pw.Text(
-                        '( H. Sugianto )',
+                        '( Ketua RT )',
                         style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
                       ),
                     ],

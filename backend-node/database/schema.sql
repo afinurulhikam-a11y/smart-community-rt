@@ -1979,7 +1979,7 @@ CREATE TABLE IF NOT EXISTS public.patrol_attendances (
     nama_petugas VARCHAR(150) NOT NULL,
     tanggal DATE DEFAULT CURRENT_DATE,
     waktu_scan TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    lokasi_pos VARCHAR(150) DEFAULT 'Pos Ronda RT 05',
+    lokasi_pos VARCHAR(150) DEFAULT 'Pos Ronda Utama',
     status VARCHAR(50) DEFAULT 'Hadir',
     catatan TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

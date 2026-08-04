@@ -113,7 +113,7 @@ async function submitAttendance(req, res) {
     const namaPetugas = req.user.nama || req.user.username || 'Warga';
 
     // Verifikasi kode QR jika ada
-    if (kode_qr && kode_qr !== 'POS_RONDA_OFFICIAL_QR' && kode_qr !== 'POS_RONDA_RT05_OFFICIAL_QR') {
+    if (kode_qr && kode_qr !== 'POS_RONDA_OFFICIAL_QR') {
       return res.status(400).json({ success: false, message: 'Kode QR Pos Ronda tidak valid!' });
     }
 
