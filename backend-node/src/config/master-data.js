@@ -7,8 +7,9 @@
  */
 
 const JENIS_IURAN = [
-  { nama: 'Iuran Wajib Bulanan (Keamanan & Sampah)', nominal: 50000, periode: 'bulanan' },
-  { nama: 'Iuran Sosial / Kematian', nominal: 10000, periode: 'bulanan' },
+  { nama: 'Iuran Wajib Bulanan (Keamanan & Kas RT)', nominal: 50000, periode: 'bulanan' },
+  { nama: 'Iuran Kebersihan & Pengangkutan Sampah', nominal: 25000, periode: 'bulanan' },
+  { nama: 'Iuran Sosial & Duka Cita', nominal: 10000, periode: 'bulanan' },
 ];
 
 /** `tipe` IN = pemasukan, OUT = pengeluaran. */
