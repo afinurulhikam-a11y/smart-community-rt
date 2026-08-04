@@ -801,7 +801,7 @@ class _MainDashboardState extends State<MainDashboard> {
       case 32:
         return const PeminjamanScreen();
       case 43:
-        return const EVisitorScreen();
+        return warga ? const EVisitorScreen(isWarga: true) : const EVisitorScreen();
       case 44:
         return warga ? const LetterRequestScreen() : const SuratMenyuratScreen();
       case 50:

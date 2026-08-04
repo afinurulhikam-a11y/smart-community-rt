@@ -5,6 +5,13 @@ async function getVisitors(req, res) {
     const { status, tipe, search, tanggal } = req.query;
     let query = `SELECT v.*, u.nama AS created_by_nama FROM visitors v LEFT JOIN users u ON v.created_by = u.id WHERE 1=1`;
     const params = [];
+
+    // Warga hanya melihat tamu yang didaftarkannya sendiri
+    if (req.user.role === 'warga') {
+      params.push(req.user.id);
+      query += ` AND v.created_by = $${params.length}`;
+    }
+
     if (status && status !== 'Semua Status') { params.push(status); query += ` AND v.status = $${params.length}`; }
     if (tipe && tipe !== 'Semua Tipe') { params.push(tipe); query += ` AND v.tipe_keperluan = $${params.length}`; }
     if (tanggal) { params.push(tanggal); query += ` AND v.jam_masuk::DATE = $${params.length}::DATE`; }
@@ -21,10 +28,15 @@ async function getVisitors(req, res) {
 async function getVisitorStats(req, res) {
   try {
     const today = new Date().toISOString().split('T')[0];
-    const todayResult = await pool.query('SELECT COUNT(*) as count FROM visitors WHERE jam_masuk::DATE = $1::DATE', [today]);
-    const insideResult = await pool.query("SELECT COUNT(*) as count FROM visitors WHERE status = 'Di Dalam'");
-    const stayingResult = await pool.query("SELECT COUNT(*) as count FROM visitors WHERE tipe_keperluan = 'Menginap' AND status = 'Di Dalam'");
-    const totalResult = await pool.query('SELECT COUNT(*) as count FROM visitors');
+    const isWarga = req.user.role === 'warga';
+    const filter = isWarga ? ' AND created_by = $2' : '';
+    const p = isWarga ? [null, req.user.id] : [null];
+    p[0] = today;
+
+    const todayResult = await pool.query(`SELECT COUNT(*) as count FROM visitors WHERE jam_masuk::DATE = $1::DATE${filter}`, p);
+    const insideResult = await pool.query(`SELECT COUNT(*) as count FROM visitors WHERE status = 'Di Dalam'${isWarga ? ' AND created_by = $1' : ''}`, isWarga ? [req.user.id] : []);
+    const stayingResult = await pool.query(`SELECT COUNT(*) as count FROM visitors WHERE tipe_keperluan = 'Menginap' AND status = 'Di Dalam'${isWarga ? ' AND created_by = $1' : ''}`, isWarga ? [req.user.id] : []);
+    const totalResult = await pool.query(`SELECT COUNT(*) as count FROM visitors${isWarga ? ' WHERE created_by = $1' : ''}`, isWarga ? [req.user.id] : []);
     return res.status(200).json({
       success: true,
       data: {

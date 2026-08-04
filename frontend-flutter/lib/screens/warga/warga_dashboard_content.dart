@@ -556,8 +556,8 @@ class WargaDashboardContent extends StatelessWidget {
       if (permissions.bolehLihat('layanan.visitor'))
         {
           'icon': Icons.badge_outlined,
-          'title': 'E-Visitor',
-          'subtitle': 'Buku Tamu',
+          'title': 'Buku Tamu Saya',
+          'subtitle': 'Tamu Anda',
           'color': const Color(0xFF10B981),
           'bgColor': const Color(0xFFD1FAE5),
           'menu': 43,

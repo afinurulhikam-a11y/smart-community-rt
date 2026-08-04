@@ -206,7 +206,7 @@ class _SidebarMenuState extends State<SidebarMenu> {
                         _buildSubMenuItem(
                           index: 43,
                           icon: Icons.badge_outlined,
-                          label: 'E-Visitor',
+                          label: isWarga ? 'Buku Tamu Saya' : 'E-Visitor',
                           isViewOnly: _hanyaLihat('layanan.visitor'),
                         ),
                       if (_lihat('layanan.surat'))

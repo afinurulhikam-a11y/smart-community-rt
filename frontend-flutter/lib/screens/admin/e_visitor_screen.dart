@@ -8,7 +8,8 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
 
 class EVisitorScreen extends StatefulWidget {
-  const EVisitorScreen({super.key});
+  final bool isWarga;
+  const EVisitorScreen({super.key, this.isWarga = false});
 
   @override
   State<EVisitorScreen> createState() => _EVisitorScreenState();
@@ -65,7 +66,7 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
                     const SizedBox(width: 10),
                     Flexible(
                       child: Text(
-                        'Layanan Warga / E-Visitor',
+                        widget.isWarga ? 'Layanan Warga / Buku Tamu Saya' : 'Layanan Warga / E-Visitor',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -106,32 +107,33 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
               builder: (context, c) {
                 final kolom = c.maxWidth > 900 ? 4 : (c.maxWidth > 500 ? 2 : 1);
                 final lebar = (c.maxWidth - (12 * (kolom - 1))) / kolom;
+                final w = widget.isWarga;
                 final kartu = [
                   _buildStatCard(
-                    'TAMU HARI INI',
+                    w ? 'TAMU SAYA HARI INI' : 'TAMU HARI INI',
                     '${stats['tamu_hari_ini']}',
-                    'Kunjungan tercatat',
+                    w ? 'Tamu Anda hari ini' : 'Kunjungan tercatat',
                     Icons.book,
                     const [Color(0xFF0D9488), Color(0xFF14B8A6)],
                   ),
                   _buildStatCard(
-                    'SEDANG DI DALAM',
+                    w ? 'TAMU SAYA DI DALAM' : 'SEDANG DI DALAM',
                     '${stats['sedang_di_dalam']}',
-                    'Belum checkout',
+                    w ? 'Tamu Anda belum checkout' : 'Belum checkout',
                     Icons.door_front_door_outlined,
                     const [Color(0xFF059669), Color(0xFF34D399)],
                   ),
                   _buildStatCard(
-                    'TAMU MENGINAP',
+                    w ? 'TAMU SAYA MENGINAP' : 'TAMU MENGINAP',
                     '${stats['tamu_menginap']}',
-                    'Sedang menginap',
+                    w ? 'Tamu Anda menginap' : 'Sedang menginap',
                     Icons.house_outlined,
                     const [Color(0xFFD97706), Color(0xFFF59E0B)],
                   ),
                   _buildStatCard(
-                    'TOTAL SEMUA',
+                    w ? 'TOTAL TAMU SAYA' : 'TOTAL SEMUA',
                     '${stats['total_semua']}',
-                    'Riwayat lengkap',
+                    w ? 'Seluruh riwayat tamu Anda' : 'Riwayat lengkap',
                     Icons.library_books,
                     const [Color(0xFF3B82F6), Color(0xFF60A5FA)],
                   ),
@@ -259,7 +261,7 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
                               // pengguna memperbesar font sistem Android.
                               Flexible(
                                 child: Text(
-                                  'Daftar Kunjungan',
+                                  widget.isWarga ? 'Daftar Tamu Saya' : 'Daftar Kunjungan',
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
@@ -550,26 +552,27 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
               ),
               child: const Text('Checkout', style: TextStyle(fontSize: 11)),
             ),
-          if (!isCheckout) const SizedBox(width: 4),
-          _buildActionBtn(Icons.delete, const Color(0xFFEF4444), const Color(0xFFFEE2E2), () async {
-            final conf = await showDialog<bool>(
-              context: context,
-              builder: (c) => AlertDialog(
-                title: const Text('Hapus'),
-                content: const Text('Yakin hapus data pengunjung ini?'),
-                actions: [
-                  TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Batal')),
-                  TextButton(
-                    onPressed: () => Navigator.pop(c, true),
-                    child: const Text('Hapus', style: TextStyle(color: Colors.red)),
-                  ),
-                ],
-              ),
-            );
-            if (conf == true && context.mounted) {
-              await provider.deleteVisitor(k['id']);
-            }
-          }),
+          if (!isCheckout && !widget.isWarga) const SizedBox(width: 4),
+          if (!widget.isWarga)
+            _buildActionBtn(Icons.delete, const Color(0xFFEF4444), const Color(0xFFFEE2E2), () async {
+              final conf = await showDialog<bool>(
+                context: context,
+                builder: (c) => AlertDialog(
+                  title: const Text('Hapus'),
+                  content: const Text('Yakin hapus data pengunjung ini?'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Batal')),
+                    TextButton(
+                      onPressed: () => Navigator.pop(c, true),
+                      child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+                    ),
+                  ],
+                ),
+              );
+              if (conf == true && context.mounted) {
+                await provider.deleteVisitor(k['id']);
+              }
+            }),
         ],
       ),
     );
