@@ -112,10 +112,14 @@ async function deleteUser(req, res) {
   try {
     const { id } = req.params;
     
-    // Pastikan user ada dan statusnya is_active = false
-    const checkUser = await pool.query('SELECT is_active FROM users WHERE id = $1', [id]);
+    // Pastikan user ada dan proteksi akun Administrator Developer
+    const checkUser = await pool.query('SELECT username, role, is_active FROM users WHERE id = $1', [id]);
     if (checkUser.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'User tidak ditemukan.' });
+    }
+
+    if (checkUser.rows[0].username === 'Administrator' || checkUser.rows[0].role === 'admin') {
+      return res.status(403).json({ success: false, message: 'Akun Administrator Utama Developer bersifat permanen dan tidak dapat dihapus.' });
     }
     
     if (checkUser.rows[0].is_active === true) {
