@@ -7,6 +7,7 @@ import '../../providers/letter_provider.dart';
 import '../../providers/finance_provider.dart';
 import '../../providers/complaint_provider.dart';
 import '../../providers/agenda_provider.dart';
+import '../../providers/permission_provider.dart';
 import 'package:intl/intl.dart';
 import '../../core/responsif.dart';
 import '../../core/theme/warna_konteks.dart';
@@ -534,6 +535,7 @@ class WargaDashboardContent extends StatelessWidget {
   Widget _buildQuickMenuGrid(BuildContext context) {
     // `menu` adalah indeks yang dikenali MainDashboard._buildBody. Pengumuman
     // menumpang layar Agenda & Kegiatan (50), sesuai penggabungan keduanya.
+    final permissions = context.watch<PermissionProvider>();
     final menus = [
       {
         'icon': Icons.receipt_long,
@@ -551,6 +553,15 @@ class WargaDashboardContent extends StatelessWidget {
         'bgColor': const Color(0xFFDBEAFE),
         'menu': 44,
       },
+      if (permissions.bolehLihat('layanan.visitor'))
+        {
+          'icon': Icons.badge_outlined,
+          'title': 'E-Visitor',
+          'subtitle': 'Buku Tamu',
+          'color': const Color(0xFF10B981),
+          'bgColor': const Color(0xFFD1FAE5),
+          'menu': 43,
+        },
       {
         'icon': Icons.campaign_rounded,
         'title': 'Pengumuman',
