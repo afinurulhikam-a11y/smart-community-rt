@@ -20,18 +20,27 @@ async function login(req, res) {
 
     const result = await pool.query('SELECT * FROM users WHERE email = $1 OR username = $1 OR nik = $1', [email]);
     if (result.rows.length === 0) {
-      return res.status(401).json({ success: false, message: 'Kredensial tidak valid.' });
+      return res.status(401).json({
+        success: false,
+        message: `Akun atau NIK '${email}' tidak terdaftar dalam sistem.`,
+      });
     }
 
     const user = result.rows[0];
 
     if (user.is_active === false) {
-      return res.status(403).json({ success: false, message: 'Akun Anda sedang menunggu persetujuan dari Admin RT.' });
+      return res.status(403).json({
+        success: false,
+        message: 'Akun Anda sedang menunggu verifikasi/persetujuan dari Pengurus RT.',
+      });
     }
 
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
-      return res.status(401).json({ success: false, message: 'Email atau password salah.' });
+      return res.status(401).json({
+        success: false,
+        message: 'Password yang Anda masukkan salah. Silakan periksa kembali.',
+      });
     }
 
     const token = jwt.sign(
