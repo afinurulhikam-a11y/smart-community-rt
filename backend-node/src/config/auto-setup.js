@@ -25,12 +25,12 @@ async function autoSetupCloud() {
     for (let i = 0; i < MENU_ITEMS.length; i++) {
       const m = MENU_ITEMS[i];
       await pool.query(
-        `INSERT INTO menu_items (kode, nama, grup, menu_index, urutan, is_sistem)
-         VALUES ($1, $2, $3, $4, $5, $6)
+        `INSERT INTO menu_items (kode, nama, grup, menu_index, urutan, is_sistem, is_aktif)
+         VALUES ($1, $2, $3, $4, $5, $6, true)
          ON CONFLICT (kode) DO UPDATE SET
            nama = EXCLUDED.nama, grup = EXCLUDED.grup,
            menu_index = EXCLUDED.menu_index, urutan = EXCLUDED.urutan,
-           is_sistem = EXCLUDED.is_sistem`,
+           is_sistem = EXCLUDED.is_sistem, is_aktif = true`,
         [m.kode, m.nama, m.grup, m.menu_index, i, m.is_sistem === true]
       );
     }

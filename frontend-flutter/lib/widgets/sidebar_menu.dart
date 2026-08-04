@@ -24,6 +24,27 @@ class _SidebarMenuState extends State<SidebarMenu> {
   // Track expanded submenu groups
   final Set<int> _expandedGroups = {};
 
+  @override
+  void initState() {
+    super.initState();
+    _autoExpandActiveGroup();
+  }
+
+  @override
+  void didUpdateWidget(covariant SidebarMenu oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedIndex != widget.selectedIndex) {
+      _autoExpandActiveGroup();
+    }
+  }
+
+  void _autoExpandActiveGroup() {
+    final group = widget.selectedIndex ~/ 10;
+    if (group > 0) {
+      _expandedGroups.add(group);
+    }
+  }
+
   bool get isAdmin => widget.role == 'admin';
   bool get isWarga => widget.role == 'warga';
 
