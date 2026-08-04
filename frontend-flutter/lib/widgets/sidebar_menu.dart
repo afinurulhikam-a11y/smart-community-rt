@@ -544,22 +544,6 @@ class _SidebarMenuState extends State<SidebarMenu> {
                     ),
                   ),
                 ),
-                if (isViewOnly)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Text(
-                      'View',
-                      style: TextStyle(
-                        fontSize: 9,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),
