@@ -242,6 +242,24 @@ class InventoryProvider extends ChangeNotifier {
     return r;
   }
 
+  Future<Map<String, dynamic>> approveBorrowing(int id) async {
+    final r = await ApiService.put('${ApiConstants.borrowingById(id)}/approve');
+    if (r['success'] == true) {
+      await refreshBorrowings();
+      await _muatUlangKetersediaan();
+    }
+    return r;
+  }
+
+  Future<Map<String, dynamic>> rejectBorrowing(int id) async {
+    final r = await ApiService.put('${ApiConstants.borrowingById(id)}/reject');
+    if (r['success'] == true) {
+      await refreshBorrowings();
+      await _muatUlangKetersediaan();
+    }
+    return r;
+  }
+
   Future<Map<String, dynamic>> returnBorrowing(int id, {String? tanggalKembali}) async {
     final r = await ApiService.put(
       ApiConstants.returnBorrowing(id),

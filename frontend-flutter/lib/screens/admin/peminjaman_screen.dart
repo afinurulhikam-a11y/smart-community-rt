@@ -451,11 +451,24 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
   }
 
   BarisTabel _buildRow(BorrowingModel b, int nomor) {
+    final sNama = b.status.toLowerCase();
+    final isPending = sNama.contains('menunggu');
+    final isDitolak = sNama.contains('ditolak');
+    final isDipinjam = sNama == 'dipinjam';
     final terlambat = b.isTerlambat;
-    final warnaStatus = terlambat ? _merah : (b.isDikembalikan ? _hijauTerang : _kuning);
+
+    final warnaStatus = terlambat
+        ? _merah
+        : (b.isDikembalikan
+            ? _hijauTerang
+            : (isPending ? const Color(0xFFD97706) : (isDitolak ? _merah : const Color(0xFFEA580C))));
     final latarStatus = terlambat
         ? const Color(0xFFFEE2E2)
-        : (b.isDikembalikan ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7));
+        : (b.isDikembalikan
+            ? const Color(0xFFDCFCE7)
+            : (isPending
+                ? const Color(0xFFFEF3C7)
+                : (isDitolak ? const Color(0xFFFEE2E2) : const Color(0xFFFFEDD5))));
 
     return BarisTabel(
       // Baris yang lewat tempo ditandai agar langsung terlihat.
@@ -533,12 +546,47 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
           ),
         ),
       ],
-      // Mencatat pengembalian adalah wewenang pengurus, bukan peminjam:
-      // barangnya harus diterima dulu sebelum dinyatakan kembali.
       aksi: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (!b.isDikembalikan && _bolehUbah)
+          if (isPending && _bolehUbah) ...[
+            ElevatedButton(
+              onPressed: () async {
+                final r = await context.read<InventoryProvider>().approveBorrowing(b.id);
+                if (mounted && r['success'] == true) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Peminjaman berhasil disetujui.')),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _hijauTerang,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text('Setujui', style: TextStyle(fontSize: 11)),
+            ),
+            const SizedBox(width: 6),
+            OutlinedButton(
+              onPressed: () async {
+                final r = await context.read<InventoryProvider>().rejectBorrowing(b.id);
+                if (mounted && r['success'] == true) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Peminjaman ditolak.')),
+                  );
+                }
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _merah,
+                side: const BorderSide(color: _merah),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text('Tolak', style: TextStyle(fontSize: 11)),
+            ),
+          ] else if (!b.isDikembalikan && !isDitolak && _bolehUbah) ...[
             ElevatedButton(
               onPressed: () => _kembalikan(b),
               style: ElevatedButton.styleFrom(
@@ -550,6 +598,7 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
               ),
               child: const Text('Kembalikan', style: TextStyle(fontSize: 11)),
             ),
+          ],
           if (!b.isDikembalikan && _bolehUbah)
             IconButton(
               tooltip: 'Ubah',

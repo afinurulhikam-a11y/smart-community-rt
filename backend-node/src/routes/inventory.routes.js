@@ -13,6 +13,8 @@ const {
   getBarangTersedia,
   createBorrowing,
   updateBorrowing,
+  approveBorrowing,
+  rejectBorrowing,
   returnBorrowing,
   deleteBorrowing,
   exportBorrowings,
@@ -33,6 +35,8 @@ router.get('/borrowings', requirePermission('inventaris.peminjaman', 'view'), ge
 // barang, supaya warga bisa memilih barang tanpa diberi akses ke inventaris.
 router.get('/borrowings/barang-tersedia', requirePermission('inventaris.peminjaman', 'view'), getBarangTersedia);
 router.post('/borrowings', requirePermission('inventaris.peminjaman', 'create'), createBorrowing);
+router.put('/borrowings/:id/approve', requirePermission('inventaris.peminjaman', 'update'), approveBorrowing);
+router.put('/borrowings/:id/reject', requirePermission('inventaris.peminjaman', 'update'), rejectBorrowing);
 router.put('/borrowings/:id/return', requirePermission('inventaris.peminjaman', 'update'), returnBorrowing);
 router.put('/borrowings/:id', requirePermission('inventaris.peminjaman', 'update'), updateBorrowing);
 router.delete('/borrowings/:id', requirePermission('inventaris.peminjaman', 'delete'), deleteBorrowing);

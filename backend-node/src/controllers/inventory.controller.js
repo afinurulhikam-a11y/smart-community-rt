@@ -452,6 +452,10 @@ async function createBorrowing(req, res) {
       });
     }
 
+    // Jika diajukan oleh Warga, status awal 'Menunggu Persetujuan'.
+    // Jika dicatat langsung oleh Admin, status langsung 'Dipinjam'.
+    const initialStatus = req.user.role === 'warga' ? 'Menunggu Persetujuan' : STATUS_DIPINJAM;
+
     // inventory.jumlah SENGAJA tidak disentuh: itu total milik, bukan stok sisa.
     const result = await client.query(
       `INSERT INTO borrowings (inventory_id, user_id, nama_peminjam, jumlah, keterangan,
@@ -460,12 +464,15 @@ async function createBorrowing(req, res) {
       [
         inventory_id, peminjamId, peminjam.rows[0].nama, qty, keterangan || null,
         tanggal_pinjam || new Date().toISOString().split('T')[0],
-        tanggal_rencana_kembali || null, STATUS_DIPINJAM, req.user.id,
+        tanggal_rencana_kembali || null, initialStatus, req.user.id,
       ]
     );
 
     await client.query('COMMIT');
-    return res.status(201).json({ success: true, message: 'Peminjaman berhasil dicatat.', data: result.rows[0] });
+    const msg = initialStatus === 'Menunggu Persetujuan'
+      ? 'Permohonan peminjaman berhasil dikirim. Menunggu persetujuan Admin RT.'
+      : 'Peminjaman berhasil dicatat.';
+    return res.status(201).json({ success: true, message: msg, data: result.rows[0] });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('CreateBorrowing Error:', err.message);
@@ -697,6 +704,42 @@ async function exportBorrowings(req, res) {
   }
 }
 
+async function approveBorrowing(req, res) {
+  try {
+    const { id } = req.params;
+    const pinjam = await pool.query('SELECT * FROM borrowings WHERE id = $1', [id]);
+    if (pinjam.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Peminjaman tidak ditemukan.' });
+    }
+    const result = await pool.query(
+      `UPDATE borrowings SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+      [STATUS_DIPINJAM, id]
+    );
+    return res.status(200).json({ success: true, message: 'Peminjaman barang telah disetujui.', data: result.rows[0] });
+  } catch (err) {
+    console.error('ApproveBorrowing Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
+async function rejectBorrowing(req, res) {
+  try {
+    const { id } = req.params;
+    const pinjam = await pool.query('SELECT * FROM borrowings WHERE id = $1', [id]);
+    if (pinjam.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Peminjaman tidak ditemukan.' });
+    }
+    const result = await pool.query(
+      `UPDATE borrowings SET status = 'Ditolak', updated_at = NOW() WHERE id = $1 RETURNING *`,
+      [id]
+    );
+    return res.status(200).json({ success: true, message: 'Permohonan peminjaman ditolak.', data: result.rows[0] });
+  } catch (err) {
+    console.error('RejectBorrowing Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
 module.exports = {
   getInventory,
   getInventoryStats,
@@ -710,6 +753,8 @@ module.exports = {
   getBarangTersedia,
   createBorrowing,
   updateBorrowing,
+  approveBorrowing,
+  rejectBorrowing,
   returnBorrowing,
   deleteBorrowing,
   exportBorrowings,
