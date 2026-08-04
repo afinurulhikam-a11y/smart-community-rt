@@ -45,18 +45,22 @@ class PermissionProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    final r = await ApiService.get(ApiConstants.menuAksesSaya);
-    if (r['success'] == true && r['data'] != null) {
-      final d = r['data'] as Map<String, dynamic>;
-      _role = d['role']?.toString() ?? '';
-      _roleLabel = d['role_label']?.toString() ?? '';
-      _izin = {
-        for (final m in (d['menus'] as List<dynamic>? ?? []).whereType<Map<String, dynamic>>())
-          m['kode'].toString(): Izin.fromJson(m),
-      };
-      _sudahDimuat = true;
+    try {
+      final r = await ApiService.get(ApiConstants.menuAksesSaya);
+      if (r['success'] == true && r['data'] != null) {
+        final d = r['data'] as Map<String, dynamic>;
+        _role = d['role']?.toString() ?? '';
+        _roleLabel = d['role_label']?.toString() ?? '';
+        _izin = {
+          for (final m in (d['menus'] as List<dynamic>? ?? []).whereType<Map<String, dynamic>>())
+            m['kode'].toString(): Izin.fromJson(m),
+        };
+      }
+    } catch (e) {
+      debugPrint('Error loading permissions: $e');
     }
 
+    _sudahDimuat = true;
     _isLoading = false;
     notifyListeners();
   }
