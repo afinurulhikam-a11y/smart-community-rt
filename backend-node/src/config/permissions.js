@@ -139,7 +139,7 @@ const DEFAULT_PERMISSIONS = {
     'keuangan.bop': N,
     // Warga meminjam barang, bukan mengelola daftar inventarisnya.
     'inventaris.barang': N,
-    'inventaris.peminjaman': VC,
+    'inventaris.peminjaman': VCD,
     'layanan.visitor': N,
     'layanan.surat': VC,
     'kegiatan.agenda': V,
