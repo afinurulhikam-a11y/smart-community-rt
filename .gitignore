@@ -21,3 +21,11 @@ frontend-flutter/build_log.txt
 .vscode/
 Thumbs.db
 desktop.ini
+
+# Agent & Internal Docs
+.agents/
+.antigravity/
+.claude/
+CLAUDE.md
+PANDUAN-SIDANG.md
+*.xlsx
