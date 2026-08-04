@@ -767,23 +767,6 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
                                 ],
                               ),
                             ),
-                            if (_bolehTambah) ...[
-                              const SizedBox(width: 8),
-                              ElevatedButton(
-                                onPressed: () {
-                                  Navigator.pop(ctx);
-                                  _showFormPinjam(null, initialBarangId: b.id);
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _hijau,
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                ),
-                                child: const Text('Pinjam', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                              ),
-                            ],
                           ],
                         ),
                       );
