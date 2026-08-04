@@ -64,10 +64,10 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                        color: const Color(0xFF1B7A6A).withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.shield_outlined, color: Color(0xFF10B981), size: 20),
+                      child: const Icon(Icons.shield_outlined, color: Color(0xFF1B7A6A), size: 20),
                     ),
                     const SizedBox(width: 10),
                     Flexible(
@@ -90,7 +90,7 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF10B981),
+                  backgroundColor: const Color(0xFF1B7A6A),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -111,8 +111,8 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
           ),
           child: TabBar(
             controller: _tabController,
-            indicatorColor: const Color(0xFF10B981),
-            labelColor: const Color(0xFF10B981),
+            indicatorColor: const Color(0xFF1B7A6A),
+            labelColor: const Color(0xFF1B7A6A),
             unselectedLabelColor: context.teksKedua,
             labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
             tabs: const [
@@ -159,7 +159,7 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Jadwal Siskamling Warga RT 05',
+                    'Jadwal Siskamling Warga',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -170,12 +170,16 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                     ElevatedButton.icon(
                       onPressed: () => _showTambahJadwalDialog(context),
                       icon: const Icon(Icons.add, size: 16),
-                      label: const Text('Tambah Jadwal'),
+                      label: const Text(
+                        'Tambah Jadwal',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0F766E),
+                        backgroundColor: const Color(0xFF1B7A6A),
                         foregroundColor: Colors.white,
-                        minimumSize: Size.zero,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                       ),
                     ),
                 ],
@@ -267,7 +271,7 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                   hari,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF10B981),
+                    color: Color(0xFF1B7A6A),
                     fontSize: 12,
                   ),
                 ),
@@ -303,7 +307,7 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
             ],
           ),
           const SizedBox(height: 12),
-          const Text('Petugas Ronda:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF10B981))),
+          const Text('Petugas Ronda:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1B7A6A))),
           const SizedBox(height: 4),
           Text(petugas, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: context.teksUtama)),
           if (ket.isNotEmpty) ...[
@@ -435,20 +439,20 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                      color: const Color(0xFF1B7A6A).withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.qr_code_2, color: Color(0xFF10B981), size: 36),
+                    child: const Icon(Icons.qr_code_2, color: Color(0xFF1B7A6A), size: 36),
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    posData?['pos_name'] ?? 'Pos Ronda Utama RT 05',
+                    posData?['pos_name'] ?? 'Pos Ronda Utama Siskamling',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: context.teksUtama),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Tempelkan poster QR ini di fisik Pos Ronda RT 05',
+                    'Tempelkan poster QR ini di fisik Pos Ronda',
                     style: TextStyle(fontSize: 12, color: context.teksTersier),
                   ),
                   const SizedBox(height: 20),
@@ -468,7 +472,7 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                           const Icon(Icons.qr_code_2, size: 120, color: Color(0xFF1B7A6A)),
                           const SizedBox(height: 4),
                           Text(
-                            posData?['qr_code_data'] ?? 'POS_RONDA_RT05',
+                            posData?['qr_code_data'] ?? 'POS_RONDA_OFFICIAL_QR',
                             style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54),
                           ),
                         ],
@@ -485,10 +489,10 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.key, size: 16, color: Color(0xFF10B981)),
+                        const Icon(Icons.key, size: 16, color: Color(0xFF1B7A6A)),
                         const SizedBox(width: 6),
                         Text(
-                          'Secret Token: ${posData?['qr_code_data'] ?? "POS_RONDA_RT05_OFFICIAL_QR"}',
+                          'Secret Token: ${posData?['qr_code_data'] ?? "POS_RONDA_OFFICIAL_QR"}',
                           style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.teksUtama),
                         ),
                       ],
@@ -512,7 +516,7 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
       builder: (c) => AlertDialog(
         title: const Row(
           children: [
-            Icon(Icons.qr_code_scanner, color: Color(0xFF10B981)),
+            Icon(Icons.qr_code_scanner, color: Color(0xFF1B7A6A)),
             SizedBox(width: 8),
             Text('Absensi Pos Ronda'),
           ],
@@ -522,7 +526,7 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Tekan tombol di bawah untuk mencatatkan kehadiran ronda malam Anda di Pos Ronda RT 05 hari ini.',
+              'Tekan tombol di bawah untuk mencatatkan kehadiran ronda malam Anda di Pos Ronda hari ini.',
               style: TextStyle(fontSize: 13),
             ),
             const SizedBox(height: 12),
@@ -554,7 +558,7 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
             },
             icon: const Icon(Icons.check, size: 16),
             label: const Text('Kirim Absensi'),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1B7A6A), foregroundColor: Colors.white),
           ),
         ],
       ),
@@ -629,7 +633,7 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                   keterangan: ketCtrl.text.trim().isNotEmpty ? ketCtrl.text.trim() : null,
                 );
               },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F766E), foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1B7A6A), foregroundColor: Colors.white),
               child: const Text('Simpan'),
             ),
           ],

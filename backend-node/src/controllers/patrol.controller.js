@@ -110,10 +110,10 @@ async function submitAttendance(req, res) {
   try {
     const { schedule_id, kode_qr, lokasi_pos, catatan } = req.body;
     const userId = req.user.id;
-    const namaPetugas = req.user.nama || req.user.username || 'Warga RT 05';
+    const namaPetugas = req.user.nama || req.user.username || 'Warga';
 
     // Verifikasi kode QR jika ada
-    if (kode_qr && kode_qr !== 'POS_RONDA_RT05_OFFICIAL_QR') {
+    if (kode_qr && kode_qr !== 'POS_RONDA_OFFICIAL_QR' && kode_qr !== 'POS_RONDA_RT05_OFFICIAL_QR') {
       return res.status(400).json({ success: false, message: 'Kode QR Pos Ronda tidak valid!' });
     }
 
@@ -139,7 +139,7 @@ async function submitAttendance(req, res) {
     const result = await pool.query(
       `INSERT INTO patrol_attendances (schedule_id, user_id, nama_petugas, tanggal, waktu_scan, lokasi_pos, status, catatan)
        VALUES ($1, $2, $3, $4, NOW(), $5, $6, $7) RETURNING *`,
-      [schedule_id || null, userId, namaPetugas, today, lokasi_pos || 'Pos Ronda RT 05', status, catatan || 'Absensi via QR Code Pos Ronda']
+      [schedule_id || null, userId, namaPetugas, today, lokasi_pos || 'Pos Ronda Utama', status, catatan || 'Absensi via QR Code Pos Ronda']
     );
 
     return res.status(201).json({
@@ -158,9 +158,9 @@ async function getPosRondaQr(req, res) {
     return res.status(200).json({
       success: true,
       data: {
-        pos_name: 'Pos Ronda Utama RT 05 / RW 02',
-        qr_code_data: 'POS_RONDA_RT05_OFFICIAL_QR',
-        secret_pin: 'RONDA05',
+        pos_name: 'Pos Ronda Utama Siskamling',
+        qr_code_data: 'POS_RONDA_OFFICIAL_QR',
+        secret_pin: 'RONDA',
         generated_at: new Date().toISOString(),
       },
     });
