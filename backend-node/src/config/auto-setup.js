@@ -79,6 +79,41 @@ async function autoSetupCloud() {
   } catch (e) {
     console.error('❌ Admin Upsert Error:', e.message);
   }
+
+  // 5. Seed Master Categories (Jenis Iuran, Kategori Kas, Kategori BOP)
+  try {
+    const { JENIS_IURAN, KATEGORI_KAS, KATEGORI_BOP } = require('./master-data');
+
+    for (const j of JENIS_IURAN) {
+      await pool.query(
+        `INSERT INTO jenis_iuran (nama_iuran, nominal_default, periode, is_aktif)
+         VALUES ($1, $2, $3, true)
+         ON CONFLICT DO NOTHING`,
+        [j.nama, j.nominal, j.periode]
+      );
+    }
+
+    for (const k of KATEGORI_KAS) {
+      await pool.query(
+        `INSERT INTO kategori_kas (nama_kategori, tipe, is_aktif)
+         VALUES ($1, $2, true)
+         ON CONFLICT DO NOTHING`,
+        [k.nama, k.tipe]
+      );
+    }
+
+    for (const k of KATEGORI_BOP) {
+      await pool.query(
+        `INSERT INTO kategori_bop (nama_kategori, tipe, is_aktif)
+         VALUES ($1, $2, true)
+         ON CONFLICT DO NOTHING`,
+        [k.nama, k.tipe]
+      );
+    }
+    console.log('✅ Master Kategori Kas, BOP, dan Jenis Iuran terverifikasi.');
+  } catch (e) {
+    console.log('ℹ️ Catatan Master Categories:', e.message);
+  }
 }
 
 module.exports = { autoSetupCloud };
