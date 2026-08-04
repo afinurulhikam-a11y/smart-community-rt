@@ -1958,6 +1958,34 @@ ALTER TABLE ONLY public.visitors
 
 
 --
+-- Name: patrol_schedules; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE IF NOT EXISTS public.patrol_schedules (
+    id SERIAL PRIMARY KEY,
+    hari VARCHAR(20) NOT NULL,
+    shift VARCHAR(50) DEFAULT 'Shift Malam (22:00 - 04:00)',
+    petugas_warga TEXT NOT NULL,
+    keterangan TEXT,
+    created_by INTEGER REFERENCES public.users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS public.patrol_attendances (
+    id SERIAL PRIMARY KEY,
+    schedule_id INTEGER REFERENCES public.patrol_schedules(id) ON DELETE SET NULL,
+    user_id INTEGER REFERENCES public.users(id) ON DELETE CASCADE,
+    nama_petugas VARCHAR(150) NOT NULL,
+    tanggal DATE DEFAULT CURRENT_DATE,
+    waktu_scan TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    lokasi_pos VARCHAR(150) DEFAULT 'Pos Ronda RT 05',
+    status VARCHAR(50) DEFAULT 'Hadir',
+    catatan TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+--
 -- PostgreSQL database dump complete
 --
 

@@ -36,6 +36,7 @@ import 'peminjaman_screen.dart';
 import 'e_visitor_screen.dart';
 import 'surat_menyurat_screen.dart';
 import 'agenda_kegiatan_screen.dart';
+import 'siskamling_screen.dart';
 import 'pengaduan_screen.dart';
 import 'status_darurat_screen.dart';
 import 'polling_warga_screen.dart';
@@ -806,6 +807,8 @@ class _MainDashboardState extends State<MainDashboard> {
         return warga ? const LetterRequestScreen() : const SuratMenyuratScreen();
       case 50:
         return const AgendaKegiatanScreen();
+      case 51:
+        return const SiskamlingScreen();
       case 60:
         return const StatusDaruratScreen();
       case 61:
