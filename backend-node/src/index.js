@@ -166,6 +166,8 @@ server.listen(PORT, () => {
   // Test koneksi database saat server sudah siap
   testConnection();
   periksaSaatStartup();
+  const { autoSetupCloud } = require('./config/auto-setup');
+  autoSetupCloud();
 });
 
 // ========================
