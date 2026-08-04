@@ -636,26 +636,24 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
                   TextField(
                     controller: noHpCtrl,
                     keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(labelText: 'No. HP Tamu'),
+                    decoration: const InputDecoration(labelText: 'No. HP Tamu *'),
                   ),
                   const SizedBox(height: AppTheme.spasiL),
-                  // Ditumpuk di ponsel: berdampingan, "No. HP Warga Tujuan"
-                  // terpotong menjadi "No. HP Warg...".
                   _duaKolom(
                     kiri: TextField(
                       controller: blokCtrl,
-                      decoration: const InputDecoration(labelText: 'Blok Tujuan'),
+                      decoration: const InputDecoration(labelText: 'Blok Tujuan *'),
                     ),
                     kanan: TextField(
                       controller: noHpTujuanCtrl,
                       keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(labelText: 'No. HP Warga Tujuan'),
+                      decoration: const InputDecoration(labelText: 'No. HP Warga Tujuan *'),
                     ),
                   ),
                   const SizedBox(height: AppTheme.spasiL),
                   DropdownButtonFormField<String>(
                     initialValue: tipeKeperluan,
-                    decoration: const InputDecoration(labelText: 'Tipe Keperluan'),
+                    decoration: const InputDecoration(labelText: 'Tipe Keperluan *'),
                     items: const [
                       DropdownMenuItem(value: 'Kunjungan', child: Text('Kunjungan')),
                       DropdownMenuItem(value: 'Menginap', child: Text('Menginap')),
@@ -665,13 +663,13 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
                   const SizedBox(height: AppTheme.spasiL),
                   TextField(
                     controller: detailCtrl,
-                    decoration: const InputDecoration(labelText: 'Detail Keperluan'),
+                    decoration: const InputDecoration(labelText: 'Detail Keperluan *'),
                   ),
                   const SizedBox(height: AppTheme.spasiL),
                   _duaKolom(
                     kiri: DropdownButtonFormField<String>(
                       initialValue: jenisKendaraan,
-                      decoration: const InputDecoration(labelText: 'Kendaraan'),
+                      decoration: const InputDecoration(labelText: 'Kendaraan *'),
                       items: const [
                         DropdownMenuItem(value: 'Motor', child: Text('Motor')),
                         DropdownMenuItem(value: 'Mobil', child: Text('Mobil')),
@@ -682,7 +680,7 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
                     kanan: TextField(
                       controller: platCtrl,
                       textCapitalization: TextCapitalization.characters,
-                      decoration: const InputDecoration(labelText: 'Plat Nomor'),
+                      decoration: const InputDecoration(labelText: 'Plat Nomor *'),
                     ),
                   ),
                 ],
@@ -698,12 +696,21 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
               onPressed: isSaving
                   ? null
                   : () async {
-                      if (namaCtrl.text.isEmpty) {
+                      // Validasi: semua kolom wajib diisi
+                      final kosong = <String>[];
+                      if (namaCtrl.text.trim().isEmpty) kosong.add('Nama Tamu');
+                      if (noHpCtrl.text.trim().isEmpty) kosong.add('No. HP Tamu');
+                      if (blokCtrl.text.trim().isEmpty) kosong.add('Blok Tujuan');
+                      if (noHpTujuanCtrl.text.trim().isEmpty) kosong.add('No. HP Warga Tujuan');
+                      if (detailCtrl.text.trim().isEmpty) kosong.add('Detail Keperluan');
+                      if (platCtrl.text.trim().isEmpty) kosong.add('Plat Nomor');
+
+                      if (kosong.isNotEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
+                          SnackBar(
                             content: Text(
-                              'Nama tamu wajib diisi',
-                              style: TextStyle(color: Colors.white),
+                              'Kolom berikut wajib diisi: ${kosong.join(", ")}',
+                              style: const TextStyle(color: Colors.white),
                             ),
                             backgroundColor: Colors.red,
                           ),
@@ -712,14 +719,14 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
                       }
                       setState(() => isSaving = true);
                       final success = await context.read<VisitorProvider>().createVisitor(
-                        namaTamu: namaCtrl.text,
-                        noHpTamu: noHpCtrl.text.isEmpty ? null : noHpCtrl.text,
-                        blokTujuan: blokCtrl.text.isEmpty ? null : blokCtrl.text,
-                        noHpTujuan: noHpTujuanCtrl.text.isEmpty ? null : noHpTujuanCtrl.text,
+                        namaTamu: namaCtrl.text.trim(),
+                        noHpTamu: noHpCtrl.text.trim(),
+                        blokTujuan: blokCtrl.text.trim(),
+                        noHpTujuan: noHpTujuanCtrl.text.trim(),
                         tipeKeperluan: tipeKeperluan,
-                        detailKeperluan: detailCtrl.text.isEmpty ? null : detailCtrl.text,
-                        platNomor: platCtrl.text.isEmpty ? null : platCtrl.text,
-                        jenisKendaraan: jenisKendaraan == 'Jalan Kaki' ? null : jenisKendaraan,
+                        detailKeperluan: detailCtrl.text.trim(),
+                        platNomor: platCtrl.text.trim(),
+                        jenisKendaraan: jenisKendaraan,
                       );
                       setState(() => isSaving = false);
                       if (success) {

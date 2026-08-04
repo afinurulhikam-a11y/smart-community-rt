@@ -43,11 +43,27 @@ async function getVisitorStats(req, res) {
 async function createVisitor(req, res) {
   try {
     const { nama_tamu, no_hp_tamu, blok_tujuan, no_hp_tujuan, tipe_keperluan, detail_keperluan, plat_nomor, jenis_kendaraan } = req.body;
-    if (!nama_tamu) return res.status(400).json({ success: false, message: 'Nama tamu wajib diisi.' });
+
+    // Validasi: semua kolom wajib diisi
+    const kosong = [];
+    if (!nama_tamu?.trim()) kosong.push('Nama Tamu');
+    if (!no_hp_tamu?.trim()) kosong.push('No. HP Tamu');
+    if (!blok_tujuan?.trim()) kosong.push('Blok Tujuan');
+    if (!no_hp_tujuan?.trim()) kosong.push('No. HP Warga Tujuan');
+    if (!detail_keperluan?.trim()) kosong.push('Detail Keperluan');
+    if (!plat_nomor?.trim()) kosong.push('Plat Nomor');
+
+    if (kosong.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Kolom berikut wajib diisi: ${kosong.join(', ')}.`,
+      });
+    }
+
     const result = await pool.query(
       `INSERT INTO visitors (nama_tamu, no_hp_tamu, blok_tujuan, no_hp_tujuan, tipe_keperluan, detail_keperluan, plat_nomor, jenis_kendaraan, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [nama_tamu, no_hp_tamu || null, blok_tujuan || null, no_hp_tujuan || null, tipe_keperluan || 'Kunjungan', detail_keperluan || null, plat_nomor || null, jenis_kendaraan || null, req.user.id]
+      [nama_tamu.trim(), no_hp_tamu.trim(), blok_tujuan.trim(), no_hp_tujuan.trim(), tipe_keperluan || 'Kunjungan', detail_keperluan.trim(), plat_nomor.trim(), jenis_kendaraan || null, req.user.id]
     );
     return res.status(201).json({ success: true, message: 'Tamu berhasil diregistrasi.', data: result.rows[0] });
   } catch (err) {
