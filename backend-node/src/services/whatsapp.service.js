@@ -86,11 +86,11 @@ async function sendWA({ target, message }) {
 /** Notifikasi WhatsApp untuk Sinyal Darurat Panic Button */
 async function sendEmergencyWA({ userNama, alamat, noHp, tipeEmergency }) {
   const pesan = 
-`🚨 *PERINGATAN DARURAT RT 05* 🚨
+`🚨 *PERINGATAN DARURAT* 🚨
 
 Bantuan darurat dibutuhkan segera oleh:
-👤 *Nama*: ${userNama || 'Warga RT'}
-🏠 *Alamat*: ${alamat || 'Wilayah RT 05'}
+👤 *Nama*: ${userNama || 'Warga'}
+🏠 *Alamat*: ${alamat || 'Wilayah RT'}
 📞 *No. HP*: ${noHp || '-'}
 ⚠️ *Jenis Darurat*: ${tipeEmergency || 'Bahaya / Butuh Pertolongan'}
 
@@ -104,9 +104,9 @@ Bantuan darurat dibutuhkan segera oleh:
 /** Notifikasi WhatsApp untuk Penerbitan Tagihan Iuran Warga */
 async function sendBillWA({ userNama, noHp, namaIuran, nominal, bulan, linkBayar }) {
   const pesan = 
-`💳 *TAGIHAN IURAN RT 05*
+`💳 *TAGIHAN IURAN RT*
 
-Yth. Bpk/Ibu *${userNama || 'Warga RT'}*,
+Yth. Bpk/Ibu *${userNama || 'Warga'}*,
 
 Tagihan iuran lingkungan untuk periode *${bulan || 'Bulan Ini'}* telah diterbitkan:
 📌 *Jenis*: ${namaIuran || 'Iuran Wajib RT'}
@@ -115,8 +115,8 @@ Tagihan iuran lingkungan untuk periode *${bulan || 'Bulan Ini'}* telah diterbitk
 Silakan melakukan pembayaran praktis via QRIS / Transfer Bank melalui tautan berikut:
 🔗 ${linkBayar || 'https://smart-community-rt.vercel.app'}
 
-Terima kasih atas partisipasi Bpk/Ibu dalam menjaga kenyamanan lingkungan RT 05.
-— *Pengurus RT 05*`;
+Terima kasih atas partisipasi Bpk/Ibu dalam menjaga kenyamanan lingkungan.
+— *Pengurus RT*`;
 
   if (noHp) {
     await sendWA({ target: noHp, message: pesan });
@@ -128,7 +128,7 @@ async function sendLetterApprovedWA({ userNama, noHp, jenisSurat }) {
   const pesan = 
 `📄 *SURAT PENGANTAR RT DISETUJUI*
 
-Halo Bpk/Ibu *${userNama || 'Warga RT'}*,
+Halo Bpk/Ibu *${userNama || 'Warga'}*,
 
 Permohonan *${jenisSurat || 'Surat Pengantar RT'}* Anda telah *DISETUJUI* dan ditandatangani oleh Pengurus RT.
 
@@ -136,7 +136,7 @@ Anda dapat mengunduh berkas PDF Surat Pengantar resmi langsung melalui aplikasi 
 🌐 https://smart-community-rt.vercel.app
 
 Terima kasih.
-— *Sekretaris RT 05*`;
+— *Sekretaris RT*`;
 
   if (noHp) {
     await sendWA({ target: noHp, message: pesan });
