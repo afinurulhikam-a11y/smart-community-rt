@@ -194,28 +194,13 @@ class _AuthGateState extends State<AuthGate> {
           return const LoginScreen();
         }
 
-        // Setelah login baru, izin belum sempat dimuat oleh _checkAuth.
-        if (!izin.sudahDimuat) {
-          if (!izin.isLoading) {
-            WidgetsBinding.instance.addPostFrameCallback((_) => izin.muat());
-          }
-          return const Scaffold(
-            backgroundColor: Color(0xFF1B7A6A),
-            body: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(color: Colors.white),
-                  SizedBox(height: 16),
-                  Text('Menyiapkan hak akses...', style: TextStyle(color: Colors.white70)),
-                ],
-              ),
-            ),
-          );
+        // Pemicu pemuatan hak akses di latar belakang jika belum sempat dimuat
+        if (!izin.sudahDimuat && !izin.isLoading) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => izin.muat());
         }
 
         // Semua role memakai MainDashboard; sidebar menyaring menunya
-        // berdasarkan izin yang baru saja dimuat.
+        // berdasarkan izin yang dimuat di latar belakang.
         const roleDikenal = {'admin', 'ketua_rt', 'sekretaris', 'bendahara', 'warga'};
         return roleDikenal.contains(auth.userRole) ? const MainDashboard() : const LoginScreen();
       },

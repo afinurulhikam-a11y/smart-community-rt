@@ -46,7 +46,7 @@ class PermissionProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final r = await ApiService.get(ApiConstants.menuAksesSaya);
+      final r = await ApiService.get(ApiConstants.menuAksesSaya).timeout(const Duration(seconds: 5));
       if (r['success'] == true && r['data'] != null) {
         final d = r['data'] as Map<String, dynamic>;
         _role = d['role']?.toString() ?? '';
@@ -58,11 +58,11 @@ class PermissionProvider extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('Error loading permissions: $e');
+    } finally {
+      _sudahDimuat = true;
+      _isLoading = false;
+      notifyListeners();
     }
-
-    _sudahDimuat = true;
-    _isLoading = false;
-    notifyListeners();
   }
 
   /// Dipanggil saat logout supaya izin pengguna sebelumnya tidak terbawa.
