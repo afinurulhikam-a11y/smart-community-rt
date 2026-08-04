@@ -65,7 +65,10 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
     );
   }
 
-  String _rupiah(double n) => 'Rp ${NumberFormat('#,###', 'id_ID').format(n.round())}';
+  String _rupiah(double n) {
+    if (n.isNaN || n.isInfinite) return 'Rp 0';
+    return 'Rp ${NumberFormat('#,###', 'id_ID').format(n.round())}';
+  }
 
   void _pesan(String teks, {bool sukses = true}) {
     if (!mounted) return;
@@ -100,10 +103,25 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
         else if (provider.items.isEmpty)
           _buildKosong()
         else
-          Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            children: provider.items.map(_buildBarangCard).toList(),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isMobile = constraints.maxWidth < 650;
+              final itemWidth = isMobile
+                  ? constraints.maxWidth
+                  : (constraints.maxWidth > 950
+                      ? (constraints.maxWidth - 32) / 3
+                      : (constraints.maxWidth - 16) / 2);
+              return Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                children: provider.items
+                    .map((item) => SizedBox(
+                          width: itemWidth,
+                          child: _buildBarangCard(item),
+                        ))
+                    .toList(),
+              );
+            },
           ),
         const SizedBox(height: 32),
       ],
@@ -419,9 +437,6 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
   Widget _buildBarangCard(InventoryModel b) {
     final baik = b.kondisiBaik;
     return Container(
-      // Di ponsel kartu barang mengisi lebar Wrap; 300 tetap menyisakan ruang
-      // kosong di kanan dan membuat daftarnya terlihat berserakan.
-      width: lebarKolomFilter(context, maksimal: 300),
       decoration: BoxDecoration(
         color: context.latarKartu,
         borderRadius: BorderRadius.circular(12),
