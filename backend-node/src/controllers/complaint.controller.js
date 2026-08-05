@@ -4,7 +4,12 @@ const { logActivity, ringkas, TIPE } = require('../services/log.service');
 async function getComplaints(req, res) {
   try {
     const { status, search } = req.query;
-    let query = `SELECT c.*, u.nama AS nama_pengirim, r.nama AS responded_by_nama FROM complaints c JOIN users u ON c.user_id = u.id LEFT JOIN users r ON c.responded_by = r.id WHERE 1=1`;
+    let query = `SELECT c.*, u.nama AS nama_pengirim, r.nama AS responded_by_nama,
+                 COUNT(*) OVER() AS total_data
+                 FROM complaints c 
+                 JOIN users u ON c.user_id = u.id 
+                 LEFT JOIN users r ON c.responded_by = r.id 
+                 WHERE c.deleted_at IS NULL`;
     const params = [];
 
     // Warga hanya melihat pengaduannya sendiri — pola yang sama dengan
@@ -18,8 +23,30 @@ async function getComplaints(req, res) {
     if (status && status !== 'Semua') { params.push(status); query += ` AND c.status = $${params.length}`; }
     if (search) { params.push(`%${search}%`); query += ` AND (c.judul ILIKE $${params.length} OR c.kode_tiket ILIKE $${params.length} OR u.nama ILIKE $${params.length})`; }
     query += ' ORDER BY c.created_at DESC';
+
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 25;
+    const offset = (page - 1) * limit;
+
+    params.push(limit, offset);
+    query += ` LIMIT $${params.length - 1} OFFSET $${params.length}`;
+
     const result = await pool.query(query, params);
-    return res.status(200).json({ success: true, count: result.rows.length, data: result.rows });
+    
+    const totalData = result.rows.length > 0 ? parseInt(result.rows[0].total_data, 10) : 0;
+    const totalPages = Math.ceil(totalData / limit);
+
+    return res.status(200).json({ 
+      success: true, 
+      count: result.rows.length, 
+      data: result.rows,
+      pagination: {
+        total_data: totalData,
+        total_pages: totalPages,
+        current_page: page,
+        limit: limit
+      }
+    });
   } catch (err) {
     console.error('GetComplaints Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
@@ -69,7 +96,7 @@ async function updateComplaintStatus(req, res) {
 async function deleteComplaint(req, res) {
   try {
     const { id } = req.params;
-    const result = await pool.query('DELETE FROM complaints WHERE id = $1 RETURNING *', [id]);
+    const result = await pool.query('UPDATE complaints SET deleted_at = NOW() WHERE id = $1 RETURNING *', [id]);
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Pengaduan tidak ditemukan.' });
     const d = result.rows[0];
     await logActivity(req, TIPE.DELETE, `Menghapus pengaduan [${d.kode_tiket}] "${ringkas(d.judul)}" (status ${d.status}) — isi: "${ringkas(d.deskripsi, 100)}"`);

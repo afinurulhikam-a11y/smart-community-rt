@@ -139,7 +139,7 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
     });
   }
 
-  void _loadData() {
+  void _loadData({int page = 1}) {
     if (_diTabPengumuman) {
       context.read<AnnouncementProvider>().fetchAnnouncements();
       return;
@@ -148,7 +148,7 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
     String? statusFilter;
     if (_selectedTabIndex == 1) statusFilter = 'Akan Datang';
     if (_selectedTabIndex == 2) statusFilter = 'Selesai';
-    provider.fetchAgenda(status: statusFilter);
+    provider.fetchAgenda(status: statusFilter, page: page);
   }
 
   void _pesan(String teks, {bool sukses = true}) {
@@ -291,19 +291,98 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
                 );
               }
 
-              return ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(24.0),
-                itemCount: provider.agendaList.length,
-                itemBuilder: (context, index) {
-                  final event = provider.agendaList[index];
-                  return _buildEventCard(event);
-                },
+              return Column(
+                children: [
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(24.0),
+                    itemCount: provider.agendaList.length,
+                    itemBuilder: (context, index) {
+                      final event = provider.agendaList[index];
+                      return _buildEventCard(event);
+                    },
+                  ),
+                  _buildAgendaPagination(provider),
+                ],
               );
             },
           ),
       ],
+    );
+  }
+
+  Widget _buildAgendaPagination(AgendaProvider provider) {
+    if (provider.agendaList.isEmpty) return const SizedBox.shrink();
+    final totalData = provider.totalData;
+    final currentPage = provider.currentPage;
+    final totalPages = provider.totalPages;
+    final mulai = (currentPage - 1) * 25;
+    final akhir = (mulai + provider.agendaList.length).clamp(0, totalData);
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 24, right: 24, bottom: 24),
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 16,
+        runSpacing: 12,
+        children: [
+          Text(
+            totalData == 0
+                ? 'Tidak ada data'
+                : 'Menampilkan ${mulai + 1} – $akhir dari $totalData agenda',
+            style: TextStyle(fontSize: 13, color: context.teksKedua),
+          ),
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: [
+              _pageBtn(
+                '<',
+                false,
+                currentPage > 1 ? () => _loadData(page: currentPage - 1) : null,
+              ),
+              ...List.generate(totalPages.clamp(0, 5), (i) {
+                final n = i + 1;
+                return _pageBtn(
+                  '$n',
+                  n == currentPage,
+                  () => _loadData(page: n),
+                );
+              }),
+              _pageBtn(
+                '>',
+                false,
+                currentPage < totalPages ? () => _loadData(page: currentPage + 1) : null,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _pageBtn(String text, bool aktif, VoidCallback? onTap) {
+    final mati = onTap == null;
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: aktif ? const Color(0xFF3B82F6) : (mati ? context.latarLembut : context.latarKartu),
+          border: Border.all(color: aktif ? const Color(0xFF3B82F6) : context.garis),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 13,
+            color: aktif ? Colors.white : (mati ? context.teksTersier : context.teksKedua),
+            fontWeight: aktif ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
     );
   }
 

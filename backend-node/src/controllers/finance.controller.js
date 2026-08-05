@@ -58,15 +58,20 @@ function buildFilter(req) {
  */
 function buildQuery(where) {
   return `
-    SELECT f.*,
-           u.nama AS created_by_nama,
-           kk.tipe AS kategori_tipe,
-           SUM(CASE WHEN f.tipe = 'pemasukan' THEN f.jumlah ELSE -f.jumlah END)
-             OVER (ORDER BY f.tanggal, f.created_at
-                   ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_berjalan
-    FROM finances f
-    LEFT JOIN users u ON f.created_by = u.id
-    LEFT JOIN kategori_kas kk ON f.kategori_id = kk.id
+    WITH CTE AS (
+      SELECT f.*,
+             u.nama AS created_by_nama,
+             kk.tipe AS kategori_tipe,
+             SUM(CASE WHEN f.tipe = 'pemasukan' THEN f.jumlah ELSE -f.jumlah END)
+               OVER (ORDER BY f.tanggal, f.created_at
+                     ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_berjalan
+      FROM finances f
+      LEFT JOIN users u ON f.created_by = u.id
+      LEFT JOIN kategori_kas kk ON f.kategori_id = kk.id
+      WHERE f.deleted_at IS NULL
+    )
+    SELECT *, COUNT(*) OVER() AS total_data 
+    FROM CTE AS f
     ${where}
     ORDER BY f.tanggal DESC, f.created_at DESC
   `;
@@ -77,13 +82,29 @@ async function getTransactions(req, res) {
     const { where, params } = buildFilter(req);
     let query = buildQuery(where);
 
-    if (req.query.limit) {
-      params.push(parseInt(req.query.limit, 10));
-      query += ` LIMIT $${params.length}`;
-    }
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 25;
+    const offset = (page - 1) * limit;
+
+    params.push(limit, offset);
+    query += ` LIMIT $${params.length - 1} OFFSET $${params.length}`;
 
     const result = await pool.query(query, params);
-    return res.status(200).json({ success: true, count: result.rows.length, data: result.rows });
+    
+    const totalData = result.rows.length > 0 ? parseInt(result.rows[0].total_data, 10) : 0;
+    const totalPages = Math.ceil(totalData / limit);
+
+    return res.status(200).json({ 
+      success: true, 
+      count: result.rows.length, 
+      data: result.rows,
+      pagination: {
+        total_data: totalData,
+        total_pages: totalPages,
+        current_page: page,
+        limit: limit
+      }
+    });
   } catch (err) {
     console.error('GetTransactions Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
@@ -268,29 +289,6 @@ async function updateTransaction(req, res) {
   }
 }
 
-async function deleteTransaction(req, res) {
-  try {
-    const { id } = req.params;
-
-    const boleh = await pastikanManual(id);
-    if (!boleh.ok) return res.status(boleh.kode).json({ success: false, message: boleh.pesan });
-
-    const result = await pool.query(
-      'DELETE FROM finances WHERE id = $1 RETURNING id, deskripsi, jumlah, tipe',
-      [id]
-    );
-    const hapus = result.rows[0];
-    await logActivity(
-      req,
-      'DELETE',
-      `Menghapus ${hapus.tipe} Kas RT ${rupiah(hapus.jumlah)} — ${hapus.deskripsi || '-'}`
-    );
-    return res.status(200).json({ success: true, message: 'Transaksi berhasil dihapus.', data: hapus });
-  } catch (err) {
-    console.error('DeleteTransaction Error:', err.message);
-    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
-  }
-}
 
 /** Ubah satu baris database menjadi baris export sesuai urutan KOLOM. */
 function toRow(t, index) {
@@ -396,6 +394,5 @@ module.exports = {
   getSummary,
   createTransaction,
   updateTransaction,
-  deleteTransaction,
   exportFinances,
 };

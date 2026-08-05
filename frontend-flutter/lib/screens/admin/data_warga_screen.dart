@@ -80,13 +80,7 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
 
   final TextEditingController _searchController = TextEditingController();
 
-  final int _itemsPerPage = 10;
-  int _currentPage = 1;
   String _searchQuery = '';
-  String _filterHubungan = 'Semua';
-  String _filterDomisili = 'Semua';
-  String _filterStatus = 'Semua';
-  String _filterKtp = 'Semua';
 
   @override
   void initState() {
@@ -107,64 +101,7 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<WargaProvider>();
-    final allData = provider.wargaList;
-
-    // 1. Filter Data based on Search Query
-    final filteredData = allData.where((warga) {
-      final query = _searchQuery.toLowerCase();
-      bool matchesSearch = false;
-
-      if (query.isEmpty) {
-        matchesSearch = true;
-      } else {
-        final nameMatches = (warga['nama']?.toString().toLowerCase() ?? '').contains(query);
-        final nikMatches = (warga['nik']?.toString().toLowerCase() ?? '').contains(query);
-        final kkMatches = (warga['no_kk']?.toString().toLowerCase() ?? '').contains(query);
-        matchesSearch = nameMatches || nikMatches || kkMatches;
-      }
-
-      bool matchesHubungan = true;
-      if (_filterHubungan != 'Semua') {
-        matchesHubungan = (warga['status_keluarga']?.toString() ?? '') == _filterHubungan;
-      }
-
-      bool matchesDomisili = true;
-      if (_filterDomisili != 'Semua') {
-        matchesDomisili = (warga['domisili']?.toString() ?? 'Tetap') == _filterDomisili;
-      }
-
-      bool matchesStatus = true;
-      if (_filterStatus != 'Semua') {
-        bool isAktif = warga['is_aktif'] == true || warga['is_aktif'] == 'true';
-        matchesStatus =
-            (_filterStatus == 'Aktif' && isAktif) || (_filterStatus == 'Tidak Aktif' && !isAktif);
-      }
-
-      bool matchesKtp = true;
-      if (_filterKtp != 'Semua') {
-        bool hasKtp = warga['has_ktp'] == true || warga['has_ktp'] == 'true';
-        matchesKtp = (_filterKtp == 'Sudah' && hasKtp) || (_filterKtp == 'Belum' && !hasKtp);
-      }
-
-      return matchesSearch && matchesHubungan && matchesDomisili && matchesStatus && matchesKtp;
-    }).toList();
-
-    // 2. Pagination Logic
-    final totalPages = (filteredData.length / _itemsPerPage).ceil();
-    if (_currentPage > totalPages && totalPages > 0) {
-      _currentPage = totalPages; // Keep current page in bounds
-    } else if (totalPages == 0) {
-      _currentPage = 1;
-    }
-
-    final startIndex = (_currentPage - 1) * _itemsPerPage;
-    final endIndex = (startIndex + _itemsPerPage > filteredData.length)
-        ? filteredData.length
-        : startIndex + _itemsPerPage;
-
-    final paginatedData = filteredData.isNotEmpty
-        ? filteredData.sublist(startIndex, endIndex)
-        : <Map<String, dynamic>>[];
+    final paginatedData = provider.wargaList;
 
     if (provider.isLoading) {
       return const Center(
@@ -292,7 +229,7 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          '${filteredData.length} Orang',
+                          '${provider.totalData} Orang',
                           style: const TextStyle(
                             color: Color(0xFF065F46),
                             fontSize: 12,
@@ -311,50 +248,6 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                 spacing: 16,
                 runSpacing: 16,
                 children: [
-                  _buildDropdownFilter(
-                    label: 'Hubungan',
-                    value: _filterHubungan,
-                    items: ['Semua', 'Kepala Keluarga', 'Istri', 'Anak', 'Lainnya'],
-                    onChanged: (val) {
-                      setState(() {
-                        _filterHubungan = val!;
-                        _currentPage = 1;
-                      });
-                    },
-                  ),
-                  _buildDropdownFilter(
-                    label: 'Domisili',
-                    value: _filterDomisili,
-                    items: ['Semua', 'Tetap', 'Kontrak', 'Kos'],
-                    onChanged: (val) {
-                      setState(() {
-                        _filterDomisili = val!;
-                        _currentPage = 1;
-                      });
-                    },
-                  ),
-                  _buildDropdownFilter(
-                    label: 'Status',
-                    value: _filterStatus,
-                    items: ['Semua', 'Aktif', 'Tidak Aktif'],
-                    onChanged: (val) {
-                      setState(() {
-                        _filterStatus = val!;
-                        _currentPage = 1;
-                      });
-                    },
-                  ),
-                  _buildDropdownFilter(
-                    label: 'KTP',
-                    value: _filterKtp,
-                    items: ['Semua', 'Sudah', 'Belum'],
-                    onChanged: (val) {
-                      setState(() {
-                        _filterKtp = val!;
-                        _currentPage = 1;
-                      });
-                    },
-                  ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -377,10 +270,8 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                             fontSize: 13,
                           ),
                           onChanged: (val) {
-                            setState(() {
-                              _searchQuery = val;
-                              _currentPage = 1;
-                            });
+                            _searchQuery = val;
+                            context.read<WargaProvider>().fetchWarga(search: _searchQuery, page: 1);
                           },
                           decoration: InputDecoration(
                             filled: true,
@@ -440,82 +331,8 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                     Container(
                       constraints: pakaiKartu(context)
                           ? const BoxConstraints()
-                          : const BoxConstraints(minHeight: 560, maxHeight: 560),
-                      child: _buildWargaTable(paginatedData, startIndex),
-                    ),
-                    const Divider(height: 1),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: Wrap(
-                          alignment: WrapAlignment.spaceBetween,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: [
-                            Text(
-                              filteredData.isEmpty
-                                  ? 'Menampilkan 0 data'
-                                  : 'Menampilkan ${startIndex + 1} - $endIndex dari ${filteredData.length} warga',
-                              style: TextStyle(fontSize: 12, color: context.teksKedua),
-                            ),
-                            Wrap(
-                              children: [
-                                _buildPaginationButton(
-                                  'Sebelumnya',
-                                  false,
-                                  onTap: () {
-                                    if (_currentPage > 1) {
-                                      setState(() => _currentPage--);
-                                    }
-                                  },
-                                ),
-                                const SizedBox(width: 4),
-                                // Generate page buttons dynamically
-                                ...List.generate(totalPages, (index) {
-                                  final pageNumber = index + 1;
-                                  // Simple pagination: show max 3 pages around current
-                                  if (totalPages > 5 &&
-                                      (pageNumber < _currentPage - 1 ||
-                                          pageNumber > _currentPage + 1) &&
-                                      pageNumber != 1 &&
-                                      pageNumber != totalPages) {
-                                    if (pageNumber == 2 || pageNumber == totalPages - 1) {
-                                      return const Padding(
-                                        padding: EdgeInsets.symmetric(horizontal: 4),
-                                        child: Text('...'),
-                                      );
-                                    }
-                                    return const SizedBox.shrink();
-                                  }
-
-                                  return Padding(
-                                    padding: const EdgeInsets.only(right: 4),
-                                    child: _buildPaginationButton(
-                                      pageNumber.toString(),
-                                      true,
-                                      isActive: _currentPage == pageNumber,
-                                      onTap: () {
-                                        setState(() => _currentPage = pageNumber);
-                                      },
-                                    ),
-                                  );
-                                }),
-                                _buildPaginationButton(
-                                  'Berikutnya',
-                                  false,
-                                  onTap: () {
-                                    if (_currentPage < totalPages) {
-                                      setState(() => _currentPage++);
-                                    }
-                                  },
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
+                          : const BoxConstraints(minHeight: 560),
+                      child: _buildWargaTable(provider, paginatedData),
                     ),
                   ],
                 ),
@@ -556,35 +373,7 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
     return SizedBox(width: lebarTombol, child: tombol);
   }
 
-  Widget _buildPaginationButton(
-    String text,
-    bool isNumber, {
-    bool isActive = false,
-    VoidCallback? onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: isNumber ? 12 : 16, vertical: 6),
-        decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF2563EB) : Colors.white,
-          border: Border.all(color: isActive ? const Color(0xFF2563EB) : context.garis),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            color: isActive ? Colors.white : context.teksKedua,
-            fontSize: 12,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWargaTable(List<Map<String, dynamic>> data, int startIndex) {
+  Widget _buildWargaTable(WargaProvider provider, List<Map<String, dynamic>> paginatedData) {
     return Padding(
       padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
       child: TabelResponsif(
@@ -603,11 +392,11 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
           'STATUS',
           'KTP',
         ],
-        baris: data.asMap().entries.map((entry) {
+        baris: paginatedData.asMap().entries.map((entry) {
           final index = entry.key;
           final item = entry.value;
           return _buildWargaRow(
-            (startIndex + index + 1).toString(),
+            (((provider.currentPage - 1) * 25) + index + 1).toString(),
             item['nik']?.toString() ?? '-',
             item['nama']?.toString() ?? '-',
             item['jenis_kelamin']?.toString() ?? '-',
@@ -622,6 +411,11 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
             agama: item['agama']?.toString() ?? '-',
           );
         }).toList(),
+        currentPage: provider.currentPage,
+        totalPages: provider.totalPages,
+        onPageChanged: (page) {
+          context.read<WargaProvider>().fetchWarga(search: _searchQuery, page: page);
+        },
       ),
     );
   }
@@ -1790,51 +1584,4 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
     );
   }
 
-  Widget _buildDropdownFilter({
-    required String label,
-    required String value,
-    required List<String> items,
-    required ValueChanged<String?> onChanged,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: context.teksKedua,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          constraints: const BoxConstraints(minHeight: AppTheme.sasaranSentuh),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: context.latarKartu,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: _isDarkMode ? Colors.transparent : context.garis),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: value,
-              dropdownColor: context.latarKartu,
-              style: TextStyle(color: context.teksUtama, fontSize: 13),
-              icon: Icon(
-                Icons.filter_list,
-                size: 18,
-                color: context.teksKedua,
-              ),
-              items: items.map((String item) {
-                return DropdownMenuItem<String>(value: item, child: Text(item));
-              }).toList(),
-              onChanged: onChanged,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 }

@@ -4,13 +4,39 @@ const { logActivity, ringkas, TIPE } = require('../services/log.service');
 async function getAgenda(req, res) {
   try {
     const { status, tipe } = req.query;
-    let query = `SELECT a.*, u.nama AS created_by_nama FROM agenda a LEFT JOIN users u ON a.created_by = u.id WHERE 1=1`;
+    let query = `SELECT a.*, u.nama AS created_by_nama,
+                 COUNT(*) OVER() AS total_data 
+                 FROM agenda a 
+                 LEFT JOIN users u ON a.created_by = u.id 
+                 WHERE a.deleted_at IS NULL`;
     const params = [];
     if (status && status !== 'Semua') { params.push(status); query += ` AND a.status = $${params.length}`; }
     if (tipe) { params.push(tipe); query += ` AND a.tipe = $${params.length}`; }
     query += ' ORDER BY a.tanggal DESC, a.waktu_mulai DESC';
+
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 25;
+    const offset = (page - 1) * limit;
+
+    params.push(limit, offset);
+    query += ` LIMIT $${params.length - 1} OFFSET $${params.length}`;
+
     const result = await pool.query(query, params);
-    return res.status(200).json({ success: true, count: result.rows.length, data: result.rows });
+
+    const totalData = result.rows.length > 0 ? parseInt(result.rows[0].total_data, 10) : 0;
+    const totalPages = Math.ceil(totalData / limit);
+
+    return res.status(200).json({ 
+      success: true, 
+      count: result.rows.length, 
+      data: result.rows,
+      pagination: {
+        total_data: totalData,
+        total_pages: totalPages,
+        current_page: page,
+        limit: limit
+      }
+    });
   } catch (err) {
     console.error('GetAgenda Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
@@ -57,7 +83,7 @@ async function updateAgenda(req, res) {
 async function deleteAgenda(req, res) {
   try {
     const { id } = req.params;
-    const result = await pool.query('DELETE FROM agenda WHERE id = $1 RETURNING id, judul', [id]);
+    const result = await pool.query('UPDATE agenda SET deleted_at = NOW() WHERE id = $1 RETURNING id, judul', [id]);
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Agenda tidak ditemukan.' });
     await logActivity(req, TIPE.DELETE, `Menghapus agenda "${ringkas(result.rows[0].judul)}"`);
 

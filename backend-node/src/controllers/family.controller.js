@@ -13,12 +13,33 @@ async function getFamilies(req, res) {
           SELECT 1 FROM anggota_keluarga ak2
           WHERE ak2.keluarga_id = k.id AND ak2.status_keluarga = 'Kepala Keluarga'
         ) AS kepala_terkonfirmasi
-      FROM keluarga k WHERE 1=1`;
+      FROM keluarga k WHERE k.deleted_at IS NULL`;
     const params = [];
     if (search) { params.push(`%${search}%`); query += ` AND (k.no_kk ILIKE $${params.length} OR k.kepala_keluarga ILIKE $${params.length} OR k.alamat ILIKE $${params.length})`; }
-    query += ' ORDER BY k.created_at DESC';
+    const countQuery = `SELECT COUNT(*) FROM (${query}) AS total`;
+    const countResult = await pool.query(countQuery, params);
+    const totalData = parseInt(countResult.rows[0].count);
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 25;
+    const offset = (page - 1) * limit;
+    const totalPages = Math.ceil(totalData / limit);
+
+    query += ` ORDER BY k.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    params.push(limit, offset);
+
     const result = await pool.query(query, params);
-    return res.status(200).json({ success: true, count: result.rows.length, data: result.rows });
+    return res.status(200).json({ 
+      success: true, 
+      count: result.rows.length, 
+      pagination: {
+        total_data: totalData,
+        total_pages: totalPages,
+        current_page: page,
+        per_page: limit
+      },
+      data: result.rows 
+    });
   } catch (err) {
     console.error('GetFamilies Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
@@ -95,7 +116,7 @@ async function updateFamily(req, res) {
 async function deleteFamily(req, res) {
   try {
     const { id } = req.params;
-    const result = await pool.query('DELETE FROM keluarga WHERE id = $1 RETURNING id, no_kk', [id]);
+    const result = await pool.query('UPDATE keluarga SET deleted_at = NOW() WHERE id = $1 RETURNING id, no_kk', [id]);
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Kartu Keluarga tidak ditemukan.' });
     await logActivity(req, 'DELETE', `Menghapus kartu keluarga ${result.rows[0].no_kk}`);
     return res.status(200).json({ success: true, message: 'Kartu Keluarga berhasil dihapus.', data: result.rows[0] });

@@ -110,11 +110,30 @@ function buildFilter(req, mulaiDari = 0) {
 async function getBills(req, res) {
   try {
     const { where, params } = buildFilter(req);
-    const result = await pool.query(
-      `${BASE_SELECT} ${where} ORDER BY b.bulan DESC, k.kepala_keluarga ASC`,
-      params
-    );
-    return res.status(200).json({ success: true, count: result.rows.length, data: result.rows });
+    const countQuery = `SELECT COUNT(*) FROM (${BASE_SELECT} ${where}) AS total`;
+    const countResult = await pool.query(countQuery, params);
+    const totalData = parseInt(countResult.rows[0].count);
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 25;
+    const offset = (page - 1) * limit;
+    const totalPages = Math.ceil(totalData / limit);
+
+    const finalQuery = `${BASE_SELECT} ${where} ORDER BY b.bulan DESC, k.kepala_keluarga ASC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    const finalParams = [...params, limit, offset];
+
+    const result = await pool.query(finalQuery, finalParams);
+    return res.status(200).json({ 
+      success: true, 
+      count: result.rows.length, 
+      pagination: {
+        total_data: totalData,
+        total_pages: totalPages,
+        current_page: page,
+        per_page: limit
+      },
+      data: result.rows 
+    });
   } catch (err) {
     console.error('GetBills Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });

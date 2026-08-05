@@ -37,7 +37,7 @@ const BASE_QUERY = `
     k.no_kk, k.alamat, k.rt, k.rw, k.kelurahan, k.kecamatan, k.status_rumah
   FROM anggota_keluarga ak
   JOIN keluarga k ON ak.keluarga_id = k.id
-  WHERE 1=1
+  WHERE k.deleted_at IS NULL
 `;
 
 /** Bangun query daftar warga beserta parameter pencariannya. */
@@ -63,7 +63,6 @@ function buildWargaQuery(search) {
       (ak.has_ktp = false AND 'belum' ILIKE $${params.length})
     )`;
   }
-  query += ' ORDER BY k.no_kk, ak.id ASC';
   return { query, params };
 }
 
@@ -146,7 +145,19 @@ function atauNull(nilai) {
 async function getWarga(req, res) {
   try {
     const { query, params } = buildWargaQuery(req.query.search);
-    const result = await pool.query(query, params);
+    const countQuery = `SELECT COUNT(*) FROM (${query}) AS total`;
+    const countResult = await pool.query(countQuery, params);
+    const totalData = parseInt(countResult.rows[0].count);
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 25;
+    const offset = (page - 1) * limit;
+    const totalPages = Math.ceil(totalData / limit);
+
+    const finalQuery = `${query} ORDER BY k.no_kk, ak.id ASC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    const finalParams = [...params, limit, offset];
+
+    const result = await pool.query(finalQuery, finalParams);
     const sanitizedData = result.rows.map(warga => ({
       ...warga,
       nik: warga.nik || '-',
@@ -165,7 +176,17 @@ async function getWarga(req, res) {
       is_aktif: warga.is_aktif !== false,
       has_ktp: warga.has_ktp === true,
     }));
-    return res.status(200).json({ success: true, count: sanitizedData.length, data: sanitizedData });
+    return res.status(200).json({
+      success: true,
+      count: sanitizedData.length,
+      pagination: {
+        total_data: totalData,
+        total_pages: totalPages,
+        current_page: page,
+        per_page: limit
+      },
+      data: sanitizedData
+    });
   } catch (err) {
     console.error('GetWarga Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
@@ -175,7 +196,8 @@ async function getWarga(req, res) {
 async function exportWargaExcel(req, res) {
   try {
     const { query, params } = buildWargaQuery(req.query.search);
-    const result = await pool.query(query, params);
+    const finalQuery = `${query} ORDER BY k.no_kk, ak.id ASC`;
+    const result = await pool.query(finalQuery, params);
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Data Warga');
@@ -200,7 +222,8 @@ async function exportWargaExcel(req, res) {
 async function exportWargaPdf(req, res) {
   try {
     const { query, params } = buildWargaQuery(req.query.search);
-    const result = await pool.query(query, params);
+    const finalQuery = `${query} ORDER BY k.no_kk, ak.id ASC`;
+    const result = await pool.query(finalQuery, params);
 
     const doc = new PDFDocument({ margin: 30, size: 'A4', layout: 'landscape' });
 

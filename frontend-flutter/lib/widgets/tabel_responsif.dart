@@ -106,6 +106,11 @@ class TabelResponsif extends StatelessWidget {
   final double tinggiBarisMin;
   final double tinggiBarisMaks;
 
+  // Pagination controls
+  final int? currentPage;
+  final int? totalPages;
+  final ValueChanged<int>? onPageChanged;
+
   const TabelResponsif({
     super.key,
     required this.kolom,
@@ -115,6 +120,9 @@ class TabelResponsif extends StatelessWidget {
     this.labelAksi = 'AKSI',
     this.tinggiBarisMin = 60,
     this.tinggiBarisMaks = 80,
+    this.currentPage,
+    this.totalPages,
+    this.onPageChanged,
   });
 
   /// Fungsi, bukan konstanta statis: warnanya kini berasal dari tema, dan tema
@@ -145,7 +153,40 @@ class TabelResponsif extends StatelessWidget {
           );
     }
 
-    return pakaiKartu(context) ? _daftarKartu(context) : _tabel(context);
+    Widget content = pakaiKartu(context) ? _daftarKartu(context) : _tabel(context);
+
+    if (totalPages != null && totalPages! > 1) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          content,
+          const SizedBox(height: 16),
+          _buildPagination(context),
+        ],
+      );
+    }
+    return content;
+  }
+
+  Widget _buildPagination(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.chevron_left),
+          onPressed: (currentPage != null && currentPage! > 1)
+              ? () => onPageChanged?.call(currentPage! - 1)
+              : null,
+        ),
+        Text('Halaman ${currentPage ?? 1} dari ${totalPages ?? 1}'),
+        IconButton(
+          icon: const Icon(Icons.chevron_right),
+          onPressed: (currentPage != null && totalPages != null && currentPage! < totalPages!)
+              ? () => onPageChanged?.call(currentPage! + 1)
+              : null,
+        ),
+      ],
+    );
   }
 
   // --------------------------------------------------------------- tabel

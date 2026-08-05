@@ -7,16 +7,26 @@ class ComplaintProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
 
+  int _currentPage = 1;
+  int _totalPages = 1;
+  int _totalData = 0;
+
   List<Map<String, dynamic>> get complaints => _complaints;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  int get currentPage => _currentPage;
+  int get totalPages => _totalPages;
+  int get totalData => _totalData;
 
-  Future<void> fetchComplaints({String? status, String? search}) async {
+  Future<void> fetchComplaints({String? status, String? search, int page = 1}) async {
     _isLoading = true;
+    _currentPage = page;
     notifyListeners();
     final queryParams = <String, String>{};
     if (status != null) queryParams['status'] = status;
     if (search != null) queryParams['search'] = search;
+    queryParams['page'] = page.toString();
+    queryParams['limit'] = '25';
     final response = await ApiService.get(
       ApiConstants.complaints,
       queryParams: queryParams.isNotEmpty ? queryParams : null,
@@ -24,6 +34,10 @@ class ComplaintProvider extends ChangeNotifier {
     _isLoading = false;
     if (response['success'] == true) {
       _complaints = List<Map<String, dynamic>>.from(response['data'] ?? []);
+      if (response['pagination'] != null) {
+        _totalPages = response['pagination']['total_pages'] ?? 1;
+        _totalData = response['pagination']['total_data'] ?? 0;
+      }
       _errorMessage = null;
     } else {
       _errorMessage = response['message'] as String?;

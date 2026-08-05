@@ -36,8 +36,12 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<LetterProvider>().fetchLetters();
+      _loadData();
     });
+  }
+
+  void _loadData({int page = 1}) {
+    context.read<LetterProvider>().fetchLetters(page: page);
   }
 
   @override
@@ -316,6 +320,7 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
                       }).toList(),
                     ),
                   ),
+                  _buildPagination(provider),
                 ],
               ),
             );
@@ -540,7 +545,84 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
             );
           },
         ),
+        Consumer<LetterProvider>(
+          builder: (context, provider, _) => _buildPagination(provider),
+        ),
       ],
+    );
+  }
+
+  Widget _buildPagination(LetterProvider provider) {
+    if (provider.letters.isEmpty) return const SizedBox.shrink();
+    final totalData = provider.totalData;
+    final currentPage = provider.currentPage;
+    final totalPages = provider.totalPages;
+    final mulai = (currentPage - 1) * 25;
+    final akhir = (mulai + provider.letters.length).clamp(0, totalData);
+
+    return Padding(
+      padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 16,
+        runSpacing: 12,
+        children: [
+          Text(
+            totalData == 0
+                ? 'Tidak ada data'
+                : 'Menampilkan ${mulai + 1} – $akhir dari $totalData surat',
+            style: TextStyle(fontSize: 13, color: context.teksKedua),
+          ),
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: [
+              _pageBtn(
+                '<',
+                false,
+                currentPage > 1 ? () => _loadData(page: currentPage - 1) : null,
+              ),
+              ...List.generate(totalPages.clamp(0, 5), (i) {
+                final n = i + 1;
+                return _pageBtn(
+                  '$n',
+                  n == currentPage,
+                  () => _loadData(page: n),
+                );
+              }),
+              _pageBtn(
+                '>',
+                false,
+                currentPage < totalPages ? () => _loadData(page: currentPage + 1) : null,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _pageBtn(String text, bool aktif, VoidCallback? onTap) {
+    final mati = onTap == null;
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: aktif ? const Color(0xFF1B7A6A) : (mati ? context.latarLembut : context.latarKartu),
+          border: Border.all(color: aktif ? const Color(0xFF1B7A6A) : context.garis),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 13,
+            color: aktif ? Colors.white : (mati ? context.teksTersier : context.teksKedua),
+            fontWeight: aktif ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
     );
   }
 
