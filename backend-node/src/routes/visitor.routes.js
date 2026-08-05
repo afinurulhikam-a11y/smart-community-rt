@@ -8,7 +8,7 @@ router.use(authMiddleware);
 router.get('/', requirePermission('layanan.visitor', 'view'), getVisitors);
 router.get('/stats', requirePermission('layanan.visitor', 'view'), getVisitorStats);
 router.post('/', requirePermission('layanan.visitor', 'create'), createVisitor);
-router.put('/:id/checkout', checkoutVisitor);
+router.put('/:id/checkout', requirePermission('layanan.visitor', 'update'), checkoutVisitor);
 router.delete('/:id', requirePermission('layanan.visitor', 'delete'), deleteVisitor);
 
 module.exports = router;

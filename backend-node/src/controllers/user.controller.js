@@ -247,19 +247,36 @@ async function updateUserCredentials(req, res) {
       return res.status(400).json({ success: false, message: 'NIK wajib diisi.' });
     }
 
+    // Otorisasi SEBELUM transaksi — tolak lebih awal sebelum menyentuh data.
+    const callerRole = req.user.role;
+    const allowedModRoles = ['admin', 'ketua_rt', 'sekretaris'];
+    if (!allowedModRoles.includes(callerRole)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Anda hanya memiliki hak akses lihat (view-only) dan tidak diizinkan mengubah data/kredensial warga.',
+      });
+    }
+
     await client.query('BEGIN');
 
     let userRes = await client.query('SELECT id, role, password_hash FROM users WHERE nik = $1 OR username = $1', [nik]);
     let userId;
 
     if (userRes.rows.length === 0) {
+      // Password wajib saat membuat akun baru — tidak ada lagi default '123456'.
+      if (!password || password.trim() === '') {
+        await client.query('ROLLBACK');
+        return res.status(400).json({
+          success: false,
+          message: 'Password wajib diisi saat membuat akun baru untuk warga.',
+        });
+      }
       const akRes = await client.query('SELECT ak.nama, ak.no_hp, k.no_kk, k.alamat FROM anggota_keluarga ak JOIN keluarga k ON ak.keluarga_id = k.id WHERE ak.nik = $1', [nik]);
       const nama = akRes.rows[0]?.nama || 'Warga';
       const noKk = akRes.rows[0]?.no_kk || '';
       const alamat = akRes.rows[0]?.alamat || '';
-      const defaultPass = password || '123456';
       const salt = await bcrypt.genSalt(10);
-      const hash = await bcrypt.hash(defaultPass, salt);
+      const hash = await bcrypt.hash(password.trim(), salt);
 
       const newU = await client.query(
         'INSERT INTO users (username, email, password_hash, nama, no_hp, no_kk, alamat, role, is_active, nik) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, $9) RETURNING id',
@@ -273,16 +290,6 @@ async function updateUserCredentials(req, res) {
     if (no_hp !== undefined) {
       await client.query('UPDATE users SET no_hp = $1, updated_at = NOW() WHERE id = $2', [no_hp, userId]);
       await client.query('UPDATE anggota_keluarga SET no_hp = $1 WHERE nik = $2', [no_hp, nik]);
-    }
-
-    const callerRole = req.user.role;
-    const allowedModRoles = ['admin', 'ketua_rt', 'sekretaris'];
-    if (!allowedModRoles.includes(callerRole)) {
-      await client.query('ROLLBACK');
-      return res.status(403).json({
-        success: false,
-        message: 'Anda hanya memiliki hak akses lihat (view-only) dan tidak diizinkan mengubah data/kredensial warga.',
-      });
     }
 
     const canChangeRole = callerRole === 'admin' || callerRole === 'ketua_rt';
