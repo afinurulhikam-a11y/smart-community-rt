@@ -87,21 +87,11 @@ class PaymentProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Simulasikan pembayaran lunas untuk keperluan Sandbox / Testing Mode.
-  Future<bool> simulasiLunas(String orderId) async {
-    _isLoading = true;
-    notifyListeners();
-
-    final r = await ApiService.post(ApiConstants.paySimulasiLunas(orderId));
-
-    _isLoading = false;
-    if (r['success'] == true) {
-      notifyListeners();
-      return true;
-    }
-
-    _errorMessage = r['message']?.toString() ?? 'Gagal melakukan simulasi pembayaran.';
-    notifyListeners();
-    return false;
-  }
+  // `simulasiLunas()` DIHAPUS bersama endpoint-nya di backend.
+  //
+  // Metode ini tidak pernah dipanggil satu layar pun, tetapi endpoint yang
+  // dituju bisa melunasi tagihan tanpa uang sungguhan dan memposting uang itu
+  // ke Kas RT — dan izinnya dimiliki setiap warga. Untuk mendemokan pembayaran
+  // tanpa uang, pakai simulator Midtrans Sandbox: statusnya tetap datang dari
+  // server Midtrans sehingga verifikasinya utuh.
 }

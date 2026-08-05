@@ -7,7 +7,6 @@ const {
   riwayat,
   batalkan,
   halamanSelesai,
-  simulasiLunas,
 } = require('../controllers/payment.controller');
 const { authMiddleware, requirePermission } = require('../middleware/auth.middleware');
 
@@ -36,6 +35,24 @@ router.post('/iuran', requirePermission('keuangan.iuran', 'view'), mulaiPembayar
 router.get('/riwayat', requirePermission('keuangan.iuran', 'view'), riwayat);
 router.get('/:order_id/status', requirePermission('keuangan.iuran', 'view'), periksaStatus);
 router.post('/:order_id/batal', requirePermission('keuangan.iuran', 'view'), batalkan);
-router.post('/:order_id/simulasi-lunas', requirePermission('keuangan.iuran', 'view'), simulasiLunas);
+
+// ---------------------------------------------------------------------------
+// `POST /:order_id/simulasi-lunas` DIHAPUS. Jangan dikembalikan.
+//
+// Rute itu menyusun payload `settlement` PALSU di dalam server ini sendiri lalu
+// menyuapkannya ke terapkanStatus() — tanpa pernah memanggil ambilStatus() ke
+// Midtrans, tanpa verifikasi tanda tangan, dan tanpa memeriksa kepemilikan
+// order. Padahal keempat penjaga uang modul ini bertumpu pada satu aturan:
+// tagihan TIDAK PERNAH dilunasi berdasarkan apa yang dikirim aplikasi.
+//
+// Izinnya `keuangan.iuran:view`, yang dimiliki SETIAP warga. Jadi warga mana
+// pun bisa membuat order lalu melunasinya sendiri tanpa membayar sepeser pun,
+// dan catatKeKasRt() memposting uang yang tidak pernah masuk ke Kas RT. Di
+// laporan, hasilnya tidak bisa dibedakan dari pembayaran asli.
+//
+// Untuk mendemokan pembayaran tanpa uang sungguhan, pakai simulator bawaan
+// Midtrans Sandbox — di sana statusnya tetap datang dari server Midtrans, jadi
+// seluruh rantai verifikasi tetap berjalan sebagaimana mestinya.
+// ---------------------------------------------------------------------------
 
 module.exports = router;

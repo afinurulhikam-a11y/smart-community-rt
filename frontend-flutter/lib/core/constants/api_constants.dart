@@ -114,7 +114,8 @@ class ApiConstants {
   static String get payRiwayat => '$baseUrl/payments/riwayat';
   static String payStatus(String orderId) => '$baseUrl/payments/$orderId/status';
   static String payBatal(String orderId) => '$baseUrl/payments/$orderId/batal';
-  static String paySimulasiLunas(String orderId) => '$baseUrl/payments/$orderId/simulasi-lunas';
+  // `paySimulasiLunas` dihapus — endpoint-nya sudah tidak ada di backend.
+  // Lihat komentar di payment.routes.js untuk alasannya.
 
   // Master Jenis Iuran
   static String get jenisIuran => '$baseUrl/jenis-iuran';

@@ -49,7 +49,13 @@ pindahkan migrasi itu ke folder ini.
 | `migration_v15_bersihkan.js` | jatuhkan `roles`, `master_*`, `struktur_rt`, `umkm` |
 | `migration_v19_log_append_only.js` | `activity_logs` jadi hanya-tambah: trigger menolak UPDATE, DELETE, **dan TRUNCATE**, plus tiga indeks |
 | `migration_v20_log_lepas_fk_user.js` | melepas FK `activity_logs.user_id`, yang membuat v19 mustahil dipenuhi |
+| `migration-soft-delete.js` | `deleted_at` pada `users`, `keluarga`, `inventory` |
+| `migration-soft-delete-tahap3.js` | `deleted_at` pada `complaints`, `letters`, `agenda`, `finances` |
 | `fix-db.js` | pembentukan awal tabel inti — digantikan `schema.sql` |
+
+**Kedua skrip soft-delete itu adalah alasan konvensi penamaan ini ada.** Namanya tidak mengikuti pola `migration_vN_*`, jadi keduanya luput saat `schema.sql` ditangkap ulang — dan selama berbulan-bulan `schema.sql` tidak punya kolom `deleted_at` sementara delapan controller menyaring dengan `WHERE deleted_at IS NULL`. Efeknya tidak terlihat di mesin yang sudah pernah menjalankannya, tetapi **setiap instalasi baru langsung mati**: panggilan pertama ke `/api/families`, `/api/complaints`, `/api/letters`, `/api/inventory`, `/api/finances`, atau `/api/users` gagal dengan `column "deleted_at" does not exist`.
+
+Kolomnya kini ada di `schema.sql`, jadi instalasi baru tidak perlu menjalankan keduanya. Beri nama `migration_vN_*.js` untuk migrasi berikutnya, dan tangkap ulang `schema.sql` sesudahnya.
 
 **v19 dan v20 sudah ada di `schema.sql`, jadi instalasi baru tidak perlu menjalankannya.** Keduanya disimpan karena mencatat dua hal yang tidak terbaca dari hasil akhirnya:
 
