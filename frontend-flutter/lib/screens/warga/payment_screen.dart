@@ -227,6 +227,25 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 
+  Future<void> _simulasiBayarLunas() async {
+    if (_sedangPeriksa) return;
+    setState(() => _sedangPeriksa = true);
+
+    final ok = await context.read<PaymentProvider>().simulasiLunas(widget.sesi.orderId);
+    if (!mounted) return;
+    setState(() => _sedangPeriksa = false);
+
+    if (ok) {
+      _pesan('Simulasi Pembayaran Berhasil! Tagihan Anda telah Lunas.');
+      Navigator.of(context).pop(true);
+    } else {
+      _pesan(
+        context.read<PaymentProvider>().errorMessage ?? 'Gagal melakukan simulasi.',
+        sukses: false,
+      );
+    }
+  }
+
   Widget _bilahBawah() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -254,7 +273,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _hijau,
                   foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 48),
+                  minimumSize: const Size(double.infinity, 44),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 icon: _sedangPeriksa
@@ -268,6 +287,21 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   _sedangPeriksa ? 'Memeriksa...' : 'Periksa Status Pembayaran',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _sedangPeriksa ? null : _simulasiBayarLunas,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF10B981),
+                side: const BorderSide(color: Color(0xFF10B981)),
+                minimumSize: const Size(double.infinity, 44),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              icon: const Icon(Icons.bolt, size: 18),
+              label: const Text(
+                '⚡ Simulasikan Bayar Lunas (Testing Sandbox)',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
           ],

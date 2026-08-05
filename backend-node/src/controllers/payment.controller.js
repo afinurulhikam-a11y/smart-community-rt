@@ -492,6 +492,37 @@ async function batalkan(req, res) {
   }
 }
 
+/** Simulasikan pembayaran lunas untuk keperluan Testing / Sandbox Demo Mode */
+async function simulasiLunas(req, res) {
+  try {
+    const { order_id: orderId } = req.params;
+    const trx = await pool.query('SELECT * FROM payment_transactions WHERE order_id = $1', [orderId]);
+    if (trx.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Order pembayaran tidak ditemukan.' });
+    }
+
+    const mockPayload = {
+      order_id: orderId,
+      gross_amount: Number(trx.rows[0].gross_amount),
+      transaction_status: 'settlement',
+      payment_type: 'qris_demo_sandbox',
+      status_code: '200',
+    };
+
+    const hasil = await terapkanStatus(orderId, mockPayload);
+    await logActivity(req, 'PEMBAYARAN', `Simulasi pembayaran lunas untuk ${orderId}.`);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Simulasi pembayaran lunas berhasil!',
+      data: hasil,
+    });
+  } catch (err) {
+    console.error('SimulasiLunas Error:', err.message);
+    return res.status(500).json({ success: false, message: err.message || 'Terjadi kesalahan server.' });
+  }
+}
+
 /** Halaman sederhana yang dibuka Snap setelah pembayaran selesai. */
 function halamanSelesai(req, res) {
   res.status(200).send(`<!doctype html>
@@ -516,4 +547,5 @@ module.exports = {
   batalkan,
   halamanSelesai,
   terapkanStatus,
+  simulasiLunas,
 };

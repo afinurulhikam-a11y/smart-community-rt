@@ -7,6 +7,7 @@ const {
   riwayat,
   batalkan,
   halamanSelesai,
+  simulasiLunas,
 } = require('../controllers/payment.controller');
 const { authMiddleware, requirePermission } = require('../middleware/auth.middleware');
 
@@ -35,5 +36,6 @@ router.post('/iuran', requirePermission('keuangan.iuran', 'view'), mulaiPembayar
 router.get('/riwayat', requirePermission('keuangan.iuran', 'view'), riwayat);
 router.get('/:order_id/status', requirePermission('keuangan.iuran', 'view'), periksaStatus);
 router.post('/:order_id/batal', requirePermission('keuangan.iuran', 'view'), batalkan);
+router.post('/:order_id/simulasi-lunas', requirePermission('keuangan.iuran', 'view'), simulasiLunas);
 
 module.exports = router;

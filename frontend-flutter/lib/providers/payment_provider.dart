@@ -86,4 +86,22 @@ class PaymentProvider extends ChangeNotifier {
     _isLoading = false;
     notifyListeners();
   }
+
+  /// Simulasikan pembayaran lunas untuk keperluan Sandbox / Testing Mode.
+  Future<bool> simulasiLunas(String orderId) async {
+    _isLoading = true;
+    notifyListeners();
+
+    final r = await ApiService.post(ApiConstants.paySimulasiLunas(orderId));
+
+    _isLoading = false;
+    if (r['success'] == true) {
+      notifyListeners();
+      return true;
+    }
+
+    _errorMessage = r['message']?.toString() ?? 'Gagal melakukan simulasi pembayaran.';
+    notifyListeners();
+    return false;
+  }
 }

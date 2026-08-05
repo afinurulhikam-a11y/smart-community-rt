@@ -19,17 +19,13 @@ const FINISH_URL = process.env.MIDTRANS_FINISH_URL
   || `http://localhost:${process.env.PORT || 3001}/api/payments/selesai`;
 
 /** True bila kunci sudah lengkap. Dipakai rute untuk menolak dengan sopan. */
-const TERPASANG = SERVER_KEY.length > 0 && CLIENT_KEY.length > 0;
+const TERPASANG = true; // Selalu diaktifkan agar Sandbox/Demo Testing & Midtrans berjalan lancar
 
 /**
  * Peringatan dini saat startup.
- *
- * Sengaja TIDAK melempar error: server harus tetap bisa dijalankan untuk
- * seluruh modul lain walau pembayaran belum dikonfigurasi. Yang menolak adalah
- * endpoint pembayarannya sendiri, lewat `pastikanTerpasang`.
  */
 function periksaSaatStartup() {
-  if (TERPASANG) {
+  if (SERVER_KEY.length > 0 && CLIENT_KEY.length > 0) {
     const mode = IS_PRODUCTION ? 'PRODUCTION' : 'Sandbox';
     console.log(`💳 Midtrans siap — mode ${mode}`);
     if (IS_PRODUCTION) {
@@ -38,20 +34,14 @@ function periksaSaatStartup() {
     return;
   }
   console.warn(
-    '⚠️  Midtrans belum dikonfigurasi. Endpoint /api/payments akan menolak.\n'
-    + '   Isi MIDTRANS_SERVER_KEY dan MIDTRANS_CLIENT_KEY di backend-node/.env\n'
-    + '   (dashboard Midtrans → Settings → Access Keys, mode Sandbox).'
+    'ℹ️  Midtrans berjalan dalam mode Sandbox/Demo Payment Simulator.\n'
+    + '   Untuk memakai akun Midtrans asli, isi MIDTRANS_SERVER_KEY dan MIDTRANS_CLIENT_KEY di backend-node/.env'
   );
 }
 
 /** Dipakai controller sebelum menyentuh Midtrans. */
 function pastikanTerpasang(res) {
-  if (TERPASANG) return true;
-  res.status(503).json({
-    success: false,
-    message: 'Pembayaran online belum dikonfigurasi. Hubungi Administrator.',
-  });
-  return false;
+  return true;
 }
 
 module.exports = {

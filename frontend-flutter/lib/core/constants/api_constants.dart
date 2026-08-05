@@ -114,6 +114,7 @@ class ApiConstants {
   static String get payRiwayat => '$baseUrl/payments/riwayat';
   static String payStatus(String orderId) => '$baseUrl/payments/$orderId/status';
   static String payBatal(String orderId) => '$baseUrl/payments/$orderId/batal';
+  static String paySimulasiLunas(String orderId) => '$baseUrl/payments/$orderId/simulasi-lunas';
 
   // Master Jenis Iuran
   static String get jenisIuran => '$baseUrl/jenis-iuran';
