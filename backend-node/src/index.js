@@ -6,6 +6,7 @@ const morgan = require('morgan');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const http = require('http');
+const path = require('path');
 
 // Config
 const { initWebSocket } = require('./config/websocket');
@@ -40,6 +41,7 @@ const menuAksesRoutes = require('./routes/menu_akses.routes');
 const resetRoutes = require('./routes/reset.routes');
 const paymentRoutes = require('./routes/payment.routes');
 const patrolRoutes = require('./routes/patrol.routes');
+const uploadRoutes = require('./routes/upload.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -101,6 +103,7 @@ app.use(compression());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(morgan('dev'));
+app.use('/public', express.static(path.join(__dirname, '../public')));
 
 // ========================
 // Routes
@@ -133,6 +136,7 @@ app.use('/api/menu-akses', menuAksesRoutes);
 app.use('/api/reset', resetRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/patrol', patrolRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

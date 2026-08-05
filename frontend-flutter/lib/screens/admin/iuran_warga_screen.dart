@@ -46,7 +46,6 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
   bool get _bolehHapus => context.watch<PermissionProvider>().bolehHapus(_kodeIzin);
 
   int _itemsPerPage = 25;
-  int _currentPage = 1;
   String _searchQuery = '';
   String _status = 'Semua Status';
   int? _jenisIuranId;
@@ -82,17 +81,16 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
     return '$_tahun-${(idx + 1).toString().padLeft(2, '0')}';
   }
 
-  void _loadData() {
+  void _loadData({int page = 1}) {
     context.read<BillProvider>().fetchBills(
       status: _status == 'Semua Status' ? null : (_status == 'Lunas' ? 'lunas' : 'unpaid'),
       bulan: _periodeFilter,
-      // Saat bulan tertentu dipilih, tahun sudah ikut di dalamnya.
       tahun: _periodeFilter == null ? _tahun : null,
       jenisIuranId: _jenisIuranId,
       search: _searchQuery.isEmpty ? null : _searchQuery,
+      page: page,
     );
     setState(() {
-      _currentPage = 1;
       _terpilih.clear();
     });
   }
@@ -114,11 +112,8 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
     final provider = context.watch<BillProvider>();
     final semua = provider.bills;
 
-    final totalHalaman = (semua.length / _itemsPerPage).ceil();
-    if (_currentPage > totalHalaman && totalHalaman > 0) _currentPage = totalHalaman;
-    final mulai = (_currentPage - 1) * _itemsPerPage;
-    final akhir = (mulai + _itemsPerPage).clamp(0, semua.length);
-    final halamanIni = semua.isEmpty ? <BillModel>[] : semua.sublist(mulai, akhir);
+    final totalHalaman = provider.totalPages;
+    final halamanIni = semua;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -623,7 +618,7 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                             ].map((v) => DropdownMenuItem(value: v, child: Text('$v'))).toList(),
                             onChanged: (v) => setState(() {
                               _itemsPerPage = v!;
-                              _currentPage = 1;
+                              _loadData(page: 1);
                             }),
                           ),
                         ),
@@ -736,57 +731,14 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                 },
                 baris: List.generate(halamanIni.length, (i) {
                   final b = halamanIni[i];
-                  return _buildRow(b, (_currentPage - 1) * _itemsPerPage + i + 1);
+                  return _buildRow(b, ((provider.currentPage - 1) * 25) + i + 1);
                 }),
+                currentPage: provider.currentPage,
+                totalPages: provider.totalPages,
+                onPageChanged: (page) => _loadData(page: page),
               ),
             ),
-          const Divider(height: 1),
-          Padding(
-            padding: EdgeInsets.all(paddingKartu(context)),
-            child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 16,
-              runSpacing: 12,
-              children: [
-                Text(
-                  semua.isEmpty
-                      ? 'Total Data: 0'
-                      : 'Menampilkan ${(_currentPage - 1) * _itemsPerPage + 1}'
-                            '–${((_currentPage - 1) * _itemsPerPage + halamanIni.length)}'
-                            ' dari ${semua.length}',
-                  style: TextStyle(fontSize: 13, color: context.teksKedua),
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _pageBtn(
-                      '<',
-                      false,
-                      _currentPage > 1 ? () => setState(() => _currentPage--) : null,
-                    ),
-                    const SizedBox(width: 4),
-                    ...List.generate(totalHalaman.clamp(0, 5), (i) {
-                      final n = i + 1;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: _pageBtn(
-                          '$n',
-                          n == _currentPage,
-                          () => setState(() => _currentPage = n),
-                        ),
-                      );
-                    }),
-                    _pageBtn(
-                      '>',
-                      false,
-                      _currentPage < totalHalaman ? () => setState(() => _currentPage++) : null,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+          // Hapus pagination lama, karena sudah ditangani oleh TabelResponsif
         ],
       ),
     );
@@ -928,28 +880,7 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
     );
   }
 
-  Widget _pageBtn(String text, bool aktif, VoidCallback? onTap) {
-    final mati = onTap == null;
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: aktif ? const Color(0xFF3B82F6) : (mati ? context.latarLembut : Colors.white),
-          border: Border.all(color: aktif ? const Color(0xFF3B82F6) : context.garis),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: 13,
-            color: aktif ? Colors.white : (mati ? context.teksTersier : context.teksKedua),
-            fontWeight: aktif ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-      ),
-    );
-  }
+
 
   // --------------------------------------------------------------- actions
 

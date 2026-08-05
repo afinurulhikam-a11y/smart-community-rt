@@ -8,14 +8,26 @@ class WargaProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
 
+  // Pagination
+  int _currentPage = 1;
+  int _totalPages = 1;
+  int _totalData = 0;
+
   List<Map<String, dynamic>> get wargaList => _wargaList;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  Future<void> fetchWarga({String? search}) async {
+  int get currentPage => _currentPage;
+  int get totalPages => _totalPages;
+  int get totalData => _totalData;
+
+  Future<void> fetchWarga({String? search, int page = 1}) async {
     _isLoading = true;
     notifyListeners();
-    final queryParams = <String, String>{};
+    final queryParams = <String, String>{
+      'page': page.toString(),
+      'limit': '25',
+    };
     if (search != null && search.isNotEmpty) queryParams['search'] = search;
 
     final response = await ApiService.get(
@@ -25,6 +37,12 @@ class WargaProvider extends ChangeNotifier {
     _isLoading = false;
     if (response['success'] == true) {
       _wargaList = List<Map<String, dynamic>>.from(response['data'] ?? []);
+      final pag = response['pagination'] as Map<String, dynamic>?;
+      if (pag != null) {
+        _currentPage = pag['current_page'] as int? ?? 1;
+        _totalPages = pag['total_pages'] as int? ?? 1;
+        _totalData = pag['total_data'] as int? ?? 0;
+      }
       _errorMessage = null;
     } else {
       _errorMessage = response['message'] as String?;

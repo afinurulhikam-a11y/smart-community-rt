@@ -88,7 +88,7 @@ const SELECT_BARANG = `
 
 function filterBarang(req) {
   const { kategori, kondisi, search } = req.query;
-  const kondisiArr = [];
+  const kondisiArr = ['i.deleted_at IS NULL'];
   const params = [];
   const p = () => `$${params.length}`;
 
@@ -279,7 +279,7 @@ async function deleteInventory(req, res) {
       });
     }
 
-    const result = await pool.query('DELETE FROM inventory WHERE id = $1 RETURNING id, nama_barang', [id]);
+    const result = await pool.query('UPDATE inventory SET deleted_at = NOW() WHERE id = $1 RETURNING id, nama_barang', [id]);
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Barang tidak ditemukan.' });
     }
@@ -449,6 +449,13 @@ async function createBorrowing(req, res) {
 
     await client.query('BEGIN');
 
+    // Mengunci baris inventory untuk mencegah race condition (Stok Minus) jika ada request bersamaan
+    const lock = await client.query('SELECT id FROM inventory WHERE id = $1 FOR UPDATE', [inventory_id]);
+    if (lock.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, message: 'Barang tidak ditemukan.' });
+    }
+
     const stok = await hitungTersedia(client, inventory_id);
     if (!stok) {
       await client.query('ROLLBACK');
@@ -523,6 +530,9 @@ async function updateBorrowing(req, res) {
     // Saat jumlah dinaikkan, ketersediaan dihitung tanpa menghitung baris ini
     // sendiri agar tidak menghalangi dirinya.
     if (jumlah !== undefined && pinjam.status === STATUS_DIPINJAM) {
+      // Mengunci baris inventory untuk mencegah race condition
+      await client.query('SELECT id FROM inventory WHERE id = $1 FOR UPDATE', [pinjam.inventory_id]);
+
       const stok = await hitungTersedia(client, pinjam.inventory_id, Number(id));
       if (stok && stok.tersedia < Number(jumlah)) {
         await client.query('ROLLBACK');

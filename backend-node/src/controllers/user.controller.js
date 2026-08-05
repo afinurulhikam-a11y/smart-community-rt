@@ -5,7 +5,7 @@ const { logActivity, TIPE } = require('../services/log.service');
 async function getUsers(req, res) {
   try {
     const { role, no_rt, search } = req.query;
-    let query = `SELECT id, nama, email, no_hp, no_kk, alamat, no_rt, role, is_active, created_at FROM users WHERE 1=1`;
+    let query = `SELECT id, nama, email, no_hp, no_kk, alamat, no_rt, role, is_active, created_at FROM users WHERE deleted_at IS NULL`;
     const params = [];
 
     const pengurusRoles = ['ketua_rt', 'sekretaris', 'bendahara'];
@@ -151,7 +151,7 @@ async function getPendingUsers(req, res) {
     const result = await pool.query(
       `SELECT id, nama, email, no_hp, no_kk, alamat, no_rt, role, created_at 
        FROM users 
-       WHERE is_active = false 
+       WHERE is_active = false AND deleted_at IS NULL
        ORDER BY created_at ASC`
     );
     return res.status(200).json({ success: true, count: result.rows.length, data: result.rows });
@@ -184,7 +184,7 @@ async function deleteUser(req, res) {
     const korban = await pool.query('SELECT nama, email, role FROM users WHERE id = $1', [id]);
     const u = korban.rows[0] || {};
 
-    await pool.query('DELETE FROM users WHERE id = $1', [id]);
+    await pool.query('UPDATE users SET deleted_at = NOW(), is_active = false WHERE id = $1', [id]);
 
     await logActivity(
       req,
@@ -205,7 +205,7 @@ async function getUserByNik(req, res) {
     const result = await pool.query(
       `SELECT u.id, u.username, u.email, u.nama, u.no_hp, u.no_kk, u.role, u.is_active, u.nik
        FROM users u
-       WHERE u.nik = $1 OR u.username = $1`,
+       WHERE (u.nik = $1 OR u.username = $1) AND u.deleted_at IS NULL`,
       [nik]
     );
 
@@ -259,7 +259,7 @@ async function updateUserCredentials(req, res) {
 
     await client.query('BEGIN');
 
-    let userRes = await client.query('SELECT id, role, password_hash FROM users WHERE nik = $1 OR username = $1', [nik]);
+    let userRes = await client.query('SELECT id, role, password_hash FROM users WHERE (nik = $1 OR username = $1) AND deleted_at IS NULL', [nik]);
     let userId;
 
     if (userRes.rows.length === 0) {

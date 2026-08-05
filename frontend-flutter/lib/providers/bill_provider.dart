@@ -10,10 +10,19 @@ class BillProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
 
+  // Pagination
+  int _currentPage = 1;
+  int _totalPages = 1;
+  int _totalData = 0;
+
   List<BillModel> get bills => _bills;
   BillStats get stats => _stats;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+
+  int get currentPage => _currentPage;
+  int get totalPages => _totalPages;
+  int get totalData => _totalData;
 
   List<BillModel> get unpaidBills => _bills.where((b) => !b.isLunas).toList();
   List<BillModel> get paidBills => _bills.where((b) => b.isLunas).toList();
@@ -47,6 +56,7 @@ class BillProvider extends ChangeNotifier {
     String? tahun,
     int? jenisIuranId,
     String? search,
+    int page = 1,
   }) async {
     _isLoading = true;
     notifyListeners();
@@ -59,9 +69,13 @@ class BillProvider extends ChangeNotifier {
       search: search,
     );
 
+    final query = Map<String, String>.from(_filterAktif);
+    query['page'] = page.toString();
+    query['limit'] = '25';
+
     final response = await ApiService.get(
       ApiConstants.bills,
-      queryParams: _filterAktif.isNotEmpty ? _filterAktif : null,
+      queryParams: query,
     );
 
     if (response['success'] == true) {
@@ -69,6 +83,12 @@ class BillProvider extends ChangeNotifier {
           .whereType<Map<String, dynamic>>()
           .map(BillModel.fromJson)
           .toList();
+      final pag = response['pagination'] as Map<String, dynamic>?;
+      if (pag != null) {
+        _currentPage = pag['current_page'] as int? ?? 1;
+        _totalPages = pag['total_pages'] as int? ?? 1;
+        _totalData = pag['total_data'] as int? ?? 0;
+      }
       _errorMessage = null;
     } else {
       _errorMessage = response['message'] as String?;
@@ -97,6 +117,7 @@ class BillProvider extends ChangeNotifier {
         ? null
         : int.tryParse(_filterAktif['jenis_iuran_id']!),
     search: _filterAktif['search'],
+    page: _currentPage,
   );
 
   Future<Map<String, dynamic>> createBill({

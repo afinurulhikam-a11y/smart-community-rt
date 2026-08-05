@@ -10,10 +10,17 @@ class FinanceProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
 
+  int _currentPage = 1;
+  int _totalPages = 1;
+  int _totalData = 0;
+
   List<FinanceModel> get transactions => _transactions;
   FinanceSummary? get summary => _summary;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  int get currentPage => _currentPage;
+  int get totalPages => _totalPages;
+  int get totalData => _totalData;
 
   /// Filter yang sedang aktif, dipakai bersama oleh daftar, ringkasan, dan
   /// export supaya angka di ketiganya tidak pernah berbeda.
@@ -26,8 +33,10 @@ class FinanceProvider extends ChangeNotifier {
     String? tahun,
     int? kategoriId,
     String? search,
+    int page = 1,
   }) async {
     _isLoading = true;
+    _currentPage = page;
     notifyListeners();
 
     _filterAktif = {
@@ -38,9 +47,13 @@ class FinanceProvider extends ChangeNotifier {
       if (search != null && search.isNotEmpty) 'search': search,
     };
 
+    final params = Map<String, String>.from(_filterAktif);
+    params['page'] = page.toString();
+    params['limit'] = '25';
+
     final response = await ApiService.get(
       ApiConstants.finances,
-      queryParams: _filterAktif.isNotEmpty ? _filterAktif : null,
+      queryParams: params,
     );
 
     if (response['success'] == true) {
@@ -48,6 +61,10 @@ class FinanceProvider extends ChangeNotifier {
           .whereType<Map<String, dynamic>>()
           .map(FinanceModel.fromJson)
           .toList();
+      if (response['pagination'] != null) {
+        _totalPages = response['pagination']['total_pages'] ?? 1;
+        _totalData = response['pagination']['total_data'] ?? 0;
+      }
       _errorMessage = null;
     } else {
       _errorMessage = response['message'] as String?;
@@ -123,11 +140,6 @@ class FinanceProvider extends ChangeNotifier {
     return response;
   }
 
-  Future<Map<String, dynamic>> deleteTransaction(String id) async {
-    final response = await ApiService.delete(ApiConstants.finance(id));
-    if (response['success'] == true) await refresh();
-    return response;
-  }
 
   /// Unduh laporan dengan filter aktif. Token lewat query param karena browser
   /// tidak menyertakan header pada navigasi unduhan.

@@ -4,15 +4,39 @@ const { logActivity, ringkas, TIPE } = require('../services/log.service');
 async function getLetters(req, res) {
   try {
     const { status, user_id } = req.query;
-    let query = `SELECT l.*, u.nama AS nama_pemohon, u.alamat, u.no_kk, a.nama AS approved_by_nama
-      FROM letters l JOIN users u ON l.user_id = u.id LEFT JOIN users a ON l.approved_by = a.id WHERE 1=1`;
+    let query = `SELECT l.*, u.nama AS nama_pemohon, u.alamat, u.no_kk, a.nama AS approved_by_nama,
+                 COUNT(*) OVER() AS total_data
+                 FROM letters l JOIN users u ON l.user_id = u.id LEFT JOIN users a ON l.approved_by = a.id 
+                 WHERE l.deleted_at IS NULL`;
     const params = [];
     if (req.user.role === 'warga') { params.push(req.user.id); query += ` AND l.user_id = $${params.length}`; }
     else if (user_id) { params.push(user_id); query += ` AND l.user_id = $${params.length}`; }
     if (status) { params.push(status); query += ` AND l.status = $${params.length}`; }
     query += ' ORDER BY l.created_at DESC';
+
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 25;
+    const offset = (page - 1) * limit;
+
+    params.push(limit, offset);
+    query += ` LIMIT $${params.length - 1} OFFSET $${params.length}`;
+
     const result = await pool.query(query, params);
-    return res.status(200).json({ success: true, count: result.rows.length, data: result.rows });
+
+    const totalData = result.rows.length > 0 ? parseInt(result.rows[0].total_data, 10) : 0;
+    const totalPages = Math.ceil(totalData / limit);
+
+    return res.status(200).json({ 
+      success: true, 
+      count: result.rows.length, 
+      data: result.rows,
+      pagination: {
+        total_data: totalData,
+        total_pages: totalPages,
+        current_page: page,
+        limit: limit
+      }
+    });
   } catch (err) {
     console.error('GetLetters Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });

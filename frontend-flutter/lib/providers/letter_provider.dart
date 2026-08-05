@@ -8,9 +8,17 @@ class LetterProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
 
+  int _currentPage = 1;
+  int _totalPages = 1;
+  int _totalData = 0;
+
   List<LetterModel> get letters => _letters;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  int get currentPage => _currentPage;
+  int get totalPages => _totalPages;
+  int get totalData => _totalData;
+
   int get pendingCount => _letters
       .where(
         (l) =>
@@ -28,11 +36,14 @@ class LetterProvider extends ChangeNotifier {
       )
       .toList();
 
-  Future<void> fetchLetters({String? status}) async {
+  Future<void> fetchLetters({String? status, int page = 1}) async {
     _isLoading = true;
+    _currentPage = page;
     notifyListeners();
     final queryParams = <String, String>{};
     if (status != null) queryParams['status'] = status;
+    queryParams['page'] = page.toString();
+    queryParams['limit'] = '25';
     final response = await ApiService.get(
       ApiConstants.letters,
       queryParams: queryParams.isNotEmpty ? queryParams : null,
@@ -40,6 +51,10 @@ class LetterProvider extends ChangeNotifier {
     if (response['success'] == true) {
       final dataList = response['data'] as List<dynamic>;
       _letters = dataList.map((j) => LetterModel.fromJson(j as Map<String, dynamic>)).toList();
+      if (response['pagination'] != null) {
+        _totalPages = response['pagination']['total_pages'] ?? 1;
+        _totalData = response['pagination']['total_data'] ?? 0;
+      }
       _errorMessage = null;
     } else {
       _errorMessage = response['message'] as String?;

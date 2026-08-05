@@ -48,11 +48,12 @@ class _PengaduanScreenState extends State<PengaduanScreen> {
     super.dispose();
   }
 
-  void _loadData() {
+  void _loadData({int page = 1}) {
     final provider = context.read<ComplaintProvider>();
     provider.fetchComplaints(
       status: _status == 'Semua Status' ? null : _status,
       search: _searchController.text.isNotEmpty ? _searchController.text : null,
+      page: page,
     );
   }
 
@@ -632,12 +633,87 @@ class _PengaduanScreenState extends State<PengaduanScreen> {
                   );
                 },
               ),
-
+              const SizedBox(height: 16),
+              Consumer<ComplaintProvider>(
+                builder: (context, provider, child) {
+                  if (provider.complaints.isEmpty) return const SizedBox.shrink();
+                  final totalData = provider.totalData;
+                  final currentPage = provider.currentPage;
+                  final totalPages = provider.totalPages;
+                  final mulai = (currentPage - 1) * 25;
+                  final akhir = (mulai + provider.complaints.length).clamp(0, totalData);
+                  
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 16,
+                      runSpacing: 12,
+                      children: [
+                        Text(
+                          totalData == 0
+                              ? 'Tidak ada data'
+                              : 'Menampilkan ${mulai + 1} – $akhir dari $totalData pengaduan',
+                          style: TextStyle(fontSize: 13, color: context.teksKedua),
+                        ),
+                        Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: [
+                            _pageBtn(
+                              '<',
+                              false,
+                              currentPage > 1 ? () => _loadData(page: currentPage - 1) : null,
+                            ),
+                            ...List.generate(totalPages.clamp(0, 5), (i) {
+                              final n = i + 1;
+                              return _pageBtn(
+                                '$n',
+                                n == currentPage,
+                                () => _loadData(page: n),
+                              );
+                            }),
+                            _pageBtn(
+                              '>',
+                              false,
+                              currentPage < totalPages ? () => _loadData(page: currentPage + 1) : null,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
               const SizedBox(height: 20),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _pageBtn(String text, bool aktif, VoidCallback? onTap) {
+    final mati = onTap == null;
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: aktif ? const Color(0xFF0F766E) : (mati ? context.latarLembut : context.latarKartu),
+          border: Border.all(color: aktif ? const Color(0xFF0F766E) : context.garis),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 13,
+            color: aktif ? Colors.white : (mati ? context.teksTersier : context.teksKedua),
+            fontWeight: aktif ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
     );
   }
 }
