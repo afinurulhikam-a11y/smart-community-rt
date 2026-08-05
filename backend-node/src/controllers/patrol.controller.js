@@ -229,7 +229,9 @@ async function getAttendances(req, res) {
   try {
     const { tanggal } = req.query;
     let query = `
-      SELECT a.*, u.username, u.role
+      SELECT a.*, 
+             COALESCE(NULLIF(u.nama, ''), NULLIF(u.username, ''), NULLIF(a.nama_petugas, ''), 'Warga') AS nama_petugas,
+             u.username, u.role
       FROM patrol_attendances a
       LEFT JOIN users u ON a.user_id = u.id
       WHERE 1=1
@@ -275,7 +277,14 @@ async function submitAttendance(req, res) {
   try {
     const { schedule_id, kode_qr, tipe_absen, lokasi_pos, catatan, foto_url } = req.body;
     const userId = req.user.id;
-    const namaPetugas = req.user.nama || req.user.username || 'Warga';
+    let namaPetugas = req.user.nama || req.user.username;
+    if (!namaPetugas) {
+      const uRes = await pool.query('SELECT nama, username FROM users WHERE id = $1', [userId]);
+      if (uRes.rows.length > 0) {
+        namaPetugas = uRes.rows[0].nama || uRes.rows[0].username;
+      }
+    }
+    if (!namaPetugas) namaPetugas = 'Warga';
 
     // Admin boleh bypass tanpa scan QR
     if (req.user.role !== 'admin') {
