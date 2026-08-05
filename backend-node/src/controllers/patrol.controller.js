@@ -40,6 +40,16 @@ async function createSchedule(req, res) {
       return res.status(400).json({ success: false, message: 'Hari dan nama petugas ronda wajib diisi.' });
     }
 
+    if (tanggal) {
+      const checkExist = await pool.query('SELECT id FROM patrol_schedules WHERE tanggal = $1', [tanggal]);
+      if (checkExist.rows.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Jadwal siskamling untuk tanggal tersebut sudah ada! Silakan gunakan tombol Edit untuk memperbarui.',
+        });
+      }
+    }
+
     const formattedPetugas = formatNamaPetugas(petugas_warga);
 
     const result = await pool.query(
@@ -59,6 +69,17 @@ async function updateSchedule(req, res) {
   try {
     const { id } = req.params;
     const { hari, tanggal, shift, petugas_warga, keterangan } = req.body;
+
+    if (tanggal) {
+      const checkExist = await pool.query('SELECT id FROM patrol_schedules WHERE tanggal = $1 AND id != $2', [tanggal, id]);
+      if (checkExist.rows.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Jadwal siskamling untuk tanggal tersebut sudah ada pada jadwal lain!',
+        });
+      }
+    }
+
     const formattedPetugas = petugas_warga ? formatNamaPetugas(petugas_warga) : null;
 
     const result = await pool.query(

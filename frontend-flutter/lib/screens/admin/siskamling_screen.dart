@@ -303,24 +303,35 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                 ),
               ),
               if (_bolehHapus)
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                  onPressed: () async {
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (c) => AlertDialog(
-                        title: const Text('Hapus Jadwal'),
-                        content: Text('Hapus jadwal ronda hari $hari?'),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Batal')),
-                          TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Hapus', style: TextStyle(color: Colors.red))),
-                        ],
-                      ),
-                    );
-                    if (confirm == true) {
-                      await provider.deleteSchedule(s['id']);
-                    }
-                  },
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF1B7A6A)),
+                      tooltip: 'Edit Jadwal',
+                      onPressed: () => _showEditJadwalDialog(context, s),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                      tooltip: 'Hapus Jadwal',
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (c) => AlertDialog(
+                            title: const Text('Hapus Jadwal'),
+                            content: Text('Hapus jadwal ronda hari $hari?'),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Batal')),
+                              TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Hapus', style: TextStyle(color: Colors.red))),
+                            ],
+                          ),
+                        );
+                        if (confirm == true) {
+                          await provider.deleteSchedule(s['id']);
+                        }
+                      },
+                    ),
+                  ],
                 ),
             ],
           ),
@@ -805,7 +816,7 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                       content: Text(
                         success
                             ? 'Jadwal ronda berhasil ditambahkan!'
-                            : 'Gagal menambahkan jadwal ronda.',
+                            : (context.read<PatrolProvider>().errorMessage ?? 'Gagal menambahkan jadwal ronda.'),
                       ),
                       backgroundColor: success ? Colors.green : Colors.red,
                     ),
@@ -814,6 +825,149 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
               },
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1B7A6A), foregroundColor: Colors.white),
               child: const Text('Simpan'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditJadwalDialog(BuildContext context, Map<String, dynamic> s) {
+    DateTime selectedTanggal = DateTime.now();
+    if (s['tanggal'] != null && s['tanggal'].toString().isNotEmpty) {
+      try {
+        selectedTanggal = DateTime.parse(s['tanggal'].toString());
+      } catch (_) {}
+    }
+    const listHari = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    String selectedHari = s['hari'] ?? listHari[selectedTanggal.weekday % 7];
+    final shiftCtrl = TextEditingController(text: s['shift'] ?? 'Shift Malam (22:00 - 04:00)');
+    final petugasCtrl = TextEditingController(text: s['petugas_warga'] ?? '');
+    final ketCtrl = TextEditingController(text: s['keterangan'] ?? '');
+    String? errorPetugas;
+
+    showDialog(
+      context: context,
+      builder: (c) => StatefulBuilder(
+        builder: (dialogCtx, setSt) => AlertDialog(
+          title: const Text('Edit Jadwal Siskamling'),
+          content: SizedBox(
+            width: 450,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: selectedTanggal,
+                        firstDate: DateTime(2025),
+                        lastDate: DateTime(2030),
+                      );
+                      if (picked != null) {
+                        setSt(() {
+                          selectedTanggal = picked;
+                          selectedHari = listHari[picked.weekday % 7];
+                        });
+                      }
+                    },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Tanggal Ronda *',
+                        suffixIcon: Icon(Icons.calendar_today, size: 18, color: Color(0xFF1B7A6A)),
+                      ),
+                      child: Text(
+                        DateFormat('EEEE, dd MMMM yyyy').format(selectedTanggal),
+                        style: TextStyle(
+                          color: context.teksUtama,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedHari,
+                    decoration: const InputDecoration(labelText: 'Hari Ronda *'),
+                    items: const [
+                      DropdownMenuItem(value: 'Senin', child: Text('Senin')),
+                      DropdownMenuItem(value: 'Selasa', child: Text('Selasa')),
+                      DropdownMenuItem(value: 'Rabu', child: Text('Rabu')),
+                      DropdownMenuItem(value: 'Kamis', child: Text('Kamis')),
+                      DropdownMenuItem(value: 'Jumat', child: Text('Jumat')),
+                      DropdownMenuItem(value: 'Sabtu', child: Text('Sabtu')),
+                      DropdownMenuItem(value: 'Minggu', child: Text('Minggu')),
+                    ],
+                    onChanged: (v) => setSt(() => selectedHari = v!),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: shiftCtrl,
+                    readOnly: true,
+                    enabled: false,
+                    decoration: const InputDecoration(
+                      labelText: 'Shift Jam (Paten)',
+                      suffixIcon: Icon(Icons.lock_outline, size: 18),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: petugasCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Petugas Warga *',
+                      hintText: 'Gunakan koma untuk beda orang (Contoh: Budi Agus, Slamet)',
+                      errorText: errorPetugas,
+                    ),
+                    onChanged: (_) {
+                      if (errorPetugas != null) setSt(() => errorPetugas = null);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: ketCtrl,
+                    decoration: const InputDecoration(labelText: 'Keterangan'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c), child: const Text('Batal')),
+            ElevatedButton(
+              onPressed: () async {
+                if (petugasCtrl.text.trim().isEmpty) {
+                  setSt(() => errorPetugas = 'Nama petugas ronda wajib diisi');
+                  return;
+                }
+
+                Navigator.pop(c);
+                final tglStr = DateFormat('yyyy-MM-dd').format(selectedTanggal);
+                final success = await context.read<PatrolProvider>().updateSchedule(
+                  id: s['id'],
+                  hari: selectedHari,
+                  tanggal: tglStr,
+                  shift: shiftCtrl.text.trim(),
+                  petugasWarga: petugasCtrl.text.trim(),
+                  keterangan: ketCtrl.text.trim().isNotEmpty ? ketCtrl.text.trim() : null,
+                );
+
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        success
+                            ? 'Jadwal ronda berhasil diperbarui!'
+                            : (context.read<PatrolProvider>().errorMessage ?? 'Gagal memperbarui jadwal ronda.'),
+                      ),
+                      backgroundColor: success ? Colors.green : Colors.red,
+                    ),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1B7A6A), foregroundColor: Colors.white),
+              child: const Text('Simpan Perubahan'),
             ),
           ],
         ),

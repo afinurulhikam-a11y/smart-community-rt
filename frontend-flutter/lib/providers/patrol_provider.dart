@@ -59,6 +59,37 @@ class PatrolProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> updateSchedule({
+    required int id,
+    required String hari,
+    String? tanggal,
+    required String shift,
+    required String petugasWarga,
+    String? keterangan,
+  }) async {
+    _isLoading = true;
+    notifyListeners();
+    final response = await ApiService.put(
+      '${ApiConstants.patrolSchedules}/$id',
+      body: {
+        'hari': hari,
+        if (tanggal != null) 'tanggal': tanggal,
+        'shift': shift,
+        'petugas_warga': petugasWarga,
+        if (keterangan != null) 'keterangan': keterangan,
+      },
+    );
+    _isLoading = false;
+    if (response['success'] == true) {
+      await fetchSchedules();
+      return true;
+    } else {
+      _errorMessage = response['message'] as String?;
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> deleteSchedule(int id) async {
     final response = await ApiService.delete('${ApiConstants.patrolSchedules}/$id');
     if (response['success'] == true) {
