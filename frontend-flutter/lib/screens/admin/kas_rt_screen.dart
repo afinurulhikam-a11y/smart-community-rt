@@ -482,16 +482,23 @@ class _KasRtScreenState extends State<KasRtScreen> {
               spacing: 16,
               runSpacing: 12,
               children: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
+                // Padding kanan 12 dihapus: Wrap induknya sudah memberi jarak
+                // lewat `spacing: 16`, jadi padding tambahan hanya membuat
+                // jaraknya tidak rata sekaligus menyempitkan ruang Row ini.
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Flexible + ellipsis. Tanpa ini Row-nya tidak bisa
+                    // menyusut sama sekali: pada font sistem 1,3x label
+                    // "Tampilkan" plus dropdown-nya melimpah 8,7px.
+                    Flexible(
+                      child: Text(
                         'Tampilkan',
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontSize: 13, color: context.teksKedua),
                       ),
-                      const SizedBox(width: 8),
+                    ),
+                    const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
@@ -521,10 +528,15 @@ class _KasRtScreenState extends State<KasRtScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Text('data', style: TextStyle(fontSize: 13, color: context.teksKedua)),
-                    ],
-                  ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'data',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 13, color: context.teksKedua),
+                      ),
+                    ),
+                  ],
                 ),
                 SizedBox(
                   width: lebarKolomFilter(context, maksimal: 260),
@@ -633,24 +645,30 @@ class _KasRtScreenState extends State<KasRtScreen> {
                       : 'Menampilkan ${mulai + 1} – $akhir dari ${semua.length} transaksi',
                   style: TextStyle(fontSize: 13, color: context.teksKedua),
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+                // Wrap, bukan Row. Tujuh tombol (< 1 2 3 4 5 >) dalam sebuah Row
+                // tidak bisa pindah baris: pada font sistem 1,3x lebarnya
+                // ±358px di ruang 336px, melimpah 8,7px. Dengan Wrap, tombol
+                // yang tidak muat turun ke baris berikutnya.
+                //
+                // Jaraknya diatur `spacing`/`runSpacing`, BUKAN SizedBox di
+                // antara anak-anaknya — sebuah SizedBox di dalam Wrap menjadi
+                // item tersendiri, bukan pemisah, sehingga jaraknya jadi tidak
+                // rata begitu barisnya membungkus.
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
                   children: [
                     _pageBtn(
                       '<',
                       false,
                       _currentPage > 1 ? () => setState(() => _currentPage--) : null,
                     ),
-                    const SizedBox(width: 4),
                     ...List.generate(totalHalaman.clamp(0, 5), (i) {
                       final n = i + 1;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: _pageBtn(
-                          '$n',
-                          n == _currentPage,
-                          () => setState(() => _currentPage = n),
-                        ),
+                      return _pageBtn(
+                        '$n',
+                        n == _currentPage,
+                        () => setState(() => _currentPage = n),
                       );
                     }),
                     _pageBtn(
@@ -846,7 +864,10 @@ class _KasRtScreenState extends State<KasRtScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: aktif ? const Color(0xFF3B82F6) : (mati ? context.latarLembut : Colors.white),
+          // `context.latarKartu`, bukan Colors.white — sisa migrasi mode gelap
+          // yang terlewat: tombol halaman yang tidak aktif tetap putih di atas
+          // latar gelap.
+          color: aktif ? const Color(0xFF3B82F6) : (mati ? context.latarLembut : context.latarKartu),
           border: Border.all(color: aktif ? const Color(0xFF3B82F6) : context.garis),
           borderRadius: BorderRadius.circular(8),
         ),
