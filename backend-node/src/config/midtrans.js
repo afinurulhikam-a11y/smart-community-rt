@@ -19,13 +19,13 @@ const FINISH_URL = process.env.MIDTRANS_FINISH_URL
   || `http://localhost:${process.env.PORT || 3001}/api/payments/selesai`;
 
 /** True bila kunci sudah lengkap. Dipakai rute untuk menolak dengan sopan. */
-const TERPASANG = true; // Selalu diaktifkan agar Sandbox/Demo Testing & Midtrans berjalan lancar
+const TERPASANG = SERVER_KEY.length > 0 && CLIENT_KEY.length > 0;
 
 /**
  * Peringatan dini saat startup.
  */
 function periksaSaatStartup() {
-  if (SERVER_KEY.length > 0 && CLIENT_KEY.length > 0) {
+  if (TERPASANG) {
     const mode = IS_PRODUCTION ? 'PRODUCTION' : 'Sandbox';
     console.log(`💳 Midtrans siap — mode ${mode}`);
     if (IS_PRODUCTION) {
@@ -34,14 +34,19 @@ function periksaSaatStartup() {
     return;
   }
   console.warn(
-    'ℹ️  Midtrans berjalan dalam mode Sandbox/Demo Payment Simulator.\n'
-    + '   Untuk memakai akun Midtrans asli, isi MIDTRANS_SERVER_KEY dan MIDTRANS_CLIENT_KEY di backend-node/.env'
+    '⚠️  Midtrans belum dikonfigurasi. Endpoint /api/payments akan menolak.\n'
+    + '   Isi MIDTRANS_SERVER_KEY dan MIDTRANS_CLIENT_KEY di backend-node/.env'
   );
 }
 
 /** Dipakai controller sebelum menyentuh Midtrans. */
 function pastikanTerpasang(res) {
-  return true;
+  if (TERPASANG) return true;
+  res.status(503).json({
+    success: false,
+    message: 'Pembayaran online Midtrans belum dikonfigurasi. Mohon isi MIDTRANS_SERVER_KEY & MIDTRANS_CLIENT_KEY di Environment Variables Server (Railway).',
+  });
+  return false;
 }
 
 module.exports = {

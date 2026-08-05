@@ -29,42 +29,31 @@ const core = new midtransClient.CoreApi({
  * nominal iuran di database bertipe NUMERIC yang bisa membawa desimal.
  */
 async function buatSnap({ orderId, grossAmount, pelanggan, rincian }) {
-  if (SERVER_KEY && CLIENT_KEY) {
-    try {
-      const parameter = {
-        transaction_details: {
-          order_id: orderId,
-          gross_amount: Math.round(Number(grossAmount)),
-        },
-        expiry: {
-          unit: 'minute',
-          duration: 15,
-        },
-        item_details: rincian.map((r) => ({
-          id: String(r.id),
-          name: String(r.nama).slice(0, 50),
-          price: Math.round(Number(r.harga)),
-          quantity: 1,
-        })),
-        customer_details: {
-          first_name: pelanggan.nama || 'Warga',
-          email: pelanggan.email || undefined,
-          phone: pelanggan.no_hp || undefined,
-        },
-        callbacks: { finish: FINISH_URL },
-      };
+  const parameter = {
+    transaction_details: {
+      order_id: orderId,
+      gross_amount: Math.round(Number(grossAmount)),
+    },
+    expiry: {
+      unit: 'minute',
+      duration: 15,
+    },
+    item_details: rincian.map((r) => ({
+      id: String(r.id),
+      name: String(r.nama).slice(0, 50),
+      price: Math.round(Number(r.harga)),
+      quantity: 1,
+    })),
+    customer_details: {
+      first_name: pelanggan.nama || 'Warga',
+      email: pelanggan.email || undefined,
+      phone: pelanggan.no_hp || undefined,
+    },
+    callbacks: { finish: FINISH_URL },
+  };
 
-      const hasil = await snap.createTransaction(parameter);
-      return { token: hasil.token, redirect_url: hasil.redirect_url };
-    } catch (err) {
-      console.warn('ℹ️ Midtrans API call skipped/failed, using Sandbox Demo Mode:', err.message);
-    }
-  }
-
-  // Fallback ke Sandbox Demo Payment Mode
-  const simToken = `DEMO-SNAP-${orderId}`;
-  const redirectUrl = `https://smart-community-rt.vercel.app/#/payment-demo?order_id=${orderId}&amount=${grossAmount}`;
-  return { token: simToken, redirect_url: redirectUrl };
+  const hasil = await snap.createTransaction(parameter);
+  return { token: hasil.token, redirect_url: hasil.redirect_url };
 }
 
 /**
