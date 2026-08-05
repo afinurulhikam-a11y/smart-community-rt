@@ -604,16 +604,22 @@ class _BopScreenState extends State<BopScreen> {
               spacing: 16,
               runSpacing: 12,
               children: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
+                // Padding kanan 12 dihapus — Wrap induknya sudah memberi jarak
+                // lewat `spacing: 16`; padding tambahan hanya menyempitkan Row
+                // ini sekaligus membuat jaraknya tidak rata.
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Flexible + ellipsis: tanpa ini Row-nya tidak bisa
+                    // menyusut, dan pada font sistem 1,3x melimpah 8,7px.
+                    Flexible(
+                      child: Text(
                         'Tampilkan',
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(fontSize: 13, color: context.teksKedua),
                       ),
-                      const SizedBox(width: 8),
+                    ),
+                    const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
@@ -643,10 +649,15 @@ class _BopScreenState extends State<BopScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Text('data', style: TextStyle(fontSize: 13, color: context.teksKedua)),
-                    ],
-                  ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'data',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 13, color: context.teksKedua),
+                      ),
+                    ),
+                  ],
                 ),
                 SizedBox(
                   width: lebarKolomFilter(context, maksimal: 260),
@@ -750,24 +761,25 @@ class _BopScreenState extends State<BopScreen> {
                       : 'Menampilkan ${mulai + 1} – $akhir dari ${semua.length} transaksi',
                   style: TextStyle(fontSize: 13, color: context.teksKedua),
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+                // Wrap, bukan Row — alasannya sama persis dengan Kas RT: tujuh
+                // tombol dalam satu Row tidak bisa pindah baris dan melimpah
+                // 8,7px pada font sistem 1,3x. Jaraknya lewat spacing, bukan
+                // SizedBox di antara anak Wrap.
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
                   children: [
                     _pageBtn(
                       '<',
                       false,
                       _currentPage > 1 ? () => setState(() => _currentPage--) : null,
                     ),
-                    const SizedBox(width: 4),
                     ...List.generate(totalHalaman.clamp(0, 5), (i) {
                       final n = i + 1;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: _pageBtn(
-                          '$n',
-                          n == _currentPage,
-                          () => setState(() => _currentPage = n),
-                        ),
+                      return _pageBtn(
+                        '$n',
+                        n == _currentPage,
+                        () => setState(() => _currentPage = n),
                       );
                     }),
                     _pageBtn(
@@ -924,7 +936,7 @@ class _BopScreenState extends State<BopScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: aktif ? const Color(0xFF3B82F6) : (mati ? context.latarLembut : Colors.white),
+          color: aktif ? const Color(0xFF3B82F6) : (mati ? context.latarLembut : context.latarKartu),
           border: Border.all(color: aktif ? const Color(0xFF3B82F6) : context.garis),
           borderRadius: BorderRadius.circular(8),
         ),
