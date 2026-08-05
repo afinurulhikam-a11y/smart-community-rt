@@ -237,6 +237,16 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
 
   Widget _buildJadwalCard(BuildContext context, Map<String, dynamic> s, PatrolProvider provider) {
     final hari = s['hari'] ?? 'Senin';
+    final tglRaw = s['tanggal'];
+    String tglFormatted = '';
+    if (tglRaw != null && tglRaw.toString().isNotEmpty) {
+      try {
+        final dt = DateTime.parse(tglRaw.toString());
+        tglFormatted = DateFormat('dd MMM yyyy').format(dt);
+      } catch (_) {}
+    }
+    final labelBadge = tglFormatted.isNotEmpty ? '$hari, $tglFormatted' : hari;
+
     final shift = s['shift'] ?? 'Shift Malam';
     final petugas = s['petugas_warga'] ?? '-';
     final ket = s['keterangan'] ?? '';
@@ -264,16 +274,23 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                  color: const Color(0xFF1B7A6A).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(
-                  hari,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1B7A6A),
-                    fontSize: 12,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.calendar_today, size: 12, color: Color(0xFF1B7A6A)),
+                    const SizedBox(width: 4),
+                    Text(
+                      labelBadge,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1B7A6A),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               if (_bolehHapus)
@@ -658,6 +675,7 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
 
   void _showTambahJadwalDialog(BuildContext context) {
     String selectedHari = 'Senin';
+    DateTime? selectedTanggal;
     final shiftCtrl = TextEditingController(text: 'Shift Malam (22:00 - 04:00)');
     final petugasCtrl = TextEditingController();
     final ketCtrl = TextEditingController();
@@ -675,6 +693,39 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  InkWell(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: selectedTanggal ?? DateTime.now(),
+                        firstDate: DateTime(2025),
+                        lastDate: DateTime(2030),
+                      );
+                      if (picked != null) {
+                        setSt(() {
+                          selectedTanggal = picked;
+                          const listHari = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+                          selectedHari = listHari[picked.weekday % 7];
+                        });
+                      }
+                    },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Tanggal Ronda (Opsional)',
+                        prefixIcon: Icon(Icons.calendar_today, size: 18),
+                      ),
+                      child: Text(
+                        selectedTanggal != null
+                            ? DateFormat('EEEE, dd MMMM yyyy').format(selectedTanggal!)
+                            : 'Pilih Tanggal Spesifik (Opsional)',
+                        style: TextStyle(
+                          color: selectedTanggal != null ? context.teksUtama : context.teksTersier,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     initialValue: selectedHari,
                     decoration: const InputDecoration(labelText: 'Hari Ronda *'),
@@ -737,8 +788,12 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                 if (hasError) return;
 
                 Navigator.pop(c);
+                final tglStr = selectedTanggal != null
+                    ? DateFormat('yyyy-MM-dd').format(selectedTanggal!)
+                    : null;
                 final success = await context.read<PatrolProvider>().createSchedule(
                   hari: selectedHari,
+                  tanggal: tglStr,
                   shift: shiftCtrl.text.trim(),
                   petugasWarga: petugasCtrl.text.trim(),
                   keterangan: ketCtrl.text.trim().isNotEmpty ? ketCtrl.text.trim() : null,

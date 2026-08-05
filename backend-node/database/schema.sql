@@ -1964,6 +1964,7 @@ ALTER TABLE ONLY public.visitors
 CREATE TABLE IF NOT EXISTS public.patrol_schedules (
     id SERIAL PRIMARY KEY,
     hari VARCHAR(20) NOT NULL,
+    tanggal DATE,
     shift VARCHAR(50) DEFAULT 'Shift Malam (22:00 - 04:00)',
     petugas_warga TEXT NOT NULL,
     keterangan TEXT,

@@ -31,6 +31,7 @@ class PatrolProvider extends ChangeNotifier {
 
   Future<bool> createSchedule({
     required String hari,
+    String? tanggal,
     required String shift,
     required String petugasWarga,
     String? keterangan,
@@ -41,6 +42,7 @@ class PatrolProvider extends ChangeNotifier {
       ApiConstants.patrolSchedules,
       body: {
         'hari': hari,
+        if (tanggal != null) 'tanggal': tanggal,
         'shift': shift,
         'petugas_warga': petugasWarga,
         if (keterangan != null) 'keterangan': keterangan,

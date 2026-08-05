@@ -19,15 +19,15 @@ async function getSchedules(req, res) {
 
 async function createSchedule(req, res) {
   try {
-    const { hari, shift, petugas_warga, keterangan } = req.body;
+    const { hari, tanggal, shift, petugas_warga, keterangan } = req.body;
     if (!hari || !petugas_warga) {
       return res.status(400).json({ success: false, message: 'Hari dan nama petugas ronda wajib diisi.' });
     }
 
     const result = await pool.query(
-      `INSERT INTO patrol_schedules (hari, shift, petugas_warga, keterangan, created_by)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [hari, shift || 'Shift Malam (22:00 - 04:00)', petugas_warga, keterangan || null, req.user.id]
+      `INSERT INTO patrol_schedules (hari, tanggal, shift, petugas_warga, keterangan, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [hari, tanggal || null, shift || 'Shift Malam (22:00 - 04:00)', petugas_warga, keterangan || null, req.user.id]
     );
 
     return res.status(201).json({ success: true, message: 'Jadwal ronda berhasil ditambahkan.', data: result.rows[0] });
@@ -40,17 +40,18 @@ async function createSchedule(req, res) {
 async function updateSchedule(req, res) {
   try {
     const { id } = req.params;
-    const { hari, shift, petugas_warga, keterangan } = req.body;
+    const { hari, tanggal, shift, petugas_warga, keterangan } = req.body;
 
     const result = await pool.query(
       `UPDATE patrol_schedules 
        SET hari = COALESCE($1, hari), 
-           shift = COALESCE($2, shift), 
-           petugas_warga = COALESCE($3, petugas_warga), 
-           keterangan = COALESCE($4, keterangan),
+           tanggal = COALESCE($2, tanggal),
+           shift = COALESCE($3, shift), 
+           petugas_warga = COALESCE($4, petugas_warga), 
+           keterangan = COALESCE($5, keterangan),
            updated_at = NOW()
-       WHERE id = $5 RETURNING *`,
-      [hari, shift, petugas_warga, keterangan, id]
+       WHERE id = $6 RETURNING *`,
+      [hari, tanggal, shift, petugas_warga, keterangan, id]
     );
 
     if (result.rows.length === 0) {
