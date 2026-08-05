@@ -3,6 +3,7 @@
          `flutter run` tetap berhasil (manifest debug menambahkannya sendiri)
          tetapi APK rilis tidak bisa mengakses jaringan sama sekali. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA" />
 
     <application
         android:label="smart_community"
