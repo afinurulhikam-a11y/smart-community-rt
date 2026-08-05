@@ -31,22 +31,13 @@ class LogProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> clearLogs() async {
-    _isLoading = true;
-    notifyListeners();
-
-    final response = await ApiService.delete(ApiConstants.activityLogs);
-    _isLoading = false;
-
-    if (response['success'] == true) {
-      _logs = [];
-      _errorMessage = null;
-      notifyListeners();
-      return true;
-    } else {
-      _errorMessage = response['message'] as String?;
-      notifyListeners();
-      return false;
-    }
-  }
+  // `clearLogs()` DIHAPUS dengan sengaja.
+  //
+  // Dulu memanggil `DELETE /api/activity-logs`, yang membuat Administrator
+  // bisa melenyapkan seluruh bukti perbuatannya sendiri dan hanya menyisakan
+  // satu baris "Membersihkan seluruh log" — tanpa keterangan apa pun tentang
+  // isi yang dihapus.
+  //
+  // Endpoint-nya sudah tidak ada, dan `activity_logs` menolak DELETE maupun
+  // TRUNCATE di tingkat database. Jangan ditambahkan kembali.
 }

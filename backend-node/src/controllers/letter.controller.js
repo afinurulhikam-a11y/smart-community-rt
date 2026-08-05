@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const { logActivity, ringkas, TIPE } = require('../services/log.service');
 
 async function getLetters(req, res) {
   try {
@@ -26,6 +27,9 @@ async function createLetter(req, res) {
       `INSERT INTO letters (user_id, jenis_surat, keperluan) VALUES ($1, $2, $3) RETURNING *`,
       [req.user.id, jenis_surat, keperluan]
     );
+    const s = result.rows[0];
+    await logActivity(req, TIPE.CREATE, `Mengajukan surat "${ringkas(s.jenis_surat)}" — keperluan: ${ringkas(s.keperluan, 80)}`);
+
     return res.status(201).json({ success: true, message: 'Pengajuan surat berhasil dikirim.', data: result.rows[0] });
   } catch (err) {
     console.error('CreateLetter Error:', err.message);
@@ -67,6 +71,8 @@ async function updateLetterStatus(req, res) {
         }
       }
     })().catch((e) => console.log('ℹ️ Catatan WA Surat:', e.message));
+
+    await logActivity(req, TIPE.UPDATE, `Memproses surat "${ringkas(updatedLetter.jenis_surat)}" milik ${updatedLetter.nama_pemohon || "-"} — status menjadi "${status}"`);
 
     return res.status(200).json({ success: true, message: `Surat berhasil di-${status}.`, data: updatedLetter });
   } catch (err) {

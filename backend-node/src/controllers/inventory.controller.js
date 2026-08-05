@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const { logActivity, rupiah, ringkas, TIPE } = require('../services/log.service');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit-table');
 
@@ -193,6 +194,9 @@ async function createInventory(req, res) {
         tanggal_perolehan || null, req.user.id,
       ]
     );
+    const b = result.rows[0];
+    await logActivity(req, TIPE.CREATE, `Menambah barang inventaris "${ringkas(b.nama_barang)}" — ${b.jumlah} unit, nilai ${rupiah(b.nilai_barang)}, kondisi ${b.kondisi}`);
+
     return res.status(201).json({ success: true, message: 'Barang berhasil ditambahkan.', data: result.rows[0] });
   } catch (err) {
     console.error('CreateInventory Error:', err.message);
@@ -246,6 +250,9 @@ async function updateInventory(req, res) {
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Barang tidak ditemukan.' });
     }
+    const b = result.rows[0];
+    await logActivity(req, TIPE.UPDATE, `Mengubah barang inventaris "${ringkas(b.nama_barang)}" — kini ${b.jumlah} unit, kondisi ${b.kondisi}, nilai ${rupiah(b.nilai_barang)}`);
+
     return res.status(200).json({ success: true, message: 'Barang berhasil diperbarui.', data: result.rows[0] });
   } catch (err) {
     console.error('UpdateInventory Error:', err.message);
@@ -276,6 +283,9 @@ async function deleteInventory(req, res) {
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Barang tidak ditemukan.' });
     }
+    const b = result.rows[0];
+    await logActivity(req, TIPE.DELETE, `Menghapus barang inventaris "${ringkas(b.nama_barang)}" — ${b.jumlah ?? "-"} unit, nilai ${rupiah(b.nilai_barang || 0)}`);
+
     return res.status(200).json({ success: true, message: 'Barang berhasil dihapus.', data: result.rows[0] });
   } catch (err) {
     console.error('DeleteInventory Error:', err.message);
@@ -540,6 +550,9 @@ async function updateBorrowing(req, res) {
     );
 
     await client.query('COMMIT');
+    const p = result.rows[0];
+    await logActivity(req, TIPE.UPDATE, `Mengubah catatan peminjaman #${p.id} — ${p.jumlah} unit, status ${p.status}`);
+
     return res.status(200).json({ success: true, message: 'Peminjaman berhasil diperbarui.', data: result.rows[0] });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -571,6 +584,9 @@ async function returnBorrowing(req, res) {
       [STATUS_KEMBALI, tanggal_kembali || new Date().toISOString().split('T')[0], id]
     );
 
+    const p = result.rows[0];
+    await logActivity(req, TIPE.UPDATE, `Mencatat pengembalian barang — peminjaman #${p.id}, ${p.jumlah} unit`);
+
     return res.status(200).json({ success: true, message: 'Barang berhasil dikembalikan.', data: result.rows[0] });
   } catch (err) {
     console.error('ReturnBorrowing Error:', err.message);
@@ -594,6 +610,8 @@ async function deleteBorrowing(req, res) {
       });
     }
     await pool.query('DELETE FROM borrowings WHERE id = $1', [id]);
+    await logActivity(req, TIPE.DELETE, `Membatalkan/menghapus catatan peminjaman #${id}`);
+
     return res.status(200).json({ success: true, message: 'Catatan peminjaman berhasil dibatalkan.' });
   } catch (err) {
     console.error('DeleteBorrowing Error:', err.message);

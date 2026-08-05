@@ -51,42 +51,31 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
     );
   }
 
-  void _showClearLogsDialog() {
+  /// Menjelaskan kenapa jejak audit tidak bisa dibersihkan.
+  ///
+  /// Menggantikan tombol "Bersihkan Log" yang dulu ada di sini. Tombol itu
+  /// memanggil `DELETE /api/activity-logs`, yang berarti satu-satunya peran
+  /// yang paling perlu diawasi justru dibolehkan menghapus catatan
+  /// pengawasannya sendiri. Endpoint-nya sudah dihapus dan `activity_logs`
+  /// kini menolak DELETE maupun TRUNCATE di tingkat database.
+  ///
+  /// Dialog penjelasan ini sengaja dipertahankan alih-alih menghilangkan
+  /// tombolnya begitu saja: seorang admin yang mencarinya berhak tahu ke mana
+  /// perginya, bukan sekadar mendapati menunya lenyap.
+  void _showInfoLogPermanen() {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Bersihkan Log Aktivitas?'),
+        title: const Text('Log Aktivitas bersifat permanen'),
         content: const Text(
-          'Apakah Anda yakin ingin menghapus seluruh riwayat log aktivitas sistem? Tindakan ini tidak dapat dibatalkan.',
+          'Jejak audit tidak dapat dihapus oleh siapa pun, termasuk Administrator.\n\n'
+          'Catatan ini justru paling dibutuhkan ketika yang perlu diperiksa adalah '
+          'pemegang akses tertinggi — kalau bisa dihapus, ia tidak membuktikan apa-apa.\n\n'
+          'Reset Sistem juga tidak menyentuhnya, dan database menolak setiap '
+          'perintah hapus terhadap tabel ini.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              final provider = context.read<LogProvider>();
-              final success = await provider.clearLogs();
-              if (mounted) {
-                if (success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Log aktivitas berhasil dibersihkan.'),
-                      backgroundColor: Color(0xFF10B981),
-                    ),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(provider.errorMessage ?? 'Gagal membersihkan log'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              }
-            },
-            child: const Text('Ya, Bersihkan', style: TextStyle(color: Colors.white)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Mengerti')),
         ],
       ),
     );
@@ -100,8 +89,21 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
         return const Color(0xFF10B981);
       case 'UPDATE':
         return const Color(0xFFF59E0B);
+      // Merah untuk empat jenis yang pertama dicari saat memeriksa
+      // penyalahgunaan: penghapusan, percobaan pembobolan, reset massal,
+      // dan alarm darurat.
       case 'DELETE':
+      case 'LOGIN_GAGAL':
+      case 'RESET':
+      case 'DARURAT':
         return const Color(0xFFEF4444);
+      // Perubahan wewenang: peran, status akun, hak akses menu.
+      case 'AKSES':
+        return const Color(0xFFD97706);
+      case 'PEMBAYARAN':
+        return const Color(0xFF1B7A6A);
+      case 'IMPORT':
+        return const Color(0xFF8B5CF6);
       default:
         return context.teksKedua;
     }
@@ -260,20 +262,22 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
                                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                               ),
                             ),
+                            // Dulu di sini ada tombol "Bersihkan Log" berwarna
+                            // merah. Diganti penanda bahwa jejaknya permanen —
+                            // lihat _showInfoLogPermanen untuk alasannya.
                             OutlinedButton.icon(
-                              onPressed: logs.isEmpty ? null : _showClearLogsDialog,
+                              onPressed: _showInfoLogPermanen,
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFFEF4444),
-                                side: const BorderSide(color: Color(0xFFFEE2E2)),
-                                backgroundColor: const Color(0xFFFEF2F2),
+                                foregroundColor: context.teksKedua,
+                                side: BorderSide(color: context.garis),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                               ),
-                              icon: const Icon(Icons.delete_outline, size: 15),
+                              icon: const Icon(Icons.lock_outline, size: 15),
                               label: const Text(
-                                'Bersihkan Log',
+                                'Permanen',
                                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                               ),
                             ),

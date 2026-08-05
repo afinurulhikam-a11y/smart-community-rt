@@ -102,8 +102,21 @@ async function checkoutVisitor(req, res) {
 async function deleteVisitor(req, res) {
   try {
     const { id } = req.params;
-    const result = await pool.query('DELETE FROM visitors WHERE id = $1 RETURNING id, nama_tamu', [id]);
+    // RETURNING lengkap: catatan tamu adalah catatan keamanan lingkungan.
+    // Menghapusnya berarti menghilangkan bukti siapa masuk dan kapan, jadi
+    // seluruh isinya ikut disalin ke log sebelum barisnya lenyap.
+    const result = await pool.query('DELETE FROM visitors WHERE id = $1 RETURNING *', [id]);
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Data tamu tidak ditemukan.' });
+
+    const d = result.rows[0];
+    await logActivity(
+      req,
+      TIPE.DELETE,
+      `Menghapus catatan tamu: ${ringkas(d.nama_tamu)} → ${d.blok_tujuan || '-'} ` +
+        `(masuk ${d.jam_masuk ? new Date(d.jam_masuk).toLocaleString('id-ID') : '-'}, ` +
+        `kendaraan ${d.plat_nomor || '-'})`
+    );
+
     return res.status(200).json({ success: true, message: 'Data tamu berhasil dihapus.', data: result.rows[0] });
   } catch (err) {
     console.error('DeleteVisitor Error:', err.message);

@@ -91,43 +91,69 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1B7A6A).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
+        // Header.
+        //
+        // Wrap, BUKAN Row(spaceBetween). Sebuah Row memaksa isinya menjadi satu
+        // baris, dan di layar 320px breadcrumb + tombol "Ajukan Surat Saya"
+        // melimpah 108px — cacat yang sama persis dengan yang sudah dicatat di
+        // CLAUDE.md sebagai penyebab hampir semua overflow di aplikasi ini.
+        //
+        // `SizedBox(width: double.infinity)` di luarnya load-bearing: tanpa
+        // lebar yang pasti, Wrap menyusut seukuran isinya dan `spaceBetween`
+        // tidak punya sisa ruang untuk dibagi — tombolnya akan menempel ke
+        // judul di layar lebar.
+        SizedBox(
+          width: double.infinity,
+          child: Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              // Breadcrumb disembunyikan di ponsel: AppBar sudah menyebutkan
+              // nama layarnya, jadi baris ini hanya mengulang sambil memakan
+              // ruang — perlakuan yang sama dengan sembilan layar lain.
+              if (!pakaiKartu(context))
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1B7A6A).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.description_outlined, color: Color(0xFF1B7A6A), size: 20),
+                    ),
+                    const SizedBox(width: 10),
+                    // Flexible, karena `mainAxisSize: min` hanya mengatur
+                    // Row-nya sendiri — bukan anak-anaknya.
+                    Flexible(
+                      child: Text(
+                        'Layanan Warga / Surat Menyurat',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: context.teksKedua,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              if (_bolehAjukan)
+                ElevatedButton.icon(
+                  onPressed: () => setState(() => _isFormView = true),
+                  icon: const Icon(Icons.add_rounded, size: 16),
+                  label: const Text('Ajukan Surat Saya', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1B7A6A),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  child: const Icon(Icons.description_outlined, color: Color(0xFF1B7A6A), size: 20),
                 ),
-                const SizedBox(width: 10),
-                Text(
-                  'Layanan Warga / Surat Menyurat',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: context.teksKedua,
-                  ),
-                ),
-              ],
-            ),
-            if (_bolehAjukan)
-              ElevatedButton.icon(
-                onPressed: () => setState(() => _isFormView = true),
-                icon: const Icon(Icons.add_rounded, size: 16),
-                label: const Text('Ajukan Surat Saya', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1B7A6A),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-              ),
-          ],
+            ],
+          ),
         ),
 
         const SizedBox(height: 24),
