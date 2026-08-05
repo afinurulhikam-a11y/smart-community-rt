@@ -499,35 +499,35 @@ class _KasRtScreenState extends State<KasRtScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: context.garis),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<int>(
-                            value: _itemsPerPage,
-                            isDense: true,
-                            icon: Icon(
-                              Icons.arrow_drop_down,
-                              size: 16,
-                              color: context.teksKedua,
-                            ),
-                            style: TextStyle(fontSize: 13, color: context.teksUtama),
-                            items: [
-                              5,
-                              10,
-                              25,
-                              50,
-                            ].map((v) => DropdownMenuItem(value: v, child: Text('$v'))).toList(),
-                            onChanged: (v) => setState(() {
-                              _itemsPerPage = v!;
-                              _currentPage = 1;
-                            }),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: context.garis),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<int>(
+                          value: _itemsPerPage,
+                          isDense: true,
+                          icon: Icon(
+                            Icons.arrow_drop_down,
+                            size: 16,
+                            color: context.teksKedua,
                           ),
+                          style: TextStyle(fontSize: 13, color: context.teksUtama),
+                          items: [
+                            5,
+                            10,
+                            25,
+                            50,
+                          ].map((v) => DropdownMenuItem(value: v, child: Text('$v'))).toList(),
+                          onChanged: (v) => setState(() {
+                            _itemsPerPage = v!;
+                            _currentPage = 1;
+                          }),
                         ),
                       ),
+                    ),
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
