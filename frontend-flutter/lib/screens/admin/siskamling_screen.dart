@@ -674,8 +674,9 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
   }
 
   void _showTambahJadwalDialog(BuildContext context) {
-    String selectedHari = 'Senin';
-    DateTime? selectedTanggal;
+    DateTime selectedTanggal = DateTime.now();
+    const listHari = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    String selectedHari = listHari[selectedTanggal.weekday % 7];
     final shiftCtrl = TextEditingController(text: 'Shift Malam (22:00 - 04:00)');
     final petugasCtrl = TextEditingController();
     final ketCtrl = TextEditingController();
@@ -697,30 +698,28 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                     onTap: () async {
                       final picked = await showDatePicker(
                         context: context,
-                        initialDate: selectedTanggal ?? DateTime.now(),
+                        initialDate: selectedTanggal,
                         firstDate: DateTime(2025),
                         lastDate: DateTime(2030),
                       );
                       if (picked != null) {
                         setSt(() {
                           selectedTanggal = picked;
-                          const listHari = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
                           selectedHari = listHari[picked.weekday % 7];
                         });
                       }
                     },
                     child: InputDecorator(
                       decoration: const InputDecoration(
-                        labelText: 'Tanggal Ronda (Opsional)',
+                        labelText: 'Tanggal Ronda *',
                         prefixIcon: Icon(Icons.calendar_today, size: 18),
                       ),
                       child: Text(
-                        selectedTanggal != null
-                            ? DateFormat('EEEE, dd MMMM yyyy').format(selectedTanggal!)
-                            : 'Pilih Tanggal Spesifik (Opsional)',
+                        DateFormat('EEEE, dd MMMM yyyy').format(selectedTanggal),
                         style: TextStyle(
-                          color: selectedTanggal != null ? context.teksUtama : context.teksTersier,
+                          color: context.teksUtama,
                           fontSize: 13,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
@@ -788,9 +787,7 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                 if (hasError) return;
 
                 Navigator.pop(c);
-                final tglStr = selectedTanggal != null
-                    ? DateFormat('yyyy-MM-dd').format(selectedTanggal!)
-                    : null;
+                final tglStr = DateFormat('yyyy-MM-dd').format(selectedTanggal);
                 final success = await context.read<PatrolProvider>().createSchedule(
                   hari: selectedHari,
                   tanggal: tglStr,
