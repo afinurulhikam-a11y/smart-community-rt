@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../core/responsif.dart';
 import '../../providers/patrol_provider.dart';
 import '../../providers/permission_provider.dart';
@@ -21,6 +23,7 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
 
   bool get _bolehTambah => context.watch<PermissionProvider>().bolehTambah(_kodeIzin);
   bool get _bolehHapus => context.watch<PermissionProvider>().bolehHapus(_kodeIzin);
+  bool get _bolehUbah => context.watch<PermissionProvider>().bolehUbah(_kodeIzin);
 
   @override
   void initState() {
@@ -508,6 +511,14 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
     return Consumer<PatrolProvider>(
       builder: (context, provider, _) {
         final posData = provider.posQrData;
+        final qrData = posData?['qr_code_data'] ?? '';
+        String generatedInfo = '';
+        if (posData?['generated_at'] != null) {
+          try {
+            final dt = DateTime.parse(posData!['generated_at'].toString());
+            generatedInfo = 'Dibuat: ${DateFormat('dd MMM yyyy, HH:mm').format(dt.toLocal())}';
+          } catch (_) {}
+        }
 
         return SingleChildScrollView(
           child: Center(
@@ -545,52 +556,122 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Tempelkan poster QR ini di fisik Pos Ronda',
+                    'Cetak QR ini dan tempelkan di fisik Pos Ronda',
                     style: TextStyle(fontSize: 12, color: context.teksTersier),
                   ),
                   const SizedBox(height: 20),
-                  // Mockup QR Display Card
+                  // QR Code Asli
                   Container(
-                    width: 200,
-                    height: 200,
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: Colors.grey.shade300, width: 2),
                     ),
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.qr_code_2, size: 120, color: Color(0xFF1B7A6A)),
-                          const SizedBox(height: 4),
-                          Text(
-                            posData?['qr_code_data'] ?? 'POS_RONDA_OFFICIAL_QR',
-                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54),
+                    child: qrData.isNotEmpty
+                        ? QrImageView(
+                            data: qrData,
+                            version: QrVersions.auto,
+                            size: 180,
+                            backgroundColor: Colors.white,
+                            eyeStyle: const QrEyeStyle(
+                              eyeShape: QrEyeShape.square,
+                              color: Color(0xFF1B7A6A),
+                            ),
+                            dataModuleStyle: const QrDataModuleStyle(
+                              dataModuleShape: QrDataModuleShape.square,
+                              color: Color(0xFF1B7A6A),
+                            ),
+                          )
+                        : const SizedBox(
+                            width: 180,
+                            height: 180,
+                            child: Center(child: CircularProgressIndicator()),
                           ),
-                        ],
-                      ),
-                    ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
+                  // Token info
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: context.garis.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    child: Column(
                       children: [
-                        const Icon(Icons.key, size: 16, color: Color(0xFF1B7A6A)),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Secret Token: ${posData?['qr_code_data'] ?? "POS_RONDA_OFFICIAL_QR"}',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.teksUtama),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.key, size: 16, color: Color(0xFF1B7A6A)),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                'Token: $qrData',
+                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.teksUtama),
+                              ),
+                            ),
+                          ],
                         ),
+                        if (generatedInfo.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            generatedInfo,
+                            style: TextStyle(fontSize: 10, color: context.teksTersier),
+                          ),
+                        ],
                       ],
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Warga petugas ronda wajib scan QR ini saat absen masuk dan pulang.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 11, color: context.teksTersier, fontStyle: FontStyle.italic),
+                  ),
+                  // Tombol Regenerate (hanya admin/pengurus)
+                  if (_bolehUbah) ...[
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (c) => AlertDialog(
+                            title: const Text('Regenerate QR?'),
+                            content: const Text(
+                              'Token QR lama akan dihapus dan diganti baru. '
+                              'Warga yang sudah memfoto QR lama tidak bisa absen lagi. '
+                              'Cetak ulang QR baru dan tempel di Pos Ronda.',
+                            ),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Batal')),
+                              TextButton(
+                                onPressed: () => Navigator.pop(c, true),
+                                child: const Text('Ya, Regenerate', style: TextStyle(color: Colors.red)),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm == true) {
+                          final ok = await provider.regenerateQr();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(ok ? 'QR berhasil di-regenerate!' : 'Gagal regenerate QR.'),
+                                backgroundColor: ok ? Colors.green : Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: const Text('Regenerate QR (Token Baru)', style: TextStyle(fontSize: 12)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: const BorderSide(color: Colors.red),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -703,29 +784,38 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                     hintText: 'Misal: Patroli jam 02:00 situasi aman kondusif',
                   ),
                 ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1B7A6A).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 16, color: Color(0xFF1B7A6A)),
+                      SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Setelah tombol ditekan, kamera akan terbuka untuk scan QR di Pos Ronda.',
+                          style: TextStyle(fontSize: 11, color: Color(0xFF1B7A6A)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(c), child: const Text('Batal')),
             ElevatedButton.icon(
-              onPressed: () async {
+              onPressed: () {
                 Navigator.pop(c);
-                final res = await context.read<PatrolProvider>().submitAttendance(
-                  tipeAbsen: tipeAbsen,
-                  catatan: noteCtrl.text.trim().isNotEmpty ? noteCtrl.text.trim() : null,
-                );
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(res['message'] ?? ''),
-                      backgroundColor: res['success'] == true ? Colors.green : Colors.red,
-                    ),
-                  );
-                }
+                _openQrScanner(context, tipeAbsen, noteCtrl.text.trim());
               },
-              icon: const Icon(Icons.check, size: 16),
-              label: Text(tipeAbsen == 'Masuk' ? 'Kirim Absen Masuk' : 'Kirim Absen Pulang'),
+              icon: const Icon(Icons.qr_code_scanner, size: 16),
+              label: Text(tipeAbsen == 'Masuk' ? 'Scan QR & Absen Masuk' : 'Scan QR & Absen Pulang'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: tipeAbsen == 'Masuk' ? const Color(0xFF1B7A6A) : Colors.green,
                 foregroundColor: Colors.white,
@@ -734,6 +824,73 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
           ],
         ),
       ),
+    );
+  }
+
+  void _openQrScanner(BuildContext context, String tipeAbsen, String catatan) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) {
+        bool scanned = false;
+        return AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.camera_alt, color: Color(0xFF1B7A6A)),
+              const SizedBox(width: 8),
+              const Expanded(child: Text('Scan QR Pos Ronda', style: TextStyle(fontSize: 16))),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(c),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 400,
+            height: 350,
+            child: Column(
+              children: [
+                Text(
+                  'Arahkan kamera ke QR Code yang ada di Pos Ronda',
+                  style: TextStyle(fontSize: 12, color: context.teksTersier),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: MobileScanner(
+                      onDetect: (capture) async {
+                        if (scanned) return;
+                        final barcodes = capture.barcodes;
+                        if (barcodes.isEmpty || barcodes.first.rawValue == null) return;
+                        scanned = true;
+                        final scannedToken = barcodes.first.rawValue!;
+                        Navigator.pop(c);
+
+                        // Kirim absensi dengan token QR hasil scan
+                        final res = await context.read<PatrolProvider>().submitAttendance(
+                          tipeAbsen: tipeAbsen,
+                          kodeQr: scannedToken,
+                          catatan: catatan.isNotEmpty ? catatan : null,
+                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(res['message'] ?? ''),
+                              backgroundColor: res['success'] == true ? Colors.green : Colors.red,
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

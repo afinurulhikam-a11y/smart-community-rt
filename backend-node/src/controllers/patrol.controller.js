@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const crypto = require('crypto');
 
 // ======================== JADWAL SISKAMLING ========================
 
@@ -267,9 +268,18 @@ async function submitAttendance(req, res) {
     const userId = req.user.id;
     const namaPetugas = req.user.nama || req.user.username || 'Warga';
 
-    // Verifikasi kode QR jika ada
-    if (kode_qr && kode_qr !== 'POS_RONDA_OFFICIAL_QR') {
-      return res.status(400).json({ success: false, message: 'Kode QR Pos Ronda tidak valid!' });
+    // Admin boleh bypass tanpa scan QR
+    if (req.user.role !== 'admin') {
+      if (!kode_qr) {
+        return res.status(400).json({ success: false, message: 'Anda harus scan QR Pos Ronda untuk absensi!' });
+      }
+      // Validasi token QR terhadap token aktif di database
+      const activeToken = await pool.query(
+        'SELECT token FROM patrol_qr_tokens WHERE is_active = true ORDER BY created_at DESC LIMIT 1'
+      );
+      if (activeToken.rows.length === 0 || activeToken.rows[0].token !== kode_qr) {
+        return res.status(400).json({ success: false, message: 'Kode QR Pos Ronda tidak valid atau sudah kadaluarsa!' });
+      }
     }
 
     // Cari jadwal yang berlaku untuk mendapatkan jam shift
@@ -401,17 +411,59 @@ async function submitAttendance(req, res) {
 
 async function getPosRondaQr(req, res) {
   try {
+    // Cari token aktif
+    let result = await pool.query(
+      'SELECT token, created_at FROM patrol_qr_tokens WHERE is_active = true ORDER BY created_at DESC LIMIT 1'
+    );
+
+    // Jika belum ada token, buat yang pertama
+    if (result.rows.length === 0) {
+      const newToken = 'RONDA-' + crypto.randomUUID().substring(0, 8).toUpperCase();
+      result = await pool.query(
+        'INSERT INTO patrol_qr_tokens (token, is_active) VALUES ($1, true) RETURNING token, created_at',
+        [newToken]
+      );
+    }
+
+    const { token, created_at } = result.rows[0];
+
     return res.status(200).json({
       success: true,
       data: {
         pos_name: 'Pos Ronda Utama Siskamling',
-        qr_code_data: 'POS_RONDA_OFFICIAL_QR',
-        secret_pin: 'RONDA',
-        generated_at: new Date().toISOString(),
+        qr_code_data: token,
+        generated_at: created_at,
       },
     });
   } catch (err) {
     console.error('GetPosRondaQr Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
+async function regenerateQr(req, res) {
+  try {
+    // Nonaktifkan semua token lama
+    await pool.query('UPDATE patrol_qr_tokens SET is_active = false');
+
+    // Buat token baru
+    const newToken = 'RONDA-' + crypto.randomUUID().substring(0, 8).toUpperCase();
+    const result = await pool.query(
+      'INSERT INTO patrol_qr_tokens (token, is_active) VALUES ($1, true) RETURNING token, created_at',
+      [newToken]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'QR Pos Ronda berhasil di-regenerate. QR lama sudah tidak berlaku.',
+      data: {
+        pos_name: 'Pos Ronda Utama Siskamling',
+        qr_code_data: result.rows[0].token,
+        generated_at: result.rows[0].created_at,
+      },
+    });
+  } catch (err) {
+    console.error('RegenerateQr Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
   }
 }
@@ -439,5 +491,6 @@ module.exports = {
   submitAttendance,
   deleteAttendance,
   getPosRondaQr,
+  regenerateQr,
 };
 

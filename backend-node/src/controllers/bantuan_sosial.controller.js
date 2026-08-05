@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const { logActivity, rupiah, bandingkan, TIPE } = require('../services/log.service');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit-table');
 
@@ -58,6 +59,17 @@ async function createBantuanSosial(req, res) {
       `INSERT INTO bantuan_sosial (user_id, jenis_bantuan, tahun, nominal, keterangan, created_by) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
       [user_id, jenis_bantuan, tahun, nominal || 0, keterangan || null, req.user.id]
     );
+    // Nama penerima diambil supaya lognya bisa dibaca tanpa membuka tabel lain.
+    // Ini alokasi uang kepada orang tertentu — baris log yang hanya memuat UUID
+    // tidak bisa dipakai siapa pun untuk memeriksa kewajarannya.
+    const penerima = await pool.query('SELECT nama FROM users WHERE id = $1', [user_id]);
+    await logActivity(
+      req,
+      TIPE.CREATE,
+      `Menetapkan penerima bantuan sosial: ${penerima.rows[0]?.nama || user_id} — ` +
+        `${jenis_bantuan} tahun ${tahun}, ${rupiah(nominal || 0)}`
+    );
+
     return res.status(201).json({ success: true, message: 'Penerima bantuan berhasil ditambahkan.', data: result.rows[0] });
   } catch (err) {
     console.error('CreateBantuanSosial Error:', err.message);
@@ -95,8 +107,28 @@ async function updateBantuanSosial(req, res) {
         'INSERT INTO bantuan_sosial_log (bantuan_sosial_id, changed_by, old_status, new_status, keterangan_log) VALUES ($1, $2, $3, $4, $5)',
         [id, req.user.id, old.status, status || old.status, ket_log]
       );
+
+      // `bantuan_sosial_log` di atas adalah jejak khusus modul ini dan hanya
+      // terlihat dari layar Bantuan Sosial. Log Aktivitas pusat perlu ikut
+      // tahu — di sanalah seorang pengawas melihat SELURUH sistem dalam satu
+      // urutan waktu, dan hanya tabel itu yang tidak bisa dihapus siapa pun.
+      const penerima = await pool.query(
+        'SELECT u.nama FROM bantuan_sosial bs JOIN users u ON bs.user_id = u.id WHERE bs.id = $1',
+        [id]
+      );
+      const rincian = bandingkan(old, result.rows[0], {
+        jenis_bantuan: 'jenis',
+        tahun: 'tahun',
+        nominal: 'nominal',
+        status: 'status',
+      });
+      await logActivity(
+        req,
+        TIPE.UPDATE,
+        `Mengubah bantuan sosial ${penerima.rows[0]?.nama || id} — ${rincian || ket_log}`
+      );
     }
-    
+
     return res.status(200).json({ success: true, message: 'Data bantuan berhasil diperbarui.', data: result.rows[0] });
   } catch (err) {
     console.error('UpdateBantuanSosial Error:', err.message);
@@ -125,8 +157,23 @@ async function getBantuanSosialHistory(req, res) {
 async function deleteBantuanSosial(req, res) {
   try {
     const { id } = req.params;
+    // Identitas penerima dibaca SEBELUM baris bantuannya hilang.
+    const sebelum = await pool.query(
+      'SELECT bs.*, u.nama FROM bantuan_sosial bs JOIN users u ON bs.user_id = u.id WHERE bs.id = $1',
+      [id]
+    );
+
     const result = await pool.query('DELETE FROM bantuan_sosial WHERE id = $1 RETURNING id', [id]);
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Data bantuan tidak ditemukan.' });
+
+    const b = sebelum.rows[0] || {};
+    await logActivity(
+      req,
+      TIPE.DELETE,
+      `Menghapus data bantuan sosial ${b.nama || id} — ${b.jenis_bantuan || '-'} tahun ${b.tahun || '-'}, ` +
+        `${rupiah(b.nominal || 0)}, status ${b.status || '-'}`
+    );
+
     return res.status(200).json({ success: true, message: 'Data bantuan berhasil dihapus.', data: result.rows[0] });
   } catch (err) {
     console.error('DeleteBantuanSosial Error:', err.message);

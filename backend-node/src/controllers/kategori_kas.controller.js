@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const { logActivity, bandingkan, TIPE } = require('../services/log.service');
 
 // Sesuai CHECK constraint yang sudah ada di tabel kategori_kas.
 const TIPE_VALID = ['IN', 'OUT'];
@@ -58,6 +59,9 @@ async function createKategoriKas(req, res) {
        VALUES ($1, $2, $3, true) RETURNING *`,
       [nama_kategori.trim(), tipe, keterangan || null]
     );
+    const baru = result.rows[0];
+    await logActivity(req, TIPE.CREATE, `Menambah kategori kas "${baru.nama_kategori}" (tipe ${baru.tipe})`);
+
     return res.status(201).json({ success: true, message: 'Kategori kas berhasil ditambahkan.', data: result.rows[0] });
   } catch (err) {
     console.error('CreateKategoriKas Error:', err.message);
@@ -97,6 +101,10 @@ async function updateKategoriKas(req, res) {
       }
     }
 
+    // Dibaca lebih dulu supaya log memuat nilai sebelum dan sesudahnya.
+    const cekLama = await pool.query('SELECT * FROM kategori_kas WHERE id = $1', [id]);
+    const sebelum = cekLama.rows[0] || {};
+
     const result = await pool.query(
       `UPDATE kategori_kas SET
          nama_kategori = COALESCE($1, nama_kategori),
@@ -109,6 +117,16 @@ async function updateKategoriKas(req, res) {
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Kategori kas tidak ditemukan.' });
     }
+    const rincian = bandingkan(sebelum, result.rows[0], {
+      nama_kategori: 'nama',
+      tipe: 'tipe',
+      is_aktif: 'aktif',
+      keterangan: 'keterangan',
+    });
+    if (rincian) {
+      await logActivity(req, TIPE.UPDATE, `Mengubah kategori kas "${sebelum.nama_kategori ?? result.rows[0].nama_kategori}" — ${rincian}`);
+    }
+
     return res.status(200).json({ success: true, message: 'Kategori kas berhasil diperbarui.', data: result.rows[0] });
   } catch (err) {
     console.error('UpdateKategoriKas Error:', err.message);
@@ -130,10 +148,13 @@ async function deleteKategoriKas(req, res) {
       });
     }
 
-    const result = await pool.query('DELETE FROM kategori_kas WHERE id = $1 RETURNING id', [id]);
+    const result = await pool.query('DELETE FROM kategori_kas WHERE id = $1 RETURNING *', [id]);
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Kategori kas tidak ditemukan.' });
     }
+    const dihapus = result.rows[0];
+    await logActivity(req, TIPE.DELETE, `Menghapus kategori kas "${dihapus.nama_kategori}" (tipe ${dihapus.tipe})`);
+
     return res.status(200).json({ success: true, message: 'Kategori kas berhasil dihapus.' });
   } catch (err) {
     console.error('DeleteKategoriKas Error:', err.message);

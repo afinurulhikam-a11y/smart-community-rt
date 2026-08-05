@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const { logActivity, rupiah, bandingkan, TIPE } = require('../services/log.service');
 
 const PERIODE_VALID = ['bulanan', 'tahunan', 'sekali'];
 
@@ -43,6 +44,13 @@ async function createJenisIuran(req, res) {
        VALUES ($1, $2, $3, $4, true) RETURNING *`,
       [nama_iuran.trim(), nominal_default || 0, periode || 'bulanan', keterangan || null]
     );
+    const baru = result.rows[0];
+    await logActivity(
+      req,
+      TIPE.CREATE,
+      `Menambah jenis iuran "${baru.nama_iuran}" — nominal ${rupiah(baru.nominal_default)}, periode ${baru.periode}`
+    );
+
     return res.status(201).json({ success: true, message: 'Jenis iuran berhasil ditambahkan.', data: result.rows[0] });
   } catch (err) {
     console.error('CreateJenisIuran Error:', err.message);
@@ -69,6 +77,13 @@ async function updateJenisIuran(req, res) {
       }
     }
 
+    // Keadaan lama dibaca lebih dulu. Nominal iuran adalah angka yang
+    // menentukan berapa uang yang ditagihkan ke setiap kartu keluarga —
+    // menurunkannya diam-diam adalah penyalahgunaan yang tidak akan terlihat
+    // dari mana pun kecuali dari baris log yang memuat nilai sebelumnya.
+    const cekLama = await pool.query('SELECT * FROM jenis_iuran WHERE id = $1', [id]);
+    const sebelum = cekLama.rows[0] || {};
+
     // COALESCE agar field yang tidak dikirim tidak ikut terhapus.
     const result = await pool.query(
       `UPDATE jenis_iuran SET
@@ -83,6 +98,22 @@ async function updateJenisIuran(req, res) {
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Jenis iuran tidak ditemukan.' });
     }
+
+    const rincian = bandingkan(sebelum, result.rows[0], {
+      nama_iuran: 'nama',
+      nominal_default: 'nominal',
+      periode: 'periode',
+      is_aktif: 'aktif',
+      keterangan: 'keterangan',
+    });
+    if (rincian) {
+      await logActivity(
+        req,
+        TIPE.UPDATE,
+        `Mengubah jenis iuran "${sebelum.nama_iuran ?? result.rows[0].nama_iuran}" — ${rincian}`
+      );
+    }
+
     return res.status(200).json({ success: true, message: 'Jenis iuran berhasil diperbarui.', data: result.rows[0] });
   } catch (err) {
     console.error('UpdateJenisIuran Error:', err.message);
@@ -104,10 +135,20 @@ async function deleteJenisIuran(req, res) {
       });
     }
 
-    const result = await pool.query('DELETE FROM jenis_iuran WHERE id = $1 RETURNING id', [id]);
+    // RETURNING lengkap, bukan cuma id: setelah barisnya hilang, namanya tidak
+    // bisa dicari lagi di mana pun — log yang hanya memuat UUID tidak berguna.
+    const result = await pool.query('DELETE FROM jenis_iuran WHERE id = $1 RETURNING *', [id]);
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Jenis iuran tidak ditemukan.' });
     }
+
+    const dihapus = result.rows[0];
+    await logActivity(
+      req,
+      TIPE.DELETE,
+      `Menghapus jenis iuran "${dihapus.nama_iuran}" (nominal ${rupiah(dihapus.nominal_default)}, periode ${dihapus.periode})`
+    );
+
     return res.status(200).json({ success: true, message: 'Jenis iuran berhasil dihapus.' });
   } catch (err) {
     console.error('DeleteJenisIuran Error:', err.message);

@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const { logActivity, ringkas, TIPE } = require('../services/log.service');
 
 async function getComplaints(req, res) {
   try {
@@ -34,6 +35,9 @@ async function createComplaint(req, res) {
       `INSERT INTO complaints (kode_tiket, user_id, judul, deskripsi, kategori) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
       [kode_tiket, req.user.id, judul, deskripsi || null, kategori || null]
     );
+    const aduan = result.rows[0];
+    await logActivity(req, TIPE.CREATE, `Mengirim pengaduan [${aduan.kode_tiket}] "${ringkas(aduan.judul)}" — kategori ${aduan.kategori || '-'}`);
+
     return res.status(201).json({ success: true, message: 'Pengaduan berhasil dikirim.', data: result.rows[0] });
   } catch (err) {
     console.error('CreateComplaint Error:', err.message);
@@ -52,6 +56,9 @@ async function updateComplaintStatus(req, res) {
       [status, response || null, req.user.id, id]
     );
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Pengaduan tidak ditemukan.' });
+    const a = result.rows[0];
+    await logActivity(req, TIPE.UPDATE, `Menanggapi pengaduan [${a.kode_tiket}] "${ringkas(a.judul)}" — status menjadi "${status}"${response ? `, tanggapan: "${ringkas(response, 80)}"` : ''}`);
+
     return res.status(200).json({ success: true, message: `Status pengaduan berhasil diubah ke "${status}".`, data: result.rows[0] });
   } catch (err) {
     console.error('UpdateComplaintStatus Error:', err.message);
@@ -62,8 +69,11 @@ async function updateComplaintStatus(req, res) {
 async function deleteComplaint(req, res) {
   try {
     const { id } = req.params;
-    const result = await pool.query('DELETE FROM complaints WHERE id = $1 RETURNING id, kode_tiket', [id]);
+    const result = await pool.query('DELETE FROM complaints WHERE id = $1 RETURNING *', [id]);
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Pengaduan tidak ditemukan.' });
+    const d = result.rows[0];
+    await logActivity(req, TIPE.DELETE, `Menghapus pengaduan [${d.kode_tiket}] "${ringkas(d.judul)}" (status ${d.status}) — isi: "${ringkas(d.deskripsi, 100)}"`);
+
     return res.status(200).json({ success: true, message: 'Pengaduan berhasil dihapus.', data: result.rows[0] });
   } catch (err) {
     console.error('DeleteComplaint Error:', err.message);

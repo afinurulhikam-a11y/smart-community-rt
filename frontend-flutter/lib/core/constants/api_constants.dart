@@ -205,4 +205,5 @@ class ApiConstants {
   static String get patrolSchedules => '$baseUrl/patrol/schedules';
   static String get patrolAttendances => '$baseUrl/patrol/attendances';
   static String get patrolQr => '$baseUrl/patrol/qr';
+  static String get patrolQrRegenerate => '$baseUrl/patrol/qr/regenerate';
 }

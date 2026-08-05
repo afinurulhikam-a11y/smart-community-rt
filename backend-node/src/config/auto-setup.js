@@ -44,8 +44,15 @@ async function autoSetupCloud() {
       ALTER TABLE patrol_attendances ADD COLUMN IF NOT EXISTS waktu_masuk TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
       ALTER TABLE patrol_attendances ADD COLUMN IF NOT EXISTS waktu_pulang TIMESTAMP WITH TIME ZONE;
       ALTER TABLE patrol_attendances ADD COLUMN IF NOT EXISTS foto_url TEXT;
+
+      CREATE TABLE IF NOT EXISTS patrol_qr_tokens (
+        id SERIAL PRIMARY KEY,
+        token VARCHAR(100) NOT NULL UNIQUE,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
     `);
-    console.log('✅ Skema tabel Siskamling (patrol_schedules & patrol_attendances) terverifikasi.');
+    console.log('✅ Skema tabel Siskamling (patrol_schedules, patrol_attendances, patrol_qr_tokens) terverifikasi.');
   } catch (e) {
     console.log('ℹ️ Catatan Skema (Lanjut):', e.message);
   }

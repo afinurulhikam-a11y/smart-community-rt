@@ -51,6 +51,10 @@ const TABEL_DILINDUNGI = [
   'master_pendidikan',
   'master_pekerjaan',
   'reset_logs',
+  // Jejak audit. Dilindungi dari SETIAP kelompok, termasuk Reset Total —
+  // sama seperti reset_logs, dan karena alasan yang sama: catatan pengawasan
+  // tidak boleh bisa dihapus oleh pihak yang diawasi.
+  'activity_logs',
 ];
 
 /**
@@ -197,13 +201,17 @@ const RESET_GROUPS = [
       { tabel: 'users', where: "role = 'warga'" },
     ],
   },
-  {
-    kode: 'log',
-    nama: 'Log Aktivitas',
-    deskripsi: 'Riwayat aktivitas pengguna. Jejak reset tersimpan terpisah dan tidak ikut terhapus.',
-    ikon: 'log',
-    tabel: [{ tabel: 'activity_logs' }],
-  },
+  // Kelompok 'log' DIHAPUS dengan sengaja.
+  //
+  // Dulu ada kelompok reset "Log Aktivitas" yang mengosongkan `activity_logs`.
+  // Bersama endpoint `DELETE /api/activity-logs`, itu berarti seorang
+  // administrator bisa melenyapkan seluruh bukti perbuatannya sendiri —
+  // tepat pada satu keadaan yang paling membutuhkan jejak audit.
+  //
+  // `activity_logs` kini ada di TABEL_DILINDUNGI, dan database menolak DELETE
+  // atasnya lewat trigger `trg_activity_logs_append_only`. Bila kelompok ini
+  // dihidupkan lagi, pemeriksaan mandiri di bawah berkas ini akan melempar
+  // galat saat server dinyalakan — bukan menghancurkan data saat dijalankan.
   {
     kode: 'sensor',
     nama: 'Data Sensor Perangkat',
@@ -247,7 +255,9 @@ const URUTAN_TOTAL = [
   { tabel: 'anggota_keluarga' },
   { tabel: 'keluarga' },
   { tabel: 'sensor_logs' },
-  { tabel: 'activity_logs' },
+  // `activity_logs` sengaja TIDAK ada di sini. Reset Total pun tidak boleh
+  // menghapus jejak audit — kalau boleh, seluruh perlindungannya sia-sia
+  // karena tinggal menjalankan Reset Total untuk membersihkan diri.
   { tabel: 'users', where: "role = 'warga'" },
 ];
 

@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { pool } = require('../config/database');
+const { logActivity, TIPE } = require('../services/log.service');
 
 async function getUsers(req, res) {
   try {
@@ -35,6 +36,18 @@ async function getUsers(req, res) {
   }
 }
 
+/**
+ * Mengubah peran sebuah akun.
+ *
+ * Ini jalur peningkatan wewenang yang paling langsung di seluruh sistem:
+ * `validRoles` memuat 'admin', dan endpoint-nya dijaga roleGuard('admin').
+ * Artinya seorang admin bisa mengangkat akun mana pun menjadi admin.
+ *
+ * Sebelumnya perbuatan itu sama sekali tidak meninggalkan jejak. Sekarang
+ * peran LAMA dibaca lebih dulu supaya lognya berbunyi "warga → admin", bukan
+ * sekadar "peran diubah" — tanpa nilai lamanya, log tidak bisa membuktikan
+ * apa-apa.
+ */
 async function updateUserRole(req, res) {
   try {
     const { id } = req.params;
@@ -43,8 +56,19 @@ async function updateUserRole(req, res) {
     if (!role || !validRoles.includes(role)) {
       return res.status(400).json({ success: false, message: `Role harus salah satu dari: ${validRoles.join(', ')}` });
     }
+
+    const sebelum = await pool.query('SELECT nama, email, role FROM users WHERE id = $1', [id]);
+    if (sebelum.rows.length === 0) return res.status(404).json({ success: false, message: 'User tidak ditemukan.' });
+
     const result = await pool.query(`UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2 RETURNING id, nama, email, role`, [role, id]);
-    if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'User tidak ditemukan.' });
+
+    const lama = sebelum.rows[0];
+    await logActivity(
+      req,
+      TIPE.AKSES,
+      `Mengubah peran akun ${lama.nama} (${lama.email}) — peran: ${lama.role} → ${role}`
+    );
+
     return res.status(200).json({ success: true, message: `Role berhasil diubah ke "${role}".`, data: result.rows[0] });
   } catch (err) {
     console.error('UpdateUserRole Error:', err.message);
@@ -52,6 +76,13 @@ async function updateUserRole(req, res) {
   }
 }
 
+/**
+ * Mengaktifkan atau menonaktifkan akun.
+ *
+ * Menonaktifkan akun adalah cara paling halus membungkam seseorang — misalnya
+ * warga yang baru saja mengirim pengaduan. Karena itu dicatat sebagai AKSES,
+ * setara dengan perubahan peran.
+ */
 async function updateUserStatus(req, res) {
   try {
     const { id } = req.params;
@@ -59,8 +90,20 @@ async function updateUserStatus(req, res) {
     if (typeof is_active !== 'boolean') {
       return res.status(400).json({ success: false, message: 'is_active harus boolean (true/false).' });
     }
+
+    const sebelum = await pool.query('SELECT nama, email, is_active FROM users WHERE id = $1', [id]);
+    if (sebelum.rows.length === 0) return res.status(404).json({ success: false, message: 'User tidak ditemukan.' });
+
     const result = await pool.query(`UPDATE users SET is_active = $1, updated_at = NOW() WHERE id = $2 RETURNING id, nama, email, is_active`, [is_active, id]);
-    if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'User tidak ditemukan.' });
+
+    const lama = sebelum.rows[0];
+    await logActivity(
+      req,
+      TIPE.AKSES,
+      `${is_active ? 'Mengaktifkan' : 'Menonaktifkan'} akun ${lama.nama} (${lama.email}) — ` +
+        `status: ${lama.is_active ? 'aktif' : 'nonaktif'} → ${is_active ? 'aktif' : 'nonaktif'}`
+    );
+
     return res.status(200).json({ success: true, message: is_active ? 'User berhasil diaktifkan.' : 'User berhasil dinonaktifkan.', data: result.rows[0] });
   } catch (err) {
     console.error('UpdateUserStatus Error:', err.message);
@@ -86,6 +129,16 @@ async function createUser(req, res) {
       `INSERT INTO users (nama, email, password_hash, role, no_hp, no_kk, alamat, no_rt) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, nama, email, no_hp, no_kk, alamat, no_rt, role, created_at`,
       [nama, email, passwordHash, userRole, no_hp || null, no_kk || null, alamat || null, no_rt || '001']
     );
+
+    // AKSES, bukan CREATE: membuat akun berarti menciptakan wewenang baru —
+    // apalagi bila perannya bukan 'warga'. Kata sandinya tidak pernah ikut
+    // dicatat, dan tabel ini permanen.
+    await logActivity(
+      req,
+      TIPE.AKSES,
+      `Membuat akun baru ${nama} (${email}) dengan peran "${userRole}"`
+    );
+
     return res.status(201).json({ success: true, message: 'User berhasil dibuat.', data: result.rows[0] });
   } catch (err) {
     console.error('CreateUser Error:', err.message);
@@ -126,7 +179,19 @@ async function deleteUser(req, res) {
       return res.status(403).json({ success: false, message: 'Tidak dapat menghapus user yang sudah aktif/disetujui.' });
     }
 
+    // Identitas dibaca SEBELUM dihapus — setelahnya barisnya tidak ada lagi
+    // dan lognya hanya akan memuat UUID yang tidak bisa ditelusuri siapa pun.
+    const korban = await pool.query('SELECT nama, email, role FROM users WHERE id = $1', [id]);
+    const u = korban.rows[0] || {};
+
     await pool.query('DELETE FROM users WHERE id = $1', [id]);
+
+    await logActivity(
+      req,
+      TIPE.AKSES,
+      `Menolak & menghapus pendaftaran akun ${u.nama || '-'} (${u.email || '-'}), peran "${u.role || '-'}"`
+    );
+
     return res.status(200).json({ success: true, message: 'Pendaftaran warga berhasil ditolak (dihapus).' });
   } catch (err) {
     console.error('DeleteUser Error:', err.message);

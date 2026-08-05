@@ -10,6 +10,7 @@ const {
   submitAttendance,
   deleteAttendance,
   getPosRondaQr,
+  regenerateQr,
 } = require('../controllers/patrol.controller');
 
 router.use(authMiddleware);
@@ -24,5 +25,7 @@ router.post('/attendances', requirePermission('kegiatan.ronda', 'create'), submi
 router.delete('/attendances/:id', requirePermission('kegiatan.ronda', 'delete'), deleteAttendance);
 
 router.get('/qr', requirePermission('kegiatan.ronda', 'view'), getPosRondaQr);
+router.post('/qr/regenerate', requirePermission('kegiatan.ronda', 'update'), regenerateQr);
 
 module.exports = router;
+

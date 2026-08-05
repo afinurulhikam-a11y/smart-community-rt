@@ -135,7 +135,7 @@ class PatrolProvider extends ChangeNotifier {
       ApiConstants.patrolAttendances,
       body: {
         if (scheduleId != null) 'schedule_id': scheduleId,
-        'kode_qr': kodeQr ?? 'POS_RONDA_OFFICIAL_QR',
+        if (kodeQr != null) 'kode_qr': kodeQr,
         if (tipeAbsen != null) 'tipe_absen': tipeAbsen,
         if (catatan != null) 'catatan': catatan,
         if (fotoUrl != null) 'foto_url': fotoUrl,
@@ -157,6 +157,23 @@ class PatrolProvider extends ChangeNotifier {
     if (response['success'] == true) {
       _posQrData = Map<String, dynamic>.from(response['data']);
       notifyListeners();
+    }
+  }
+
+  Future<bool> regenerateQr() async {
+    _isLoading = true;
+    notifyListeners();
+    final response = await ApiService.post(ApiConstants.patrolQrRegenerate, body: {});
+    _isLoading = false;
+    if (response['success'] == true) {
+      _posQrData = Map<String, dynamic>.from(response['data']);
+      _errorMessage = null;
+      notifyListeners();
+      return true;
+    } else {
+      _errorMessage = response['message'] as String?;
+      notifyListeners();
+      return false;
     }
   }
 }

@@ -3,7 +3,7 @@ const { pool } = require('../config/database');
 const { pastikanTerpasang, CLIENT_KEY, IS_PRODUCTION } = require('../config/midtrans');
 const midtrans = require('../services/midtrans.service');
 const { catatKeKasRt, STATUS_LUNAS } = require('./bill.controller');
-const { logActivity } = require('../services/log.service');
+const { logActivity, logSistem, rupiah, TIPE } = require('../services/log.service');
 
 /**
  * Pembayaran iuran lewat Midtrans.
@@ -306,6 +306,22 @@ async function terapkanStatus(orderId, data) {
     );
 
     await client.query('COMMIT');
+
+    // Dicatat SETELAH COMMIT — sebelum ini, uang yang benar-benar masuk lewat
+    // Midtrans tidak meninggalkan jejak apa pun di Log Aktivitas, sementara
+    // pembayaran tunai tercatat. Justru jalur yang paling otomatis yang senyap.
+    //
+    // Memakai logSistem, bukan logActivity: fungsi ini dipanggil dari webhook
+    // yang datang dari server Midtrans tanpa JWT, jadi tidak ada `req.user`.
+    // Pelakunya memang bukan manusia, dan lognya harus jujur soal itu.
+    await logSistem(
+      TIPE.PEMBAYARAN,
+      `Pembayaran LUNAS diterima dari Midtrans — order ${orderId}, ` +
+        `${rupiah(trx.gross_amount)}, ${daftar.rows.length} tagihan, ` +
+        `metode ${data.payment_type || 'tidak disebutkan'}`,
+      { pelaku: 'Midtrans' }
+    );
+
     return { ok: true, status: 'settlement', jumlah_tagihan: daftar.rows.length };
   } catch (err) {
     await client.query('ROLLBACK');

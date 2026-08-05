@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const { logActivity, ringkas, TIPE } = require('../services/log.service');
 const { broadcast } = require('../config/websocket');
 
 async function triggerAlarm(req, res) {
@@ -45,6 +46,11 @@ async function triggerAlarm(req, res) {
       noHp: user.no_hp,
       tipeEmergency: message || 'Sinyal Darurat Panic Button',
     }).catch((e) => console.log('ℹ️ Catatan WA Alarm:', e.message));
+
+    // Alarm palsu maupun sungguhan sama-sama harus berjejak: yang pertama
+    // untuk menindak penyalahgunaan tombol panik, yang kedua sebagai bukti
+    // waktu kejadian.
+    await logActivity(req, TIPE.DARURAT, `Memicu ALARM DARURAT — "${ringkas(alert.message, 80)}"`);
 
     return res.status(201).json({
       success: true,
@@ -108,6 +114,10 @@ async function dismissAlarm(req, res) {
       dismissed_by_nama: adminName,
       timestamp: new Date().toISOString(),
     });
+    // Siapa yang mematikan alarm, dan kapan. Ini pertanyaan pertama bila
+    // kelak ada keluhan "alarm dimatikan padahal keadaan belum aman".
+    await logActivity(req, TIPE.DARURAT, `Mematikan alarm darurat (id ${id})`);
+
     return res.status(200).json({
       success: true,
       message: `Status darurat berhasil diselesaikan. Broadcast ke ${sentCount} perangkat.`,
