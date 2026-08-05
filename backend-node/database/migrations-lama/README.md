@@ -47,4 +47,13 @@ pindahkan migrasi itu ke folder ini.
 | `migration_v13_akses_warga.js` | warga boleh mengajukan peminjaman |
 | `migration_v14_hapus_media.js` | jatuhkan modul Media |
 | `migration_v15_bersihkan.js` | jatuhkan `roles`, `master_*`, `struktur_rt`, `umkm` |
+| `migration_v19_log_append_only.js` | `activity_logs` jadi hanya-tambah: trigger menolak UPDATE, DELETE, **dan TRUNCATE**, plus tiga indeks |
+| `migration_v20_log_lepas_fk_user.js` | melepas FK `activity_logs.user_id`, yang membuat v19 mustahil dipenuhi |
 | `fix-db.js` | pembentukan awal tabel inti — digantikan `schema.sql` |
+
+**v19 dan v20 sudah ada di `schema.sql`, jadi instalasi baru tidak perlu menjalankannya.** Keduanya disimpan karena mencatat dua hal yang tidak terbaca dari hasil akhirnya:
+
+- **v19: TRUNCATE butuh trigger-nya sendiri.** `BEFORE DELETE FOR EACH ROW` tidak pernah menyala saat TRUNCATE. Trigger baris saja memberi rasa aman palsu — dan itu terjadi sungguhan di sistem ini: jumlah log turun dari 67 ke 10 baris *setelah* trigger baris terpasang.
+- **v20: tabel hanya-tambah tidak bisa memikul `ON DELETE SET NULL`.** Aksi itu diwujudkan sebagai `UPDATE`, yang ditolak trigger v19. Akibatnya tidak ada akun yang pernah muncul di jejak audit yang bisa dihapus — selamanya. Itu efek samping, bukan keputusan.
+
+Keduanya tetap perlu dijalankan pada database yang **sudah ada sebelum** kedua perubahan itu masuk ke `schema.sql` — misalnya database produksi di Railway.

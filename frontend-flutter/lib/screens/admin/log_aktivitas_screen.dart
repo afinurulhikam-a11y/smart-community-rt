@@ -17,8 +17,37 @@ class LogAktivitasScreen extends StatefulWidget {
 
 class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
   int _limit = 25;
+  int _halaman = 1;
+  String _tipe = 'Semua';
+  DateTime? _dari;
+  DateTime? _sampai;
   final TextEditingController _searchController = TextEditingController();
   Timer? _autoRefreshTimer;
+
+  /// Harus tetap sama persis dengan `TIPE` di `src/services/log.service.js`.
+  ///
+  /// Sebuah tipe yang ditambahkan hanya di satu sisi tetap tercatat di database
+  /// tetapi tidak pernah bisa ditemukan dari layar ini — dan justru tipe-tipe
+  /// baru itulah yang biasanya paling perlu dicari (LOGIN_GAGAL, RESET).
+  static const List<String> _daftarTipe = [
+    'Semua',
+    'LOGIN',
+    'LOGIN_GAGAL',
+    'CREATE',
+    'UPDATE',
+    'DELETE',
+    'PEMBAYARAN',
+    'IMPORT',
+    'AKSES',
+    'RESET',
+    'DARURAT',
+  ];
+
+  bool get _adaPenyaring =>
+      _tipe != 'Semua' ||
+      _dari != null ||
+      _sampai != null ||
+      _searchController.text.isNotEmpty;
 
   @override
   void initState() {
@@ -27,11 +56,12 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
       _loadData();
     });
     _autoRefreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (mounted && _searchController.text.isEmpty) {
+      // Muat ulang otomatis hanya di halaman pertama tanpa penyaring apa pun.
+      // Kalau tidak, hasil yang sedang dibaca akan tergeser sendiri setiap
+      // lima detik justru saat seseorang sedang menelusuri sesuatu.
+      if (mounted && !_adaPenyaring && _halaman == 1) {
         final provider = context.read<LogProvider>();
-        if (!provider.isLoading) {
-          provider.fetchLogs(limit: _limit);
-        }
+        if (!provider.isLoading) _loadData();
       }
     });
   }
@@ -47,8 +77,70 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
     final provider = context.read<LogProvider>();
     provider.fetchLogs(
       limit: _limit,
+      offset: (_halaman - 1) * _limit,
       search: _searchController.text.isNotEmpty ? _searchController.text.trim() : null,
+      tipe: _tipe,
+      dari: _dari,
+      sampai: _sampai,
     );
+  }
+
+  /// Setiap perubahan penyaring mengembalikan ke halaman 1.
+  ///
+  /// Tanpa ini, menyaring saat berada di halaman 8 menghasilkan layar kosong
+  /// walau datanya ada — offset-nya sudah melewati ujung hasil yang baru.
+  void _ubahPenyaring(VoidCallback ubah) {
+    setState(() {
+      ubah();
+      _halaman = 1;
+    });
+    _loadData();
+  }
+
+  Future<void> _pilihTanggal({required bool awal}) async {
+    final sekarang = DateTime.now();
+    final terpilih = await showDatePicker(
+      context: context,
+      initialDate: (awal ? _dari : _sampai) ?? sekarang,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(sekarang.year + 1, 12, 31),
+      helpText: awal ? 'Dari tanggal' : 'Sampai tanggal',
+    );
+    if (terpilih == null) return;
+    _ubahPenyaring(() {
+      if (awal) {
+        _dari = terpilih;
+        // Rentang terbalik tidak pernah mengembalikan apa pun. Daripada
+        // menampilkan hasil kosong yang membingungkan, batas satunya digeser.
+        if (_sampai != null && _sampai!.isBefore(terpilih)) _sampai = terpilih;
+      } else {
+        _sampai = terpilih;
+        if (_dari != null && _dari!.isAfter(terpilih)) _dari = terpilih;
+      }
+    });
+  }
+
+  int _totalHalaman(int total) => total <= 0 ? 1 : ((total - 1) ~/ _limit) + 1;
+
+  /// "Menampilkan 1 – 25 dari 4.312 kejadian".
+  ///
+  /// Angka totalnya yang penting, bukan yang tampil: ia satu-satunya petunjuk
+  /// bahwa masih ada ribuan baris lain di belakang layar ini.
+  String _ringkasanBaris(int tampil, int total) {
+    if (total == 0) return 'Tidak ada kejadian yang cocok';
+    final mulai = (_halaman - 1) * _limit + 1;
+    final akhir = mulai + tampil - 1;
+    final akhiran = _adaPenyaring ? ' (tersaring)' : '';
+    return 'Menampilkan $mulai – $akhir dari $total kejadian$akhiran';
+  }
+
+  void _bersihkanPenyaring() {
+    _searchController.clear();
+    _ubahPenyaring(() {
+      _tipe = 'Semua';
+      _dari = null;
+      _sampai = null;
+    });
   }
 
   /// Menjelaskan kenapa jejak audit tidak bisa dibersihkan.
@@ -183,11 +275,12 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
                                           child: Text('$val', style: const TextStyle(fontSize: 13)),
                                         );
                                       }).toList(),
+                                      // Lewat _ubahPenyaring supaya halaman ikut
+                                      // kembali ke 1. Mengubah ukuran halaman
+                                      // sambil berada di halaman 8 membuat
+                                      // offset-nya melewati ujung data.
                                       onChanged: (val) {
-                                        if (val != null) {
-                                          setState(() => _limit = val);
-                                          _loadData();
-                                        }
+                                        if (val != null) _ubahPenyaring(() => _limit = val);
                                       },
                                     ),
                                   ),
@@ -257,9 +350,12 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                               ),
                               icon: const Icon(Icons.refresh, size: 15),
-                              label: Text(
-                                '$_limit Terakhir',
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              // Dulu berbunyi "$_limit Terakhir". Setelah ada
+                              // pagination itu keliru: yang dimuat adalah
+                              // halaman yang sedang dibuka, bukan N terbaru.
+                              label: const Text(
+                                'Muat Ulang',
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                               ),
                             ),
                             // Dulu di sini ada tombol "Bersihkan Log" berwarna
@@ -281,6 +377,98 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
                                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                               ),
                             ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Penyaring tipe + rentang tanggal.
+                  //
+                  // Jejak audit tidak pernah dihapus, jadi tabelnya hanya
+                  // bertambah selamanya. Tanpa penyaring, sebulan lagi layar
+                  // ini berisi ribuan baris dan tidak ada cara menemukan satu
+                  // kejadian tertentu — datanya lengkap tetapi tidak terpakai.
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      paddingKartu(context),
+                      0,
+                      paddingKartu(context),
+                      paddingKartu(context),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Chip menggulir mendatar di layar sempit, tidak
+                        // membungkus: sebelas chip yang membungkus memakan
+                        // empat baris penuh di ponsel.
+                        SizedBox(
+                          height: 40,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _daftarTipe.length,
+                            separatorBuilder: (_, __) => const SizedBox(width: 8),
+                            itemBuilder: (_, i) {
+                              final t = _daftarTipe[i];
+                              final aktif = _tipe == t;
+                              final warna = t == 'Semua' ? context.teksKedua : _getTipeColor(t);
+                              return ChoiceChip(
+                                label: Text(
+                                  t,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: aktif ? FontWeight.bold : FontWeight.normal,
+                                    color: aktif ? Colors.white : warna,
+                                  ),
+                                ),
+                                selected: aktif,
+                                showCheckmark: false,
+                                selectedColor: warna,
+                                backgroundColor: context.latarLembut,
+                                side: BorderSide(color: aktif ? warna : context.garis),
+                                onSelected: (_) => _ubahPenyaring(() => _tipe = t),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            OutlinedButton.icon(
+                              onPressed: () => _pilihTanggal(awal: true),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: context.teksUtama,
+                                side: BorderSide(color: context.garis),
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                              ),
+                              icon: const Icon(Icons.event, size: 15),
+                              label: Text(
+                                _dari == null ? 'Dari tanggal' : DateFormat('dd MMM yyyy').format(_dari!),
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: () => _pilihTanggal(awal: false),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: context.teksUtama,
+                                side: BorderSide(color: context.garis),
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                              ),
+                              icon: const Icon(Icons.event_available, size: 15),
+                              label: Text(
+                                _sampai == null ? 'Sampai tanggal' : DateFormat('dd MMM yyyy').format(_sampai!),
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                            if (_adaPenyaring)
+                              TextButton.icon(
+                                onPressed: _bersihkanPenyaring,
+                                icon: const Icon(Icons.close, size: 15),
+                                label: const Text('Bersihkan', style: TextStyle(fontSize: 12)),
+                              ),
                           ],
                         ),
                       ],
@@ -433,8 +621,39 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
                         runSpacing: 12,
                         children: [
                           Text(
-                            'Menampilkan ${logs.length} log aktivitas sistem terbaru',
+                            _ringkasanBaris(logs.length, provider.total),
                             style: TextStyle(fontSize: 12, color: context.teksKedua),
+                          ),
+                          Wrap(
+                            spacing: 4,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              IconButton(
+                                tooltip: 'Halaman sebelumnya',
+                                onPressed: _halaman > 1
+                                    ? () {
+                                        setState(() => _halaman--);
+                                        _loadData();
+                                      }
+                                    : null,
+                                icon: const Icon(Icons.chevron_left, size: 20),
+                              ),
+                              Text(
+                                'Hal. $_halaman / ${_totalHalaman(provider.total)}',
+                                style: TextStyle(fontSize: 12, color: context.teksKedua),
+                              ),
+                              IconButton(
+                                tooltip: 'Halaman berikutnya',
+                                onPressed: _halaman < _totalHalaman(provider.total)
+                                    ? () {
+                                        setState(() => _halaman++);
+                                        _loadData();
+                                      }
+                                    : null,
+                                icon: const Icon(Icons.chevron_right, size: 20),
+                              ),
+                            ],
                           ),
                         ],
                       ),
