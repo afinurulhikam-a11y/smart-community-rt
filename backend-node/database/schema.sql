@@ -1630,11 +1630,17 @@ CREATE INDEX role_permissions_lookup ON public.role_permissions USING btree (rol
 
 
 --
--- Name: activity_logs activity_logs_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- activity_logs.user_id SENGAJA TIDAK punya foreign key ke users. (migrasi v20)
 --
-
-ALTER TABLE ONLY public.activity_logs
-    ADD CONSTRAINT activity_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE SET NULL;
+-- Dulu ada, dengan ON DELETE SET NULL — dan itu meniadakan sifat hanya-tambah
+-- di bawah: `SET NULL` diwujudkan sebagai UPDATE, yang ditolak trigger. Selama
+-- FK itu ada, tidak ada akun yang pernah muncul di jejak audit yang bisa
+-- dihapus, selamanya. Jangan dikembalikan.
+--
+-- FK-nya tidak memberi apa pun: activity_logs menyimpan salinannya sendiri di
+-- user_nama dan user_role saat baris dibuat, dan getActivityLogs tidak pernah
+-- JOIN ke users.
+--
 
 
 --
@@ -1995,3 +2001,55 @@ CREATE TABLE IF NOT EXISTS public.patrol_attendances (
 --
 
 
+
+
+--
+-- ===================================================================
+-- JEJAK AUDIT BERSIFAT HANYA-TAMBAH  (migrasi v19)
+-- ===================================================================
+--
+-- Bagian ini bukan hasil pg_dump; ditulis tangan supaya instalasi baru lewat
+-- init-db.js langsung terlindungi. Tanpa ini, database yang baru dibuat punya
+-- activity_logs yang bisa dihapus siapa pun — termasuk administrator yang
+-- justru paling perlu diawasi.
+--
+-- TRUNCATE butuh trigger-nya SENDIRI. `BEFORE DELETE FOR EACH ROW` tidak pernah
+-- menyala saat TRUNCATE: perintah itu membuang seluruh tabel tanpa menyentuh
+-- barisnya satu per satu. Trigger baris saja memberi rasa aman yang palsu —
+-- DELETE ditolak sementara `TRUNCATE activity_logs` tetap menghapus semuanya.
+-- Itu pernah terjadi di sistem ini: jumlah log turun dari 67 ke 10 baris
+-- SETELAH trigger baris terpasang.
+--
+-- Ini bukan perlindungan terhadap pemegang SUPERUSER, yang masih bisa membuang
+-- trigger-nya. Yang dijaga adalah penyalahgunaan lewat aplikasi.
+--
+
+CREATE OR REPLACE FUNCTION public.tolak_ubah_activity_logs()
+RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION
+    'activity_logs bersifat hanya-tambah: % ditolak. Jejak audit tidak boleh diubah atau dihapus.',
+    TG_OP USING ERRCODE = 'insufficient_privilege';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_activity_logs_append_only ON public.activity_logs;
+CREATE TRIGGER trg_activity_logs_append_only
+  BEFORE UPDATE OR DELETE ON public.activity_logs
+  FOR EACH ROW EXECUTE FUNCTION public.tolak_ubah_activity_logs();
+
+DROP TRIGGER IF EXISTS trg_activity_logs_no_truncate ON public.activity_logs;
+CREATE TRIGGER trg_activity_logs_no_truncate
+  BEFORE TRUNCATE ON public.activity_logs
+  FOR EACH STATEMENT EXECUTE FUNCTION public.tolak_ubah_activity_logs();
+
+--
+-- Indeks: tabelnya sama sekali tidak punya indeks sebelumnya, sehingga setiap
+-- kueri memindai seluruh tabel lalu mengurutkannya. Tidak terasa pada puluhan
+-- baris; sangat terasa begitu jejaknya tidak pernah dihapus lagi — yang justru
+-- menjadi tujuan seluruh rancangan ini.
+--
+
+CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON public.activity_logs USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_tipe       ON public.activity_logs USING btree (tipe);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_user       ON public.activity_logs USING btree (user_id, created_at DESC);
