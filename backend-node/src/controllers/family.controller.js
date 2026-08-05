@@ -15,6 +15,20 @@ async function getFamilies(req, res) {
         ) AS kepala_terkonfirmasi
       FROM keluarga k WHERE k.deleted_at IS NULL`;
     const params = [];
+
+    // Penyempitan baris untuk warga — lapisan kedua, bukan yang pertama.
+    //
+    // Hari ini `kependudukan.warga` memang tertutup bagi warga di tabel izin,
+    // jadi klausa ini seolah tidak pernah terpakai. Tapi izin itu bisa diubah
+    // dari layar Menu & Akses, dan permintaan "biar warga bisa lihat direktori
+    // RT" sangat masuk akal untuk muncul suatu hari. Tanpa klausa ini, satu
+    // klik itu membuka NIK, no_kk, alamat, dan telepon SELURUH warga kepada
+    // setiap warga sekaligus. Pola yang sama sudah dipakai di bill.controller.
+    if (req.user.role === 'warga') {
+      params.push(req.user.id);
+      query += ` AND k.no_kk = (SELECT no_kk FROM users WHERE id = $${params.length})`;
+    }
+
     if (search) { params.push(`%${search}%`); query += ` AND (k.no_kk ILIKE $${params.length} OR k.kepala_keluarga ILIKE $${params.length} OR k.alamat ILIKE $${params.length})`; }
     const countQuery = `SELECT COUNT(*) FROM (${query}) AS total`;
     const countResult = await pool.query(countQuery, params);
@@ -49,7 +63,21 @@ async function getFamilies(req, res) {
 async function getFamilyDetail(req, res) {
   try {
     const { id } = req.params;
-    const familyResult = await pool.query('SELECT * FROM keluarga WHERE id = $1', [id]);
+    // Rute detail ikut disempitkan. Menyaring daftar tetapi membiarkan
+    // `/:id` terbuka adalah kelalaian yang paling sering terjadi: id-nya
+    // bisa ditebak atau didapat dari tempat lain, dan seluruh penyaringan
+    // di daftar menjadi tidak ada artinya.
+    const params = [id];
+    let syaratWarga = '';
+    if (req.user.role === 'warga') {
+      params.push(req.user.id);
+      syaratWarga = ` AND no_kk = (SELECT no_kk FROM users WHERE id = $${params.length})`;
+    }
+
+    const familyResult = await pool.query(
+      `SELECT * FROM keluarga WHERE id = $1 AND deleted_at IS NULL${syaratWarga}`,
+      params
+    );
     if (familyResult.rows.length === 0) return res.status(404).json({ success: false, message: 'Kartu Keluarga tidak ditemukan.' });
     const membersResult = await pool.query('SELECT * FROM anggota_keluarga WHERE keluarga_id = $1 ORDER BY id', [id]);
     return res.status(200).json({ success: true, data: { ...familyResult.rows[0], anggota: membersResult.rows } });

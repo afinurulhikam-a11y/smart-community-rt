@@ -7,7 +7,21 @@ async function triggerAlarm(req, res) {
     const { message, latitude, longitude, pin } = req.body;
 
     // Verifikasi 2-Langkah: PIN Keamanan (dari environment variable)
-    const pinDarurat = process.env.EMERGENCY_PIN || '1234';
+    //
+    // Tidak ada lagi nilai bawaan '1234'. Angka itu tertulis di kode sumber dan
+    // di .env.example, jadi ia melindungi tepat nol hal — sementara keberadaan
+    // nilai bawaan membuat lupa mengonfigurasi tidak menimbulkan gejala apa pun.
+    //
+    // Bila belum diisi, fiturnya MATI dan mengatakan alasannya. Gagal-tertutup:
+    // tanpa cabang ini, `pin !== undefined` selalu benar dan pesannya berbunyi
+    // "PIN tidak valid" — menyesatkan operator ke arah yang salah sepenuhnya.
+    const pinDarurat = process.env.EMERGENCY_PIN;
+    if (!pinDarurat || pinDarurat.trim() === '') {
+      return res.status(503).json({
+        success: false,
+        message: 'Fitur darurat belum dikonfigurasi. Setel EMERGENCY_PIN pada Environment Variables server.',
+      });
+    }
     if (!pin || pin.toString().trim() !== pinDarurat) {
       return res.status(403).json({
         success: false,
@@ -36,6 +50,20 @@ async function triggerAlarm(req, res) {
       message: alert.message,
       latitude: alert.latitude,
       longitude: alert.longitude,
+      timestamp: alert.created_at,
+    }, {
+      // Muatan untuk perangkat tanpa akun (ESP32). Sengaja TANPA nama, nomor
+      // telepon, alamat, koordinat, maupun pesan bebas dari pelapor.
+      //
+      // Alat itu hanya perlu tahu bahwa alarm menyala — buzzer dan LED tidak
+      // membaca nama siapa pun. Sementara koneksi tanpa token bisa dibuka siapa
+      // saja yang menjangkau server ini, jadi apa pun yang dikirim ke sana
+      // harus dianggap terbaca publik.
+      //
+      // Firmware sudah aman terhadap ini: ia membaca `type` untuk memicu alarm,
+      // dan field lainnya punya nilai cadangan (`| "Tidak diketahui"`).
+      type: 'ALARM_ON',
+      alert_id: alert.id,
       timestamp: alert.created_at,
     });
 
@@ -70,7 +98,21 @@ async function dismissAlarm(req, res) {
     const { pin } = req.body;
 
     // Verifikasi 2-Langkah: PIN Keamanan (dari environment variable)
-    const pinDarurat = process.env.EMERGENCY_PIN || '1234';
+    //
+    // Tidak ada lagi nilai bawaan '1234'. Angka itu tertulis di kode sumber dan
+    // di .env.example, jadi ia melindungi tepat nol hal — sementara keberadaan
+    // nilai bawaan membuat lupa mengonfigurasi tidak menimbulkan gejala apa pun.
+    //
+    // Bila belum diisi, fiturnya MATI dan mengatakan alasannya. Gagal-tertutup:
+    // tanpa cabang ini, `pin !== undefined` selalu benar dan pesannya berbunyi
+    // "PIN tidak valid" — menyesatkan operator ke arah yang salah sepenuhnya.
+    const pinDarurat = process.env.EMERGENCY_PIN;
+    if (!pinDarurat || pinDarurat.trim() === '') {
+      return res.status(503).json({
+        success: false,
+        message: 'Fitur darurat belum dikonfigurasi. Setel EMERGENCY_PIN pada Environment Variables server.',
+      });
+    }
     if (!pin || pin.toString().trim() !== pinDarurat) {
       return res.status(403).json({
         success: false,
@@ -114,6 +156,14 @@ async function dismissAlarm(req, res) {
       alert_id: id,
       dismissed_by: validUserId,
       dismissed_by_nama: adminName,
+      timestamp: new Date().toISOString(),
+    }, {
+      // Perangkat WAJIB menerima perintah mati. Menahannya berarti buzzer terus
+      // berbunyi setelah pengurus menekan "Selesaikan" — kegagalan yang jauh
+      // lebih terasa daripada kebocoran mana pun. Nama yang mematikan tidak
+      // ikut dikirim; alat tidak membutuhkannya.
+      type: 'ALARM_OFF',
+      alert_id: id,
       timestamp: new Date().toISOString(),
     });
     // Siapa yang mematikan alarm, dan kapan. Ini pertanyaan pertama bila

@@ -1,5 +1,10 @@
 require('dotenv').config();
 
+// Dijalankan SEBELUM apa pun yang lain. Kalau konfigurasi kurang, satu-satunya
+// waktu yang berguna untuk mengetahuinya adalah sekarang — bukan setelah server
+// menerima permintaan pertama dan diam-diam memakai nilai bawaan.
+require('./config/periksa-env').periksaEnv();
+
 const express = require('express');
 const compression = require('compression');
 const morgan = require('morgan');
@@ -64,6 +69,20 @@ const loginLimiter = rateLimit({
   },
 });
 
+// Untuk jalur yang rahasianya pendek dan bisa ditebak paksa: PIN darurat 4
+// angka, sandi lama, dan pengaturan ulang sandi. Lebih ketat dari login karena
+// tidak ada alasan sah untuk memanggilnya berkali-kali dalam semenit.
+const limiterKetat = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Terlalu banyak percobaan. Silakan tunggu 1 menit sebelum mencoba lagi.',
+  },
+});
+
 /**
  * Header yang boleh dikirim klien.
  *
@@ -108,7 +127,24 @@ app.use('/public', express.static(path.join(__dirname, '../public')));
 // ========================
 // Routes
 // ========================
-app.use('/api/auth/login', loginLimiter); // Rate limit login sebelum routes
+// Pembatasan laju dipasang SEBELUM routes, jadi permintaan berlebih ditolak
+// sebelum menyentuh controller mana pun.
+//
+// Sebelumnya hanya /auth/login yang dijaga. Tiga jalur di bawah ini sama-sama
+// bisa ditebak paksa dan akibatnya sama beratnya:
+//
+//   /emergency/*   PIN-nya hanya empat angka. Tanpa pembatasan, seluruh ruang
+//                  tebakan habis dalam hitungan detik — dan yang didapat
+//                  penebak adalah kemampuan memicu alarm palsu sekaligus
+//                  menyiarkan WhatsApp ke seluruh warga, atau justru mematikan
+//                  alarm yang sedang berbunyi sungguhan.
+//   /change-password  menebak sandi lama, tanpa batas percobaan.
+//   /users/credentials  jalur pengaturan ulang sandi; percobaan berulang di
+//                  sini pantas terlihat dan pantas diperlambat.
+app.use('/api/auth/login', loginLimiter);
+app.use('/api/emergency', limiterKetat);
+app.use('/api/auth/change-password', limiterKetat);
+app.use('/api/users/credentials', limiterKetat);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/bills', billRoutes);
