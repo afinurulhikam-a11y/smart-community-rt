@@ -385,21 +385,40 @@ async function payBill(req, res) {
     const { id } = req.params;
     const { metode_bayar } = req.body;
 
-    const billResult = await pool.query('SELECT * FROM bills WHERE id = $1', [id]);
+    // Kunci barisnya DI DALAM transaksi, lalu periksa ulang statusnya di sana.
+    //
+    // Sebelumnya baris ini dibaca dengan `pool.query` di luar transaksi dan
+    // statusnya tidak pernah diperiksa lagi setelah BEGIN. Dua permintaan yang
+    // datang bersamaan — klik ganda pada "Bayar Tunai", atau permintaan lambat
+    // yang diulang klien — sama-sama membaca `unpaid`, sama-sama menyisipkan
+    // baris `bill_payments`, dan sama-sama memanggil catatKeKasRt(). Kas RT
+    // mencatat satu pembayaran yang sama dua kali.
+    //
+    // `finances_ref_uniq` tidak menolong: kuncinya `ref_id` yang berisi id
+    // pembayaran, dan setiap baris `bill_payments` punya UUID baru.
+    //
+    // payBillsBulk sudah melakukan ini dengan benar sejak awal. Kuncinya ada di
+    // jalur massal dan tidak pernah ikut ditambahkan ke jalur tunggal — bentuk
+    // kelalaian yang paling mudah terjadi ketika satu operasi punya dua jalur.
+    await client.query('BEGIN');
+
+    const billResult = await client.query('SELECT * FROM bills WHERE id = $1 FOR UPDATE', [id]);
     if (billResult.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ success: false, message: 'Tagihan tidak ditemukan.' });
     }
     const bill = billResult.rows[0];
 
     if (!(await bolehMengaksesTagihan(req, bill))) {
+      await client.query('ROLLBACK');
       return res.status(403).json({ success: false, message: 'Anda hanya bisa membayar tagihan keluarga sendiri.' });
     }
     if (bill.status === STATUS_LUNAS) {
+      await client.query('ROLLBACK');
       return res.status(400).json({ success: false, message: 'Tagihan ini sudah lunas.' });
     }
 
     const invoiceNumber = `INV-${Date.now()}-${uuidv4().split('-')[0].toUpperCase()}`;
-    await client.query('BEGIN');
     const paymentResult = await client.query(
       `INSERT INTO bill_payments (bill_id, user_id, jumlah_bayar, metode_bayar, invoice_number)
        VALUES ($1, $2, $3, $4, $5) RETURNING *`,
@@ -499,24 +518,42 @@ async function payBillsBulk(req, res) {
 }
 
 async function deleteBill(req, res) {
+  const client = await pool.connect();
   try {
     const { id } = req.params;
-    const bill = await pool.query(
-      'SELECT status, bulan, nominal, jenis_tagihan FROM bills WHERE id = $1',
+
+    // Satu transaksi untuk ketiga penghapusan.
+    //
+    // Sebelumnya ketiganya berupa `pool.query` terpisah. Kalau proses mati atau
+    // koneksi putus di antaranya — jaringan tersendat, pool habis, kehabisan
+    // memori — yang tersisa adalah tagihan yang riwayat pembayarannya sudah
+    // lenyap, atau baris `payment_transaction_bills` yang menunjuk tagihan yang
+    // sudah tidak ada. Keduanya menyisakan pembukuan yang tidak bisa dijelaskan.
+    //
+    // Setiap mutasi uang multi-tabel lain di berkas ini sudah transaksional;
+    // jalur ini yang terlewat.
+    await client.query('BEGIN');
+
+    const bill = await client.query(
+      'SELECT status, bulan, nominal, jenis_tagihan FROM bills WHERE id = $1 FOR UPDATE',
       [id]
     );
     if (bill.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ success: false, message: 'Tagihan tidak ditemukan.' });
     }
     // Jika bukan admin, cegah menghapus tagihan yang sudah lunas
     if (bill.rows[0].status === STATUS_LUNAS && req.user.role !== 'admin') {
+      await client.query('ROLLBACK');
       return res.status(409).json({ success: false, message: 'Tagihan lunas hanya dapat dihapus oleh Administrator.' });
     }
 
     // Hapus catatan relasi pembayaran jika ada
-    await pool.query('DELETE FROM bill_payments WHERE bill_id = $1', [id]);
-    await pool.query('DELETE FROM payment_transaction_bills WHERE bill_id = $1', [id]);
-    await pool.query('DELETE FROM bills WHERE id = $1', [id]);
+    await client.query('DELETE FROM bill_payments WHERE bill_id = $1', [id]);
+    await client.query('DELETE FROM payment_transaction_bills WHERE bill_id = $1', [id]);
+    await client.query('DELETE FROM bills WHERE id = $1', [id]);
+
+    await client.query('COMMIT');
 
     const dihapus = bill.rows[0];
     await logActivity(
@@ -527,8 +564,11 @@ async function deleteBill(req, res) {
     );
     return res.status(200).json({ success: true, message: 'Tagihan berhasil dihapus.' });
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('DeleteBill Error:', err.message);
-    return res.status(500).json({ success: false, message: err.message || 'Terjadi kesalahan server.' });
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  } finally {
+    client.release();
   }
 }
 

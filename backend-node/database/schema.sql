@@ -2098,3 +2098,59 @@ CREATE INDEX IF NOT EXISTS idx_complaints_aktif ON public.complaints USING btree
 CREATE INDEX IF NOT EXISTS idx_letters_aktif    ON public.letters    USING btree (id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_agenda_aktif     ON public.agenda     USING btree (id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_finances_aktif   ON public.finances   USING btree (id) WHERE deleted_at IS NULL;
+
+
+--
+-- ===================================================================
+-- JARING PENGAMAN KONKURENSI & INDEKS KOLOM PANAS  (migrasi v21)
+-- ===================================================================
+--
+-- Ditulis tangan, bukan hasil pg_dump.
+--
+-- Kode aplikasinya sudah diperbaiki — payBill mengunci barisnya dengan
+-- FOR UPDATE dan memeriksa ulang status di dalam transaksi. Constraint di
+-- bawah ini BUKAN penggantinya, melainkan lapisan yang tetap berlaku bila
+-- perbaikan itu kelak tidak sengaja terhapus, atau bila jalur baru ditulis
+-- tanpa mengingat aturannya.
+--
+-- Pola "periksa dulu lalu tulis" tidak pernah aman sendirian: dua permintaan
+-- bisa sama-sama lolos pemeriksaan sebelum salah satunya sempat menulis.
+-- Yang benar-benar mengakhiri perlombaan itu hanya database.
+--
+
+-- Satu pembayaran per tagihan. Sisi Midtrans sudah lama dijaga
+-- payment_bill_pending_uniq; sisi tunai justru yang tidak.
+CREATE UNIQUE INDEX IF NOT EXISTS bill_payments_satu_per_tagihan
+  ON public.bill_payments (bill_id);
+
+-- Satu absensi ronda yang BELUM pulang per petugas per hari. Parsial, supaya
+-- absensi hari-hari sebelumnya tetap bisa berdampingan.
+CREATE UNIQUE INDEX IF NOT EXISTS patrol_absensi_aktif_uniq
+  ON public.patrol_attendances (user_id, tanggal)
+  WHERE waktu_pulang IS NULL;
+
+--
+-- Indeks kolom panas. `visitors` dan `patrol_attendances` sebelumnya tidak
+-- punya indeks sama sekali selain primary key, padahal keduanya tumbuh paling
+-- cepat dan disaring pada setiap pemakaian.
+--
+-- Perhatikan idx_visitors_tanggal: penyaringnya memakai `jam_masuk::DATE`,
+-- jadi indeksnya harus atas ekspresi yang sama. Indeks biasa pada `jam_masuk`
+-- tidak akan pernah terpakai oleh kueri itu.
+--
+
+CREATE INDEX IF NOT EXISTS idx_bill_payments_bill       ON public.bill_payments (bill_id);
+CREATE INDEX IF NOT EXISTS idx_visitors_status          ON public.visitors (status);
+CREATE INDEX IF NOT EXISTS idx_visitors_tipe            ON public.visitors (tipe_keperluan);
+CREATE INDEX IF NOT EXISTS idx_visitors_tanggal         ON public.visitors ((jam_masuk::date));
+CREATE INDEX IF NOT EXISTS idx_visitors_pembuat         ON public.visitors (created_by);
+CREATE INDEX IF NOT EXISTS idx_patrol_absensi_user_tgl  ON public.patrol_attendances (user_id, tanggal);
+CREATE INDEX IF NOT EXISTS idx_patrol_absensi_tanggal   ON public.patrol_attendances (tanggal DESC);
+CREATE INDEX IF NOT EXISTS idx_complaints_user          ON public.complaints (user_id);
+CREATE INDEX IF NOT EXISTS idx_complaints_status        ON public.complaints (status);
+CREATE INDEX IF NOT EXISTS idx_letters_user             ON public.letters (user_id);
+CREATE INDEX IF NOT EXISTS idx_letters_status           ON public.letters (status);
+CREATE INDEX IF NOT EXISTS idx_borrowings_user          ON public.borrowings (user_id);
+CREATE INDEX IF NOT EXISTS idx_payment_trx_user         ON public.payment_transactions (user_id);
+CREATE INDEX IF NOT EXISTS idx_anggota_keluarga_kk      ON public.anggota_keluarga (keluarga_id);
+CREATE INDEX IF NOT EXISTS idx_polling_options_polling  ON public.polling_options (polling_id);
