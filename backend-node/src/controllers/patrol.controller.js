@@ -154,9 +154,9 @@ async function submitAttendance(req, res) {
     const now = new Date();
     const currentMins = now.getHours() * 60 + now.getMinutes();
 
-    // Hitung menit mulai (toleransi awal 30 menit sebelum jam shift)
+    // Hitung menit mulai (toleransi awal 15 menit sebelum jam shift)
     const startMins = startHour * 60 + startMin;
-    const earliestStartMins = startMins - 30; // Boleh absen 30 menit sebelum jam dimulainya shift
+    const earliestStartMins = startMins - 15; // Boleh absen 15 menit sebelum jam dimulainya shift
 
     // Hitung menit selesai
     const endMins = endHour * 60 + endMin;
