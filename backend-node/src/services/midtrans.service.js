@@ -28,7 +28,23 @@ const core = new midtransClient.CoreApi({
  * `grossAmount` WAJIB bilangan bulat rupiah — Midtrans menolak pecahan, dan
  * nominal iuran di database bertipe NUMERIC yang bisa membawa desimal.
  */
+function formatEmailValid(email) {
+  if (!email || typeof email !== 'string') return null;
+  const cleaned = email.trim();
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(cleaned) ? cleaned : null;
+}
+
+function formatPhoneValid(phone) {
+  if (!phone || typeof phone !== 'string') return undefined;
+  const digits = phone.replace(/\D/g, '');
+  return digits.length >= 8 && digits.length <= 15 ? digits : undefined;
+}
+
 async function buatSnap({ orderId, grossAmount, pelanggan, rincian }) {
+  const validEmail = formatEmailValid(pelanggan.email) || 'warga@smart-community.id';
+  const validPhone = formatPhoneValid(pelanggan.no_hp);
+
   const parameter = {
     transaction_details: {
       order_id: orderId,
@@ -45,9 +61,9 @@ async function buatSnap({ orderId, grossAmount, pelanggan, rincian }) {
       quantity: 1,
     })),
     customer_details: {
-      first_name: pelanggan.nama || 'Warga',
-      email: pelanggan.email || undefined,
-      phone: pelanggan.no_hp || undefined,
+      first_name: String(pelanggan.nama || 'Warga').slice(0, 50),
+      email: validEmail,
+      phone: validPhone,
     },
     callbacks: { finish: FINISH_URL },
   };
