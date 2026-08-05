@@ -21,7 +21,7 @@ router.put('/schedules/:id', requirePermission('kegiatan.ronda', 'update'), upda
 router.delete('/schedules/:id', requirePermission('kegiatan.ronda', 'delete'), deleteSchedule);
 
 router.get('/attendances', requirePermission('kegiatan.ronda', 'view'), getAttendances);
-router.post('/attendances', requirePermission('kegiatan.ronda', 'create'), submitAttendance);
+router.post('/attendances', requirePermission('kegiatan.ronda', 'view'), submitAttendance);
 router.delete('/attendances/:id', requirePermission('kegiatan.ronda', 'delete'), deleteAttendance);
 
 router.get('/qr', requirePermission('kegiatan.ronda', 'view'), getPosRondaQr);

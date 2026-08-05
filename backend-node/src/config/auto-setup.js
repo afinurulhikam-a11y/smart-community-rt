@@ -122,6 +122,13 @@ async function autoSetupCloud() {
         );
       }
     }
+
+    // Koreksi khusus: cabut can_create warga di kegiatan.ronda akibat bug matriks awal
+    await pool.query(
+      `UPDATE role_permissions
+       SET can_create = false
+       WHERE role = 'warga' AND menu_kode = 'kegiatan.ronda' AND can_create = true`
+    );
   } catch (e) {
     console.log('ℹ️ Catatan Permission:', e.message);
   }

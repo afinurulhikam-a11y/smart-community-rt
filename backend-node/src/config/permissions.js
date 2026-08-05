@@ -149,7 +149,7 @@ const DEFAULT_PERMISSIONS = {
     'layanan.visitor': VCU,
     'layanan.surat': VC,
     'kegiatan.agenda': V,
-    'kegiatan.ronda': VC,
+    'kegiatan.ronda': V,
     'aspirasi.darurat': VC,
     'aspirasi.pengaduan': VC,
     // Tetap `view`. Ikut memilih dijaga 'view' di polling.routes.js, karena
