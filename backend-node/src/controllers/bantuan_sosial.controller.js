@@ -8,6 +8,15 @@ async function getBantuanSosial(req, res) {
     const { tahun, jenis_bantuan, status, search } = req.query;
     let query = `SELECT bs.*, u.nama AS nama_warga, COALESCE(u.nik, u.username) AS nik_warga, c.nama AS created_by_nama FROM bantuan_sosial bs JOIN users u ON bs.user_id = u.id LEFT JOIN users c ON bs.created_by = c.id WHERE 1=1`;
     const params = [];
+
+    // Daftar penerima bantuan sosial adalah salah satu data paling sensitif di
+    // sistem ini — ia menyebutkan siapa saja yang tidak mampu, lengkap dengan
+    // nama dan NIK. Warga hanya boleh melihat catatannya sendiri.
+    if (req.user.role === 'warga') {
+      params.push(req.user.id);
+      query += ` AND bs.user_id = $${params.length}`;
+    }
+
     if (tahun && tahun !== 'Semua') { params.push(parseInt(tahun)); query += ` AND bs.tahun = $${params.length}`; }
     if (jenis_bantuan && jenis_bantuan !== 'Semua Jenis') { params.push(jenis_bantuan); query += ` AND bs.jenis_bantuan = $${params.length}`; }
     if (status && status !== 'Semua Status') { params.push(status); query += ` AND bs.status = $${params.length}`; }
@@ -23,10 +32,18 @@ async function getBantuanSosial(req, res) {
 
 async function getBantuanSosialStats(req, res) {
   try {
-    const totalResult = await pool.query('SELECT COUNT(*) as count FROM bantuan_sosial');
-    const aktifResult = await pool.query("SELECT COUNT(*) as count FROM bantuan_sosial WHERE status = 'Aktif'");
-    const reviewResult = await pool.query("SELECT COUNT(*) as count FROM bantuan_sosial WHERE status = 'Selesai'");
-    const jenisResult = await pool.query("SELECT COUNT(DISTINCT jenis_bantuan) as count FROM bantuan_sosial WHERE status = 'Aktif'");
+    // Kartu ringkasan harus disaring dengan aturan yang sama seperti daftarnya.
+    // Kalau tidak, angkanya menghitung baris yang tidak boleh dilihat pemanggil
+    // — dan jumlah penerima bantuan se-RT bocor lewat sebuah angka, tanpa satu
+    // nama pun ditampilkan.
+    const milikWarga = req.user.role === 'warga';
+    const p = milikWarga ? [req.user.id] : [];
+    const filter = milikWarga ? ' AND user_id = $1' : '';
+
+    const totalResult = await pool.query(`SELECT COUNT(*) as count FROM bantuan_sosial WHERE 1=1${filter}`, p);
+    const aktifResult = await pool.query(`SELECT COUNT(*) as count FROM bantuan_sosial WHERE status = 'Aktif'${filter}`, p);
+    const reviewResult = await pool.query(`SELECT COUNT(*) as count FROM bantuan_sosial WHERE status = 'Selesai'${filter}`, p);
+    const jenisResult = await pool.query(`SELECT COUNT(DISTINCT jenis_bantuan) as count FROM bantuan_sosial WHERE status = 'Aktif'${filter}`, p);
     return res.status(200).json({
       success: true,
       data: {
@@ -143,9 +160,12 @@ async function getBantuanSosialHistory(req, res) {
       `SELECT log.*, u.nama AS changed_by_name 
        FROM bantuan_sosial_log log 
        LEFT JOIN users u ON log.changed_by = u.id 
-       WHERE log.bantuan_sosial_id = $1 
+       WHERE log.bantuan_sosial_id = $1
+         ${req.user.role === 'warga'
+    ? 'AND EXISTS (SELECT 1 FROM bantuan_sosial bs WHERE bs.id = log.bantuan_sosial_id AND bs.user_id = $2)'
+    : ''}
        ORDER BY log.created_at DESC`,
-      [id]
+      req.user.role === 'warga' ? [id, req.user.id] : [id]
     );
     return res.status(200).json({ success: true, data: result.rows });
   } catch (err) {
@@ -186,6 +206,14 @@ async function exportBantuanSosial(req, res) {
     const { tahun, jenis_bantuan, status, search, format } = req.query;
     let query = `SELECT bs.*, u.nama AS nama_warga, COALESCE(u.nik, u.username) AS nik_warga, c.nama AS created_by_nama FROM bantuan_sosial bs JOIN users u ON bs.user_id = u.id LEFT JOIN users c ON bs.created_by = c.id WHERE 1=1`;
     const params = [];
+
+    // Export disaring sama seperti daftarnya. Melewatkan ini justru yang paling
+    // berbahaya: hasilnya berupa berkas yang bisa disimpan dan disebarkan.
+    if (req.user.role === 'warga') {
+      params.push(req.user.id);
+      query += ` AND bs.user_id = $${params.length}`;
+    }
+
     if (tahun && tahun !== 'Semua') { params.push(parseInt(tahun)); query += ` AND bs.tahun = $${params.length}`; }
     if (jenis_bantuan && jenis_bantuan !== 'Semua Jenis') { params.push(jenis_bantuan); query += ` AND bs.jenis_bantuan = $${params.length}`; }
     if (status && status !== 'Semua Status') { params.push(status); query += ` AND bs.status = $${params.length}`; }

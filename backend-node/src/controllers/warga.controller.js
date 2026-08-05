@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit-table');
 const { jenisKelamin: normalJk, labelJenisKelamin } = require('../utils/normalisasi');
+const { sandiAcak } = require('../utils/sandi');
 
 /**
  * Tata letak kolom Excel/PDF. Export menulis dengan urutan ini dan import
@@ -40,10 +41,29 @@ const BASE_QUERY = `
   WHERE k.deleted_at IS NULL
 `;
 
-/** Bangun query daftar warga beserta parameter pencariannya. */
-function buildWargaQuery(search) {
+/**
+ * Bangun query daftar warga beserta parameter pencariannya.
+ *
+ * Menerima `req`, bukan hanya `search`, supaya penyempitan baris untuk warga
+ * ikut terbawa ke SEMUA pemakainya sekaligus — daftar, export Excel, dan export
+ * PDF. Ketiganya memanggil fungsi ini; kalau penyaringannya ditulis di layar
+ * daftar saja, kedua export akan tetap membocorkan seluruh tabel, dan itu justru
+ * kebocoran yang paling merugikan karena berbentuk berkas yang bisa disimpan.
+ *
+ * Sama seperti di family.controller: hari ini warga memang tidak punya izin ke
+ * modul ini, jadi klausanya belum pernah terpakai. Ia lapisan kedua, untuk saat
+ * seseorang memberi warga hak View dari layar Menu & Akses.
+ */
+function buildWargaQuery(req) {
+  const search = req?.query?.search;
   let query = BASE_QUERY;
   const params = [];
+
+  if (req?.user?.role === 'warga') {
+    params.push(req.user.id);
+    query += ` AND k.no_kk = (SELECT no_kk FROM users WHERE id = $${params.length})`;
+  }
+
   if (search) {
     params.push(`%${search}%`);
     query += ` AND (
@@ -144,7 +164,7 @@ function atauNull(nilai) {
 
 async function getWarga(req, res) {
   try {
-    const { query, params } = buildWargaQuery(req.query.search);
+    const { query, params } = buildWargaQuery(req);
     const countQuery = `SELECT COUNT(*) FROM (${query}) AS total`;
     const countResult = await pool.query(countQuery, params);
     const totalData = parseInt(countResult.rows[0].count);
@@ -195,7 +215,7 @@ async function getWarga(req, res) {
 
 async function exportWargaExcel(req, res) {
   try {
-    const { query, params } = buildWargaQuery(req.query.search);
+    const { query, params } = buildWargaQuery(req);
     const finalQuery = `${query} ORDER BY k.no_kk, ak.id ASC`;
     const result = await pool.query(finalQuery, params);
 
@@ -221,7 +241,7 @@ async function exportWargaExcel(req, res) {
 
 async function exportWargaPdf(req, res) {
   try {
-    const { query, params } = buildWargaQuery(req.query.search);
+    const { query, params } = buildWargaQuery(req);
     const finalQuery = `${query} ORDER BY k.no_kk, ak.id ASC`;
     const result = await pool.query(finalQuery, params);
 
@@ -337,9 +357,12 @@ async function tambahWargaLengkap(req, res) {
 
     // 3. Insert ke users (Akun Login Otomatis)
     const resUser = await client.query('SELECT id FROM users WHERE username = $1 OR email = $1', [nik]);
+    let sandiAwal = null;
     if (resUser.rows.length === 0) {
+      // Acak, bukan '123456'. Lihat src/utils/sandi.js untuk alasannya.
+      sandiAwal = sandiAcak();
       const salt = await bcrypt.genSalt(10);
-      const passwordHash = await bcrypt.hash('123456', salt);
+      const passwordHash = await bcrypt.hash(sandiAwal, salt);
 
       // Note: we insert NIK into username. We also use NIK for email since email is unique but maybe required by old queries
       await client.query(
@@ -350,11 +373,16 @@ async function tambahWargaLengkap(req, res) {
 
     await client.query('COMMIT');
 
+    // Sandinya TIDAK ikut dicatat ke jejak audit. Log dibaca administrator dan
+    // bersifat permanen; menuliskan sandi warga di sana berarti setiap
+    // administrator berikutnya bisa masuk sebagai warga mana pun, selamanya.
     await logActivity(req, 'CREATE', `Menambah data warga ${nama} (NIK ${nik}) dan membuat akun loginnya`);
     return res.status(201).json({
       success: true,
-      message: 'Data warga berhasil ditambahkan dan akun login (123456) otomatis dibuat.',
-      data: { username: nik, password: '123456' }
+      message: sandiAwal
+        ? 'Data warga berhasil ditambahkan. Catat sandi awalnya — hanya ditampilkan sekali ini.'
+        : 'Data warga berhasil ditambahkan. Akun loginnya sudah ada sebelumnya.',
+      data: { username: nik, password: sandiAwal }
     });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -387,6 +415,7 @@ async function importWargaExcel(req, res) {
     let successCount = 0;
     let failedCount = 0;
     const errors = [];
+    const akunBaru = [];
 
     // Urutan kolom mengikuti konstanta KOLOM di atas (baris 1 = header).
     const rowCount = worksheet.rowCount;
@@ -463,12 +492,17 @@ async function importWargaExcel(req, res) {
 
         const resUser = await client.query('SELECT id FROM users WHERE username = $1', [nik]);
         if (resUser.rows.length === 0) {
+          const sandiAwal = sandiAcak();
           const salt = await bcrypt.genSalt(10);
-          const passwordHash = await bcrypt.hash('123456', salt);
+          const passwordHash = await bcrypt.hash(sandiAwal, salt);
           await client.query(
             'INSERT INTO users (username, email, password_hash, nama, no_hp, no_kk, alamat, role, is_active, nik) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
             [nik, nik, passwordHash, nama, no_hp || '-', no_kk, '-', 'warga', true, nik]
           );
+          // Dikumpulkan untuk dikembalikan sekali di akhir impor. Inilah
+          // satu-satunya kesempatan sandi ini terbaca — setelah respons ini
+          // yang tersisa hanya hash-nya.
+          akunBaru.push({ nama, nik, sandi: sandiAwal });
         }
 
         successCount++;
@@ -483,8 +517,16 @@ async function importWargaExcel(req, res) {
     await logActivity(req, 'IMPORT', `Mengimpor data warga dari Excel: ${successCount} berhasil, ${failedCount} gagal`);
     return res.status(200).json({
       success: true,
-      message: `Berhasil mengimpor ${successCount} data warga. Gagal: ${failedCount}.`,
-      errors: errors.slice(0, 5) // max 5 errors shown
+      message: `Berhasil mengimpor ${successCount} data warga. Gagal: ${failedCount}.`
+        + (akunBaru.length > 0
+          ? ` ${akunBaru.length} akun login dibuat — catat sandinya sekarang, tidak bisa dilihat lagi.`
+          : ''),
+      errors: errors.slice(0, 5), // max 5 errors shown
+      // Setiap akun mendapat sandi acaknya sendiri, bukan satu sandi yang sama
+      // untuk semua orang. Daftarnya dikembalikan UTUH — dipotong seperti
+      // `errors` justru berbahaya di sini, karena warga yang sandinya terpotong
+      // akan punya akun yang tidak bisa dimasuki siapa pun.
+      akun_baru: akunBaru,
     });
 
   } catch (err) {

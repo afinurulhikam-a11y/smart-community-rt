@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../constants/api_constants.dart';
+import 'api_service.dart';
 
 class WebSocketService extends ChangeNotifier {
   WebSocketChannel? _channel;
@@ -26,7 +27,21 @@ class WebSocketService extends ChangeNotifier {
     try {
       _subscription?.cancel();
       _channel?.sink.close();
-      _channel = WebSocketChannel.connect(Uri.parse(ApiConstants.wsUrl));
+
+      // Token ikut dikirim lewat query — WebSocket tidak bisa membawa header
+      // Authorization saat handshake, jadi ini pola yang lazim.
+      //
+      // WAJIB sejak backend memisahkan muatan siaran: koneksi tanpa token
+      // dianggap perangkat IoT dan hanya menerima `{type, alert_id, timestamp}`.
+      // Tanpa token, alarm tetap berbunyi di aplikasi tetapi layar Status
+      // Darurat tidak tahu siapa yang meminta tolong dan di mana — justru
+      // keterangan yang membuat alarm itu berguna.
+      final token = ApiService.token;
+      final alamat = (token != null && token.isNotEmpty)
+          ? '${ApiConstants.wsUrl}?token=$token'
+          : ApiConstants.wsUrl;
+
+      _channel = WebSocketChannel.connect(Uri.parse(alamat));
       
       _subscription = _channel!.stream.listen(
         (data) {

@@ -24,8 +24,16 @@ function initWebSocket(server) {
         return;
       }
     }
-    // Koneksi tanpa token tetap diterima (backward-compatible / IoT device)
-    // tetapi tidak menerima data sensitif di masa depan.
+    // Koneksi TANPA token tetap diterima — ESP32 tidak bisa memegang JWT — dan
+    // ditandai sebagai perangkat. Tandanya dipakai `broadcast()` untuk memilih
+    // muatan mana yang boleh dikirim ke sana.
+    //
+    // Ini yang menutup kebocoran nyata: dulu setiap klien menerima setiap
+    // pesan, termasuk nama, nomor telepon, dan alamat rumah orang yang sedang
+    // menekan tombol darurat. Siapa pun yang bisa menjangkau server ini —
+    // tanpa akun, tanpa token — cukup membuka satu koneksi WebSocket untuk
+    // menyadapnya. Justru pada saat orang itu paling rentan.
+    ws.terautentikasi = Boolean(ws.userId);
 
     console.log(`websocket client terhubung${ws.userNama ? ` (${ws.userNama})` : ''}`);
 
@@ -57,24 +65,46 @@ function initWebSocket(server) {
   return wss;
 }
 
-function broadcast(data) {
+/**
+ * Siarkan pesan ke klien yang terhubung.
+ *
+ * @param {object|string} data     muatan lengkap, untuk klien yang sudah login
+ * @param {object} [dataPerangkat] muatan terbatas untuk koneksi tanpa token
+ *                                 (ESP32). Bila tidak diberikan, koneksi tanpa
+ *                                 token TIDAK menerima apa-apa.
+ *
+ * Bawaannya sengaja menutup, bukan membuka: pesan baru yang lupa menyertakan
+ * versi perangkatnya tidak akan pernah bocor ke koneksi anonim. Yang hilang
+ * paling banter satu bunyi bel; yang dicegah adalah kebocoran data pribadi.
+ */
+function broadcast(data, dataPerangkat) {
   if (!wss) {
     console.warn('⚠️ WebSocket Server belum diinisialisasi');
     return;
   }
 
-  const message = typeof data === 'string' ? data : JSON.stringify(data);
-  let sentCount = 0;
+  const pesanPenuh = typeof data === 'string' ? data : JSON.stringify(data);
+  const pesanPerangkat = dataPerangkat === undefined
+    ? null
+    : (typeof dataPerangkat === 'string' ? dataPerangkat : JSON.stringify(dataPerangkat));
+
+  let keAkun = 0;
+  let kePerangkat = 0;
 
   wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(message);
-      sentCount++;
+    if (client.readyState !== WebSocket.OPEN) return;
+
+    if (client.terautentikasi) {
+      client.send(pesanPenuh);
+      keAkun++;
+    } else if (pesanPerangkat !== null) {
+      client.send(pesanPerangkat);
+      kePerangkat++;
     }
   });
 
-  console.log(`📡 Broadcast ke ${sentCount} client:`, data);
-  return sentCount;
+  console.log(`📡 Broadcast: ${keAkun} akun, ${kePerangkat} perangkat —`, data?.type || data);
+  return keAkun + kePerangkat;
 }
 
 function getConnectedClients() {
