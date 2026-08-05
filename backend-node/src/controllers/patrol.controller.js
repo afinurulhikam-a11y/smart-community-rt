@@ -107,6 +107,26 @@ async function getAttendances(req, res) {
   }
 }
 
+function parseShiftTimes(shiftStr) {
+  if (!shiftStr) return { startHour: 20, startMin: 0, endHour: 4, endMin: 0, startStr: '20:00', endStr: '04:00' };
+  const match = shiftStr.match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
+  if (match) {
+    const sH = parseInt(match[1], 10);
+    const sM = parseInt(match[2], 10);
+    const eH = parseInt(match[3], 10);
+    const eM = parseInt(match[4], 10);
+    return {
+      startHour: sH,
+      startMin: sM,
+      endHour: eH,
+      endMin: eM,
+      startStr: `${sH.toString().padStart(2, '0')}:${sM.toString().padStart(2, '0')}`,
+      endStr: `${eH.toString().padStart(2, '0')}:${eM.toString().padStart(2, '0')}`,
+    };
+  }
+  return { startHour: 20, startMin: 0, endHour: 4, endMin: 0, startStr: '20:00', endStr: '04:00' };
+}
+
 async function submitAttendance(req, res) {
   try {
     const { schedule_id, kode_qr, tipe_absen, lokasi_pos, catatan, foto_url } = req.body;
@@ -117,6 +137,31 @@ async function submitAttendance(req, res) {
     if (kode_qr && kode_qr !== 'POS_RONDA_OFFICIAL_QR') {
       return res.status(400).json({ success: false, message: 'Kode QR Pos Ronda tidak valid!' });
     }
+
+    // Cari jadwal yang berlaku untuk mendapatkan jam shift
+    let shiftStr = 'Shift Malam (20:00 - 04:00)';
+    if (schedule_id) {
+      const schedRes = await pool.query('SELECT shift FROM patrol_schedules WHERE id = $1', [schedule_id]);
+      if (schedRes.rows.length > 0) shiftStr = schedRes.rows[0].shift;
+    } else {
+      const todaySched = await pool.query(
+        'SELECT shift FROM patrol_schedules WHERE tanggal = CURRENT_DATE OR created_at::date = CURRENT_DATE LIMIT 1'
+      );
+      if (todaySched.rows.length > 0) shiftStr = todaySched.rows[0].shift;
+    }
+
+    const { startHour, startMin, endHour, endMin, startStr, endStr } = parseShiftTimes(shiftStr);
+    const now = new Date();
+    const currentMins = now.getHours() * 60 + now.getMinutes();
+
+    // Hitung menit mulai (toleransi awal 30 menit sebelum jam shift)
+    const startMins = startHour * 60 + startMin;
+    const earliestStartMins = startMins - 30; // Boleh absen 30 menit sebelum jam dimulainya shift
+
+    // Hitung menit selesai
+    const endMins = endHour * 60 + endMin;
+
+    const isOvernight = endMins <= startMins; // Misal 22:00 s.d. 04:00
 
     const today = new Date().toISOString().split('T')[0];
     const existing = await pool.query(
@@ -132,6 +177,29 @@ async function submitAttendance(req, res) {
         return res.status(400).json({
           success: false,
           message: 'Anda belum melakukan Absen Masuk Tugas ronda hari ini!',
+        });
+      }
+
+      // Validasi Jam Pulang: Wajib mencapai/melewati jam selesai shift
+      let canCheckout = false;
+      if (isOvernight) {
+        // Jika shift malam melintasi tengah malam (misal 22:00 - 04:00):
+        // Boleh pulang jika jam sekarang sudah masuk ke dini hari (setelah midnight & >= endMins)
+        // atau jika sudah melewati jam 04:00 pagi (misal jam 04:15, 05:00, 06:00, dll)
+        if (now.getHours() >= endHour && now.getHours() < startHour) {
+          canCheckout = true;
+        }
+      } else {
+        if (currentMins >= endMins) {
+          canCheckout = true;
+        }
+      }
+
+      // Jika belum waktunya pulang (dan bukan admin bypass):
+      if (!canCheckout && req.user.role !== 'admin') {
+        return res.status(400).json({
+          success: false,
+          message: `Absen Pulang belum dapat dilakukan. Tugas ronda Anda berakhir pada pukul ${endStr} WIB!`,
         });
       }
 
@@ -157,6 +225,25 @@ async function submitAttendance(req, res) {
         return res.status(400).json({
           success: false,
           message: 'Anda sedang dalam masa tugas ronda! Gunakan Absen Selesai Tugas untuk mengakhiri.',
+        });
+      }
+
+      // Validasi Jam Masuk: Boleh mulai dari 30 menit sebelum startStr sampai jam bertugas
+      let canCheckin = false;
+      if (isOvernight) {
+        if (currentMins >= earliestStartMins || now.getHours() < endHour) {
+          canCheckin = true;
+        }
+      } else {
+        if (currentMins >= earliestStartMins) {
+          canCheckin = true;
+        }
+      }
+
+      if (!canCheckin && req.user.role !== 'admin') {
+        return res.status(400).json({
+          success: false,
+          message: `Absen Masuk belum dibuka. Jadwal ronda Anda dimulai pukul ${startStr} WIB!`,
         });
       }
 
