@@ -16,7 +16,11 @@ router.use(authMiddleware);
 
 router.get('/', requirePermission('kependudukan.warga', 'view'), getUsers);
 router.get('/by-nik/:nik', getUserByNik);
-router.put('/credentials', updateUserCredentials);
+// Dijaga izin, bukan hanya login. Pemeriksaan peran di dalam controller tetap
+// ada dan sekarang juga memeriksa peran TARGET-nya — lihat komentar di sana.
+// Guard ini lapisan keduanya, sekaligus membuat kewenangannya terlihat dan bisa
+// dicabut lewat Menu & Akses seperti modul lain.
+router.put('/credentials', requirePermission('kependudukan.warga', 'update'), updateUserCredentials);
 router.get('/pending', getPendingUsers);
 router.post('/', roleGuard('admin'), createUser);
 router.put('/:id/role', roleGuard('admin'), updateUserRole);

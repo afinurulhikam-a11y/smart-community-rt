@@ -2053,3 +2053,48 @@ CREATE TRIGGER trg_activity_logs_no_truncate
 CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON public.activity_logs USING btree (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_activity_logs_tipe       ON public.activity_logs USING btree (tipe);
 CREATE INDEX IF NOT EXISTS idx_activity_logs_user       ON public.activity_logs USING btree (user_id, created_at DESC);
+
+
+--
+-- ===================================================================
+-- SOFT DELETE  (migration-soft-delete.js + migration-soft-delete-tahap3.js)
+-- ===================================================================
+--
+-- Ditulis tangan, bukan hasil pg_dump — sama seperti blok jejak audit di atas.
+--
+-- Kedua skrip aslinya berada di luar konvensi `migration_vN_*.js`, sehingga
+-- schema.sql tidak pernah ditangkap ulang setelah dijalankan. Akibatnya berat
+-- dan tidak kelihatan: mengikuti panduan setup persis (`node init-db.js` lalu
+-- `node seed-master.js`) menghasilkan database TANPA kolom ini, sementara
+-- delapan controller menyaring dengan `WHERE ... deleted_at IS NULL`. Panggilan
+-- pertama ke /api/families, /api/complaints, /api/letters, /api/inventory,
+-- /api/finances, atau /api/users langsung gagal dengan
+-- `column "deleted_at" does not exist` — aplikasi mati sejak menit pertama di
+-- setiap instalasi baru, termasuk deploy baru di Railway.
+--
+-- ALTER, bukan disisipkan ke CREATE TABLE di atas: bentuk ini idempoten, tetap
+-- benar bila suatu saat schema.sql ditangkap ulang dengan pg_dump, dan
+-- menjelaskan dirinya sendiri kepada pembaca berikutnya.
+--
+
+ALTER TABLE public.users      ADD COLUMN IF NOT EXISTS deleted_at timestamp without time zone;
+ALTER TABLE public.keluarga   ADD COLUMN IF NOT EXISTS deleted_at timestamp without time zone;
+ALTER TABLE public.inventory  ADD COLUMN IF NOT EXISTS deleted_at timestamp without time zone;
+ALTER TABLE public.complaints ADD COLUMN IF NOT EXISTS deleted_at timestamp without time zone;
+ALTER TABLE public.letters    ADD COLUMN IF NOT EXISTS deleted_at timestamp without time zone;
+ALTER TABLE public.agenda     ADD COLUMN IF NOT EXISTS deleted_at timestamp without time zone;
+ALTER TABLE public.finances   ADD COLUMN IF NOT EXISTS deleted_at timestamp without time zone;
+
+--
+-- Indeks PARSIAL. Setiap daftar menyaring `deleted_at IS NULL`, dan baris yang
+-- terhapus adalah minoritas kecil yang tidak pernah dibaca — jadi indeks penuh
+-- hanya membuang ruang untuk baris yang justru ingin dilewati.
+--
+
+CREATE INDEX IF NOT EXISTS idx_users_aktif      ON public.users      USING btree (id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_keluarga_aktif   ON public.keluarga   USING btree (id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_inventory_aktif  ON public.inventory  USING btree (id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_complaints_aktif ON public.complaints USING btree (id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_letters_aktif    ON public.letters    USING btree (id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_agenda_aktif     ON public.agenda     USING btree (id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_finances_aktif   ON public.finances   USING btree (id) WHERE deleted_at IS NULL;

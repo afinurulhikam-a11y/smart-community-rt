@@ -311,6 +311,33 @@ async function updateUserCredentials(req, res) {
     }
 
     if (password && password.trim() !== '') {
+      // Endpoint ini mengatur ulang sandi TANPA menanyakan sandi lama — memang
+      // begitu tujuannya, karena pengurus perlu menolong warga yang lupa.
+      //
+      // Karena itu peran TARGET-nya harus diperiksa, bukan hanya peran
+      // pemanggilnya. Tanpa ini seorang sekretaris cukup mengirim
+      // `{ nik: 'Administrator', password: 'x' }` — pencariannya juga cocok
+      // pada `username`, jadi tidak perlu tahu NIK apa pun — lalu masuk sebagai
+      // administrator. Seluruh pemisahan peran runtuh dalam satu permintaan.
+      //
+      // Aturannya: sandi akun non-warga hanya boleh disetel oleh admin.
+      const targetRole = userRes.rows[0]?.role || 'warga';
+      if (targetRole !== 'warga' && callerRole !== 'admin') {
+        await client.query('ROLLBACK');
+        return res.status(403).json({
+          success: false,
+          message: `Hanya Administrator yang berhak mengatur ulang sandi akun berperan "${targetRole}".`,
+        });
+      }
+
+      if (password.trim().length < 8) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({
+          success: false,
+          message: 'Sandi minimal 8 karakter.',
+        });
+      }
+
       const salt = await bcrypt.genSalt(10);
       const hash = await bcrypt.hash(password.trim(), salt);
       await client.query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [hash, userId]);
