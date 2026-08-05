@@ -249,8 +249,11 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
 
     String formatNamaPetugas(String raw) {
       if (raw.trim().isEmpty) return '-';
-      final parts = raw.trim().split(RegExp(r'[,\s]+')).where((n) => n.isNotEmpty).toList();
-      return parts.map((n) => n[0].toUpperCase() + n.substring(1).toLowerCase()).join(', ');
+      final orangList = raw.split(',').map((o) => o.trim()).where((o) => o.isNotEmpty).toList();
+      return orangList.map((orang) {
+        final words = orang.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+        return words.map((w) => w[0].toUpperCase() + w.substring(1).toLowerCase()).join(' ');
+      }).join(', ');
     }
 
     final shift = s['shift'] ?? 'Shift Malam (22:00 - 04:00)';
@@ -759,7 +762,7 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                     controller: petugasCtrl,
                     decoration: InputDecoration(
                       labelText: 'Petugas Warga *',
-                      hintText: 'Contoh: budi agus (otomatis Budi, Agus)',
+                      hintText: 'Gunakan koma untuk beda orang (Contoh: Budi Agus, Slamet)',
                       errorText: errorPetugas,
                     ),
                     onChanged: (_) {

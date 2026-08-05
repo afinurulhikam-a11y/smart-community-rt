@@ -19,9 +19,17 @@ async function getSchedules(req, res) {
 
 function formatNamaPetugas(input) {
   if (!input) return '';
-  const names = input.trim().split(/[,\s]+/).filter(Boolean);
-  return names
-    .map(n => n.charAt(0).toUpperCase() + n.slice(1).toLowerCase())
+  // Pisahkan berdasarkan KOMA untuk membedakan orang yang berbeda
+  const orangList = input.split(',').map(o => o.trim()).filter(Boolean);
+  
+  return orangList
+    .map(orang => {
+      // Untuk nama 1 orang, kapitalsasi setiap kata tanpa memisahkannya
+      return orang
+        .split(/\s+/)
+        .map(kata => kata.charAt(0).toUpperCase() + kata.slice(1).toLowerCase())
+        .join(' ');
+    })
     .join(', ');
 }
 
