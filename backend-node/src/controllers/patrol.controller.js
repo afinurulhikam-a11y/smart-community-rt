@@ -58,6 +58,33 @@ async function createSchedule(req, res) {
       [hari, tanggal || null, shift || 'Shift Malam (22:00 - 04:00)', formattedPetugas, keterangan || null, req.user.id]
     );
 
+    // Kirim notifikasi WhatsApp ke petugas yang terdaftar (Async)
+    const { sendPatrolScheduleWA } = require('../services/whatsapp.service');
+    (async () => {
+      try {
+        const listNama = formattedPetugas.split(',').map(n => n.trim()).filter(Boolean);
+        for (const namaPetugas of listNama) {
+          const uRes = await pool.query(
+            `SELECT nama, no_hp FROM users WHERE nama ILIKE $1 AND no_hp IS NOT NULL AND no_hp != '' LIMIT 1`,
+            [`%${namaPetugas}%`]
+          );
+          if (uRes.rows.length > 0 && uRes.rows[0].no_hp) {
+            await sendPatrolScheduleWA({
+              noHp: uRes.rows[0].no_hp,
+              userNama: uRes.rows[0].nama,
+              hari,
+              tanggal,
+              shift: shift || 'Shift Malam (22:00 - 04:00)',
+              petugasLengkap: formattedPetugas,
+              keterangan,
+            });
+          }
+        }
+      } catch (waErr) {
+        console.error('WA Schedule Notification Error:', waErr.message);
+      }
+    })();
+
     return res.status(201).json({ success: true, message: 'Jadwal ronda berhasil ditambahkan.', data: result.rows[0] });
   } catch (err) {
     console.error('CreateSchedule Error:', err.message);
@@ -96,6 +123,35 @@ async function updateSchedule(req, res) {
 
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Jadwal ronda tidak ditemukan.' });
+    }
+
+    // Kirim notifikasi WhatsApp ke petugas yang terdaftar (Async)
+    if (formattedPetugas) {
+      const { sendPatrolScheduleWA } = require('../services/whatsapp.service');
+      (async () => {
+        try {
+          const listNama = formattedPetugas.split(',').map(n => n.trim()).filter(Boolean);
+          for (const namaPetugas of listNama) {
+            const uRes = await pool.query(
+              `SELECT nama, no_hp FROM users WHERE nama ILIKE $1 AND no_hp IS NOT NULL AND no_hp != '' LIMIT 1`,
+              [`%${namaPetugas}%`]
+            );
+            if (uRes.rows.length > 0 && uRes.rows[0].no_hp) {
+              await sendPatrolScheduleWA({
+                noHp: uRes.rows[0].no_hp,
+                userNama: uRes.rows[0].nama,
+                hari: hari || result.rows[0].hari,
+                tanggal: tanggal || result.rows[0].tanggal,
+                shift: shift || result.rows[0].shift,
+                petugasLengkap: formattedPetugas,
+                keterangan: keterangan || result.rows[0].keterangan,
+              });
+            }
+          }
+        } catch (waErr) {
+          console.error('WA Schedule Update Notification Error:', waErr.message);
+        }
+      })();
     }
 
     return res.status(200).json({ success: true, message: 'Jadwal ronda berhasil diperbarui.', data: result.rows[0] });

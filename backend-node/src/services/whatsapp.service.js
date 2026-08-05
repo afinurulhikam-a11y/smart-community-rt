@@ -143,9 +143,34 @@ Terima kasih.
   }
 }
 
+/** Notifikasi WhatsApp untuk Penugasan Jadwal Siskamling / Ronda */
+async function sendPatrolScheduleWA({ noHp, userNama, hari, tanggal, shift, petugasLengkap, keterangan }) {
+  const tglFormatted = tanggal ? ` (${tanggal})` : '';
+  const pesan = 
+`🌙 *JADWAL SISKAMLING / RONDA NIGHT* 🌙
+
+Yth. Bpk/Ibu *${userNama || 'Petugas Ronda'}*,
+
+Anda telah dijadwalkan untuk bertugas menjaga keamanan lingkungan RT pada:
+📅 *Hari/Tanggal*: ${hari}${tglFormatted}
+⏰ *Shift Jam*: ${shift || 'Shift Malam (22:00 - 04:00)'}
+👥 *Tim Petugas*: ${petugasLengkap || '-'}
+${keterangan ? `📝 *Keterangan*: ${keterangan}\n` : ''}
+📍 *Pos Ronda*: Pos Ronda Utama RT
+📌 *Petunjuk*: Mohon hadir tepat waktu dan melakukan *Absen Masuk (Check-in)* dengan memindai Kode QR di Pos Ronda.
+
+Terima kasih atas dedikasi Bpk/Ibu dalam menjaga keamanan bersama!
+— *Pengurus / Admin RT*`;
+
+  if (noHp) {
+    await sendWA({ target: noHp, message: pesan });
+  }
+}
+
 module.exports = {
   sendWA,
   sendEmergencyWA,
   sendBillWA,
   sendLetterApprovedWA,
+  sendPatrolScheduleWA,
 };
