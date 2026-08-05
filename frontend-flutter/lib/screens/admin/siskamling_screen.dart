@@ -946,7 +946,7 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: selectedHari,
+                    initialValue: selectedHari,
                     decoration: const InputDecoration(labelText: 'Hari Ronda *'),
                     items: const [
                       DropdownMenuItem(value: 'Senin', child: Text('Senin')),
@@ -1123,7 +1123,7 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    value: selectedHari,
+                    initialValue: selectedHari,
                     decoration: const InputDecoration(labelText: 'Hari Ronda *'),
                     items: const [
                       DropdownMenuItem(value: 'Senin', child: Text('Senin')),
