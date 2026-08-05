@@ -1,7 +1,7 @@
 const { pool } = require('../config/database');
 const bcrypt = require('bcryptjs');
 const ExcelJS = require('exceljs');
-const { logActivity } = require('../services/log.service');
+const { logActivity, TIPE } = require('../services/log.service');
 const {
   RESET_GROUPS,
   GRUP_TOTAL,
@@ -207,6 +207,15 @@ async function cadanganReset(req, res) {
     res.setHeader('Content-Disposition', `attachment; filename=${namaFile}`);
     await workbook.xlsx.write(res);
     res.end();
+
+    // Berkas ini berisi salinan mentah seluruh tabel dalam kelompoknya —
+    // termasuk data pribadi warga. Mengunduhnya adalah kejadian yang harus
+    // terbaca, bukan hanya penghapusannya.
+    await logActivity(
+      req,
+      TIPE.AKSES,
+      `Mengunduh cadangan data kelompok "${grup.nama || grup.kode}" (${namaFile})`
+    );
   } catch (err) {
     console.error('CadanganReset Error:', err.message);
     if (!res.headersSent) {
@@ -292,7 +301,7 @@ async function eksekusiReset(req, res) {
     // ikut terhapus oleh reset itu sendiri.
     const ringkas = Object.entries(rincian).map(([t, n]) => `${t}: ${n}`).join(', ');
     await logActivity(
-      req, 'RESET',
+      req, TIPE.RESET,
       `Reset "${grup.nama}" — ${total} baris dihapus${ringkas ? ` (${ringkas})` : ''}.`
     );
 

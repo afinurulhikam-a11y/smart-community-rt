@@ -78,6 +78,9 @@ async function createVisitor(req, res) {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
       [nama_tamu.trim(), no_hp_tamu.trim(), blok_tujuan.trim(), no_hp_tujuan.trim(), tipe_keperluan || 'Kunjungan', detail_keperluan.trim(), plat_nomor.trim(), jenis_kendaraan || null, req.user.id]
     );
+    const t = result.rows[0];
+    await logActivity(req, TIPE.CREATE, `Mencatat tamu masuk: ${ringkas(t.nama_tamu)} → ${t.blok_tujuan || '-'}, keperluan ${t.tipe_keperluan || '-'}${t.plat_nomor ? `, kendaraan ${t.plat_nomor}` : ''}`);
+
     return res.status(201).json({ success: true, message: 'Tamu berhasil diregistrasi.', data: result.rows[0] });
   } catch (err) {
     console.error('CreateVisitor Error:', err.message);
@@ -92,6 +95,8 @@ async function checkoutVisitor(req, res) {
       "UPDATE visitors SET status = 'Checkout', jam_keluar = NOW() WHERE id = $1 AND status = 'Di Dalam' RETURNING *", [id]
     );
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Tamu tidak ditemukan atau sudah checkout.' });
+    await logActivity(req, TIPE.UPDATE, `Mencatat tamu keluar: ${ringkas(result.rows[0].nama_tamu)}`);
+
     return res.status(200).json({ success: true, message: 'Checkout berhasil.', data: result.rows[0] });
   } catch (err) {
     console.error('CheckoutVisitor Error:', err.message);

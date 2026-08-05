@@ -148,6 +148,15 @@ async function mulaiPembayaran(req, res) {
 
     await client.query('COMMIT');
 
+    // Ini baru PERCOBAAN bayar, bukan uang yang masuk — kata "Memulai" dipakai
+    // supaya tidak terbaca sebagai pelunasan. Yang melunaskan hanya
+    // terapkanStatus(), dan itu punya catatannya sendiri.
+    await logActivity(
+      req,
+      TIPE.PEMBAYARAN,
+      `Memulai pembayaran online ${orderId} — ${tagihan.rows.length} tagihan, ${rupiah(total)}`
+    );
+
     return res.status(201).json({
       success: true,
       message: 'Pembayaran dibuat. Lanjutkan di halaman Midtrans.',

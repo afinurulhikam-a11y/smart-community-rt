@@ -482,6 +482,16 @@ async function createBorrowing(req, res) {
     const msg = initialStatus === 'Menunggu Persetujuan'
       ? 'Permohonan peminjaman berhasil dikirim. Menunggu persetujuan Admin RT.'
       : 'Peminjaman berhasil dicatat.';
+
+    // Nama peminjam ikut dicatat karena pengurus boleh mencatat atas nama warga
+    // lain — tanpa itu tidak terlihat siapa yang sebenarnya memegang barang.
+    await logActivity(
+      req,
+      TIPE.CREATE,
+      `Mencatat peminjaman ${qty} ${ringkas(stok.nama_barang)} atas nama ` +
+        `${ringkas(peminjam.rows[0].nama)} (status awal: ${initialStatus})`
+    );
+
     return res.status(201).json({ success: true, message: msg, data: result.rows[0] });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -733,6 +743,13 @@ async function approveBorrowing(req, res) {
       `UPDATE borrowings SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
       [STATUS_DIPINJAM, id]
     );
+    const b = result.rows[0];
+    await logActivity(
+      req,
+      TIPE.UPDATE,
+      `Menyetujui peminjaman #${id}: ${b.jumlah} unit oleh ${ringkas(b.nama_peminjam)}`
+    );
+
     return res.status(200).json({ success: true, message: 'Peminjaman barang telah disetujui.', data: result.rows[0] });
   } catch (err) {
     console.error('ApproveBorrowing Error:', err.message);
@@ -751,6 +768,13 @@ async function rejectBorrowing(req, res) {
       `UPDATE borrowings SET status = 'Ditolak', updated_at = NOW() WHERE id = $1 RETURNING *`,
       [id]
     );
+    const b = result.rows[0];
+    await logActivity(
+      req,
+      TIPE.UPDATE,
+      `Menolak permohonan peminjaman #${id}: ${b.jumlah} unit oleh ${ringkas(b.nama_peminjam)}`
+    );
+
     return res.status(200).json({ success: true, message: 'Permohonan peminjaman ditolak.', data: result.rows[0] });
   } catch (err) {
     console.error('RejectBorrowing Error:', err.message);

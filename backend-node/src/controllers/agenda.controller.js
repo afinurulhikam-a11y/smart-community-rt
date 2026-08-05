@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const { logActivity, ringkas, TIPE } = require('../services/log.service');
 
 async function getAgenda(req, res) {
   try {
@@ -24,6 +25,9 @@ async function createAgenda(req, res) {
       `INSERT INTO agenda (judul, deskripsi, tipe, tanggal, waktu_mulai, waktu_selesai, lokasi, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
       [judul, deskripsi || null, tipe || 'Kegiatan', tanggal, waktu_mulai || null, waktu_selesai || null, lokasi || null, req.user.id]
     );
+    const a = result.rows[0];
+    await logActivity(req, TIPE.CREATE, `Membuat agenda "${ringkas(a.judul)}" — ${a.tipe || '-'}, tanggal ${a.tanggal ? String(a.tanggal).slice(0, 10) : '-'}`);
+
     return res.status(201).json({ success: true, message: 'Agenda berhasil dibuat.', data: result.rows[0] });
   } catch (err) {
     console.error('CreateAgenda Error:', err.message);
@@ -40,6 +44,9 @@ async function updateAgenda(req, res) {
       [judul, deskripsi, tipe, tanggal, waktu_mulai, waktu_selesai, lokasi, status, notulen_url, id]
     );
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Agenda tidak ditemukan.' });
+    const a = result.rows[0];
+    await logActivity(req, TIPE.UPDATE, `Mengubah agenda "${ringkas(a.judul)}" — status ${a.status}, tanggal ${a.tanggal ? String(a.tanggal).slice(0, 10) : '-'}`);
+
     return res.status(200).json({ success: true, message: 'Agenda berhasil diperbarui.', data: result.rows[0] });
   } catch (err) {
     console.error('UpdateAgenda Error:', err.message);
@@ -52,6 +59,8 @@ async function deleteAgenda(req, res) {
     const { id } = req.params;
     const result = await pool.query('DELETE FROM agenda WHERE id = $1 RETURNING id, judul', [id]);
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Agenda tidak ditemukan.' });
+    await logActivity(req, TIPE.DELETE, `Menghapus agenda "${ringkas(result.rows[0].judul)}"`);
+
     return res.status(200).json({ success: true, message: 'Agenda berhasil dihapus.', data: result.rows[0] });
   } catch (err) {
     console.error('DeleteAgenda Error:', err.message);

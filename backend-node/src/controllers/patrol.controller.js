@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const { logActivity, ringkas, TIPE } = require('../services/log.service');
 const crypto = require('crypto');
 
 // ======================== JADWAL SISKAMLING ========================
@@ -107,6 +108,9 @@ async function createSchedule(req, res) {
       }
     })();
 
+    const j = result.rows[0];
+    await logActivity(req, TIPE.CREATE, `Menambah jadwal ronda ${j.tanggal ? String(j.tanggal).slice(0, 10) : '-'} — petugas: ${ringkas(j.petugas || j.nama_petugas || '-', 80)}`);
+
     return res.status(201).json({ success: true, message: 'Jadwal ronda berhasil ditambahkan.', data: result.rows[0] });
   } catch (err) {
     console.error('CreateSchedule Error:', err.message);
@@ -193,6 +197,9 @@ async function updateSchedule(req, res) {
       })();
     }
 
+    const j = result.rows[0];
+    await logActivity(req, TIPE.UPDATE, `Mengubah jadwal ronda ${j.tanggal ? String(j.tanggal).slice(0, 10) : '-'} — petugas kini: ${ringkas(j.petugas || j.nama_petugas || '-', 80)}`);
+
     return res.status(200).json({ success: true, message: 'Jadwal ronda berhasil diperbarui.', data: result.rows[0] });
   } catch (err) {
     console.error('UpdateSchedule Error:', err.message);
@@ -207,6 +214,8 @@ async function deleteSchedule(req, res) {
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Jadwal ronda tidak ditemukan.' });
     }
+    await logActivity(req, TIPE.DELETE, `Menghapus jadwal ronda (id ${id})`);
+
     return res.status(200).json({ success: true, message: 'Jadwal ronda berhasil dihapus.' });
   } catch (err) {
     console.error('DeleteSchedule Error:', err.message);
@@ -358,6 +367,16 @@ async function submitAttendance(req, res) {
         [catatan || 'Telah menyelesaikan tugas ronda malam.', foto_url || null, activeRow.id]
       );
 
+      // Admin boleh melewati scan QR sepenuhnya. Itu keperluan operasional yang
+      // sah, tetapi harus terbaca di jejak audit — kalau tidak, absensi tanpa
+      // kehadiran fisik tidak bisa dibedakan dari yang benar-benar di pos.
+      await logActivity(
+        req,
+        TIPE.CREATE,
+        `Absen Pulang ronda: ${ringkas(namaPetugas)}, shift ${shiftStr}` +
+          (req.user.role === 'admin' && !kode_qr ? ' — TANPA scan QR (bypass admin)' : '')
+      );
+
       return res.status(200).json({
         success: true,
         message: 'Absensi Selesai Tugas berhasil dicatat. Terima kasih atas pengabdian Anda!',
@@ -395,6 +414,14 @@ async function submitAttendance(req, res) {
         `INSERT INTO patrol_attendances (schedule_id, user_id, nama_petugas, tanggal, tipe_absen, waktu_scan, waktu_masuk, lokasi_pos, status, catatan, foto_url)
          VALUES ($1, $2, $3, $4, 'Masuk', NOW(), NOW(), $5, 'Aktif Ronda', $6, $7) RETURNING *`,
         [schedule_id || null, userId, namaPetugas, today, lokasi_pos || 'Pos Ronda Utama', catatan || 'Absen Masuk Pos Ronda', foto_url || null]
+      );
+
+      await logActivity(
+        req,
+        TIPE.CREATE,
+        `Absen Masuk ronda: ${ringkas(namaPetugas)}, shift ${shiftStr}, ` +
+          `pos ${ringkas(lokasi_pos || 'Pos Ronda Utama')}` +
+          (req.user.role === 'admin' && !kode_qr ? ' — TANPA scan QR (bypass admin)' : '')
       );
 
       return res.status(201).json({
@@ -453,6 +480,15 @@ async function regenerateQr(req, res) {
       [newToken]
     );
 
+    // Token TIDAK ikut dicatat: log ini terbaca administrator, dan menuliskan
+    // token aktif di sana sama saja dengan menyediakan jalan absen tanpa datang
+    // ke pos. Yang dicatat adalah bahwa QR diganti dan siapa yang menggantinya.
+    await logActivity(
+      req,
+      TIPE.UPDATE,
+      'Regenerasi QR Pos Ronda — seluruh QR lama dinyatakan tidak berlaku'
+    );
+
     return res.status(200).json({
       success: true,
       message: 'QR Pos Ronda berhasil di-regenerate. QR lama sudah tidak berlaku.',
@@ -471,10 +507,25 @@ async function regenerateQr(req, res) {
 async function deleteAttendance(req, res) {
   try {
     const { id } = req.params;
-    const result = await pool.query('DELETE FROM patrol_attendances WHERE id = $1 RETURNING id', [id]);
+    // RETURNING lengkap, bukan hanya id: menghapus absensi berarti menghapus
+    // bukti seseorang bertugas — atau bukti bahwa ia tidak bertugas. Isinya
+    // disalin ke log sebelum barisnya lenyap, karena tidak ada salinan lain.
+    const result = await pool.query('DELETE FROM patrol_attendances WHERE id = $1 RETURNING *', [id]);
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Data absensi tidak ditemukan.' });
     }
+
+    const a = result.rows[0];
+    await logActivity(
+      req,
+      TIPE.DELETE,
+      `Menghapus absensi ronda: ${ringkas(a.nama_petugas)} tanggal ` +
+        `${a.tanggal ? String(a.tanggal).slice(0, 10) : '-'} ` +
+        `(masuk ${a.waktu_masuk ? new Date(a.waktu_masuk).toLocaleString('id-ID') : '-'}, ` +
+        `pulang ${a.waktu_pulang ? new Date(a.waktu_pulang).toLocaleString('id-ID') : '-'}, ` +
+        `status ${a.status || '-'})`
+    );
+
     return res.status(200).json({ success: true, message: 'Log absensi berhasil dihapus.' });
   } catch (err) {
     console.error('DeleteAttendance Error:', err.message);
