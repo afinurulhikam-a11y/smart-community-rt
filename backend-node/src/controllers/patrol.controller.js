@@ -33,6 +33,19 @@ function formatNamaPetugas(input) {
     .join(', ');
 }
 
+function getDayNameFromDate(dateStr) {
+  if (!dateStr) return null;
+  const str = dateStr.toString().split('T')[0];
+  const parts = str.split('-');
+  if (parts.length !== 3) return null;
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  const date = new Date(year, month, day);
+  const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+  return days[date.getDay()];
+}
+
 async function createSchedule(req, res) {
   try {
     const { hari, tanggal, shift, petugas_warga, keterangan } = req.body;
@@ -41,6 +54,14 @@ async function createSchedule(req, res) {
     }
 
     if (tanggal) {
+      const expectedHari = getDayNameFromDate(tanggal);
+      if (expectedHari && hari.trim().toLowerCase() !== expectedHari.toLowerCase()) {
+        return res.status(400).json({
+          success: false,
+          message: `Hari '${hari}' tidak sesuai dengan tanggal '${tanggal}' (tanggal tersebut adalah hari ${expectedHari}). Mohon sesuaikan.`,
+        });
+      }
+
       const checkExist = await pool.query('SELECT id FROM patrol_schedules WHERE tanggal = $1', [tanggal]);
       if (checkExist.rows.length > 0) {
         return res.status(400).json({
@@ -97,8 +118,25 @@ async function updateSchedule(req, res) {
     const { id } = req.params;
     const { hari, tanggal, shift, petugas_warga, keterangan } = req.body;
 
-    if (tanggal) {
-      const checkExist = await pool.query('SELECT id FROM patrol_schedules WHERE tanggal = $1 AND id != $2', [tanggal, id]);
+    const existing = await pool.query('SELECT hari, tanggal FROM patrol_schedules WHERE id = $1', [id]);
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Jadwal ronda tidak ditemukan.' });
+    }
+
+    const targetHari = hari || existing.rows[0].hari;
+    const targetTanggal = tanggal !== undefined ? tanggal : existing.rows[0].tanggal;
+
+    if (targetTanggal && targetHari) {
+      const tglStr = typeof targetTanggal === 'string' ? targetTanggal : new Date(targetTanggal).toISOString().split('T')[0];
+      const expectedHari = getDayNameFromDate(tglStr);
+      if (expectedHari && targetHari.trim().toLowerCase() !== expectedHari.toLowerCase()) {
+        return res.status(400).json({
+          success: false,
+          message: `Hari '${targetHari}' tidak sesuai dengan tanggal '${tglStr}' (tanggal tersebut adalah hari ${expectedHari}). Mohon sesuaikan.`,
+        });
+      }
+
+      const checkExist = await pool.query('SELECT id FROM patrol_schedules WHERE tanggal = $1 AND id != $2', [targetTanggal, id]);
       if (checkExist.rows.length > 0) {
         return res.status(400).json({
           success: false,
@@ -157,7 +195,7 @@ async function updateSchedule(req, res) {
     return res.status(200).json({ success: true, message: 'Jadwal ronda berhasil diperbarui.', data: result.rows[0] });
   } catch (err) {
     console.error('UpdateSchedule Error:', err.message);
-    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+    return res.status(500).json({ success: false, message: err.message || 'Terjadi kesalahan server.' });
   }
 }
 
@@ -378,6 +416,20 @@ async function getPosRondaQr(req, res) {
   }
 }
 
+async function deleteAttendance(req, res) {
+  try {
+    const { id } = req.params;
+    const result = await pool.query('DELETE FROM patrol_attendances WHERE id = $1 RETURNING id', [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Data absensi tidak ditemukan.' });
+    }
+    return res.status(200).json({ success: true, message: 'Log absensi berhasil dihapus.' });
+  } catch (err) {
+    console.error('DeleteAttendance Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
 module.exports = {
   getSchedules,
   createSchedule,
@@ -385,5 +437,7 @@ module.exports = {
   deleteSchedule,
   getAttendances,
   submitAttendance,
+  deleteAttendance,
   getPosRondaQr,
 };
+

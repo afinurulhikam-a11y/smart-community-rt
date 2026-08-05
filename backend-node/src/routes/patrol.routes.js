@@ -8,6 +8,7 @@ const {
   deleteSchedule,
   getAttendances,
   submitAttendance,
+  deleteAttendance,
   getPosRondaQr,
 } = require('../controllers/patrol.controller');
 
@@ -20,6 +21,7 @@ router.delete('/schedules/:id', requirePermission('kegiatan.ronda', 'delete'), d
 
 router.get('/attendances', requirePermission('kegiatan.ronda', 'view'), getAttendances);
 router.post('/attendances', requirePermission('kegiatan.ronda', 'create'), submitAttendance);
+router.delete('/attendances/:id', requirePermission('kegiatan.ronda', 'delete'), deleteAttendance);
 
 router.get('/qr', requirePermission('kegiatan.ronda', 'view'), getPosRondaQr);
 

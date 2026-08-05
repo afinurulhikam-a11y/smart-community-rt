@@ -10,11 +10,15 @@
  *  - Mendengarkan pesan ALARM_ON / ALARM_OFF
  *  - Menyalakan/mematikan Buzzer & LED
  * 
- * Wiring:
- *  - Buzzer   → GPIO 25 (atau sesuaikan)
- *  - LED Merah → GPIO 26 (atau sesuaikan)
- *  - LED Hijau → GPIO 27 (indikator koneksi)
- * 
+ * Wiring (DevKit V1 30 pin — keempatnya di deretan KIRI, USB menghadap bawah):
+ *  - GPIO 25 (kiri ke-8) → Buzzer AKTIF (+)   ·  buzzer (−) → GND
+ *  - GPIO 26 (kiri ke-7) → resistor 220 Ω → LED merah  (penanda alarm)
+ *  - GPIO 27 (kiri ke-6) → resistor 220 Ω → LED hijau  (penanda koneksi)
+ *  - GND     (kiri ke-2) → jalur ground bersama
+ *
+ * Buzzernya harus AKTIF, bukan pasif: firmware ini menghidup-matikan pin
+ * (digitalWrite), tidak membangkitkan nada. Buzzer pasif hanya akan berdecit.
+ *
  * Library yang dibutuhkan:
  *  - WiFi.h (built-in ESP32)
  *  - WebSocketsClient (install: "WebSockets" by Markus Sattler)
@@ -32,9 +36,15 @@
 const char* WIFI_SSID     = "NamaWiFi_Anda";
 const char* WIFI_PASSWORD = "PasswordWiFi_Anda";
 
-// IP Backend server (ganti dengan IP komputer yang menjalankan backend)
-const char* WS_HOST = "192.168.1.100";
-const int   WS_PORT = 3000;
+// Alamat backend di Railway.
+//
+// Ditulis TANPA "https://" — pustaka WebSockets hanya menerima nama host.
+//
+// Port 443, bukan 3001. Angka 3001 itu port INTERNAL kontainer dan tidak
+// pernah dibuka ke publik: Railway menaruh proxy di depannya, mengakhiri TLS
+// di sana, lalu meneruskan ke kontainer. Dari luar yang ada hanya 443.
+const char* WS_HOST = "smart-community-rt-production.up.railway.app";
+const int   WS_PORT = 443;
 const char* WS_PATH = "/";
 
 // ========================
@@ -51,6 +61,13 @@ WebSocketsClient webSocket;
 bool alarmActive = false;
 unsigned long lastBlinkTime = 0;
 bool ledState = false;
+
+// Pola bunyi buzzer, dikelola dengan millis() seperti kedip LED.
+unsigned long lastBeepTime = 0;
+bool beepState = false;
+
+const unsigned long JEDA_KEDIP = 300;  // ms — LED merah
+const unsigned long JEDA_BIP   = 400;  // ms — buzzer hidup/mati
 
 // ========================
 // SETUP
@@ -77,8 +94,18 @@ void setup() {
   // Connect WiFi
   connectWiFi();
 
-  // Connect WebSocket
-  webSocket.begin(WS_HOST, WS_PORT, WS_PATH);
+  // beginSSL, BUKAN begin.
+  //
+  // `begin()` membuka WebSocket polos (ws://). Railway sama sekali tidak
+  // melayani itu — yang ada hanya wss:// di port 443. Dengan `begin()`
+  // sambungannya ditolak tanpa pesan galat yang menunjuk sebabnya; perangkatnya
+  // hanya diam seolah tidak ada apa-apa.
+  //
+  // Tanpa fingerprint, pustaka ini memakai setInsecure() di ESP32: lalu lintasnya
+  // tetap terenkripsi, tetapi sertifikat server tidak diverifikasi. Cukup untuk
+  // perangkat di jaringan sendiri; bukan yang saya sarankan bila alat ini kelak
+  // dipasang di jaringan publik.
+  webSocket.beginSSL(WS_HOST, WS_PORT, WS_PATH);
   webSocket.onEvent(webSocketEvent);
   webSocket.setReconnectInterval(5000);  // Auto reconnect setiap 5 detik
 
@@ -89,24 +116,32 @@ void setup() {
 // MAIN LOOP
 // ========================
 void loop() {
+  // Satu-satunya yang benar-benar membaca data masuk dari jaringan. Harus
+  // dipanggil sesering mungkin — dan tidak boleh ada delay() di bawahnya.
   webSocket.loop();
 
-  // Jika alarm aktif → LED merah berkedip + buzzer bunyi
-  if (alarmActive) {
-    unsigned long currentTime = millis();
+  if (!alarmActive) return;
 
-    // LED berkedip setiap 300ms
-    if (currentTime - lastBlinkTime >= 300) {
-      lastBlinkTime = currentTime;
-      ledState = !ledState;
-      digitalWrite(LED_RED_PIN, ledState ? HIGH : LOW);
-    }
+  const unsigned long sekarang = millis();
 
-    // Buzzer bunyi (tone pattern)
-    tone(BUZZER_PIN, 2000, 200);  // 2kHz, 200ms
-    delay(250);
-    tone(BUZZER_PIN, 1500, 200);  // 1.5kHz, 200ms
-    delay(250);
+  // LED merah berkedip.
+  if (sekarang - lastBlinkTime >= JEDA_KEDIP) {
+    lastBlinkTime = sekarang;
+    ledState = !ledState;
+    digitalWrite(LED_RED_PIN, ledState ? HIGH : LOW);
+  }
+
+  // Buzzer AKTIF cukup dihidup-matikan; ia punya osilator sendiri dan tidak
+  // mengenal nada, jadi tone() tidak berlaku di sini.
+  //
+  // Dulu blok ini memakai tone() + dua delay(250). Selama 500 ms itu
+  // webSocket.loop() di atas tidak pernah jalan, sehingga ALARM_OFF menunggu
+  // di antrean sampai setengah detik — dan urusan keepalive pustaka ikut
+  // tertahan, yang di atas TLS memperbesar peluang sambungan dianggap mati.
+  if (sekarang - lastBeepTime >= JEDA_BIP) {
+    lastBeepTime = sekarang;
+    beepState = !beepState;
+    digitalWrite(BUZZER_PIN, beepState ? HIGH : LOW);
   }
 }
 
@@ -224,7 +259,17 @@ void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
 // ========================
 void activateAlarm() {
   alarmActive = true;
+
+  // Pewaktu di-nol-kan supaya bip dan kedip dimulai dari awal, bukan melanjutkan
+  // sisa hitungan alarm sebelumnya.
+  lastBlinkTime = millis();
+  lastBeepTime  = millis();
+
+  ledState  = true;
+  beepState = true;
   digitalWrite(LED_RED_PIN, HIGH);
+  digitalWrite(BUZZER_PIN, HIGH);
+
   Serial.println("🔴 Buzzer & LED AKTIF");
 }
 
@@ -232,7 +277,7 @@ void deactivateAlarm() {
   alarmActive = false;
   digitalWrite(BUZZER_PIN, LOW);
   digitalWrite(LED_RED_PIN, LOW);
-  noTone(BUZZER_PIN);
-  ledState = false;
+  ledState  = false;
+  beepState = false;
   Serial.println("🟢 Buzzer & LED MATI");
 }

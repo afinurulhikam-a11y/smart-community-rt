@@ -99,6 +99,15 @@ class PatrolProvider extends ChangeNotifier {
     return false;
   }
 
+  Future<bool> deleteAttendance(int id) async {
+    final response = await ApiService.delete('${ApiConstants.patrolAttendances}/$id');
+    if (response['success'] == true) {
+      await fetchAttendances();
+      return true;
+    }
+    return false;
+  }
+
   Future<void> fetchAttendances({String? tanggal}) async {
     final queryParams = <String, String>{};
     if (tanggal != null) queryParams['tanggal'] = tanggal;

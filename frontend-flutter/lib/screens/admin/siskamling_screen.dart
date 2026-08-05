@@ -392,8 +392,17 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                 child: Padding(
                   padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
                   child: TabelResponsif(
-                    labelAksi: 'STATUS',
-                    kolom: const ['NO', 'NAMA PETUGAS', 'JAM MASUK', 'JAM PULANG', 'LOKASI POS', 'STATUS', 'CATATAN'],
+                    labelAksi: _bolehHapus ? 'AKSI' : 'STATUS',
+                    kolom: [
+                      'NO',
+                      'NAMA PETUGAS',
+                      'JAM MASUK',
+                      'JAM PULANG',
+                      'LOKASI POS',
+                      'STATUS',
+                      'CATATAN',
+                      if (_bolehHapus) 'AKSI',
+                    ],
                     kosong: const Padding(
                       padding: EdgeInsets.all(32),
                       child: Center(child: Text('Belum ada data absensi ronda')),
@@ -445,6 +454,41 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                             ),
                           ),
                           SelTabel.teks('CATATAN', a['catatan'] ?? '-'),
+                          if (_bolehHapus)
+                            SelTabel(
+                              'AKSI',
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                                tooltip: 'Hapus Log Absensi',
+                                onPressed: () async {
+                                  final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (c) => AlertDialog(
+                                      title: const Text('Hapus Log Absensi'),
+                                      content: Text('Hapus catatan absensi petugas ${a['nama_petugas']}?'),
+                                      actions: [
+                                        TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Batal')),
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(c, true),
+                                          child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (confirm == true) {
+                                    final ok = await provider.deleteAttendance(a['id']);
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(ok ? 'Log absensi berhasil dihapus.' : 'Gagal menghapus log absensi.'),
+                                          backgroundColor: ok ? Colors.green : Colors.red,
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                              ),
+                            ),
                         ],
                       );
                     }).toList(),
@@ -745,7 +789,7 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    initialValue: selectedHari,
+                    value: selectedHari,
                     decoration: const InputDecoration(labelText: 'Hari Ronda *'),
                     items: const [
                       DropdownMenuItem(value: 'Senin', child: Text('Senin')),
@@ -758,6 +802,29 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                     ],
                     onChanged: (v) => setSt(() => selectedHari = v!),
                   ),
+                  if (selectedHari != listHari[selectedTanggal.weekday % 7]) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.red.shade300),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.warning_amber_rounded, size: 16, color: Colors.red),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Hari ($selectedHari) tidak sesuai dengan tanggal (${DateFormat('dd/MM/yyyy').format(selectedTanggal)} adalah hari ${listHari[selectedTanggal.weekday % 7]})!',
+                              style: const TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   TextField(
                     controller: shiftCtrl,
@@ -796,6 +863,16 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                 bool hasError = false;
                 if (petugasCtrl.text.trim().isEmpty) {
                   setSt(() => errorPetugas = 'Nama petugas ronda wajib diisi');
+                  hasError = true;
+                }
+                final expectedHari = listHari[selectedTanggal.weekday % 7];
+                if (selectedHari != expectedHari) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Hari ($selectedHari) tidak sesuai dengan tanggal (${DateFormat('dd/MM/yyyy').format(selectedTanggal)} adalah $expectedHari).'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
                   hasError = true;
                 }
                 if (hasError) return;
@@ -889,7 +966,7 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    initialValue: selectedHari,
+                    value: selectedHari,
                     decoration: const InputDecoration(labelText: 'Hari Ronda *'),
                     items: const [
                       DropdownMenuItem(value: 'Senin', child: Text('Senin')),
@@ -902,6 +979,29 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                     ],
                     onChanged: (v) => setSt(() => selectedHari = v!),
                   ),
+                  if (selectedHari != listHari[selectedTanggal.weekday % 7]) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.red.shade300),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.warning_amber_rounded, size: 16, color: Colors.red),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Hari ($selectedHari) tidak sesuai dengan tanggal (${DateFormat('dd/MM/yyyy').format(selectedTanggal)} adalah hari ${listHari[selectedTanggal.weekday % 7]})!',
+                              style: const TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   TextField(
                     controller: shiftCtrl,
@@ -939,6 +1039,16 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
               onPressed: () async {
                 if (petugasCtrl.text.trim().isEmpty) {
                   setSt(() => errorPetugas = 'Nama petugas ronda wajib diisi');
+                  return;
+                }
+                final expectedHari = listHari[selectedTanggal.weekday % 7];
+                if (selectedHari != expectedHari) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Hari ($selectedHari) tidak sesuai dengan tanggal (${DateFormat('dd/MM/yyyy').format(selectedTanggal)} adalah $expectedHari).'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
                   return;
                 }
 
