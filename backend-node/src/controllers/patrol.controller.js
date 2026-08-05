@@ -17,6 +17,14 @@ async function getSchedules(req, res) {
   }
 }
 
+function formatNamaPetugas(input) {
+  if (!input) return '';
+  const names = input.trim().split(/[,\s]+/).filter(Boolean);
+  return names
+    .map(n => n.charAt(0).toUpperCase() + n.slice(1).toLowerCase())
+    .join(', ');
+}
+
 async function createSchedule(req, res) {
   try {
     const { hari, tanggal, shift, petugas_warga, keterangan } = req.body;
@@ -24,10 +32,12 @@ async function createSchedule(req, res) {
       return res.status(400).json({ success: false, message: 'Hari dan nama petugas ronda wajib diisi.' });
     }
 
+    const formattedPetugas = formatNamaPetugas(petugas_warga);
+
     const result = await pool.query(
       `INSERT INTO patrol_schedules (hari, tanggal, shift, petugas_warga, keterangan, created_by)
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [hari, tanggal || null, shift || 'Shift Malam (22:00 - 04:00)', petugas_warga, keterangan || null, req.user.id]
+      [hari, tanggal || null, shift || 'Shift Malam (22:00 - 04:00)', formattedPetugas, keterangan || null, req.user.id]
     );
 
     return res.status(201).json({ success: true, message: 'Jadwal ronda berhasil ditambahkan.', data: result.rows[0] });
@@ -41,6 +51,7 @@ async function updateSchedule(req, res) {
   try {
     const { id } = req.params;
     const { hari, tanggal, shift, petugas_warga, keterangan } = req.body;
+    const formattedPetugas = petugas_warga ? formatNamaPetugas(petugas_warga) : null;
 
     const result = await pool.query(
       `UPDATE patrol_schedules 
@@ -51,7 +62,7 @@ async function updateSchedule(req, res) {
            keterangan = COALESCE($5, keterangan),
            updated_at = NOW()
        WHERE id = $6 RETURNING *`,
-      [hari, tanggal, shift, petugas_warga, keterangan, id]
+      [hari, tanggal, shift, formattedPetugas, keterangan, id]
     );
 
     if (result.rows.length === 0) {

@@ -247,8 +247,14 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
     }
     final labelBadge = tglFormatted.isNotEmpty ? '$hari, $tglFormatted' : hari;
 
-    final shift = s['shift'] ?? 'Shift Malam';
-    final petugas = s['petugas_warga'] ?? '-';
+    String formatNamaPetugas(String raw) {
+      if (raw.trim().isEmpty) return '-';
+      final parts = raw.trim().split(RegExp(r'[,\s]+')).where((n) => n.isNotEmpty).toList();
+      return parts.map((n) => n[0].toUpperCase() + n.substring(1).toLowerCase()).join(', ');
+    }
+
+    final shift = s['shift'] ?? 'Shift Malam (22:00 - 04:00)';
+    final petugas = formatNamaPetugas(s['petugas_warga'] ?? '');
     final ket = s['keterangan'] ?? '';
 
     return Container(
@@ -681,7 +687,6 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
     final petugasCtrl = TextEditingController();
     final ketCtrl = TextEditingController();
     String? errorPetugas;
-    String? errorShift;
 
     showDialog(
       context: context,
@@ -712,7 +717,7 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                     child: InputDecorator(
                       decoration: const InputDecoration(
                         labelText: 'Tanggal Ronda *',
-                        prefixIcon: Icon(Icons.calendar_today, size: 18),
+                        suffixIcon: Icon(Icons.calendar_today, size: 18, color: Color(0xFF1B7A6A)),
                       ),
                       child: Text(
                         DateFormat('EEEE, dd MMMM yyyy').format(selectedTanggal),
@@ -742,20 +747,19 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                   const SizedBox(height: 12),
                   TextField(
                     controller: shiftCtrl,
-                    decoration: InputDecoration(
-                      labelText: 'Shift Jam *',
-                      errorText: errorShift,
+                    readOnly: true,
+                    enabled: false,
+                    decoration: const InputDecoration(
+                      labelText: 'Shift Jam (Paten)',
+                      suffixIcon: Icon(Icons.lock_outline, size: 18),
                     ),
-                    onChanged: (_) {
-                      if (errorShift != null) setSt(() => errorShift = null);
-                    },
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: petugasCtrl,
                     decoration: InputDecoration(
                       labelText: 'Petugas Warga *',
-                      hintText: 'Misal: Budi, Agus, Slamet, Afi',
+                      hintText: 'Contoh: budi agus (otomatis Budi, Agus)',
                       errorText: errorPetugas,
                     ),
                     onChanged: (_) {
@@ -776,10 +780,6 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
             ElevatedButton(
               onPressed: () async {
                 bool hasError = false;
-                if (shiftCtrl.text.trim().isEmpty) {
-                  setSt(() => errorShift = 'Shift jam wajib diisi');
-                  hasError = true;
-                }
                 if (petugasCtrl.text.trim().isEmpty) {
                   setSt(() => errorPetugas = 'Nama petugas ronda wajib diisi');
                   hasError = true;
