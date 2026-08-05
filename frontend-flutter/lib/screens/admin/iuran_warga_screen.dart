@@ -910,10 +910,14 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
               icon: const Icon(Icons.chat_outlined, size: 18, color: Color(0xFF22C55E)),
               onPressed: () => _tagihSatu(b),
             ),
-          if (b.isLunas) const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 20),
-          if (!b.isLunas && _bolehHapus)
+          if (b.isLunas)
+            const Padding(
+              padding: EdgeInsets.only(right: 4),
+              child: Icon(Icons.check_circle, color: Color(0xFF10B981), size: 20),
+            ),
+          if (_bolehHapus)
             IconButton(
-              tooltip: 'Hapus',
+              tooltip: 'Hapus Tagihan',
               icon: const Icon(Icons.delete_outline, size: 18, color: Color(0xFFEF4444)),
               onPressed: () => _hapusTagihan(b),
             ),

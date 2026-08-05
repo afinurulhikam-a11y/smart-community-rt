@@ -489,11 +489,16 @@ async function deleteBill(req, res) {
     if (bill.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Tagihan tidak ditemukan.' });
     }
-    // Menghapus tagihan lunas akan memutus jejak pembayaran yang sudah tercatat.
-    if (bill.rows[0].status === STATUS_LUNAS) {
-      return res.status(409).json({ success: false, message: 'Tagihan yang sudah lunas tidak bisa dihapus karena sudah punya catatan pembayaran.' });
+    // Jika bukan admin, cegah menghapus tagihan yang sudah lunas
+    if (bill.rows[0].status === STATUS_LUNAS && req.user.role !== 'admin') {
+      return res.status(409).json({ success: false, message: 'Tagihan lunas hanya dapat dihapus oleh Administrator.' });
     }
+
+    // Hapus catatan relasi pembayaran jika ada
+    await pool.query('DELETE FROM bill_payments WHERE bill_id = $1', [id]);
+    await pool.query('DELETE FROM payment_transaction_bills WHERE bill_id = $1', [id]);
     await pool.query('DELETE FROM bills WHERE id = $1', [id]);
+
     const dihapus = bill.rows[0];
     await logActivity(
       req,
@@ -504,7 +509,7 @@ async function deleteBill(req, res) {
     return res.status(200).json({ success: true, message: 'Tagihan berhasil dihapus.' });
   } catch (err) {
     console.error('DeleteBill Error:', err.message);
-    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+    return res.status(500).json({ success: false, message: err.message || 'Terjadi kesalahan server.' });
   }
 }
 
