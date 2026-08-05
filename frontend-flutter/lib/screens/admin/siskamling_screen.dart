@@ -828,17 +828,37 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
   }
 
   void _openQrScanner(BuildContext context, String tipeAbsen, String catatan) {
+    final manualTokenCtrl = TextEditingController();
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (c) {
         bool scanned = false;
+        void doSubmit(String token) async {
+          if (scanned) return;
+          scanned = true;
+          Navigator.pop(c);
+          final res = await context.read<PatrolProvider>().submitAttendance(
+            tipeAbsen: tipeAbsen,
+            kodeQr: token,
+            catatan: catatan.isNotEmpty ? catatan : null,
+          );
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(res['message'] ?? ''),
+                backgroundColor: res['success'] == true ? Colors.green : Colors.red,
+              ),
+            );
+          }
+        }
+
         return AlertDialog(
           title: Row(
             children: [
               const Icon(Icons.camera_alt, color: Color(0xFF1B7A6A)),
               const SizedBox(width: 8),
-              const Expanded(child: Text('Scan QR Pos Ronda', style: TextStyle(fontSize: 16))),
+              const Expanded(child: Text('Scan / Input QR Pos Ronda', style: TextStyle(fontSize: 16))),
               IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: () => Navigator.pop(c),
@@ -846,45 +866,56 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
             ],
           ),
           content: SizedBox(
-            width: 400,
-            height: 350,
+            width: 420,
+            height: 420,
             child: Column(
               children: [
                 Text(
-                  'Arahkan kamera ke QR Code yang ada di Pos Ronda',
-                  style: TextStyle(fontSize: 12, color: context.teksTersier),
+                  'Arahkan webcam/kamera ke QR Code Pos Ronda, atau masukkan kode token secara manual (uji coba web):',
+                  style: TextStyle(fontSize: 11, color: context.teksTersier),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 Expanded(
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: MobileScanner(
-                      onDetect: (capture) async {
-                        if (scanned) return;
+                      onDetect: (capture) {
                         final barcodes = capture.barcodes;
                         if (barcodes.isEmpty || barcodes.first.rawValue == null) return;
-                        scanned = true;
-                        final scannedToken = barcodes.first.rawValue!;
-                        Navigator.pop(c);
-
-                        // Kirim absensi dengan token QR hasil scan
-                        final res = await context.read<PatrolProvider>().submitAttendance(
-                          tipeAbsen: tipeAbsen,
-                          kodeQr: scannedToken,
-                          catatan: catatan.isNotEmpty ? catatan : null,
-                        );
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(res['message'] ?? ''),
-                              backgroundColor: res['success'] == true ? Colors.green : Colors.red,
-                            ),
-                          );
-                        }
+                        doSubmit(barcodes.first.rawValue!);
                       },
                     ),
                   ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: manualTokenCtrl,
+                        style: const TextStyle(fontSize: 12),
+                        decoration: const InputDecoration(
+                          hintText: 'Kode QR (misal: RONDA-12345678)',
+                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () {
+                        final txt = manualTokenCtrl.text.trim();
+                        if (txt.isNotEmpty) doSubmit(txt);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1B7A6A),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      child: const Text('Kirim', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
                 ),
               ],
             ),
