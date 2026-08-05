@@ -1,4 +1,5 @@
 const WebSocket = require('ws');
+const jwt = require('jsonwebtoken');
 
 let wss = null;
 
@@ -7,7 +8,26 @@ function initWebSocket(server) {
 
   wss.on('connection', (ws, req) => {
     const clientIp = req.socket.remoteAddress;
-    console.log('websocket client terhubung');
+
+    // Autentikasi: klien harus mengirim token JWT lewat query parameter
+    // ws://host:port?token=xxx — pola yang lazim untuk WebSocket.
+    const url = new (require('url').URL)(req.url, `http://${req.headers.host}`);
+    const token = url.searchParams.get('token');
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        ws.userId = decoded.id;
+        ws.userNama = decoded.nama || decoded.email;
+        ws.userRole = decoded.role;
+      } catch (err) {
+        ws.close(4401, 'Token tidak valid');
+        return;
+      }
+    }
+    // Koneksi tanpa token tetap diterima (backward-compatible / IoT device)
+    // tetapi tidak menerima data sensitif di masa depan.
+
+    console.log(`websocket client terhubung${ws.userNama ? ` (${ws.userNama})` : ''}`);
 
     ws.send(JSON.stringify({
       type: 'CONNECTED',
@@ -25,7 +45,7 @@ function initWebSocket(server) {
     });
 
     ws.on('close', () => {
-      console.log('websocket client terputus');
+      console.log(`websocket client terputus${ws.userNama ? ` (${ws.userNama})` : ''}`);
     });
 
     ws.on('error', (err) => {

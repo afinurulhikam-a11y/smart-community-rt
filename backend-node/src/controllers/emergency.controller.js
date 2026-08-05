@@ -6,8 +6,9 @@ async function triggerAlarm(req, res) {
   try {
     const { message, latitude, longitude, pin } = req.body;
 
-    // Verifikasi 2-Langkah: PIN Keamanan (Default: 1234)
-    if (!pin || pin.toString().trim() !== '1234') {
+    // Verifikasi 2-Langkah: PIN Keamanan (dari environment variable)
+    const pinDarurat = process.env.EMERGENCY_PIN || '1234';
+    if (!pin || pin.toString().trim() !== pinDarurat) {
       return res.status(403).json({
         success: false,
         message: 'PIN Keamanan tidak valid. Pemicuan alarm dibatalkan.',
@@ -68,8 +69,9 @@ async function dismissAlarm(req, res) {
     const { id } = req.params;
     const { pin } = req.body;
 
-    // Verifikasi 2-Langkah: PIN Keamanan (Default: 1234)
-    if (!pin || pin.toString().trim() !== '1234') {
+    // Verifikasi 2-Langkah: PIN Keamanan (dari environment variable)
+    const pinDarurat = process.env.EMERGENCY_PIN || '1234';
+    if (!pin || pin.toString().trim() !== pinDarurat) {
       return res.status(403).json({
         success: false,
         message: 'PIN Keamanan tidak valid. Penutupan status darurat dibatalkan.',

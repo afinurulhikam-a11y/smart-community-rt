@@ -1,11 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const { logSensor, getSensorLogs, getLatestSensorData } = require('../controllers/sensor.controller');
-const { authMiddleware } = require('../middleware/auth.middleware');
+const { authMiddleware, roleGuard } = require('../middleware/auth.middleware');
 
 router.use(authMiddleware);
 
-router.post('/log', logSensor);
+// Hanya admin (atau akun sistem IoT) yang boleh menulis data sensor
+router.post('/log', roleGuard('admin'), logSensor);
+// Semua warga boleh melihat data sensor
 router.get('/logs', getSensorLogs);
 router.get('/latest', getLatestSensorData);
 

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { triggerAlarm, dismissAlarm, getAlerts, getActiveAlerts } = require('../controllers/emergency.controller');
-const { authMiddleware, roleGuard, requirePermission } = require('../middleware/auth.middleware');
+const { authMiddleware, requirePermission } = require('../middleware/auth.middleware');
 
 router.use(authMiddleware);
 

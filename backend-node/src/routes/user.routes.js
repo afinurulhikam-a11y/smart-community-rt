@@ -14,13 +14,13 @@ const { authMiddleware, roleGuard, requirePermission } = require('../middleware/
 
 router.use(authMiddleware);
 
-router.get('/', getUsers);
+router.get('/', requirePermission('kependudukan.warga', 'view'), getUsers);
 router.get('/by-nik/:nik', getUserByNik);
 router.put('/credentials', updateUserCredentials);
 router.get('/pending', getPendingUsers);
 router.post('/', roleGuard('admin'), createUser);
 router.put('/:id/role', roleGuard('admin'), updateUserRole);
 router.put('/:id/status', roleGuard('admin'), updateUserStatus);
-router.delete('/:id', deleteUser);
+router.delete('/:id', roleGuard('admin'), deleteUser);
 
 module.exports = router;
