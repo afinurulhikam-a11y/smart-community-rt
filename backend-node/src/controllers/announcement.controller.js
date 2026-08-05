@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const { logActivity, ringkas, TIPE } = require('../services/log.service');
 
 async function getAnnouncements(req, res) {
   try {
@@ -25,6 +26,9 @@ async function createAnnouncement(req, res) {
       `INSERT INTO announcements (judul, isi, kategori, status, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
       [judul, isi, kategori || 'Umum', status || 'publish', req.user.id]
     );
+    const p = result.rows[0];
+    await logActivity(req, TIPE.CREATE, `Membuat pengumuman "${ringkas(p.judul)}" — kategori ${p.kategori || '-'}, status ${p.status}`);
+
     return res.status(201).json({ success: true, message: 'Pengumuman berhasil dibuat.', data: result.rows[0] });
   } catch (err) {
     console.error('CreateAnnouncement Error:', err.message);
@@ -41,6 +45,9 @@ async function updateAnnouncement(req, res) {
       [judul, isi, kategori, status, id]
     );
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Pengumuman tidak ditemukan.' });
+    const p = result.rows[0];
+    await logActivity(req, TIPE.UPDATE, `Mengubah pengumuman "${ringkas(p.judul)}" — status ${p.status}, isi kini: "${ringkas(p.isi, 100)}"`);
+
     return res.status(200).json({ success: true, message: 'Pengumuman berhasil diperbarui.', data: result.rows[0] });
   } catch (err) {
     console.error('UpdateAnnouncement Error:', err.message);
@@ -53,6 +60,8 @@ async function deleteAnnouncement(req, res) {
     const { id } = req.params;
     const result = await pool.query('DELETE FROM announcements WHERE id = $1 RETURNING id, judul', [id]);
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Pengumuman tidak ditemukan.' });
+    await logActivity(req, TIPE.DELETE, `Menghapus pengumuman "${ringkas(result.rows[0].judul)}"`);
+
     return res.status(200).json({ success: true, message: 'Pengumuman berhasil dihapus.', data: result.rows[0] });
   } catch (err) {
     console.error('DeleteAnnouncement Error:', err.message);

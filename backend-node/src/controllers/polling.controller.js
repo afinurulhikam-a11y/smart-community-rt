@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const { logActivity, ringkas, TIPE } = require('../services/log.service');
 
 async function getPolling(req, res) {
   try {
@@ -60,6 +61,8 @@ async function createPolling(req, res) {
         await client.query('INSERT INTO polling_options (polling_id, label) VALUES ($1, $2)', [polling.id, opt]);
       }
       await client.query('COMMIT');
+      await logActivity(req, TIPE.CREATE, `Membuat polling "${ringkas(polling.judul)}"`);
+
       return res.status(201).json({ success: true, message: 'Polling berhasil dibuat.', data: polling });
     } catch (txErr) { await client.query('ROLLBACK'); throw txErr; }
     finally { client.release(); }
@@ -95,6 +98,12 @@ async function vote(req, res) {
       await client.query('INSERT INTO polling_votes (polling_id, option_id, user_id) VALUES ($1, $2, $3)', [id, option_id, req.user.id]);
       await client.query('UPDATE polling_options SET vote_count = vote_count + 1 WHERE id = $1', [option_id]);
       await client.query('COMMIT');
+
+      // Dicatat setelah COMMIT. Pilihan yang diambil TIDAK ikut dicatat —
+      // hanya bahwa yang bersangkutan sudah memilih. Suara adalah hal yang
+      // wajar dirahasiakan, dan tabel ini permanen serta terbaca administrator.
+      await logActivity(req, TIPE.CREATE, `Memberikan suara pada polling #${id}`);
+
       return res.status(200).json({ success: true, message: 'Vote berhasil dicatat.' });
     } catch (txErr) { await client.query('ROLLBACK'); throw txErr; }
     finally { client.release(); }
@@ -125,6 +134,15 @@ async function updatePollingStatus(req, res) {
       [formattedStatus, id]
     );
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Polling tidak ditemukan.' });
+
+    // Menutup polling menghentikan suara yang masuk. Kapan itu dilakukan bisa
+    // menjadi pertanyaan bila hasilnya diperdebatkan.
+    await logActivity(
+      req,
+      TIPE.UPDATE,
+      `Mengubah status polling "${ringkas(result.rows[0].judul)}" menjadi ${formattedStatus}`
+    );
+
     return res.status(200).json({ success: true, message: `Status polling berhasil diubah menjadi ${formattedStatus}.`, data: result.rows[0] });
   } catch (err) {
     console.error('UpdatePollingStatus Error:', err.message);
@@ -137,6 +155,8 @@ async function deletePolling(req, res) {
     const { id } = req.params;
     const result = await pool.query('DELETE FROM polling WHERE id = $1 RETURNING id, judul', [id]);
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Polling tidak ditemukan.' });
+    await logActivity(req, TIPE.DELETE, `Menghapus polling "${ringkas(result.rows[0].judul)}" beserta seluruh suara yang sudah masuk`);
+
     return res.status(200).json({ success: true, message: 'Polling berhasil dihapus.', data: result.rows[0] });
   } catch (err) {
     console.error('DeletePolling Error:', err.message);
