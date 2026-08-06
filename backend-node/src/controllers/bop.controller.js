@@ -115,6 +115,25 @@ async function getTransactions(req, res) {
 }
 
 /**
+ * TIDAK ada penyaringan `deleted_at` di sini, dan itu memang benar.
+ *
+ * Sempat ada satu baris `WHERE deleted_at IS NULL` pada kueri di bawah, tetapi
+ * `bop_finances` tidak punya kolom itu — migrasi soft-delete hanya menyentuh
+ * users, keluarga, inventory, complaints, letters, agenda, dan finances.
+ * Akibatnya endpoint ini selalu 500 dan keempat kartu Dana BOP tidak pernah
+ * tampil sama sekali.
+ *
+ * Yang menutupinya: `getTransactions` dan `exportBop` di berkas yang sama juga
+ * tidak menyaringnya, dan `deleteTransaction` BOP memang menghapus permanen
+ * (`DELETE FROM bop_finances`), bukan menandai. Jadi barisnya bukan aturan yang
+ * hilang penerapannya — ia memang tidak pernah punya tempat di modul ini.
+ *
+ * Kalau suatu saat BOP hendak memakai soft delete, kolomnya harus ditambahkan
+ * lebih dulu DAN daftar, export, serta penghapusannya ikut menyesuaikan —
+ * bukan hanya ringkasannya.
+ *
+ * ---
+ *
  * Empat angka kartu dengan cakupan yang sengaja berbeda:
  *  - alokasi / terpakai / sisa_pagu → berbasis TAHUN (pagu memang tahunan)
  *  - pemasukan_bulan / pengeluaran_bulan → periode yang dipilih
@@ -139,7 +158,6 @@ async function getSummary(req, res) {
           COALESCE(SUM(CASE WHEN tipe = 'pengeluaran' AND tanggal::TEXT LIKE $1 THEN jumlah ELSE 0 END), 0)::float8 AS pengeluaran_bulan,
           COALESCE(SUM(CASE WHEN tipe = 'pengeluaran' AND date_part('year', tanggal) = $2 THEN jumlah ELSE 0 END), 0)::float8 AS terpakai
         FROM bop_finances
-        WHERE deleted_at IS NULL
       `, [`${periode}%`, tahun]),
       pool.query(
         `SELECT COALESCE(SUM(nominal), 0)::float8 AS alokasi FROM alokasi_bop WHERE tahun = $1`,
