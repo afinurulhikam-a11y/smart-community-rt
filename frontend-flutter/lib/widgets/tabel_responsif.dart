@@ -210,7 +210,20 @@ class TabelResponsif extends StatelessWidget {
               columns: [
                 for (int i = 0; i < kolom.length; i++)
                   DataColumn(label: judulKolom?[i] ?? Text(kolom[i])),
-                if (_adaAksi) DataColumn(label: Center(child: Text(labelAksi))),
+                // Judul kolom aksi TIDAK dibungkus Center.
+                //
+                // `DataTable` membungkus setiap label kolom di dalam
+                // `Flexible` pada sebuah `Row`, sementara isi selnya tidak.
+                // Akibatnya `Center` pada judul menyusut mengikuti lebar
+                // teksnya sendiri dan menempel di kiri kolom, sedangkan
+                // `Center` pada selnya melebar dan benar-benar ke tengah —
+                // tombolnya terukur 140px di kanan judulnya.
+                //
+                // Keduanya kini rata kiri, sehingga selalu berada pada sumbu
+                // vertikal yang sama berapa pun lebar kolomnya. Kolom terakhir
+                // menyerap sisa lebar tabel, jadi menyandarkan keduanya pada
+                // "tengah" tidak pernah bisa diandalkan.
+                if (_adaAksi) DataColumn(label: Text(labelAksi)),
               ],
               rows: [
                 for (final b in baris)
@@ -221,7 +234,10 @@ class TabelResponsif extends StatelessWidget {
                       for (final s in b.sel) DataCell(s.isi),
                       // Baris tanpa tombol tetap butuh selnya, kalau tidak jumlah sel
                       // tidak cocok dengan jumlah kolom dan DataTable melempar galat.
-                      if (_adaAksi) DataCell(Center(child: b.aksi ?? const SizedBox.shrink())),
+                      //
+                      // Rata kiri, menyamai judul kolomnya — lihat komentar di
+                      // atas untuk alasan kenapa "tengah" tidak bisa dipakai.
+                      if (_adaAksi) DataCell(b.aksi ?? const SizedBox.shrink()),
                     ],
                   ),
               ],
