@@ -702,6 +702,18 @@ class _MainDashboardState extends State<MainDashboard> {
       _menuHistory.add(_selectedMenuIndex);
     }
     setState(() => _selectedMenuIndex = indeks);
+
+    // Kembali ke Beranda berarti memuat ulang kartu ringkasannya.
+    //
+    // Setiap layar modul adalah widget tersendiri yang mengambil datanya di
+    // `initState`, jadi berpindah ke sana sudah otomatis menyegarkan. Beranda
+    // TIDAK: isinya dibangun sebaris di `_buildBody`, tanpa initState, jadi
+    // angkanya bertahan sejak terakhir kali dimuat.
+    //
+    // Akibatnya menambah warga di Data Warga lalu kembali ke Beranda tetap
+    // menampilkan jumlah yang lama — datanya benar di server, yang basi hanya
+    // yang di layar. Itu terlihat persis seperti angka yang salah hitung.
+    if (indeks == 0) _loadData();
   }
 
   void _kembaliMenu() {
