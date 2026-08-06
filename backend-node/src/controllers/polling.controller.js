@@ -21,22 +21,41 @@ async function getPolling(req, res) {
     );
     const pilihanSaya = new Map(suaraSaya.rows.map((v) => [v.polling_id, v.option_id]));
 
-    // For each polling, fetch its options
-    const pollingList = [];
-    for (const p of result.rows) {
-      const optResult = await pool.query('SELECT * FROM polling_options WHERE polling_id = $1 ORDER BY id', [p.id]);
-      const totalVotes = optResult.rows.reduce((sum, o) => sum + (o.vote_count || 0), 0);
-      pollingList.push({
+    // SATU query untuk seluruh opsi, bukan satu query per polling.
+    //
+    // Sebelumnya blok ini berupa `for` yang menembak `SELECT ... WHERE
+    // polling_id = $1` sekali untuk setiap baris polling. Dua puluh polling
+    // berarti dua puluh satu perjalanan bolak-balik ke database untuk satu kali
+    // buka layar, dan angkanya tumbuh mengikuti jumlah polling — bukan mengikuti
+    // jumlah data yang sebenarnya dibutuhkan.
+    const semuaId = result.rows.map((p) => p.id);
+    const opsiPerPolling = new Map();
+
+    if (semuaId.length > 0) {
+      const opsi = await pool.query(
+        'SELECT * FROM polling_options WHERE polling_id = ANY($1::int[]) ORDER BY polling_id, id',
+        [semuaId]
+      );
+      for (const o of opsi.rows) {
+        if (!opsiPerPolling.has(o.polling_id)) opsiPerPolling.set(o.polling_id, []);
+        opsiPerPolling.get(o.polling_id).push(o);
+      }
+    }
+
+    const pollingList = result.rows.map((p) => {
+      const daftarOpsi = opsiPerPolling.get(p.id) || [];
+      const totalVotes = daftarOpsi.reduce((sum, o) => sum + (o.vote_count || 0), 0);
+      return {
         ...p,
-        options: optResult.rows.map(o => ({
+        options: daftarOpsi.map((o) => ({
           ...o,
           percentage: totalVotes > 0 ? Math.round((o.vote_count / totalVotes) * 100) : 0,
         })),
         total_votes: totalVotes,
         sudah_vote: pilihanSaya.has(p.id),
         pilihan_saya: pilihanSaya.get(p.id) ?? null,
-      });
-    }
+      };
+    });
     return res.status(200).json({ success: true, count: pollingList.length, data: pollingList });
   } catch (err) {
     console.error('GetPolling Error:', err.message);

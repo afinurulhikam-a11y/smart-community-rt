@@ -60,6 +60,7 @@ function buildQuery(where) {
     SELECT b.*,
            u.nama AS created_by_nama,
            kb.tipe AS kategori_tipe,
+           COUNT(*) OVER() AS total_data,
            SUM(CASE WHEN b.tipe = 'pemasukan' THEN b.jumlah ELSE -b.jumlah END)
              OVER (ORDER BY b.tanggal, b.created_at
                    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS saldo_berjalan
@@ -76,13 +77,37 @@ async function getTransactions(req, res) {
     const { where, params } = buildFilter(req);
     let query = buildQuery(where);
 
-    if (req.query.limit) {
-      params.push(parseInt(req.query.limit, 10));
-      query += ` LIMIT $${params.length}`;
-    }
+    // Pagination disamakan dengan finance.controller.
+    //
+    // Sebelumnya LIMIT hanya dipasang BILA klien kebetulan mengirim `?limit=`.
+    // Layar mana pun yang memanggil endpoint ini tanpa parameter itu menerima
+    // SELURUH tabel bop_finances — lengkap dengan window function yang dihitung
+    // atas setiap baris — pada setiap pemuatan.
+    //
+    // Kas RT dan Dana BOP punya bentuk baris yang sama dan dimaksudkan
+    // berperilaku sama; hanya endpoint daftarnya yang menyimpang.
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 25;
+    const offset = (page - 1) * limit;
+
+    params.push(limit, offset);
+    query += ` LIMIT $${params.length - 1} OFFSET $${params.length}`;
 
     const result = await pool.query(query, params);
-    return res.status(200).json({ success: true, count: result.rows.length, data: result.rows });
+
+    const totalData = result.rows.length > 0 ? parseInt(result.rows[0].total_data, 10) : 0;
+
+    return res.status(200).json({
+      success: true,
+      count: result.rows.length,
+      data: result.rows,
+      pagination: {
+        total_data: totalData,
+        total_pages: Math.ceil(totalData / limit),
+        current_page: page,
+        limit,
+      },
+    });
   } catch (err) {
     console.error('Get BOP Transactions Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });

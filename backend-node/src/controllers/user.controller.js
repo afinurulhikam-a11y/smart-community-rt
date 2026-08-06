@@ -4,6 +4,13 @@ const { logActivity, TIPE } = require('../services/log.service');
 
 async function getUsers(req, res) {
   try {
+    // Batas bawaan. Sebelumnya endpoint ini mengembalikan SELURUH tabel setiap
+    // kali dipanggil. Pada skala RT hari ini tidak terasa; tabel ini termasuk
+    // yang tumbuh terus tanpa pernah dipangkas, jadi yang berubah hanya kapan
+    // masalahnya muncul. Klien boleh meminta lebih lewat ?limit=, dengan batas
+    // atas supaya satu permintaan tidak bisa menarik seluruh basis data.
+    const batas = Math.min(parseInt(req.query.limit, 10) || 200, 1000);
+
     const { role, no_rt, search } = req.query;
     let query = `SELECT id, nama, email, no_hp, no_kk, alamat, no_rt, role, is_active, created_at FROM users WHERE deleted_at IS NULL`;
     const params = [];
@@ -27,7 +34,9 @@ async function getUsers(req, res) {
 
     // Urutan bawaan dipertahankan agar layar lain tidak berubah perilakunya;
     // hanya daftar pemilih yang diurutkan alfabetis supaya mudah dicari.
+    params.push(batas);
     query += hanyaTerdaftar ? ' ORDER BY nama ASC' : ' ORDER BY created_at DESC';
+    query += ` LIMIT $${params.length}`;
     const result = await pool.query(query, params);
     return res.status(200).json({ success: true, count: result.rows.length, data: result.rows });
   } catch (err) {
@@ -353,7 +362,7 @@ async function updateUserCredentials(req, res) {
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('UpdateUserCredentials Error:', err.message);
-    return res.status(500).json({ success: false, message: 'Gagal memperbarui kredensial: ' + err.message });
+    return res.status(500).json({ success: false, message: 'Gagal memperbarui kredensial.' });
   } finally {
     client.release();
   }

@@ -15,10 +15,24 @@ class BopProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
 
+  // Pagination di SISI SERVER, menyamai FinanceProvider.
+  //
+  // Sebelumnya layar BOP mengambil seluruh tabel lalu memotongnya sendiri
+  // dengan `sublist`. Artinya setiap pemuatan menghitung window function saldo
+  // berjalan atas setiap baris yang pernah ada, hanya untuk menampilkan
+  // sepuluh. Kas RT sudah dipindah ke sisi server; BOP tertinggal, padahal
+  // keduanya memang dimaksudkan berperilaku sama.
+  int _currentPage = 1;
+  int _totalPages = 1;
+  int _totalData = 0;
+
   List<FinanceModel> get transactions => _transactions;
   BopSummary? get summary => _summary;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  int get currentPage => _currentPage;
+  int get totalPages => _totalPages;
+  int get totalData => _totalData;
 
   /// Filter aktif, dipakai bersama daftar, ringkasan, dan export supaya
   /// angkanya tidak pernah berbeda.
@@ -31,30 +45,39 @@ class BopProvider extends ChangeNotifier {
     String? tahun,
     int? kategoriId,
     String? search,
-    String? limit,
+    int page = 1,
+    int limit = 25,
   }) async {
     _isLoading = true;
+    _currentPage = page;
     notifyListeners();
 
+    // `page` dan `limit` sengaja TIDAK masuk `_filterAktif`. Peta itu dipakai
+    // ulang oleh ringkasan dan export, dan keduanya harus mencakup seluruh
+    // data yang cocok — bukan sepotong halaman yang kebetulan sedang dibuka.
     _filterAktif = {
       if (tipe != null && tipe.isNotEmpty) 'tipe': tipe,
       if (bulan != null && bulan.isNotEmpty) 'bulan': bulan,
       if (tahun != null && tahun.isNotEmpty) 'tahun': tahun,
       if (kategoriId != null) 'kategori_id': kategoriId.toString(),
       if (search != null && search.isNotEmpty) 'search': search,
-      if (limit != null && limit.isNotEmpty) 'limit': limit,
     };
 
-    final response = await ApiService.get(
-      ApiConstants.bop,
-      queryParams: _filterAktif.isNotEmpty ? _filterAktif : null,
-    );
+    final params = Map<String, String>.from(_filterAktif);
+    params['page'] = page.toString();
+    params['limit'] = limit.toString();
+
+    final response = await ApiService.get(ApiConstants.bop, queryParams: params);
 
     if (response['success'] == true) {
       _transactions = (response['data'] as List<dynamic>? ?? [])
           .whereType<Map<String, dynamic>>()
           .map(FinanceModel.fromJson)
           .toList();
+      if (response['pagination'] != null) {
+        _totalPages = response['pagination']['total_pages'] ?? 1;
+        _totalData = response['pagination']['total_data'] ?? 0;
+      }
       _errorMessage = null;
     } else {
       _errorMessage = response['message'] as String?;
@@ -80,6 +103,11 @@ class BopProvider extends ChangeNotifier {
     }
   }
 
+  /// Muat ulang dengan filter DAN halaman yang sedang aktif.
+  ///
+  /// Halamannya ikut dipertahankan: setelah menyunting satu transaksi di
+  /// halaman 3, dilempar kembali ke halaman 1 membuat orang kehilangan tempat
+  /// dan harus menelusuri ulang.
   Future<void> refresh() => fetchTransactions(
     tipe: _filterAktif['tipe'],
     bulan: _filterAktif['bulan'],
@@ -88,6 +116,7 @@ class BopProvider extends ChangeNotifier {
         ? null
         : int.tryParse(_filterAktif['kategori_id']!),
     search: _filterAktif['search'],
+    page: _currentPage,
   );
 
   Future<Map<String, dynamic>> createTransaction({

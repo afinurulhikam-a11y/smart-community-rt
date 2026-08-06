@@ -185,7 +185,7 @@ async function mulaiPembayaran(req, res) {
     console.error('MulaiPembayaran Error:', err.message);
     return res.status(500).json({
       success: false,
-      message: `Gagal membuat pembayaran: ${err.message}`,
+      message: 'Gagal membuat pembayaran. Coba lagi sebentar.',
     });
   } finally {
     client.release();

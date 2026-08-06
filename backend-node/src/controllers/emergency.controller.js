@@ -88,7 +88,7 @@ async function triggerAlarm(req, res) {
     });
   } catch (err) {
     console.error('TriggerAlarm Error:', err.message);
-    return res.status(500).json({ success: false, message: `Gagal mengirim sinyal darurat: ${err.message}` });
+    return res.status(500).json({ success: false, message: 'Gagal mengirim sinyal darurat. Coba lagi.' });
   }
 }
 
@@ -177,7 +177,7 @@ async function dismissAlarm(req, res) {
     });
   } catch (err) {
     console.error('DismissAlarm Error:', err.message);
-    return res.status(500).json({ success: false, message: `Gagal menyelesaikan status darurat: ${err.message}` });
+    return res.status(500).json({ success: false, message: 'Gagal menyelesaikan status darurat. Coba lagi.' });
   }
 }
 

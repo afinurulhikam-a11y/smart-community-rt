@@ -387,7 +387,7 @@ async function tambahWargaLengkap(req, res) {
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Tambah Warga Error:', err.message);
-    return res.status(500).json({ success: false, message: 'Gagal menambah warga: ' + err.message });
+    return res.status(500).json({ success: false, message: 'Gagal menambah data warga.' });
   } finally {
     client.release();
   }
@@ -532,7 +532,7 @@ async function importWargaExcel(req, res) {
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Import Warga Error:', err.message);
-    return res.status(500).json({ success: false, message: 'Gagal mengimpor data: ' + err.message });
+    return res.status(500).json({ success: false, message: 'Gagal mengimpor data. Periksa format berkas Excel-nya.' });
   } finally {
     client.release();
   }

@@ -58,7 +58,9 @@ class _BopScreenState extends State<BopScreen> {
   bool get _bolehUbah => context.watch<PermissionProvider>().bolehUbah(_kodeIzin);
   bool get _bolehHapus => context.watch<PermissionProvider>().bolehHapus(_kodeIzin);
 
-  int _currentPage = 1;
+  // `_currentPage` DIHAPUS: halaman kini milik BopProvider, bukan layar ini.
+  // Menyimpannya di dua tempat berarti keduanya bisa berbeda, dan yang
+  // terlihat di tombol halaman belum tentu yang benar-benar diminta server.
   int _itemsPerPage = 10;
   String _searchQuery = '';
   String _tipe = 'Semua Jenis';
@@ -90,15 +92,16 @@ class _BopScreenState extends State<BopScreen> {
     return '$_tahun-${(idx + 1).toString().padLeft(2, '0')}';
   }
 
-  void _loadData() {
+  void _loadData({int page = 1}) {
     context.read<BopProvider>().fetchTransactions(
       tipe: _tipe == 'Semua Jenis' ? null : (_tipe == 'Pemasukan' ? 'pemasukan' : 'pengeluaran'),
       bulan: _periodeFilter,
       // Tahun selalu dikirim: pagu dan realisasi memang berbasis tahun.
       tahun: _tahun,
       search: _searchQuery.isEmpty ? null : _searchQuery,
+      page: page,
+      limit: _itemsPerPage,
     );
-    setState(() => _currentPage = 1);
   }
 
   String _rupiah(double amount) => 'Rp ${NumberFormat('#,###', 'id_ID').format(amount.round())}';
@@ -144,13 +147,17 @@ class _BopScreenState extends State<BopScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<BopProvider>();
-    final semua = provider.transactions;
 
-    final totalHalaman = (semua.length / _itemsPerPage).ceil();
-    if (_currentPage > totalHalaman && totalHalaman > 0) _currentPage = totalHalaman;
-    final mulai = (_currentPage - 1) * _itemsPerPage;
-    final akhir = (mulai + _itemsPerPage).clamp(0, semua.length);
-    final halamanIni = semua.isEmpty ? <FinanceModel>[] : semua.sublist(mulai, akhir);
+    // Halaman datang dari server, tidak lagi dipotong di sini. `sublist` yang
+    // dulu ada di baris ini menuntut seluruh tabel diambil lebih dulu — window
+    // function saldo berjalan dihitung atas setiap baris yang pernah ada, hanya
+    // untuk menampilkan sepuluh.
+    final halamanIni = provider.transactions;
+    final totalHalaman = provider.totalPages;
+    final currentPage = provider.currentPage;
+    final totalData = provider.totalData;
+    final mulai = (currentPage - 1) * _itemsPerPage;
+    final akhir = (mulai + halamanIni.length).clamp(0, totalData);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -162,7 +169,7 @@ class _BopScreenState extends State<BopScreen> {
         const SizedBox(height: 24),
         _buildFilters(),
         const SizedBox(height: 24),
-        _buildTableCard(provider, semua, halamanIni, totalHalaman, mulai, akhir),
+        _buildTableCard(provider, totalData, halamanIni, totalHalaman, currentPage, mulai, akhir),
         const SizedBox(height: 32),
       ],
     );
@@ -432,7 +439,6 @@ class _BopScreenState extends State<BopScreen> {
                           kategoriId: v,
                           search: _searchQuery.isEmpty ? null : _searchQuery,
                         );
-                        setState(() => _currentPage = 1);
                       },
                     ),
                   ),
@@ -528,9 +534,10 @@ class _BopScreenState extends State<BopScreen> {
 
   Widget _buildTableCard(
     BopProvider provider,
-    List<FinanceModel> semua,
+    int totalData,
     List<FinanceModel> halamanIni,
     int totalHalaman,
+    int currentPage,
     int mulai,
     int akhir,
   ) {
@@ -642,10 +649,12 @@ class _BopScreenState extends State<BopScreen> {
                             25,
                             50,
                           ].map((v) => DropdownMenuItem(value: v, child: Text('$v'))).toList(),
-                          onChanged: (v) => setState(() {
-                            _itemsPerPage = v!;
-                            _currentPage = 1;
-                          }),
+                          // Ukuran halaman berubah berarti permintaan baru ke
+                          // server, bukan sekadar memotong ulang di layar.
+                          onChanged: (v) {
+                            setState(() => _itemsPerPage = v!);
+                            _loadData();
+                          },
                         ),
                       ),
                     ),
@@ -705,7 +714,7 @@ class _BopScreenState extends State<BopScreen> {
               padding: EdgeInsets.symmetric(vertical: 40),
               child: Center(child: CircularProgressIndicator()),
             )
-          else if (semua.isEmpty)
+          else if (halamanIni.isEmpty)
             Padding(
               padding: EdgeInsets.symmetric(vertical: 40),
               child: Center(
@@ -756,9 +765,9 @@ class _BopScreenState extends State<BopScreen> {
               runSpacing: 12,
               children: [
                 Text(
-                  semua.isEmpty
+                  totalData == 0
                       ? 'Tidak ada data'
-                      : 'Menampilkan ${mulai + 1} – $akhir dari ${semua.length} transaksi',
+                      : 'Menampilkan ${mulai + 1} – $akhir dari $totalData transaksi',
                   style: TextStyle(fontSize: 13, color: context.teksKedua),
                 ),
                 // Wrap, bukan Row — alasannya sama persis dengan Kas RT: tujuh
@@ -772,20 +781,20 @@ class _BopScreenState extends State<BopScreen> {
                     _pageBtn(
                       '<',
                       false,
-                      _currentPage > 1 ? () => setState(() => _currentPage--) : null,
+                      currentPage > 1 ? () => _loadData(page: currentPage - 1) : null,
                     ),
                     ...List.generate(totalHalaman.clamp(0, 5), (i) {
                       final n = i + 1;
                       return _pageBtn(
                         '$n',
-                        n == _currentPage,
-                        () => setState(() => _currentPage = n),
+                        n == currentPage,
+                        () => _loadData(page: n),
                       );
                     }),
                     _pageBtn(
                       '>',
                       false,
-                      _currentPage < totalHalaman ? () => setState(() => _currentPage++) : null,
+                      currentPage < totalHalaman ? () => _loadData(page: currentPage + 1) : null,
                     ),
                   ],
                 ),
