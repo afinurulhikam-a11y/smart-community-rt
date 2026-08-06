@@ -575,9 +575,9 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
           const Divider(height: 1),
           Padding(
             padding: EdgeInsets.all(paddingKartu(context)),
-            // Kolom pencarian diletakkan sendiri di tengah, dengan label "Cari"
-            // di kiri kolomnya, supaya mata tidak perlu menyusuri baris untuk
-            // mencari tempat mengetik.
+            // Kolom pencarian diletakkan sendiri di tengah, dengan label
+            // "Pencarian" di kiri kolomnya, supaya mata tidak perlu menyusuri
+            // baris untuk mencari tempat mengetik.
             //
             // Tidak memakai lebarKolomFilter di sini: nilainya double.infinity
             // pada mobile, yang tidak aman di dalam Row (overflow). Kuncinya
@@ -589,7 +589,7 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                 child: Row(
                   children: [
                     Text(
-                      'Cari',
+                      'Pencarian',
                       style: TextStyle(fontSize: 13, color: context.teksKedua),
                     ),
                     const SizedBox(width: 8),
