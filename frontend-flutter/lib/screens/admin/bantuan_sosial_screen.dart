@@ -235,6 +235,7 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
         Wrap(
           spacing: 12,
           runSpacing: 12,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Container(
               constraints: const BoxConstraints(minHeight: AppTheme.sasaranSentuh),
@@ -296,8 +297,8 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
             // dalam Flex. Lebarnya diatur lebarKolomFilter — penuh di ponsel.
             SizedBox(
               width: lebarKolomFilter(context, maksimal: 260),
+              height: AppTheme.sasaranSentuh,
               child: Container(
-                constraints: const BoxConstraints(minHeight: AppTheme.sasaranSentuh),
                 decoration: BoxDecoration(
                   border: Border.all(color: context.garis),
                   borderRadius: BorderRadius.circular(8),
@@ -310,24 +311,29 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                     hintStyle: TextStyle(fontSize: 13, color: context.teksTersier),
                     prefixIcon: Icon(Icons.search, size: 18, color: context.teksTersier),
                     border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   ),
                   style: const TextStyle(fontSize: 13),
                 ),
               ),
             ),
 
-            OutlinedButton.icon(
-              onPressed: _loadData,
-              icon: Icon(Icons.refresh, size: 16, color: context.teksKedua),
-              label: Text(
-                'Refresh',
-                style: TextStyle(color: context.teksKedua, fontSize: 13),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: BorderSide(color: context.garis),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            SizedBox(
+              height: AppTheme.sasaranSentuh,
+              child: OutlinedButton.icon(
+                onPressed: _loadData,
+                icon: Icon(Icons.refresh, size: 16, color: context.teksKedua),
+                label: Text(
+                  'Refresh',
+                  style: TextStyle(color: context.teksKedua, fontSize: 13),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: context.garis),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  minimumSize: const Size(0, AppTheme.sasaranSentuh),
+                  maximumSize: const Size(double.infinity, AppTheme.sasaranSentuh),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
               ),
             ),
           ],
