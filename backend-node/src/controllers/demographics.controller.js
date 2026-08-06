@@ -29,7 +29,7 @@ async function getDemographicsSummary(req, res) {
     // memuat id/email/role sehingga filternya tidak pernah aktif.
     const { rt } = req.query;
     const filterRt = rt ? 'AND k.rt = $1' : '';
-    const filterRtKk = rt ? 'WHERE rt = $1' : '';
+    const filterRtKk = rt ? (rt ? 'WHERE rt = $1 AND deleted_at IS NULL' : 'WHERE deleted_at IS NULL') : 'WHERE deleted_at IS NULL';
     const params = rt ? [rt] : [];
 
     // Satu helper untuk semua pecahan kategori warga (agama, pendidikan, dst).
@@ -39,7 +39,7 @@ async function getDemographicsSummary(req, res) {
              COUNT(*)::int AS jumlah
       FROM anggota_keluarga ak
       JOIN keluarga k ON ak.keluarga_id = k.id
-      WHERE ak.is_aktif = true ${filterRt}
+      WHERE ak.is_aktif = true AND ak.deleted_at IS NULL AND k.deleted_at IS NULL ${filterRt}
       GROUP BY 1
       ORDER BY jumlah DESC, label ASC
     `, params);
@@ -83,7 +83,7 @@ async function getDemographicsSummary(req, res) {
           )::int AS janda_duda
         FROM anggota_keluarga ak
         JOIN keluarga k ON ak.keluarga_id = k.id
-        WHERE ak.is_aktif = true ${filterRt}
+        WHERE ak.is_aktif = true AND ak.deleted_at IS NULL AND k.deleted_at IS NULL ${filterRt}
       `, params),
 
       // Statistik tingkat keluarga dihitung per KK, bukan per jiwa.

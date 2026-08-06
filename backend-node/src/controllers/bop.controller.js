@@ -139,6 +139,7 @@ async function getSummary(req, res) {
           COALESCE(SUM(CASE WHEN tipe = 'pengeluaran' AND tanggal::TEXT LIKE $1 THEN jumlah ELSE 0 END), 0)::float8 AS pengeluaran_bulan,
           COALESCE(SUM(CASE WHEN tipe = 'pengeluaran' AND date_part('year', tanggal) = $2 THEN jumlah ELSE 0 END), 0)::float8 AS terpakai
         FROM bop_finances
+        WHERE deleted_at IS NULL
       `, [`${periode}%`, tahun]),
       pool.query(
         `SELECT COALESCE(SUM(nominal), 0)::float8 AS alokasi FROM alokasi_bop WHERE tahun = $1`,
