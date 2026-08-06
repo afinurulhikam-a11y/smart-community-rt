@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:provider/single_child_widget.dart';
@@ -104,6 +105,42 @@ void main() {
       // memuat dan kotaknya dibangun ulang.
       expect(find.text('Budi'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('Kolom Nomor HP hanya menerima angka', () {
+    testWidgets('huruf dan simbol ditolak, angka diterima', (tester) async {
+      // Diuji langsung pada formatternya, bukan lewat dialognya: membuka
+      // dialog Tambah Warga menuntut izin, provider terisi, dan seluruh
+      // formulirnya ikut dirender — sementara yang perlu dibuktikan hanyalah
+      // bahwa penyaringnya benar-benar menyaring.
+      //
+      // `keyboardType: TextInputType.phone` saja TIDAK cukup: ia hanya
+      // menyarankan papan ketik, dan papan ketik telepon Android tetap memuat
+      // + * #. Menempel dari papan klip pun melewatinya begitu saja.
+      final penyaring = FilteringTextInputFormatter.digitsOnly;
+      final batas = LengthLimitingTextInputFormatter(15);
+
+      String saring(String masuk) {
+        var nilai = penyaring.formatEditUpdate(
+          TextEditingValue.empty,
+          TextEditingValue(text: masuk),
+        );
+        nilai = batas.formatEditUpdate(TextEditingValue.empty, nilai);
+        return nilai.text;
+      }
+
+      expect(saring('081234567890'), '081234567890');
+      expect(saring('Budi Santoso'), '');
+      expect(saring('0812-3456-7890'), '081234567890');
+      expect(saring('+6281234567890'), '6281234567890');
+      expect(saring('0812 3456 7890'), '081234567890');
+      // Huruf yang diselipkan di antara angka dibuang, angkanya dirapatkan.
+      expect(saring('08a1b2c3'), '08123');
+
+      // Kolom `no_hp` di database bertipe varchar(20). Batas 15 menjaga
+      // nomor sepanjang apa pun tidak pernah sampai menabrak batas itu.
+      expect(saring('0812345678901234567890').length, 15);
     });
   });
 }
