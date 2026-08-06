@@ -17,9 +17,9 @@ const { Pool } = require('pg');
  * cepat dengan alasan yang jelas.
  */
 const BATAS_POOL = {
-  max: parseInt(process.env.DB_POOL_MAX, 10) || 10,
+  max: parseInt(process.env.DB_POOL_MAX, 10) || 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
+  connectionTimeoutMillis: 10000,
 };
 
 const pool = process.env.DATABASE_URL

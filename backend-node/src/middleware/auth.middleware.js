@@ -19,6 +19,44 @@ const LABEL_AKSI = {
 };
 
 /**
+ * Cache sesi singkat — menyimpan hasil verifikasi akun per user-id selama
+ * MAX_AGE_MS. Dengan ini, 15 request bersamaan dari satu browser tab hanya
+ * menyentuh database SEKALI, bukan 15 kali.
+ *
+ * Risikonya kecil: jika admin menonaktifkan akun, efeknya tertunda paling
+ * lama 30 detik. Jauh lebih baik daripada semua request gagal karena pool
+ * habis dan menampilkan "Tidak dapat memverifikasi sesi".
+ */
+const _cacheAuth = new Map();
+const _CACHE_MAX_AGE_MS = 30_000; // 30 detik
+
+function _ambilCacheAuth(userId) {
+  const entry = _cacheAuth.get(userId);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > _CACHE_MAX_AGE_MS) {
+    _cacheAuth.delete(userId);
+    return null;
+  }
+  return entry.data;
+}
+
+function _simpanCacheAuth(userId, data) {
+  _cacheAuth.set(userId, { data, ts: Date.now() });
+  // Bersihkan entry lama secara berkala agar memori tidak membengkak
+  if (_cacheAuth.size > 500) {
+    const sekarang = Date.now();
+    for (const [k, v] of _cacheAuth) {
+      if (sekarang - v.ts > _CACHE_MAX_AGE_MS) _cacheAuth.delete(k);
+    }
+  }
+}
+
+/** Hapus cache sesi untuk user tertentu — dipanggil saat status/role berubah. */
+function invalidateAuthCache(userId) {
+  _cacheAuth.delete(userId);
+}
+
+/**
  * Verifikasi token, LALU periksa akunnya ke database.
  *
  * ===================================================================
@@ -44,6 +82,11 @@ const LABEL_AKSI = {
  * PERAN DIAMBIL DARI DATABASE, BUKAN DARI TOKEN. Kalau tetap dibaca dari token,
  * penurunan peran baru berlaku setelah pengguna login ulang — dan orang yang
  * baru saja dicopot tidak punya alasan untuk melakukannya.
+ *
+ * OPTIMASI: Hasil verifikasi di-cache selama 30 detik per user-id, sehingga
+ * burst request (misalnya saat dashboard dibuka dan 10+ request ditembak
+ * bersamaan) hanya menyentuh database sekali. Cache otomatis basi setelah
+ * 30 detik, dan di-invalidate saat status/role diubah admin.
  */
 async function authMiddleware(req, res, next) {
   let token;
@@ -71,6 +114,14 @@ async function authMiddleware(req, res, next) {
     });
   }
 
+  // Cek cache dulu — jika sudah pernah diverifikasi dalam 30 detik terakhir,
+  // tidak perlu menyentuh database lagi.
+  const cached = _ambilCacheAuth(decoded.id);
+  if (cached) {
+    req.user = { ...decoded, role: cached.role, nama: cached.nama };
+    return next();
+  }
+
   try {
     const akun = await pool.query(
       'SELECT id, nama, role, is_active FROM users WHERE id = $1 AND deleted_at IS NULL',
@@ -89,6 +140,9 @@ async function authMiddleware(req, res, next) {
         message: 'Akun Anda dinonaktifkan. Hubungi pengurus RT.',
       });
     }
+
+    // Simpan ke cache
+    _simpanCacheAuth(decoded.id, { role: akun.rows[0].role, nama: akun.rows[0].nama });
 
     // Payload token dipertahankan (no_kk, email, dan lainnya dipakai controller),
     // tetapi peran dan nama ditimpa dengan yang berlaku sekarang.
@@ -203,4 +257,4 @@ function requirePermission(menuKode, aksi = 'view') {
   };
 }
 
-module.exports = { authMiddleware, roleGuard, requirePermission, ROLE_ADMIN };
+module.exports = { authMiddleware, roleGuard, requirePermission, invalidateAuthCache, ROLE_ADMIN };
