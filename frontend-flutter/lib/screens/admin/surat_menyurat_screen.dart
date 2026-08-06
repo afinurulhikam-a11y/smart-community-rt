@@ -8,6 +8,7 @@ import '../../widgets/responsive_layout.dart';
 import 'package:intl/intl.dart';
 import '../../models/letter_model.dart';
 import '../../core/services/pdf_service.dart';
+import '../../widgets/tombol_kembali.dart';
 import '../../providers/permission_provider.dart';
 import '../../core/theme/warna_konteks.dart';
 
@@ -18,7 +19,8 @@ import '../../core/theme/warna_konteks.dart';
 const String _kodeIzin = 'layanan.surat';
 
 class SuratMenyuratScreen extends StatefulWidget {
-  const SuratMenyuratScreen({super.key});
+  final VoidCallback? onBack;
+  const SuratMenyuratScreen({super.key, this.onBack});
 
   @override
   State<SuratMenyuratScreen> createState() => _SuratMenyuratScreenState();
@@ -121,6 +123,8 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    TombolKembali(onPressed: widget.onBack),
+                    const SizedBox(width: 10),
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(

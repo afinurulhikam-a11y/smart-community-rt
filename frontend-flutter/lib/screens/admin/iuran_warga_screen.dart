@@ -10,6 +10,7 @@ import '../../../models/jenis_iuran_model.dart';
 import '../../../providers/permission_provider.dart';
 import '../../../widgets/banner_lihat_saja.dart';
 import '../../../widgets/tabel_responsif.dart';
+import '../../../widgets/tombol_kembali.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
 import '../../core/format.dart';
@@ -32,7 +33,8 @@ const List<String> _namaBulan = [
 const Color _hijau = Color(0xFF1B7A6A);
 
 class IuranWargaScreen extends StatefulWidget {
-  const IuranWargaScreen({super.key});
+  final VoidCallback? onBack;
+  const IuranWargaScreen({super.key, this.onBack});
 
   @override
   State<IuranWargaScreen> createState() => _IuranWargaScreenState();
@@ -148,6 +150,8 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                TombolKembali(onPressed: widget.onBack),
+                const SizedBox(width: 10),
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(

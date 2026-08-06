@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../../providers/agenda_provider.dart';
 import '../../../providers/announcement_provider.dart';
 import '../../../providers/permission_provider.dart';
+import '../../../widgets/tombol_kembali.dart';
 import '../../core/theme/warna_konteks.dart';
 
 /// Kode modul di tabel izin. Bendahara dan warga hanya punya `view`.
@@ -28,7 +29,8 @@ const List<String> _kategoriPengumuman = [
 ];
 
 class AgendaKegiatanScreen extends StatefulWidget {
-  const AgendaKegiatanScreen({super.key});
+  final VoidCallback? onBack;
+  const AgendaKegiatanScreen({super.key, this.onBack});
 
   @override
   State<AgendaKegiatanScreen> createState() => _AgendaKegiatanScreenState();
@@ -181,6 +183,8 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    TombolKembali(onPressed: widget.onBack),
+                    const SizedBox(width: 10),
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(

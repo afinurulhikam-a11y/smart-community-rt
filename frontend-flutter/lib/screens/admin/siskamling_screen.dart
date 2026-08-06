@@ -7,12 +7,14 @@ import '../../core/responsif.dart';
 import '../../providers/patrol_provider.dart';
 import '../../providers/permission_provider.dart';
 import '../../widgets/tabel_responsif.dart';
+import '../../widgets/tombol_kembali.dart';
 import '../../core/theme/warna_konteks.dart';
 
 const String _kodeIzin = 'kegiatan.ronda';
 
 class SiskamlingScreen extends StatefulWidget {
-  const SiskamlingScreen({super.key});
+  final VoidCallback? onBack;
+  const SiskamlingScreen({super.key, this.onBack});
 
   @override
   State<SiskamlingScreen> createState() => _SiskamlingScreenState();
@@ -64,6 +66,8 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    TombolKembali(onPressed: widget.onBack),
+                    const SizedBox(width: 10),
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(

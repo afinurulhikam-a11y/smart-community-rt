@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../core/responsif.dart';
 import '../../widgets/tabel_responsif.dart';
+import '../../widgets/tombol_kembali.dart';
 import '../../../providers/aksi_utama_provider.dart';
 import '../../../providers/complaint_provider.dart';
 import '../../../providers/permission_provider.dart';
@@ -24,7 +25,8 @@ const List<String> _kategoriAduan = [
 ];
 
 class PengaduanScreen extends StatefulWidget {
-  const PengaduanScreen({super.key});
+  final VoidCallback? onBack;
+  const PengaduanScreen({super.key, this.onBack});
 
   @override
   State<PengaduanScreen> createState() => _PengaduanScreenState();
@@ -294,6 +296,8 @@ class _PengaduanScreenState extends State<PengaduanScreen> {
               Expanded(
                 child: Row(
                   children: [
+                    TombolKembali(onPressed: widget.onBack),
+                    const SizedBox(width: 10),
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(

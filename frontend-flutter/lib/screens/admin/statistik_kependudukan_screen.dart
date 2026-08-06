@@ -4,6 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../../core/responsif.dart';
 import '../../widgets/gradient_stat_card.dart';
 import '../../widgets/responsive_layout.dart';
+import '../../widgets/tombol_kembali.dart';
 import '../../../providers/demographic_provider.dart';
 import '../../../models/demographic_model.dart';
 import '../../core/theme/warna_konteks.dart';
@@ -46,7 +47,8 @@ double _intervalBulat(int nilaiTertinggi) {
 }
 
 class StatistikKependudukanScreen extends StatefulWidget {
-  const StatistikKependudukanScreen({super.key});
+  final VoidCallback? onBack;
+  const StatistikKependudukanScreen({super.key, this.onBack});
 
   @override
   State<StatistikKependudukanScreen> createState() => _StatistikKependudukanScreenState();
@@ -111,6 +113,8 @@ class _StatistikKependudukanScreenState extends State<StatistikKependudukanScree
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    TombolKembali(onPressed: widget.onBack),
+                    const SizedBox(width: 10),
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
