@@ -124,10 +124,10 @@ async function getSummary(req, res) {
 
     // Field lama mengikuti filter bulan seperti perilaku sebelumnya.
     const paramsLama = [];
-    let kondisiLama = '';
+    let kondisiLama = 'WHERE deleted_at IS NULL';
     if (bulan) {
       paramsLama.push(`${bulan}%`);
-      kondisiLama = `WHERE tanggal::TEXT LIKE $${paramsLama.length}`;
+      kondisiLama += ` AND tanggal::TEXT LIKE $${paramsLama.length}`;
     }
 
     // Periode untuk kartu "bulan ini": pakai yang diminta, atau bulan berjalan.
@@ -149,6 +149,7 @@ async function getSummary(req, res) {
           COALESCE(SUM(CASE WHEN tipe = 'pemasukan' THEN jumlah ELSE -jumlah END), 0)::float8 AS saldo_total,
           COUNT(*)::int AS jumlah_transaksi
         FROM finances
+        WHERE deleted_at IS NULL
       `, [`${periode}%`]),
     ]);
 
