@@ -746,6 +746,18 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
     String selectedRole = data['role']?.toString() ?? 'warga';
     bool sedangSimpan = false;
 
+    // Sandi disembunyikan secara bawaan, tetapi HARUS bisa dilihat.
+    //
+    // Yang diketik di sini bukan sandi pengurus sendiri melainkan sandi yang
+    // akan ia sampaikan kepada warga — dibacakan lewat telepon atau ditulis di
+    // kertas. Menyembunyikannya tanpa jalan keluar membuat tombol "Buatkan
+    // Sandi Acak" mustahil dipakai: sandinya dibuat, lalu tidak bisa dibaca
+    // oleh orang yang perlu menyampaikannya.
+    //
+    // Tetap tertutup saat dialog dibuka, karena layar ini sering dibuka di
+    // depan warga yang bersangkutan maupun orang lain di balai RT.
+    bool sandiTerlihat = false;
+
     await showDialog(
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
@@ -951,7 +963,7 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                     TextField(
                       controller: passCtrl,
                       enabled: bolehEditSemua,
-                      obscureText: true,
+                      obscureText: !sandiTerlihat,
                       style: TextStyle(fontSize: 13, color: context.teksUtama),
                       decoration: InputDecoration(
                         hintText: bolehEditSemua
@@ -960,6 +972,22 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                         hintStyle: TextStyle(color: context.teksTersier),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        suffixIcon: bolehEditSemua
+                            ? IconButton(
+                                icon: Icon(
+                                  sandiTerlihat
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined,
+                                  size: 18,
+                                ),
+                                color: context.teksKedua,
+                                tooltip: sandiTerlihat
+                                    ? 'Sembunyikan sandi'
+                                    : 'Tampilkan sandi',
+                                onPressed: () =>
+                                    setDialogState(() => sandiTerlihat = !sandiTerlihat),
+                              )
+                            : null,
                       ),
                     ),
                     if (bolehEditSemua) ...[
@@ -982,6 +1010,10 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                         onPressed: () {
                           setDialogState(() {
                             passCtrl.text = sandiAcak();
+                            // Langsung ditampilkan. Sandi yang baru dibuat acak
+                            // tidak ada gunanya bila tetap tertutup — pengurus
+                            // membuatnya justru untuk dibacakan ke warga.
+                            sandiTerlihat = true;
                           });
                         },
                         icon: const Icon(Icons.casino_outlined, size: 14),
