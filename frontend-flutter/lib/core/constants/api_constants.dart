@@ -82,6 +82,7 @@ class ApiConstants {
   static String get userCredentials => '$baseUrl/users/credentials';
   static String get pendingUsers => '$baseUrl/users/pending';
   static String userStatus(String id) => '$baseUrl/users/$id/status';
+  static String userRole(String id) => '$baseUrl/users/$id/role';
 
   // System Activity Logs
   static String get activityLogs => '$baseUrl/activity-logs';
