@@ -157,4 +157,49 @@ void main() {
 
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('footer menampilkan ringkasan dan pagination saat totalData ada',
+      (tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      bungkus(TabelResponsif(
+        kolom: kolom,
+        baris: contohBaris(jumlah: 10),
+        currentPage: 2,
+        totalPages: 6,
+        totalData: 57,
+        perPage: 10,
+      )),
+    );
+    await tester.pump();
+
+    // Rentang dihitung dari halaman (11–20), bukan dari panjang baris.
+    expect(find.text('Menampilkan 11–20 dari 57 data'), findsOneWidget);
+    expect(find.text('Halaman 2 dari 6'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('footer muncul walau hanya satu halaman', (tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      bungkus(TabelResponsif(
+        kolom: kolom,
+        baris: contohBaris(jumlah: 3),
+        currentPage: 1,
+        totalPages: 1,
+        totalData: 3,
+        perPage: 10,
+      )),
+    );
+    await tester.pump();
+
+    expect(find.text('Menampilkan 1–3 dari 3 data'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

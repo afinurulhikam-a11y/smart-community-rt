@@ -565,7 +565,7 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                     ],
                   ),
                   Text(
-                    '${semua.length} data ditampilkan',
+                    '${provider.totalData} data',
                     style: TextStyle(fontSize: 12, color: context.teksKedua),
                   ),
                 ],
@@ -691,10 +691,12 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                 },
                 baris: List.generate(halamanIni.length, (i) {
                   final b = halamanIni[i];
-                  return _buildRow(b, ((provider.currentPage - 1) * 25) + i + 1);
+                  return _buildRow(b, ((provider.currentPage - 1) * provider.perPage) + i + 1);
                 }),
                 currentPage: provider.currentPage,
                 totalPages: provider.totalPages,
+                totalData: provider.totalData,
+                perPage: provider.perPage,
                 onPageChanged: (page) => _loadData(page: page),
               ),
             ),

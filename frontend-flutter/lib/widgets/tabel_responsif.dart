@@ -109,6 +109,11 @@ class TabelResponsif extends StatelessWidget {
   // Pagination controls
   final int? currentPage;
   final int? totalPages;
+  final int? totalData;
+
+  /// Jumlah data per halaman — dipakai menghitung rentang pada ringkasan
+  /// "Menampilkan X–Y dari Z". Default 10 menyesuaikan batas backend.
+  final int? perPage;
   final ValueChanged<int>? onPageChanged;
 
   const TabelResponsif({
@@ -122,6 +127,8 @@ class TabelResponsif extends StatelessWidget {
     this.tinggiBarisMaks = 80,
     this.currentPage,
     this.totalPages,
+    this.totalData,
+    this.perPage,
     this.onPageChanged,
   });
 
@@ -187,7 +194,22 @@ class TabelResponsif extends StatelessWidget {
 
     Widget content = pakaiKartu(context) ? _daftarKartu(context) : _tabel(context);
 
-    if (totalPages != null && totalPages! > 1) {
+    // Footer ringkasan + pagination. Ditampilkan bila totalData diberikan
+    // (satu-satunya cara tahu rentang "Menampilkan X–Y dari Z" yang benar) —
+    // termasuk saat cuma satu halaman, supaya ringkasannya tetap terbaca.
+    // Layar yang tidak mengirim totalData memakai pagination lama di bawah.
+    if (totalData != null && currentPage != null && totalPages != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          content,
+          const Divider(height: 1),
+          _buildFooter(context),
+        ],
+      );
+    }
+
+    if (currentPage != null && totalPages != null && totalPages! > 1) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -198,6 +220,59 @@ class TabelResponsif extends StatelessWidget {
       );
     }
     return content;
+  }
+
+  Widget _buildFooter(BuildContext context) {
+    final halaman = currentPage ?? 1;
+    final totalHal = totalPages ?? 1;
+    final per = perPage ?? 10;
+    final total = totalData ?? 0;
+
+    // Rentang baris yang sedang tampil, mis. "1–10". Dihitung dari halaman,
+    // bukan dari panjang baris, agar benar walau halaman terakhir lebih pendek.
+    final mulai = (halaman - 1) * per + 1;
+    final akhir = (halaman * per) > total ? total : halaman * per;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 12,
+        runSpacing: 4,
+        children: [
+          Text(
+            'Menampilkan $mulai–$akhir dari $total data',
+            style: TextStyle(fontSize: 12, color: context.teksKedua),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                visualDensity: VisualDensity.compact,
+                tooltip: 'Halaman sebelumnya',
+                onPressed: (halaman > 1)
+                    ? () => onPageChanged?.call(halaman - 1)
+                    : null,
+              ),
+              Text(
+                'Halaman $halaman dari $totalHal',
+                style: TextStyle(fontSize: 12, color: context.teksKedua),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                visualDensity: VisualDensity.compact,
+                tooltip: 'Halaman berikutnya',
+                onPressed: (halaman < totalHal)
+                    ? () => onPageChanged?.call(halaman + 1)
+                    : null,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildPagination(BuildContext context) {
