@@ -105,11 +105,16 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
     final provider = context.watch<WargaProvider>();
     final paginatedData = provider.wargaList;
 
-    if (provider.isLoading) {
-      return const Center(
-        child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()),
-      );
-    }
+    // TIDAK ada `if (isLoading) return spinner` di sini lagi.
+    //
+    // Cabang itu membuang SELURUH layar — header, filter, tabel, dan kotak
+    // pencariannya sendiri. Melepas kotak pencarian dari pohon widget ikut
+    // membuang FocusNode-nya, sehingga papan ketik tertutup dan kursornya
+    // hilang setiap kali data dimuat. Pengguna harus menyentuh kotaknya lagi
+    // untuk melanjutkan mengetik.
+    //
+    // Sekarang kerangkanya tetap terpasang dan hanya bagian tabel yang
+    // digantikan indikator — lihat `_buildIsiTabel` di bawah.
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -277,16 +282,49 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                         child: TextField(
                           controller: _searchController,
                           style: TextStyle(color: context.teksUtama, fontSize: 13),
-                          onChanged: (val) {
-                            _searchQuery = val;
-                            context.read<WargaProvider>().fetchWarga(search: _searchQuery, page: 1);
+                          // Mencari saat ENTER, bukan setiap huruf.
+                          //
+                          // Dulu `onChanged` menembakkan satu permintaan per
+                          // ketukan tombol: mengetik "Budi" berarti empat
+                          // panggilan ke server. `ApiService` mencoba ulang dua
+                          // kali saat gagal, jadi di jaringan buruk angkanya
+                          // berlipat — dan tanpa penomoran permintaan, jawaban
+                          // untuk "B" yang datang belakangan bisa menimpa hasil
+                          // "Budi" sehingga daftarnya tidak lagi cocok dengan
+                          // isi kotaknya.
+                          //
+                          // Kas RT, Log Aktivitas, Peminjaman, dan E-Visitor
+                          // sudah memakai pola ini; layar inilah yang berbeda
+                          // sendiri.
+                          textInputAction: TextInputAction.search,
+                          onSubmitted: (val) {
+                            _searchQuery = val.trim();
+                            context.read<WargaProvider>().fetchWarga(
+                              search: _searchQuery.isEmpty ? null : _searchQuery,
+                              page: 1,
+                            );
                           },
                           decoration: InputDecoration(
                             filled: true,
                             fillColor: context.latarKartu,
                             hintStyle: TextStyle(color: context.teksTersier, fontSize: 13),
-                            hintText: 'Cari nama, NIK, KK...',
-                            prefixIcon: Icon(Icons.search, size: 18, color: context.teksUtama),
+                            hintText: 'Cari nama, NIK, KK — tekan Enter',
+                            // Ikonnya dibuat bisa ditekan, bukan sekadar hiasan:
+                            // di ponsel tombol Enter tidak selalu terlihat, dan
+                            // pencarian yang hanya bisa dijalankan lewat tombol
+                            // tak kasatmata sama saja dengan tidak ada.
+                            prefixIcon: IconButton(
+                              icon: const Icon(Icons.search, size: 18),
+                              color: context.teksUtama,
+                              tooltip: 'Cari',
+                              onPressed: () {
+                                _searchQuery = _searchController.text.trim();
+                                context.read<WargaProvider>().fetchWarga(
+                                  search: _searchQuery.isEmpty ? null : _searchQuery,
+                                  page: 1,
+                                );
+                              },
+                            ),
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
@@ -333,7 +371,16 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                       constraints: pakaiKartu(context)
                           ? const BoxConstraints()
                           : const BoxConstraints(minHeight: 560),
-                      child: _buildWargaTable(provider, paginatedData),
+                      // Indikator memuat dibatasi HANYA di area tabel.
+                      // Kerangka di atasnya — termasuk kotak pencarian —
+                      // tidak pernah dilepas, jadi fokus dan papan ketik
+                      // bertahan selama data diambil.
+                      child: provider.isLoading
+                          ? const Padding(
+                              padding: EdgeInsets.all(40),
+                              child: Center(child: CircularProgressIndicator()),
+                            )
+                          : _buildWargaTable(provider, paginatedData),
                     ),
                   ],
                 ),
