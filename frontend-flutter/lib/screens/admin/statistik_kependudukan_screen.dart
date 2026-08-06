@@ -201,21 +201,7 @@ class _StatistikKependudukanScreenState extends State<StatistikKependudukanScree
             icon: Icons.female,
             gradientColors: const [Color(0xFF0F766E), Color(0xFF14B8A6)],
           ),
-          GradientStatCard(
-            label: 'Total Rumah',
-            value: '90 Rumah',
-            subtitle: 'Fasilitas hunian',
-            icon: Icons.other_houses_outlined,
-            gradientColors: const [Color(0xFF0F766E), Color(0xFF14B8A6)],
-          ),
-          GradientStatCard(
-            label: 'Luas Wilayah',
-            value: '2.5 Ha',
-            subtitle: 'Cakupan lingkungan',
-            icon: Icons.location_city_outlined,
-            gradientColors: const [Color(0xFF0F766E), Color(0xFF14B8A6)],
-          ),
-        ]),
+          ]),
 
         const SizedBox(height: 24),
 
