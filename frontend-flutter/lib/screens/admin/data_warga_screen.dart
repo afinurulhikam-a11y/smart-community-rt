@@ -14,6 +14,7 @@ import '../../../widgets/tabel_responsif.dart';
 import '../../../widgets/tombol_kembali.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
+import '../../core/sandi.dart';
 
 /// Pilihan baku untuk field demografi.
 ///
@@ -329,13 +330,13 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                               borderSide: BorderSide(
-                                color: _isDarkMode ? Colors.transparent : context.garis,
+                                color: context.garis,
                               ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                               borderSide: BorderSide(
-                                color: _isDarkMode ? Colors.transparent : context.garis,
+                                color: context.garis,
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
@@ -963,15 +964,29 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                     ),
                     if (bolehEditSemua) ...[
                       const SizedBox(height: 6),
+                      // Dulu tombol ini mengisi "123456".
+                      //
+                      // Dua hal salah sekaligus. Pertama, backend menolaknya —
+                      // sandi minimal 8 karakter — jadi tombolnya SELALU gagal
+                      // dengan 400, dan karena pemeriksaannya berjalan setelah
+                      // perubahan peran di transaksi yang sama, perubahan peran
+                      // pun ikut terbuang. Itulah yang terlihat sebagai
+                      // "backend-nya belum berfungsi".
+                      //
+                      // Kedua, sandi seragam yang bisa ditebak adalah persis
+                      // yang dihapus dari pembuatan akun: username-nya NIK,
+                      // dan NIK tercetak di dokumen yang beredar luas di satu
+                      // lingkungan RT. Satu tombol mengembalikan seluruh
+                      // rantai pengambilalihan akun itu.
                       OutlinedButton.icon(
                         onPressed: () {
                           setDialogState(() {
-                            passCtrl.text = '123456';
+                            passCtrl.text = sandiAcak();
                           });
                         },
-                        icon: const Icon(Icons.lock_reset_rounded, size: 14),
+                        icon: const Icon(Icons.casino_outlined, size: 14),
                         label: const Text(
-                          'Set Password Standar "123456"',
+                          'Buatkan Sandi Acak',
                           style: TextStyle(fontSize: 11),
                         ),
                         style: OutlinedButton.styleFrom(
@@ -1521,7 +1536,8 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                               ),
                               SizedBox(height: 4),
                               Text(
-                                'Setelah disimpan, akun otomatis dibuat dengan NIK sebagai username dan "123456" sebagai password bawaan.',
+                                'Setelah disimpan, akun login otomatis dibuat dengan NIK sebagai username. '
+                                'Sandi awalnya diacak dan ditampilkan SEKALI pada layar berikutnya — catat saat itu juga.',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Color(0xFF1E40AF),
@@ -1654,8 +1670,20 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                                         'Password: ',
                                         style: TextStyle(color: context.teksKedua),
                                       ),
-                                      Text(
-                                        '123456',
+                                      // Sandi SUNGGUHAN dari server, bukan
+                                      // tulisan tetap.
+                                      //
+                                      // Dulu baris ini mencetak "123456"
+                                      // begitu saja, padahal backend sudah
+                                      // membuat sandi acak dan mengembalikannya
+                                      // di `data.password`. Jadi pengurus
+                                      // menyebutkan sandi yang salah kepada
+                                      // warga, warga gagal masuk, dan tidak
+                                      // ada satu pun galat yang menjelaskan
+                                      // kenapa — sandi aslinya hanya ada di
+                                      // respons yang barusan dibuang.
+                                      SelectableText(
+                                        (result['data']?['password'] ?? '—').toString(),
                                         style: TextStyle(
                                           fontWeight: FontWeight.bold,
                                           color: context.teksUtama,
