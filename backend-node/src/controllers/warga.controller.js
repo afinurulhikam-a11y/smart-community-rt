@@ -517,6 +517,59 @@ async function updateWargaLengkap(req, res) {
   }
 }
 
+/**
+ * Hapus satu warga dari data kependudukan berdasarkan NIK.
+ *
+ * Dua hal yang berbeda dihapus dengan cara yang berbeda:
+ *
+ *  1. `anggota_keluarga` TIDAK punya kolom `deleted_at`, jadi barisnya
+ *     dihapus sungguhan. Aman: tidak ada tabel yang ber-FK RESTRICT ke
+ *     `anggota_keluarga` — `keluarga` hanya ber-CASCADE kepada kita.
+ *  2. Akun `users` (bila ada) di-soft-delete (`deleted_at` + `is_active`),
+ *     TIDAK dihapus. Delapan tabel ber-RESTRICT ke `users` (bills, finances,
+ *     letters, …), jadi menghapus barisnya akan ditolak Postgres dan malah
+ *     membuat endpoint ini 500. Soft-delete juga yang benar secara makna:
+ *     riwayat tagihan/pembayaran warga tetap perlu terbaca, yang hilang
+ *     hanya hak masuknya. `authMiddleware` menolak akun dengan `deleted_at`
+ *     atau `is_active = false`, jadi warga itu tidak bisa login lagi.
+ */
+async function deleteWargaLengkap(req, res) {
+  const client = await pool.connect();
+  try {
+    const { nik } = req.params;
+
+    const korban = await client.query(
+      'SELECT id, nama FROM anggota_keluarga WHERE nik = $1',
+      [nik]
+    );
+    if (korban.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Warga dengan NIK tersebut tidak ditemukan.' });
+    }
+    const nama = korban.rows[0].nama;
+
+    await client.query('BEGIN');
+
+    // Identitas dibaca SEBELUM dihapus — setelahnya barisnya tidak ada lagi.
+    await client.query('DELETE FROM anggota_keluarga WHERE nik = $1', [nik]);
+    // Soft-delete akun bila ada (opsional — warga bisa saja belum punya akun).
+    await client.query(
+      `UPDATE users SET deleted_at = NOW(), is_active = false WHERE nik = $1 AND deleted_at IS NULL`,
+      [nik]
+    );
+
+    await client.query('COMMIT');
+
+    await logActivity(req, 'DELETE', `Menghapus data warga ${nama} (NIK ${nik})`);
+    return res.status(200).json({ success: true, message: 'Data warga berhasil dihapus.' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Delete Warga Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Gagal menghapus data warga.' });
+  } finally {
+    client.release();
+  }
+}
+
 async function importWargaExcel(req, res) {
   const client = await pool.connect();
   try {
@@ -687,4 +740,4 @@ async function importWargaExcel(req, res) {
   }
 }
 
-module.exports = { getWarga, exportWargaExcel, exportWargaPdf, tambahWargaLengkap, updateWargaLengkap, importWargaExcel };
+module.exports = { getWarga, exportWargaExcel, exportWargaPdf, tambahWargaLengkap, updateWargaLengkap, deleteWargaLengkap, importWargaExcel };

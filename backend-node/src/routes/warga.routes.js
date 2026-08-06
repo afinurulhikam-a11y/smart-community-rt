@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getWarga, exportWargaExcel, exportWargaPdf, tambahWargaLengkap, updateWargaLengkap, importWargaExcel } = require('../controllers/warga.controller');
+const { getWarga, exportWargaExcel, exportWargaPdf, tambahWargaLengkap, updateWargaLengkap, deleteWargaLengkap, importWargaExcel } = require('../controllers/warga.controller');
 const { authMiddleware, requirePermission } = require('../middleware/auth.middleware');
 
 const { validate } = require('../middleware/validate.middleware');
@@ -33,5 +33,6 @@ router.get('/export/pdf', requirePermission('kependudukan.warga', 'view'), expor
 // Ubah data warga. NIK tidak boleh berubah (kunci utama anggota sekaligus
 // username akun), jadi ia ada di path, bukan di body.
 router.put('/:nik', requirePermission('kependudukan.warga', 'update'), updateWargaLengkap);
+router.delete('/:nik', requirePermission('kependudukan.warga', 'delete'), deleteWargaLengkap);
 
 module.exports = router;

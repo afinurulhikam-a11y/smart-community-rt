@@ -16,6 +16,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
 import '../../core/sandi.dart';
 import '../../core/pesan.dart';
+import '../../core/izin_layar.dart';
 
 /// Pilihan baku untuk field demografi.
 ///
@@ -80,6 +81,7 @@ const String _kodeIzin = 'kependudukan.warga';
 class _DataWargaScreenState extends State<DataWargaScreen> {
   bool get _bolehTambah => context.watch<PermissionProvider>().bolehTambah(_kodeIzin);
   bool get _bolehUbah => context.watch<PermissionProvider>().bolehUbah(_kodeIzin);
+  bool get _bolehHapus => context.watch<PermissionProvider>().bolehHapus(_kodeIzin);
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -706,6 +708,12 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
               tooltip: 'Edit Data Warga',
               icon: const Icon(Icons.edit_outlined, color: Color(0xFF0F766E), size: 20),
               onPressed: () => _showEditWargaDialog(context, item),
+            ),
+          if (_bolehHapus && item != null)
+            IconButton(
+              tooltip: 'Hapus Warga',
+              icon: const Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 20),
+              onPressed: () => _hapusWarga(context, item),
             ),
           IconButton(
             tooltip: 'Akun & Kredensial',
@@ -2144,6 +2152,29 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _hapusWarga(BuildContext context, Map<String, dynamic> item) async {
+    final nik = item['nik']?.toString() ?? '';
+    final nama = item['nama']?.toString() ?? 'warga ini';
+
+    final ok = await konfirmasiHapus(
+      context,
+      judul: 'Hapus Data Warga',
+      pesan:
+          'Hapus $nama (NIK $nik) dari data kependudukan?\n\n'
+          'Data warga dan akun loginnya akan dihapus. Riwayat pembayaran dan '
+          'transaksi yang sudah tercatat tetap tersimpan.',
+    );
+    if (!ok || !context.mounted) return;
+
+    final result = await context.read<WargaProvider>().deleteWargaLengkap(nik);
+    if (!context.mounted) return;
+    tampilkanPesan(
+      context,
+      result['message']?.toString() ?? 'Selesai.',
+      sukses: result['success'] == true,
     );
   }
 }
