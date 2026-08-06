@@ -114,6 +114,9 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
           ),
           child: TabBar(
             controller: _tabController,
+            onTap: (idx) {
+              setState(() {});
+            },
             indicatorColor: const Color(0xFF1B7A6A),
             labelColor: const Color(0xFF1B7A6A),
             unselectedLabelColor: context.teksKedua,
@@ -128,17 +131,13 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
 
         const SizedBox(height: 16),
 
-        // Tab Views
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              _buildTabJadwal(context),
-              _buildTabAbsensi(context),
-              _buildTabQrPos(context),
-            ],
-          ),
-        ),
+        // Tab Content
+        if (_tabController.index == 0)
+          _buildTabJadwal(context)
+        else if (_tabController.index == 1)
+          _buildTabAbsensi(context)
+        else
+          _buildTabQrPos(context),
       ],
     );
   }
@@ -154,10 +153,9 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
 
         final schedules = provider.schedules;
 
-        return SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -232,10 +230,9 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                   },
                 ),
             ],
-          ),
-        );
-      },
-    );
+          );
+        },
+      );
   }
 
   Widget _buildJadwalCard(BuildContext context, Map<String, dynamic> s, PatrolProvider provider) {
@@ -391,10 +388,9 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                 ),
               ),
               const Divider(height: 1),
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
-                  child: TabelResponsif(
+              Padding(
+                padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
+                child: TabelResponsif(
                     labelAksi: _bolehHapus ? 'AKSI' : 'STATUS',
                     kolom: [
                       'NO',
@@ -497,10 +493,9 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                     }).toList(),
                   ),
                 ),
-              ),
-            ],
-          ),
-        );
+              ],
+            ),
+          );
       },
     );
   }
@@ -520,10 +515,9 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
           } catch (_) {}
         }
 
-        return SingleChildScrollView(
-          child: Center(
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 450),
+        return Center(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 450),
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 color: context.latarKartu,
@@ -675,10 +669,9 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                 ],
               ),
             ),
-          ),
-        );
-      },
-    );
+          );
+        },
+      );
   }
 
   // ======================== DIALOGS ========================
