@@ -105,6 +105,30 @@ class WargaProvider extends ChangeNotifier {
     }
   }
 
+  /// Hapus warga dari data kependudukan lewat DELETE /warga/:nik.
+  Future<Map<String, dynamic>> deleteWargaLengkap(String nik) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final response = await ApiService.delete('${ApiConstants.warga}/$nik');
+      _isLoading = false;
+      notifyListeners();
+
+      if (response['success'] == true) {
+        await fetchWarga();
+        return response;
+      } else {
+        _errorMessage = response['message'] as String?;
+        return {'success': false, 'message': _errorMessage};
+      }
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString();
+      notifyListeners();
+      return {'success': false, 'message': _errorMessage};
+    }
+  }
+
   List<Map<String, dynamic>> _pendingWargaList = [];
   bool _isLoadingPending = false;
   String? _successMessage;
