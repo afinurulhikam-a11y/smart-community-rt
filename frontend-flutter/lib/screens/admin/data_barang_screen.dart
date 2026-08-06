@@ -8,6 +8,7 @@ import '../../../providers/permission_provider.dart';
 import '../../../widgets/banner_lihat_saja.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
+import '../../core/format.dart';
 
 const Color _hijau = Color(0xFF1B7A6A);
 const Color _merah = Color(0xFFEF4444);
@@ -65,10 +66,7 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
     );
   }
 
-  String _rupiah(double n) {
-    if (n.isNaN || n.isInfinite) return 'Rp 0';
-    return 'Rp ${NumberFormat('#,###', 'id_ID').format(n.round())}';
-  }
+  String _rupiah(double n) => rupiah(n);
 
   void _pesan(String teks, {bool sukses = true}) {
     if (!mounted) return;

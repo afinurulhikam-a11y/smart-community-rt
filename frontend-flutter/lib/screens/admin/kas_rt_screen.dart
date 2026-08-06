@@ -12,6 +12,7 @@ import '../../../widgets/banner_lihat_saja.dart';
 import '../../../widgets/tabel_responsif.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
+import '../../core/format.dart';
 
 const List<String> _namaBulan = [
   'Januari',
@@ -88,7 +89,7 @@ class _KasRtScreenState extends State<KasRtScreen> {
     );
   }
 
-  String _rupiah(double amount) => 'Rp ${NumberFormat('#,###', 'id_ID').format(amount.toInt())}';
+  String _rupiah(double amount) => rupiah(amount);
 
   void _pesan(String teks, {bool sukses = true}) {
     if (!mounted) return;

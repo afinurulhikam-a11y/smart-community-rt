@@ -13,6 +13,7 @@ import '../../../widgets/banner_lihat_saja.dart';
 import '../../../widgets/tabel_responsif.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
+import '../../core/format.dart';
 
 const List<String> _namaBulan = [
   'Januari',
@@ -104,7 +105,9 @@ class _BopScreenState extends State<BopScreen> {
     );
   }
 
-  String _rupiah(double amount) => 'Rp ${NumberFormat('#,###', 'id_ID').format(amount.round())}';
+  // Diteruskan ke util bersama; lihat lib/core/format.dart untuk alasan
+  // kenapa format ini tidak boleh ditulis ulang per layar.
+  String _rupiah(double amount) => rupiah(amount);
 
   void _pesan(String teks, {bool sukses = true}) {
     if (!mounted) return;

@@ -11,6 +11,7 @@ import '../../providers/permission_provider.dart';
 import 'package:intl/intl.dart';
 import '../../core/responsif.dart';
 import '../../core/theme/warna_konteks.dart';
+import '../../core/format.dart';
 
 class WargaDashboardContent extends StatelessWidget {
   final AuthService auth;
@@ -38,9 +39,8 @@ class WargaDashboardContent extends StatelessWidget {
     final aduanAktif = complaints.complaints
         .where((c) => (c['status']?.toString() ?? '') != 'Selesai')
         .length;
-    final formatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-    final totalTunggakanStr = formatter.format(totalTunggakan);
-    final saldoKas = formatter.format(finances.summary?.saldo ?? 0);
+    final totalTunggakanStr = rupiah(totalTunggakan);
+    final saldoKas = rupiah(finances.summary?.saldo ?? 0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

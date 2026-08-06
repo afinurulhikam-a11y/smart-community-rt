@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/finance_provider.dart';
 import '../../core/theme/warna_konteks.dart';
+import '../../core/format.dart';
 
 class FinanceReportScreen extends StatefulWidget {
   const FinanceReportScreen({super.key});
@@ -22,7 +23,6 @@ class _FinanceReportScreenState extends State<FinanceReportScreen> {
   @override
   Widget build(BuildContext context) {
     final finance = context.watch<FinanceProvider>();
-    final currencyFormat = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp', decimalDigits: 0);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -39,21 +39,21 @@ class _FinanceReportScreenState extends State<FinanceReportScreen> {
               children: [
                 _buildSummaryCard(
                   'Pemasukan',
-                  currencyFormat.format(finance.summary!.totalPemasukan),
+                  rupiah(finance.summary!.totalPemasukan),
                   Icons.arrow_downward,
                   const Color(0xFF059669),
                 ),
                 const SizedBox(width: 12),
                 _buildSummaryCard(
                   'Pengeluaran',
-                  currencyFormat.format(finance.summary!.totalPengeluaran),
+                  rupiah(finance.summary!.totalPengeluaran),
                   Icons.arrow_upward,
                   const Color(0xFFDC2626),
                 ),
                 const SizedBox(width: 12),
                 _buildSummaryCard(
                   'Saldo',
-                  currencyFormat.format(finance.summary!.saldo),
+                  rupiah(finance.summary!.saldo),
                   Icons.account_balance,
                   const Color(0xFF1B7A6A),
                 ),
@@ -156,7 +156,7 @@ class _FinanceReportScreenState extends State<FinanceReportScreen> {
                             ),
                           ),
                           Text(
-                            '${tx.isPemasukan ? '+' : '-'}${currencyFormat.format(tx.jumlah)}',
+                            '${tx.isPemasukan ? '+' : '-'}${rupiah(tx.jumlah)}',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
