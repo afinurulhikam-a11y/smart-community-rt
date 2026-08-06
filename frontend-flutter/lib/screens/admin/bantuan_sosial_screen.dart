@@ -8,6 +8,7 @@ import '../../../core/services/api_service.dart';
 import '../../../providers/permission_provider.dart';
 import '../../../widgets/banner_lihat_saja.dart';
 import '../../../widgets/tabel_responsif.dart';
+import '../../../widgets/tombol_kembali.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
 
@@ -15,7 +16,8 @@ import '../../core/theme/warna_konteks.dart';
 const String _kodeIzin = 'kependudukan.bansos';
 
 class BantuanSosialScreen extends StatefulWidget {
-  const BantuanSosialScreen({super.key});
+  final VoidCallback? onBack;
+  const BantuanSosialScreen({super.key, this.onBack});
 
   @override
   State<BantuanSosialScreen> createState() => _BantuanSosialScreenState();
@@ -95,6 +97,8 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    TombolKembali(onPressed: widget.onBack),
+                    const SizedBox(width: 10),
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(

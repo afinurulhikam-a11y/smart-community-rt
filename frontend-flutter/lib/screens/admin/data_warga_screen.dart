@@ -11,6 +11,7 @@ import '../../core/services/api_service.dart';
 import '../../core/constants/api_constants.dart';
 import '../../../widgets/banner_lihat_saja.dart';
 import '../../../widgets/tabel_responsif.dart';
+import '../../../widgets/tombol_kembali.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
 
@@ -64,7 +65,8 @@ const List<String> _opsiPekerjaan = [
 const List<String> _opsiStatusRumah = ['Milik Sendiri', 'Sewa', 'Kontrak', 'Kos', 'Menumpang'];
 
 class DataWargaScreen extends StatefulWidget {
-  const DataWargaScreen({super.key});
+  final VoidCallback? onBack;
+  const DataWargaScreen({super.key, this.onBack});
 
   @override
   State<DataWargaScreen> createState() => _DataWargaScreenState();
@@ -127,6 +129,8 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    TombolKembali(onPressed: widget.onBack),
+                    const SizedBox(width: 10),
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(

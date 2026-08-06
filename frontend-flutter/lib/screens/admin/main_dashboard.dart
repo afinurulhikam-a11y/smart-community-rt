@@ -72,6 +72,7 @@ class MainDashboard extends StatefulWidget {
 class _MainDashboardState extends State<MainDashboard> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _selectedMenuIndex = 0;
+  final List<int> _menuHistory = [];
   String _chartDataSource = 'Kas RT';
   bool _isEmergencyDialogShowing = false;
   final Set<String> _dismissedPopupAlertIds = {};
@@ -695,9 +696,21 @@ class _MainDashboardState extends State<MainDashboard> {
   /// layar sebelumnya — misalnya tombol "Pemasukan" tertinggal di Statistik.
   /// Layar tujuan yang memang punya aksi akan memasangnya kembali pada build
   /// yang sama, jadi tombolnya tidak berkedip.
-  void _pilihMenu(int indeks) {
+  void _pilihMenu(int indeks, {bool isBack = false}) {
     context.read<AksiUtamaProvider>().lepas();
+    if (!isBack && _selectedMenuIndex != indeks) {
+      _menuHistory.add(_selectedMenuIndex);
+    }
     setState(() => _selectedMenuIndex = indeks);
+  }
+
+  void _kembaliMenu() {
+    if (_menuHistory.isNotEmpty) {
+      final prev = _menuHistory.removeLast();
+      _pilihMenu(prev, isBack: true);
+    } else {
+      _pilihMenu(0, isBack: true);
+    }
   }
 
   /// Tombol aksi utama layar yang sedang terbuka.
@@ -898,9 +911,9 @@ class _MainDashboardState extends State<MainDashboard> {
 
     switch (_selectedMenuIndex) {
       case 12:
-        return const DataWargaScreen();
+        return DataWargaScreen(onBack: _kembaliMenu);
       case 13:
-        return const BantuanSosialScreen();
+        return BantuanSosialScreen(onBack: _kembaliMenu);
       case 14:
         return const StatistikKependudukanScreen();
 
@@ -936,7 +949,7 @@ class _MainDashboardState extends State<MainDashboard> {
       case 81:
         return const ProfilSayaScreen();
       case 82:
-        return const UserManagementScreen();
+        return UserManagementScreen(onBack: _kembaliMenu);
       case 84:
         return const LogAktivitasScreen();
       case 85:

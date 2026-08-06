@@ -6,9 +6,11 @@ import '../../core/theme/warna_konteks.dart';
 import '../../models/user_model.dart';
 import '../../providers/user_provider.dart';
 import '../../widgets/tabel_responsif.dart';
+import '../../widgets/tombol_kembali.dart';
 
 class UserManagementScreen extends StatefulWidget {
-  const UserManagementScreen({super.key});
+  final VoidCallback? onBack;
+  const UserManagementScreen({super.key, this.onBack});
 
   @override
   State<UserManagementScreen> createState() => _UserManagementScreenState();
@@ -70,6 +72,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    TombolKembali(onPressed: widget.onBack),
+                    const SizedBox(width: 10),
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
