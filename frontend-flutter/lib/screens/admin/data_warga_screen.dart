@@ -242,73 +242,67 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-              Wrap(
-                alignment: WrapAlignment.end,
-                crossAxisAlignment: WrapCrossAlignment.end,
-                spacing: 16,
-                runSpacing: 16,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Pencarian',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: context.teksKedua,
-                        ),
+              Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Pencarian',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: context.teksKedua,
                       ),
-                      const SizedBox(height: 6),
-                      SizedBox(
-                        width: lebarKolomFilter(context, maksimal: 250),
-                        child: TextField(
-                          controller: _searchController,
-                          style: TextStyle(
-                            color: context.teksUtama,
+                    ),
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      width: lebarKolomFilter(context, maksimal: 280),
+                      child: TextField(
+                        controller: _searchController,
+                        style: TextStyle(
+                          color: context.teksUtama,
+                          fontSize: 13,
+                        ),
+                        onChanged: (val) {
+                          _searchQuery = val;
+                          context.read<WargaProvider>().fetchWarga(search: _searchQuery, page: 1);
+                        },
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: context.latarKartu,
+                          hintStyle: TextStyle(
+                            color: context.teksTersier,
                             fontSize: 13,
                           ),
-                          onChanged: (val) {
-                            _searchQuery = val;
-                            context.read<WargaProvider>().fetchWarga(search: _searchQuery, page: 1);
-                          },
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: context.latarKartu,
-                            hintStyle: TextStyle(
-                              color: context.teksTersier,
-                              fontSize: 13,
+                          hintText: 'Cari nama, NIK, KK...',
+                          prefixIcon: Icon(
+                            Icons.search,
+                            size: 18,
+                            color: context.teksUtama,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: _isDarkMode ? Colors.transparent : context.garis,
                             ),
-                            hintText: 'Cari nama, NIK, KK...',
-                            prefixIcon: Icon(
-                              Icons.search,
-                              size: 18,
-                              color: context.teksUtama,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                              color: _isDarkMode ? Colors.transparent : context.garis,
                             ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(
-                                color: _isDarkMode ? Colors.transparent : context.garis,
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(
-                                color: _isDarkMode ? Colors.transparent : context.garis,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(color: const Color(0xFF1B7A6A)),
-                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: Color(0xFF1B7A6A)),
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
               Container(
