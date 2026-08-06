@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/services/auth_service.dart';
-import '../core/theme/app_theme.dart';
+import '../core/pesan.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -27,12 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final auth = context.read<AuthService>();
     final success = await auth.login(_emailController.text.trim(), _passwordController.text);
     if (!success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(auth.errorMessage ?? 'Login gagal'),
-          backgroundColor: AppTheme.dangerColor,
-        ),
-      );
+      pesanGagal(context, auth.errorMessage ?? 'Login gagal');
     }
   }
 

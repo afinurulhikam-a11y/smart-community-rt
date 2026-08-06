@@ -10,6 +10,7 @@ import '../../../widgets/tombol_kembali.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
 import '../../core/format.dart';
+import '../../core/pesan.dart';
 
 const Color _hijau = Color(0xFF1B7A6A);
 const Color _merah = Color(0xFFEF4444);
@@ -72,13 +73,7 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
 
   void _pesan(String teks, {bool sukses = true}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(teks),
-        backgroundColor: sukses ? const Color(0xFF10B981) : _merah,
-        duration: const Duration(seconds: 4),
-      ),
-    );
+    tampilkanPesan(context, teks, sukses: sukses);
   }
 
   @override

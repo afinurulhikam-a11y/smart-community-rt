@@ -5,6 +5,7 @@ import '../../core/services/auth_service.dart';
 import '../../widgets/responsive_layout.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
+import '../../core/pesan.dart';
 
 class ProfilSayaScreen extends StatefulWidget {
   const ProfilSayaScreen({super.key});
@@ -58,9 +59,7 @@ class _ProfilSayaScreenState extends State<ProfilSayaScreen> {
   Future<void> _handleSaveProfile() async {
     final auth = context.read<AuthService>();
     if (_namaController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nama lengkap wajib diisi'), backgroundColor: Colors.red),
-      );
+      pesanGagal(context, 'Nama lengkap wajib diisi');
       return;
     }
 
@@ -73,19 +72,9 @@ class _ProfilSayaScreenState extends State<ProfilSayaScreen> {
 
     if (mounted) {
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profil berhasil diperbarui!'),
-            backgroundColor: Color(0xFF10B981),
-          ),
-        );
+        pesanSukses(context, 'Profil berhasil diperbarui!');
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(auth.errorMessage ?? 'Gagal memperbarui profil'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        pesanGagal(context, auth.errorMessage ?? 'Gagal memperbarui profil');
       }
     }
   }
@@ -97,32 +86,17 @@ class _ProfilSayaScreenState extends State<ProfilSayaScreen> {
     final confirmPass = _confirmPasswordController.text;
 
     if (oldPass.isEmpty || newPass.isEmpty || confirmPass.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Semua kolom password wajib diisi'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      pesanGagal(context, 'Semua kolom password wajib diisi');
       return;
     }
 
     if (newPass.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Password baru minimal 6 karakter'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      pesanGagal(context, 'Password baru minimal 6 karakter');
       return;
     }
 
     if (newPass != confirmPass) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Konfirmasi password baru tidak cocok'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      pesanGagal(context, 'Konfirmasi password baru tidak cocok');
       return;
     }
 
@@ -133,19 +107,9 @@ class _ProfilSayaScreenState extends State<ProfilSayaScreen> {
         _oldPasswordController.clear();
         _newPasswordController.clear();
         _confirmPasswordController.clear();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Password berhasil diubah!'),
-            backgroundColor: Color(0xFF10B981),
-          ),
-        );
+        pesanSukses(context, 'Password berhasil diubah!');
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(auth.errorMessage ?? 'Gagal mengubah password'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        pesanGagal(context, auth.errorMessage ?? 'Gagal mengubah password');
       }
     }
   }

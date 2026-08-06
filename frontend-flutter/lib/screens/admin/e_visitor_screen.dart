@@ -7,6 +7,7 @@ import '../../../widgets/tombol_kembali.dart';
 import '../../../providers/visitor_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
+import '../../core/pesan.dart';
 
 class EVisitorScreen extends StatefulWidget {
   final bool isWarga;
@@ -713,14 +714,9 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
                       if (platCtrl.text.trim().isEmpty) kosong.add('Plat Nomor');
 
                       if (kosong.isNotEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Kolom berikut wajib diisi: ${kosong.join(", ")}',
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                            backgroundColor: Colors.red,
-                          ),
+                        pesanGagal(
+                          context,
+                          'Kolom berikut wajib diisi: ${kosong.join(", ")}',
                         );
                         return;
                       }
@@ -739,12 +735,7 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
                       if (success) {
                         if (ctx.mounted) Navigator.pop(ctx);
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Tamu berhasil didaftarkan'),
-                              backgroundColor: Colors.green,
-                            ),
-                          );
+                          pesanSukses(context, 'Tamu berhasil didaftarkan');
                         }
                       }
                     },

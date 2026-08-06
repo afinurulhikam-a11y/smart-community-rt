@@ -7,6 +7,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../../models/payment_model.dart';
 import '../../providers/payment_provider.dart';
 import '../../core/theme/warna_konteks.dart';
+import '../../core/pesan.dart';
 
 const Color _hijau = Color(0xFF1B7A6A);
 
@@ -113,13 +114,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
   void _pesan(String teks, {bool sukses = true}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(teks),
-        backgroundColor: sukses ? _hijau : const Color(0xFFEF4444),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 5),
-      ),
+    tampilkanPesan(
+      context,
+      teks,
+      sukses: sukses,
+      perilaku: SnackBarBehavior.floating,
+      durasi: const Duration(seconds: 5),
     );
   }
 

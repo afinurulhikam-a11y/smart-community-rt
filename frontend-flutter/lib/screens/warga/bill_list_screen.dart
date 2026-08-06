@@ -6,6 +6,7 @@ import '../../providers/payment_provider.dart';
 import 'payment_screen.dart';
 import '../../core/theme/warna_konteks.dart';
 import '../../core/format.dart';
+import '../../core/pesan.dart';
 
 const Color _hijau = Color(0xFF1B7A6A);
 
@@ -61,13 +62,12 @@ class _BillListScreenState extends State<BillListScreen> with SingleTickerProvid
 
   void _pesan(String teks, {bool sukses = true}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(teks),
-        backgroundColor: sukses ? _hijau : AppTheme.dangerColor,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 5),
-      ),
+    tampilkanPesan(
+      context,
+      teks,
+      sukses: sukses,
+      perilaku: SnackBarBehavior.floating,
+      durasi: const Duration(seconds: 5),
     );
   }
 

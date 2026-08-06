@@ -61,6 +61,7 @@ import '../warga/bill_list_screen.dart';
 import '../warga/finance_report_screen.dart';
 import '../warga/letter_request_screen.dart';
 import '../../../models/finance_model.dart';
+import '../../core/pesan.dart';
 
 class MainDashboard extends StatefulWidget {
   const MainDashboard({super.key});
@@ -507,11 +508,10 @@ class _MainDashboardState extends State<MainDashboard> {
                                 _isEmergencyDialogShowing = false;
                                 if (parentCtx.mounted) Navigator.pop(parentCtx);
 
-                                messenger.showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Status darurat telah diselesaikan.'),
-                                    backgroundColor: Color(0xFF059669),
-                                  ),
+                                tampilkanPesanDi(
+                                  messenger,
+                                  'Status darurat telah diselesaikan.',
+                                  sukses: true,
                                 );
                               } else {
                                 setModalState(() {

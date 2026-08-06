@@ -12,6 +12,7 @@ import '../../../core/services/auth_service.dart';
 import '../../../widgets/tabel_responsif.dart';
 import '../../../widgets/tombol_kembali.dart';
 import '../../core/theme/warna_konteks.dart';
+import '../../core/pesan.dart';
 
 const Color _hijau = Color(0xFF1B7A6A);
 const Color _merah = Color(0xFFEF4444);
@@ -89,13 +90,7 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
 
   void _pesan(String teks, {bool sukses = true}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(teks),
-        backgroundColor: sukses ? const Color(0xFF10B981) : _merah,
-        duration: const Duration(seconds: 4),
-      ),
-    );
+    tampilkanPesan(context, teks, sukses: sukses);
   }
 
   String _tgl(DateTime? d) => d == null ? '-' : DateFormat('dd MMM yyyy').format(d);
@@ -558,9 +553,7 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
               onPressed: () async {
                 final r = await context.read<InventoryProvider>().approveBorrowing(b.id);
                 if (mounted && r['success'] == true) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Peminjaman berhasil disetujui.')),
-                  );
+                  pesanSukses(context, 'Peminjaman berhasil disetujui.');
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -577,9 +570,9 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
               onPressed: () async {
                 final r = await context.read<InventoryProvider>().rejectBorrowing(b.id);
                 if (mounted && r['success'] == true) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Peminjaman ditolak.')),
-                  );
+                  // Hijau: yang dilaporkan adalah aksinya berhasil dijalankan,
+                  // bukan isi keputusannya.
+                  pesanSukses(context, 'Peminjaman ditolak.');
                 }
               },
               style: OutlinedButton.styleFrom(

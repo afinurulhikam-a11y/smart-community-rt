@@ -7,6 +7,7 @@ import '../../providers/permission_provider.dart';
 import '../../widgets/responsive_layout.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
+import '../../core/pesan.dart';
 
 const Color _hijau = Color(0xFF10B981);
 const Color _merah = Color(0xFFEF4444);
@@ -70,13 +71,7 @@ class _MenuAksesScreenState extends State<MenuAksesScreen> {
 
   void _pesan(String teks, {bool sukses = true}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(teks),
-        backgroundColor: sukses ? _hijau : _merah,
-        duration: const Duration(seconds: 5),
-      ),
-    );
+    tampilkanPesan(context, teks, sukses: sukses, durasi: const Duration(seconds: 5));
   }
 
   String _kunci(String role, String kode) => '$role|$kode';
