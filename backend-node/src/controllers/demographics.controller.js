@@ -32,6 +32,31 @@ async function getDemographicsSummary(req, res) {
     const filterRtKk = rt ? (rt ? 'WHERE rt = $1 AND deleted_at IS NULL' : 'WHERE deleted_at IS NULL') : 'WHERE deleted_at IS NULL';
     const params = rt ? [rt] : [];
 
+    // TIDAK ada penyaringan `ak.deleted_at` di sini, dan itu memang benar.
+    //
+    // Kedua kueri di bawah sempat memakai `ak.deleted_at IS NULL`, padahal
+    // `anggota_keluarga` tidak punya kolom itu — migrasi soft-delete hanya
+    // menyentuh users, keluarga, inventory, complaints, letters, agenda, dan
+    // finances. Akibatnya SELURUH endpoint ini selalu 500, dan kartu
+    // "Data Warga" di dashboard menampilkan 0 karena providernya tidak pernah
+    // menerima data.
+    //
+    // Yang menyembunyikannya: layar Data Warga memakai kuerinya sendiri yang
+    // hanya menyaring `k.deleted_at` — kolom yang MEMANG ada — sehingga
+    // daftarnya tampil normal. Satu layar menunjukkan 41 orang, layar lain
+    // menunjukkan 0, dan keduanya seolah membaca sumber yang sama.
+    //
+    // Tidak ada satu baris pun di seluruh kode yang menulis
+    // `anggota_keluarga.deleted_at`, jadi penyaringnya bukan aturan yang lupa
+    // diterapkan — ia memang tidak pernah punya tempat di tabel ini. Anggota
+    // yang keluarganya dihapus tetap tersaring lewat JOIN ke `keluarga`.
+    //
+    // `ak.is_aktif = true` DIPERTAHANKAN: itu kolom yang benar-benar ada dan
+    // memang bermakna — warga yang pindah ditandai tidak aktif dan tidak
+    // seharusnya ikut dihitung dalam statistik kependudukan. Karena itu angka
+    // di sini bisa sedikit lebih kecil daripada di Data Warga, yang sengaja
+    // menampilkan semuanya.
+
     // Satu helper untuk semua pecahan kategori warga (agama, pendidikan, dst).
     // Nama kolom berasal dari konstanta di file ini, bukan dari input user.
     const kategoriWarga = (kolom) => pool.query(`
@@ -39,7 +64,7 @@ async function getDemographicsSummary(req, res) {
              COUNT(*)::int AS jumlah
       FROM anggota_keluarga ak
       JOIN keluarga k ON ak.keluarga_id = k.id
-      WHERE ak.is_aktif = true AND ak.deleted_at IS NULL AND k.deleted_at IS NULL ${filterRt}
+      WHERE ak.is_aktif = true AND k.deleted_at IS NULL ${filterRt}
       GROUP BY 1
       ORDER BY jumlah DESC, label ASC
     `, params);
@@ -83,7 +108,7 @@ async function getDemographicsSummary(req, res) {
           )::int AS janda_duda
         FROM anggota_keluarga ak
         JOIN keluarga k ON ak.keluarga_id = k.id
-        WHERE ak.is_aktif = true AND ak.deleted_at IS NULL AND k.deleted_at IS NULL ${filterRt}
+        WHERE ak.is_aktif = true AND k.deleted_at IS NULL ${filterRt}
       `, params),
 
       // Statistik tingkat keluarga dihitung per KK, bukan per jiwa.
