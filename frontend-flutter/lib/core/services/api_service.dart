@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'cache_lokal.dart';
+import 'antrean_offline.dart';
 
 class ApiService {
   static String? _token;
@@ -60,20 +63,76 @@ class ApiService {
     throw lastError!;
   }
 
-  static Future<Map<String, dynamic>> get(String url, {Map<String, String>? queryParams}) async {
+  /// Penanda bahwa jawaban ini berasal dari penyimpanan lokal, bukan server.
+  ///
+  /// Layar WAJIB menampilkannya bersama [penandaWaktuCache]. Data lama yang
+  /// disajikan seolah baru lebih berbahaya daripada layar kosong: seorang
+  /// pengurus bisa menyimpulkan iuran belum dibayar padahal pembayarannya
+  /// sudah masuk sejam lalu.
+  static const String penandaCache = 'dariCache';
+  static const String penandaWaktuCache = 'waktuCache';
+
+  /// GET dengan cache baca-tembus opsional.
+  ///
+  /// Dengan `cache: true`:
+  ///   - jawaban server yang berhasil ikut disimpan ke penyimpanan lokal;
+  ///   - bila server tidak terjangkau, jawaban tersimpan terakhir dikembalikan
+  ///     dengan [penandaCache] dan [penandaWaktuCache] terpasang.
+  ///
+  /// Cache TIDAK dipakai ketika server menjawab tetapi menolak (401/403/404).
+  /// Penolakan adalah jawaban yang sah dan harus diteruskan apa adanya —
+  /// menutupinya dengan data lama akan menyembunyikan pencabutan akses, dan
+  /// membuat seseorang yang baru saja dinonaktifkan tetap melihat isinya.
+  static Future<Map<String, dynamic>> get(
+    String url, {
+    Map<String, String>? queryParams,
+    bool cache = false,
+  }) async {
+    Uri uri = Uri.parse(url);
+    if (queryParams != null) {
+      uri = uri.replace(queryParameters: queryParams);
+    }
+
     try {
-      Uri uri = Uri.parse(url);
-      if (queryParams != null) {
-        uri = uri.replace(queryParameters: queryParams);
-      }
       final response = await _withRetry(() => http.get(uri, headers: _headers));
-      return _handleResponse(response);
+      final hasil = _handleResponse(response);
+
+      if (cache && hasil['success'] == true) {
+        // Tidak ditunggu: menyimpan cache tidak boleh menambah waktu tunggu
+        // pengguna atas data yang sudah ada di tangan.
+        unawaited(CacheLokal.simpan(uri.toString(), hasil));
+      }
+      return hasil;
     } catch (e) {
+      if (cache) {
+        final tersimpan = await CacheLokal.ambil(uri.toString());
+        if (tersimpan != null) {
+          return {
+            ...tersimpan.isi,
+            penandaCache: true,
+            penandaWaktuCache: tersimpan.waktu.toIso8601String(),
+          };
+        }
+      }
       return {'success': false, penandaOffline: true, 'message': 'Gagal terhubung ke server: $e'};
     }
   }
 
-  static Future<Map<String, dynamic>> post(String url, {Map<String, dynamic>? body}) async {
+  /// Penanda bahwa permintaan disimpan ke antrean, bukan terkirim.
+  static const String penandaDiantre = 'diantre';
+
+  /// POST, dengan antrean offline opsional.
+  ///
+  /// `judulAntrean` yang tidak null berarti pemanggil MENYATAKAN permintaan ini
+  /// aman ditunda. Sengaja harus disebutkan di tempat pemanggilan, bukan
+  /// disimpulkan sendiri di sini: keputusan "boleh terkirim tiga jam kemudian"
+  /// adalah keputusan domain, bukan keputusan lapisan jaringan. Lihat
+  /// AntreanOffline untuk alasan mengapa uang dan alarm tidak pernah diantre.
+  static Future<Map<String, dynamic>> post(
+    String url, {
+    Map<String, dynamic>? body,
+    String? judulAntrean,
+  }) async {
     try {
       final response = await _withRetry(
         () => http.post(
@@ -84,6 +143,26 @@ class ApiService {
       );
       return _handleResponse(response);
     } catch (e) {
+      if (judulAntrean != null && AntreanOffline.bolehDiantre(url, 'POST')) {
+        final masuk = await AntreanOffline.tambah(
+          metode: 'POST',
+          endpoint: url,
+          body: body ?? {},
+          judul: judulAntrean,
+        );
+        if (masuk) {
+          // `success: true` DISENGAJA. Dari sudut pandang pengguna permintaannya
+          // memang sudah diterima — tersimpan dan pasti dikirim. Mengembalikan
+          // kegagalan akan membuat layar menyuruh mencoba lagi, dan percobaan
+          // itu menghasilkan pengaduan kedua yang sama persis.
+          return {
+            'success': true,
+            penandaDiantre: true,
+            'message': 'Tidak ada koneksi. Tersimpan dan akan dikirim otomatis '
+                'begitu jaringan tersedia.',
+          };
+        }
+      }
       return {'success': false, penandaOffline: true, 'message': 'Gagal terhubung ke server: $e'};
     }
   }

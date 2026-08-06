@@ -31,6 +31,7 @@ import 'package:smart_community/providers/polling_provider.dart';
 import 'package:smart_community/providers/reset_provider.dart';
 import 'package:smart_community/providers/visitor_provider.dart';
 import 'package:smart_community/providers/warga_provider.dart';
+import 'package:smart_community/providers/koneksi_provider.dart';
 import 'package:smart_community/screens/admin/main_dashboard.dart';
 
 /// Perkakas bersama untuk pengujian widget.
@@ -55,6 +56,11 @@ List<SingleChildWidget> semuaProvider() => [
   // ditekan. Tanpa ia terdaftar, uji gagal dengan ProviderNotFoundException —
   // bukan karena tata letaknya, melainkan karena kerangkanya kurang.
   ChangeNotifierProvider(create: (_) => TemaProvider()),
+  // `pantau: false` — berlangganan connectivity_plus dan membuka SQLite
+  // menuntut plugin yang tidak ada di lingkungan uji widget, dan langganan
+  // yang tertinggal membuat uji gagal karena "pending timers" alih-alih
+  // karena hal yang sedang diuji. Sama seperti WsTanpaSambung di bawah.
+  ChangeNotifierProvider(create: (_) => KoneksiProvider(pantau: false)),
   ChangeNotifierProvider(create: (_) => AuthService()),
   ChangeNotifierProvider(create: (_) => PermissionProvider()),
   ChangeNotifierProvider<WebSocketService>(create: (_) => WsTanpaSambung()),

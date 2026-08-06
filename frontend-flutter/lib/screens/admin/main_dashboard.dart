@@ -33,6 +33,7 @@ import '../../widgets/navigasi_bawah.dart';
 import '../../widgets/sidebar_menu.dart';
 import '../../widgets/gradient_stat_card.dart';
 import '../../widgets/responsive_layout.dart';
+import '../../widgets/banner_offline.dart';
 import 'data_warga_screen.dart';
 import 'bantuan_sosial_screen.dart';
 import 'statistik_kependudukan_screen.dart';
@@ -652,7 +653,22 @@ class _MainDashboardState extends State<MainDashboard> {
                             // di layar yang isinya sedikit.
                             physics: const AlwaysScrollableScrollPhysics(),
                             padding: EdgeInsets.all(paddingKonten(context)),
-                            child: _buildBody(auth),
+                            // Pita status jaringan di ATAS setiap layar.
+                            //
+                            // Cache dan antrean offline membuat aplikasi tetap
+                            // berguna tanpa sinyal, tetapi keduanya berbahaya
+                            // bila bekerja diam-diam: data lama tampak persis
+                            // seperti data baru, dan pengaduan yang masih di
+                            // antrean tampak sudah terkirim. Aplikasi boleh
+                            // menolong tanpa diminta, tidak boleh diam soal
+                            // keadaan datanya.
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const BannerOffline(),
+                                _buildBody(auth),
+                              ],
+                            ),
                           ),
                         ),
                       ),

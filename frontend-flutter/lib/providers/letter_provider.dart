@@ -66,9 +66,12 @@ class LetterProvider extends ChangeNotifier {
   Future<bool> createLetter({required String jenisSurat, required String keperluan}) async {
     _isLoading = true;
     notifyListeners();
+    // Permohonan surat menunggu persetujuan pengurus, jadi aman ditunda —
+    // sama seperti pengaduan. Lihat AntreanOffline untuk yang tidak boleh.
     final response = await ApiService.post(
       ApiConstants.letters,
       body: {'jenis_surat': jenisSurat, 'keperluan': keperluan},
+      judulAntrean: 'Permohonan surat: $jenisSurat',
     );
     _isLoading = false;
     if (response['success'] == true) {

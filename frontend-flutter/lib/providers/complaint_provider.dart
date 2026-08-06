@@ -48,6 +48,10 @@ class ComplaintProvider extends ChangeNotifier {
   Future<bool> createComplaint({required String judul, String? deskripsi, String? kategori}) async {
     _isLoading = true;
     notifyListeners();
+    // `judulAntrean` menandai permintaan ini AMAN ditunda. Pengaduan menunggu
+    // ditinjau manusia dan tidak mengubah apa pun seketika, jadi terkirim
+    // beberapa menit kemudian tidak mengubah artinya. Uang dan alarm tidak
+    // pernah diantre — lihat AntreanOffline.
     final response = await ApiService.post(
       ApiConstants.complaints,
       body: {
@@ -55,6 +59,7 @@ class ComplaintProvider extends ChangeNotifier {
         if (deskripsi != null) 'deskripsi': deskripsi,
         if (kategori != null) 'kategori': kategori,
       },
+      judulAntrean: 'Pengaduan: $judul',
     );
     _isLoading = false;
     if (response['success'] == true) {
