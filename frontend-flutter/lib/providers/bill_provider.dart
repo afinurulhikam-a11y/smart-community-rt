@@ -14,6 +14,7 @@ class BillProvider extends ChangeNotifier {
   int _currentPage = 1;
   int _totalPages = 1;
   int _totalData = 0;
+  int _perPage = 10;
 
   List<BillModel> get bills => _bills;
   BillStats get stats => _stats;
@@ -23,6 +24,7 @@ class BillProvider extends ChangeNotifier {
   int get currentPage => _currentPage;
   int get totalPages => _totalPages;
   int get totalData => _totalData;
+  int get perPage => _perPage;
 
   List<BillModel> get unpaidBills => _bills.where((b) => !b.isLunas).toList();
   List<BillModel> get paidBills => _bills.where((b) => b.isLunas).toList();
@@ -71,7 +73,7 @@ class BillProvider extends ChangeNotifier {
 
     final query = Map<String, String>.from(_filterAktif);
     query['page'] = page.toString();
-    query['limit'] = '25';
+    query['limit'] = '10';
 
     final response = await ApiService.get(
       ApiConstants.bills,
@@ -93,6 +95,7 @@ class BillProvider extends ChangeNotifier {
         _currentPage = pag['current_page'] as int? ?? 1;
         _totalPages = pag['total_pages'] as int? ?? 1;
         _totalData = pag['total_data'] as int? ?? 0;
+        _perPage = pag['per_page'] as int? ?? 10;
       }
       _errorMessage = null;
     } else {
@@ -301,6 +304,7 @@ class BillProvider extends ChangeNotifier {
     _currentPage = 1;
     _totalPages = 1;
     _totalData = 0;
+    _perPage = 10;
     _filterAktif = {};
     notifyListeners();
   }
