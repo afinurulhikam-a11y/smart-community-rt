@@ -451,7 +451,26 @@ async function importWargaExcel(req, res) {
           if (no_hp.startsWith('8')) no_hp = `0${no_hp}`;
         }
 
-        if (!nik || !nama || !no_kk) continue; // Skip invalid rows
+        // Baris tanpa NIK / Nama / No. KK DILAPORKAN, bukan dilewati diam-diam.
+        //
+        // Sebelumnya baris ini hanya `continue`, tanpa menambah failedCount
+        // dan tanpa menulis apa pun ke `errors`. Akibatnya mengimpor 100 baris
+        // yang 20 di antaranya kurang lengkap menghasilkan laporan
+        // "80 berhasil, 0 gagal" — dua puluh warga hilang tanpa jejak, dan
+        // tidak ada apa pun di layar yang memberi tahu bahwa mereka ada.
+        //
+        // Ketiga kolom ini memang wajib: NIK adalah kunci unik anggota, No. KK
+        // menentukan keluarganya, dan nama tidak bisa dikarang. Sisanya boleh
+        // kosong dan akan tampil sebagai "Tidak Diisi" di Statistik.
+        const kurang = [];
+        if (!nik) kurang.push('NIK');
+        if (!nama) kurang.push('Nama');
+        if (!no_kk) kurang.push('No. KK');
+        if (kurang.length > 0) {
+          failedCount++;
+          errors.push(`Baris ${rowNumber}: ${kurang.join(', ')} kosong — baris dilewati.`);
+          continue;
+        }
 
         // Check if exist
         const resWarga = await client.query('SELECT id FROM anggota_keluarga WHERE nik = $1', [nik]);
@@ -521,7 +540,13 @@ async function importWargaExcel(req, res) {
         + (akunBaru.length > 0
           ? ` ${akunBaru.length} akun login dibuat — catat sandinya sekarang, tidak bisa dilihat lagi.`
           : ''),
-      errors: errors.slice(0, 5), // max 5 errors shown
+      // Dinaikkan dari 5 ke 50. Lima terlalu sedikit untuk berkas Excel
+      // sungguhan: bila 30 baris gagal karena kolom yang sama kosong,
+      // menampilkan lima pertama membuat operator memperbaiki lima itu,
+      // mengimpor ulang, lalu menemui lima berikutnya — berulang enam kali.
+      // Jumlah seluruhnya tetap terbaca dari `failedCount`.
+      errors: errors.slice(0, 50),
+      total_gagal: failedCount,
       // Setiap akun mendapat sandi acaknya sendiri, bukan satu sandi yang sama
       // untuk semua orang. Daftarnya dikembalikan UTUH — dipotong seperti
       // `errors` justru berbahaya di sini, karena warga yang sandinya terpotong

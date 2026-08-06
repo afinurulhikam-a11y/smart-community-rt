@@ -269,6 +269,24 @@ async function updateUserCredentials(req, res) {
       });
     }
 
+    // Panjang sandi diperiksa SEBELUM transaksi dimulai.
+    //
+    // Sebelumnya pemeriksaan ini berada jauh di bawah, setelah perubahan
+    // nomor HP dan peran sudah dijalankan di dalam transaksi yang sama. Sandi
+    // yang ditolak karena itu ikut membatalkan perubahan peran lewat ROLLBACK
+    // — pengguna melihat "sandi minimal 8 karakter" lalu mendapati perannya
+    // juga tidak berubah, tanpa satu pun keterangan yang menghubungkan
+    // keduanya. Terlihat seperti backend yang tidak berfungsi.
+    //
+    // Aturannya: apa pun yang bisa ditolak dari isi permintaan diperiksa
+    // sebelum baris pertama disentuh.
+    if (password && password.trim() !== '' && password.trim().length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: 'Sandi minimal 8 karakter.',
+      });
+    }
+
     await client.query('BEGIN');
 
     let userRes = await client.query('SELECT id, role, password_hash FROM users WHERE (nik = $1 OR username = $1) AND deleted_at IS NULL', [nik]);
@@ -343,13 +361,9 @@ async function updateUserCredentials(req, res) {
         });
       }
 
-      if (password.trim().length < 8) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({
-          success: false,
-          message: 'Sandi minimal 8 karakter.',
-        });
-      }
+      // Panjang sandi sudah diperiksa sebelum BEGIN — lihat komentar di sana.
+      // Yang tersisa di sini hanya pemeriksaan peran target, yang memang butuh
+      // baris user-nya dan karena itu tidak bisa dipindah ke atas.
 
       const salt = await bcrypt.genSalt(10);
       const hash = await bcrypt.hash(password.trim(), salt);
