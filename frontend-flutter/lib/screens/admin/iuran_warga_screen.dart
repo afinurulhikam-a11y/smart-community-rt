@@ -939,6 +939,14 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
     if (ok != true || !mounted) return;
 
     final hasil = await context.read<BillProvider>().payBillsBulk(_terpilih.toList());
+
+    // `mounted` diperiksa LAGI setelah await ini, bukan hanya setelah dialog.
+    // payBillsBulk bisa memakan ~21 detik pada jaringan buruk (ApiService
+    // mengulang dua kali dengan batas 10 detik), dan berpindah layar selama
+    // rentang itu membuat setState di bawah dipanggil pada State yang sudah
+    // dilepas — pengecualian yang muncul justru pada alur pembayaran.
+    if (!mounted) return;
+
     setState(_terpilih.clear);
     _pesan(hasil['message']?.toString() ?? 'Selesai.', sukses: hasil['success'] == true);
   }

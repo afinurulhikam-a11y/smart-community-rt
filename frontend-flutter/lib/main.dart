@@ -188,10 +188,23 @@ class _AuthGateState extends State<AuthGate> {
     return Consumer2<AuthService, PermissionProvider>(
       builder: (context, auth, izin, _) {
         if (!auth.isLoggedIn) {
-          // Bersihkan izin pengguna sebelumnya supaya tidak terbawa ke sesi
-          // berikutnya bila ada yang masuk dengan akun berbeda.
+          // Bersihkan izin DAN seluruh data pengguna sebelumnya.
+          //
+          // Dulu hanya izin yang dibersihkan. Dua puluh empat provider lain
+          // dibuat sekali di MultiProvider akar dan hidup selama proses
+          // berjalan, jadi daftar tagihan, transaksi kas, data warga, dan
+          // seluruh isi layar milik pengguna terdahulu masih ada di memori
+          // ketika orang berikutnya masuk — dan sempat terlihat sampai
+          // pengambilan data yang baru selesai.
+          //
+          // Biasanya tertutupi oleh pengambilan ulang di initState tiap layar,
+          // tetapi "biasanya tertutupi" bukan jaminan. Pada perangkat bersama
+          // yang dipakai pengurus bergantian, jendela itu nyata.
           if (izin.sudahDimuat) {
-            WidgetsBinding.instance.addPostFrameCallback((_) => izin.bersihkan());
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              izin.bersihkan();
+              bersihkanSemuaProvider(context);
+            });
           }
           return const LoginScreen();
         }
@@ -207,5 +220,48 @@ class _AuthGateState extends State<AuthGate> {
         return roleDikenal.contains(auth.userRole) ? const MainDashboard() : const LoginScreen();
       },
     );
+  }
+}
+
+/// Kosongkan seluruh provider data saat pengguna keluar.
+///
+/// Daftarnya ditulis eksplisit, bukan dicari otomatis: `Provider` tidak
+/// menyediakan cara menelusuri apa saja yang terdaftar, dan menuliskannya satu
+/// per satu berarti provider baru yang lupa didaftarkan di sini akan terlihat
+/// saat berkas ini dibaca — bukan diam-diam menyimpan data pengguna lama.
+///
+/// TemaProvider dan AksiUtamaProvider sengaja TIDAK ikut: yang pertama
+/// menyimpan preferensi perangkat (mode gelap), bukan data pengguna, dan yang
+/// kedua hanya registri tombol aksi yang sudah dilepas oleh perpindahan menu.
+/// PermissionProvider dibersihkan terpisah karena punya urutannya sendiri.
+void bersihkanSemuaProvider(BuildContext context) {
+  try {
+    context.read<AgendaProvider>().bersihkan();
+    context.read<AlokasiBopProvider>().bersihkan();
+    context.read<AnnouncementProvider>().bersihkan();
+    context.read<BantuanSosialProvider>().bersihkan();
+    context.read<BillProvider>().bersihkan();
+    context.read<BopProvider>().bersihkan();
+    context.read<ComplaintProvider>().bersihkan();
+    context.read<DemographicProvider>().bersihkan();
+    context.read<EmergencyProvider>().bersihkan();
+    context.read<FamilyProvider>().bersihkan();
+    context.read<FinanceProvider>().bersihkan();
+    context.read<InventoryProvider>().bersihkan();
+    context.read<JenisIuranProvider>().bersihkan();
+    context.read<KategoriBopProvider>().bersihkan();
+    context.read<KategoriKasProvider>().bersihkan();
+    context.read<LetterProvider>().bersihkan();
+    context.read<LogProvider>().bersihkan();
+    context.read<PatrolProvider>().bersihkan();
+    context.read<PaymentProvider>().bersihkan();
+    context.read<PollingProvider>().bersihkan();
+    context.read<ResetProvider>().bersihkan();
+    context.read<VisitorProvider>().bersihkan();
+    context.read<WargaProvider>().bersihkan();
+  } catch (_) {
+    // Konteks bisa saja sudah dilepas ketika callback ini berjalan. Kegagalan
+    // membersihkan tidak boleh menjatuhkan aplikasi di jalur logout — layar
+    // berikutnya tetap mengambil datanya sendiri.
   }
 }

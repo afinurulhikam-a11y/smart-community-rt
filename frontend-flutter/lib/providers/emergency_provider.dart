@@ -96,4 +96,21 @@ class EmergencyProvider extends ChangeNotifier {
     _isLoading = false;
     notifyListeners();
   }
+
+  /// Kosongkan seluruh state saat pengguna keluar.
+  ///
+  /// Provider di aplikasi ini dibuat sekali di MultiProvider akar dan hidup
+  /// selama proses berjalan. Tanpa ini, data pengguna sebelumnya masih ada
+  /// di memori saat orang lain masuk — dan sempat terlihat di layar sampai
+  /// pengambilan data yang baru selesai. Pada perangkat bersama yang dipakai
+  /// pengurus bergantian, itu kebocoran yang nyata, bukan sekadar kosmetik.
+  void bersihkan() {
+    _alerts = [];
+    _isLoading = false;
+    _isSending = false;
+    _errorMessage = null;
+    _successMessage = null;
+    notifyListeners();
+  }
+
 }
