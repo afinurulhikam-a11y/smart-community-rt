@@ -260,47 +260,50 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    SizedBox(
-                      width: lebarKolomFilter(context, maksimal: 280),
-                      child: TextField(
-                        controller: _searchController,
-                        style: TextStyle(
-                          color: context.teksUtama,
-                          fontSize: 13,
-                        ),
-                        onChanged: (val) {
-                          _searchQuery = val;
-                          context.read<WargaProvider>().fetchWarga(search: _searchQuery, page: 1);
-                        },
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: context.latarKartu,
-                          hintStyle: TextStyle(
-                            color: context.teksTersier,
-                            fontSize: 13,
-                          ),
-                          hintText: 'Cari nama, NIK, KK...',
-                          prefixIcon: Icon(
-                            Icons.search,
-                            size: 18,
-                            color: context.teksUtama,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(
-                              color: _isDarkMode ? Colors.transparent : context.garis,
+                    // `Flexible` + `ConstrainedBox`, BUKAN `SizedBox(width:
+                    // lebarKolomFilter(...))`.
+                    //
+                    // `lebarKolomFilter` mengembalikan `double.infinity` pada
+                    // layar sempit supaya kotak filter memenuhi satu baris —
+                    // itu benar di dalam `Wrap` atau `Column`, tetapi di dalam
+                    // `Row` lebar tak hingga melanggar batasan tata letak dan
+                    // melempar "BoxConstraints forces an infinite width".
+                    //
+                    // Bentuk ini menjaga kedua perilakunya: melebar mengikuti
+                    // ruang yang ada, dengan batas 280 di layar lebar.
+                    Flexible(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 280),
+                        child: TextField(
+                          controller: _searchController,
+                          style: TextStyle(color: context.teksUtama, fontSize: 13),
+                          onChanged: (val) {
+                            _searchQuery = val;
+                            context.read<WargaProvider>().fetchWarga(search: _searchQuery, page: 1);
+                          },
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: context.latarKartu,
+                            hintStyle: TextStyle(color: context.teksTersier, fontSize: 13),
+                            hintText: 'Cari nama, NIK, KK...',
+                            prefixIcon: Icon(Icons.search, size: 18, color: context.teksUtama),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: _isDarkMode ? Colors.transparent : context.garis,
+                              ),
                             ),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(
-                              color: _isDarkMode ? Colors.transparent : context.garis,
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                color: _isDarkMode ? Colors.transparent : context.garis,
+                              ),
                             ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(color: Color(0xFF1B7A6A)),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(color: Color(0xFF1B7A6A)),
+                            ),
                           ),
                         ),
                       ),
@@ -528,9 +531,7 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
           'AGAMA',
           agama.isEmpty ? '-' : agama,
           gaya: TextStyle(
-            color: agama.isEmpty || agama == '-'
-                ? context.garis
-                : context.teksKedua,
+            color: agama.isEmpty || agama == '-' ? context.garis : context.teksKedua,
             fontSize: 12,
           ),
         ),
@@ -653,13 +654,23 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
     );
   }
 
-  Future<void> _tampilkanDialogKredensial(BuildContext context, String nik, String namaWarga) async {
+  Future<void> _tampilkanDialogKredensial(
+    BuildContext context,
+    String nik,
+    String namaWarga,
+  ) async {
     final auth = context.read<AuthService>();
     final perm = context.read<PermissionProvider>();
     final userRoleCaller = auth.userRole;
 
-    final bool bolehEditSemua = userRoleCaller == 'admin' || userRoleCaller == 'ketua_rt' || userRoleCaller == 'sekretaris' || perm.bolehUbah(_kodeIzin) || perm.bolehTambah(_kodeIzin);
-    final bool bolehUbahRole = (userRoleCaller == 'admin' || userRoleCaller == 'ketua_rt') && bolehEditSemua;
+    final bool bolehEditSemua =
+        userRoleCaller == 'admin' ||
+        userRoleCaller == 'ketua_rt' ||
+        userRoleCaller == 'sekretaris' ||
+        perm.bolehUbah(_kodeIzin) ||
+        perm.bolehTambah(_kodeIzin);
+    final bool bolehUbahRole =
+        (userRoleCaller == 'admin' || userRoleCaller == 'ketua_rt') && bolehEditSemua;
 
     showDialog(
       context: context,
@@ -698,11 +709,12 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFECFDF5),
-                    shape: BoxShape.circle,
+                  decoration: const BoxDecoration(color: Color(0xFFECFDF5), shape: BoxShape.circle),
+                  child: const Icon(
+                    Icons.manage_accounts_rounded,
+                    color: Color(0xFF10B981),
+                    size: 24,
                   ),
-                  child: const Icon(Icons.manage_accounts_rounded, color: Color(0xFF10B981), size: 24),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -711,7 +723,11 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                     children: [
                       Text(
                         'Akun & Kredensial',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: context.teksUtama),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: context.teksUtama,
+                        ),
                       ),
                       Text(
                         '$namaWarga (NIK: $nik)',
@@ -748,7 +764,11 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                             Expanded(
                               child: Text(
                                 'Mode Lihat Saja: Akun Anda tidak memiliki izin untuk mengubah data/kredensial warga.',
-                                style: TextStyle(fontSize: 11, color: Colors.amber, fontWeight: FontWeight.bold),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.amber,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                           ],
@@ -756,7 +776,14 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                       ),
                       const SizedBox(height: 12),
                     ],
-                    Text('Username Login', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: context.teksUtama)),
+                    Text(
+                      'Username Login',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: context.teksUtama,
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     Container(
                       width: double.infinity,
@@ -768,11 +795,22 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                       ),
                       child: Text(
                         data['username']?.toString() ?? nik,
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: context.teksUtama),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: context.teksUtama,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Text('Nomor HP / WhatsApp', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: context.teksUtama)),
+                    Text(
+                      'Nomor HP / WhatsApp',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: context.teksUtama,
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     TextField(
                       controller: noHpCtrl,
@@ -790,7 +828,14 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Role / Peran Sistem', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: context.teksUtama)),
+                        Text(
+                          'Role / Peran Sistem',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: context.teksUtama,
+                          ),
+                        ),
                         if (!bolehUbahRole)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -800,7 +845,11 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                             ),
                             child: const Text(
                               'Khusus Admin & Ketua RT',
-                              style: TextStyle(fontSize: 10, color: Colors.amber, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.amber,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                       ],
@@ -835,7 +884,14 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Text('Ubah / Reset Password', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: context.teksUtama)),
+                    Text(
+                      'Ubah / Reset Password',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: context.teksUtama,
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     TextField(
                       controller: passCtrl,
@@ -843,7 +899,9 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                       obscureText: true,
                       style: TextStyle(fontSize: 13, color: context.teksUtama),
                       decoration: InputDecoration(
-                        hintText: bolehEditSemua ? 'Kosongkan jika tidak ingin mengubah' : 'Hanya-baca',
+                        hintText: bolehEditSemua
+                            ? 'Kosongkan jika tidak ingin mengubah'
+                            : 'Hanya-baca',
                         hintStyle: TextStyle(color: context.teksTersier),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -858,7 +916,10 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                           });
                         },
                         icon: const Icon(Icons.lock_reset_rounded, size: 14),
-                        label: const Text('Set Password Standar "123456"', style: TextStyle(fontSize: 11)),
+                        label: const Text(
+                          'Set Password Standar "123456"',
+                          style: TextStyle(fontSize: 11),
+                        ),
                         style: OutlinedButton.styleFrom(
                           visualDensity: VisualDensity.compact,
                           side: const BorderSide(color: Color(0xFF10B981)),
@@ -873,7 +934,10 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
             actions: [
               TextButton(
                 onPressed: sedangSimpan ? null : () => Navigator.pop(dialogCtx),
-                child: Text(bolehEditSemua ? 'Batal' : 'Tutup', style: TextStyle(color: context.teksKedua)),
+                child: Text(
+                  bolehEditSemua ? 'Batal' : 'Tutup',
+                  style: TextStyle(color: context.teksKedua),
+                ),
               ),
               if (bolehEditSemua)
                 ElevatedButton(
@@ -899,7 +963,9 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text(r['message']?.toString() ?? 'Kredensial berhasil diperbarui.'),
+                                  content: Text(
+                                    r['message']?.toString() ?? 'Kredensial berhasil diperbarui.',
+                                  ),
                                   backgroundColor: const Color(0xFF10B981),
                                 ),
                               );
@@ -908,7 +974,9 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text(r['message']?.toString() ?? 'Gagal memperbarui kredensial.'),
+                                content: Text(
+                                  r['message']?.toString() ?? 'Gagal memperbarui kredensial.',
+                                ),
                                 backgroundColor: Colors.red,
                               ),
                             );
@@ -1581,5 +1649,4 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
       ),
     );
   }
-
 }
