@@ -393,6 +393,130 @@ async function tambahWargaLengkap(req, res) {
   }
 }
 
+/**
+ * Ubah data satu warga (anggota_keluarga) berdasarkan NIK.
+ *
+ * Mengikuti struktur `tambahWargaLengkap`: data kependudukan di
+ * `anggota_keluarga`, properti KK (kepala keluarga, status rumah, alamat) di
+ * `keluarga`, dan akun login disinkronkan lewat `users.nik`.
+ *
+ * NIK sengaja TIDAK bisa diubah — ia kunci utama anggota dan sekaligus
+ * username akun loginnya. Mengubahnya berarti membuat orang baru, bukan
+ * mengoreksi data.
+ */
+async function updateWargaLengkap(req, res) {
+  const client = await pool.connect();
+  try {
+    const { nik } = req.params;
+    const {
+      nama, no_kk, no_hp, jenis_kelamin, alamat, status_keluarga, has_ktp,
+      tanggal_lahir, status_pernikahan, agama, pendidikan, pekerjaan, status_rumah, is_aktif,
+    } = req.body;
+
+    // 1. Warga harus ada lebih dulu — NIK adalah kuncinya.
+    const lama = await client.query(
+      `SELECT ak.*, k.no_kk AS kk_lama FROM anggota_keluarga ak
+       JOIN keluarga k ON ak.keluarga_id = k.id
+       WHERE ak.nik = $1`,
+      [nik]
+    );
+    if (lama.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Warga dengan NIK tersebut tidak ditemukan.' });
+    }
+    const sebelum = lama.rows[0];
+
+    if (!nama || !nama.trim()) {
+      return res.status(400).json({ success: false, message: 'Nama wajib diisi.' });
+    }
+
+    await client.query('BEGIN');
+
+    // 2. Pindahkan ke KK yang benar bila no_kk berubah.
+    //    Kutip logika "cari atau buat keluarga" dari tambahWargaLengkap supaya
+    //    kedua jalur tidak menyimpang satu sama lain.
+    const noKkBaru = no_kk && no_kk.trim() ? no_kk.trim() : sebelum.kk_lama;
+    const statusRumah = atauNull(status_rumah);
+    const namaFinal = nama.trim();
+
+    let keluargaId = sebelum.keluarga_id;
+    if (noKkBaru !== sebelum.kk_lama) {
+      const resKeluarga = await client.query('SELECT id FROM keluarga WHERE no_kk = $1', [noKkBaru]);
+      if (resKeluarga.rows.length > 0) {
+        keluargaId = resKeluarga.rows[0].id;
+      } else {
+        const newKk = await client.query(
+          'INSERT INTO keluarga (no_kk, kepala_keluarga, alamat, rt, rw, kelurahan, kecamatan, status_rumah) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
+          [noKkBaru, namaFinal, alamat || '-', '001', '001', '-', '-', statusRumah || 'Milik Sendiri']
+        );
+        keluargaId = newKk.rows[0].id;
+      }
+    }
+
+    // 3. Perbarui data kependudukan. `jenis_kelamin` dinormalisasi lagi di sini
+    //    walau berasal dari database — kolomnya varchar(1) dan nilai dari form
+    //    bisa berupa tulisan utuh ("Laki-laki").
+    await client.query(
+      `UPDATE anggota_keluarga SET
+         keluarga_id = $1,
+         nama = $2,
+         jenis_kelamin = $3,
+         status_keluarga = $4,
+         has_ktp = $5,
+         no_hp = $6,
+         tanggal_lahir = $7,
+         status_pernikahan = $8,
+         agama = $9,
+         pendidikan = $10,
+         pekerjaan = $11,
+         is_aktif = $12
+       WHERE nik = $13`,
+      [
+        keluargaId,
+        namaFinal,
+        jenis_kelamin ? normalJk(jenis_kelamin, sebelum.jenis_kelamin) : sebelum.jenis_kelamin,
+        status_keluarga || sebelum.status_keluarga,
+        has_ktp !== undefined ? has_ktp : sebelum.has_ktp,
+        atauNull(no_hp),
+        atauNull(tanggal_lahir),
+        atauNull(status_pernikahan),
+        atauNull(agama),
+        atauNull(pendidikan),
+        atauNull(pekerjaan),
+        is_aktif !== undefined ? is_aktif : sebelum.is_aktif,
+        nik,
+      ]
+    );
+
+    // 4. Properti KK: kepala keluarga & status rumah hanya bermakna pada KK.
+    if (status_keluarga === 'Kepala Keluarga') {
+      await client.query('UPDATE keluarga SET kepala_keluarga = $1 WHERE id = $2', [namaFinal, keluargaId]);
+    }
+    if (statusRumah) {
+      await client.query('UPDATE keluarga SET status_rumah = $1 WHERE id = $2', [statusRumah, keluargaId]);
+    }
+    if (alamat && alamat.trim()) {
+      await client.query('UPDATE keluarga SET alamat = $1 WHERE id = $2', [alamat.trim(), keluargaId]);
+    }
+
+    // 5. Sinkronkan akun login (users) bila ada — nama, HP, dan no_kk-nya.
+    await client.query(
+      `UPDATE users SET nama = $1, no_hp = $2, no_kk = $3 WHERE nik = $4`,
+      [namaFinal, atauNull(no_hp) || '-', noKkBaru, nik]
+    );
+
+    await client.query('COMMIT');
+
+    await logActivity(req, 'UPDATE', `Mengubah data warga ${namaFinal} (NIK ${nik})`);
+    return res.status(200).json({ success: true, message: 'Data warga berhasil diperbarui.' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Update Warga Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Gagal memperbarui data warga.' });
+  } finally {
+    client.release();
+  }
+}
+
 async function importWargaExcel(req, res) {
   const client = await pool.connect();
   try {
@@ -563,4 +687,4 @@ async function importWargaExcel(req, res) {
   }
 }
 
-module.exports = { getWarga, exportWargaExcel, exportWargaPdf, tambahWargaLengkap, importWargaExcel };
+module.exports = { getWarga, exportWargaExcel, exportWargaPdf, tambahWargaLengkap, updateWargaLengkap, importWargaExcel };

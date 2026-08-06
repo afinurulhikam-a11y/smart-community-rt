@@ -74,6 +74,37 @@ class WargaProvider extends ChangeNotifier {
     }
   }
 
+  /// Ubah data warga lewat endpoint PUT /warga/:nik. NIK tidak bisa diubah,
+  /// jadi tidak ikut dikirim di body.
+  Future<Map<String, dynamic>> updateWargaLengkap(
+    String nik,
+    Map<String, dynamic> data,
+  ) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final response = await ApiService.put(
+        '${ApiConstants.warga}/$nik',
+        body: data,
+      );
+      _isLoading = false;
+      notifyListeners();
+
+      if (response['success'] == true) {
+        await fetchWarga();
+        return response;
+      } else {
+        _errorMessage = response['message'] as String?;
+        return {'success': false, 'message': _errorMessage};
+      }
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString();
+      notifyListeners();
+      return {'success': false, 'message': _errorMessage};
+    }
+  }
+
   List<Map<String, dynamic>> _pendingWargaList = [];
   bool _isLoadingPending = false;
   String? _successMessage;
