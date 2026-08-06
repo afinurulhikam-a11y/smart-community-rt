@@ -54,6 +54,11 @@ class FinanceProvider extends ChangeNotifier {
     final response = await ApiService.get(
       ApiConstants.finances,
       queryParams: params,
+      // cache: true — daftar ini yang pertama dibuka orang, dan yang paling
+      // merugikan bila kosong saat sinyal hilang. Jawaban terakhir disimpan
+      // dan dipakai HANYA ketika server tidak terjangkau; penolakan dari
+      // server tetap diteruskan apa adanya.
+      cache: true,
     );
 
     if (response['success'] == true) {

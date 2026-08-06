@@ -34,6 +34,9 @@ import 'providers/aksi_utama_provider.dart';
 import 'providers/payment_provider.dart';
 import 'providers/patrol_provider.dart';
 import 'providers/tema_provider.dart';
+import 'providers/koneksi_provider.dart';
+import 'core/services/cache_lokal.dart';
+import 'core/services/antrean_offline.dart';
 
 // Screens
 import 'screens/login_screen.dart';
@@ -90,6 +93,10 @@ class SmartCommunityApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => PaymentProvider()),
         ChangeNotifierProvider(create: (_) => PatrolProvider()),
         ChangeNotifierProvider(create: (_) => AksiUtamaProvider()),
+        // Memantau jaringan DAN mengirim ulang tulisan yang tertunda. Dibuat
+        // di akar supaya pemantauannya berjalan sepanjang aplikasi hidup,
+        // bukan hanya selama satu layar terbuka.
+        ChangeNotifierProvider(create: (_) => KoneksiProvider()),
       ],
       // Tema dipasang di AKAR, bukan pada satu subtree.
       //
@@ -204,6 +211,16 @@ class _AuthGateState extends State<AuthGate> {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               izin.bersihkan();
               bersihkanSemuaProvider(context);
+              context.read<KoneksiProvider>().bersihkan();
+
+              // Penyimpanan di PERANGKAT ikut dikosongkan, bukan hanya memori.
+              // Kalau tidak, data pengguna sebelumnya tetap tersimpan dan bisa
+              // muncul kembali pada sesi berikutnya justru ketika jaringan mati
+              // — tepat saat tidak ada apa pun yang menimpanya. Antreannya juga
+              // dibuang: pengaduan milik satu orang tidak boleh terkirim atas
+              // nama orang berikutnya yang masuk.
+              CacheLokal.kosongkan();
+              AntreanOffline.kosongkan();
             });
           }
           return const LoginScreen();
