@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { pool } = require('./src/config/database');
+const { pool } = require('../../src/config/database');
 
 /**
  * Migrasi v13 — koreksi hak akses warga.

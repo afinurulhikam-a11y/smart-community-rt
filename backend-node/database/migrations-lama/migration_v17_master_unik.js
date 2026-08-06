@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { pool } = require('./src/config/database');
+const { pool } = require('../../src/config/database');
 
 /**
  * Migrasi v17 — constraint unik untuk tabel master.

@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { pool } = require('./src/config/database');
+const { pool } = require('../../src/config/database');
 
 /**
  * Migrasi v7 — Merapikan nama kepala keluarga yang masih berupa tanda hubung.

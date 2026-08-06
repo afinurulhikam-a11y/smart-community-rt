@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { pool } = require('./src/config/database');
+const { pool } = require('../../src/config/database');
 
 async function up() {
   const client = await pool.connect();

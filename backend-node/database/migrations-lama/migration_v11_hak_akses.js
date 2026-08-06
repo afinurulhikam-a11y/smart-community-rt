@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { pool } = require('./src/config/database');
+const { pool } = require('../../src/config/database');
 const { MENU_ITEMS, DEFAULT_PERMISSIONS } = require('./src/config/permissions');
 
 /**
