@@ -71,7 +71,11 @@ async function updateUserRole(req, res) {
     if (sebelum.rows.length === 0) return res.status(404).json({ success: false, message: 'User tidak ditemukan.' });
 
     const result = await pool.query(`UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2 RETURNING id, nama, email, role`, [role, id]);
-    invalidateAuthCache(parseInt(id, 10));
+    // `id` adalah UUID. `parseInt` di sini dulu menghasilkan NaN, sehingga
+    // kuncinya tidak pernah cocok dan cache sesi TIDAK pernah dibersihkan —
+    // perubahan peran atau status baru berlaku setelah cache basi sendiri
+    // 30 detik kemudian, bukan seketika.
+    invalidateAuthCache(id);
 
     const lama = sebelum.rows[0];
     await logActivity(
@@ -106,7 +110,11 @@ async function updateUserStatus(req, res) {
     if (sebelum.rows.length === 0) return res.status(404).json({ success: false, message: 'User tidak ditemukan.' });
 
     const result = await pool.query(`UPDATE users SET is_active = $1, updated_at = NOW() WHERE id = $2 RETURNING id, nama, email, is_active`, [is_active, id]);
-    invalidateAuthCache(parseInt(id, 10));
+    // `id` adalah UUID. `parseInt` di sini dulu menghasilkan NaN, sehingga
+    // kuncinya tidak pernah cocok dan cache sesi TIDAK pernah dibersihkan —
+    // perubahan peran atau status baru berlaku setelah cache basi sendiri
+    // 30 detik kemudian, bukan seketika.
+    invalidateAuthCache(id);
 
     const lama = sebelum.rows[0];
     await logActivity(
@@ -338,7 +346,7 @@ async function updateUserCredentials(req, res) {
         return res.status(400).json({ success: false, message: `Role tidak valid. Pilihan: ${validRoles.join(', ')}` });
       }
       await client.query('UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2', [role, userId]);
-      invalidateAuthCache(parseInt(userId, 10));
+      invalidateAuthCache(userId);
     }
 
     if (password && password.trim() !== '') {

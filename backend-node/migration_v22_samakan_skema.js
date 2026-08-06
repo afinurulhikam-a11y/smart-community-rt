@@ -112,6 +112,26 @@ async function jalankan() {
       laporan.ditambah.push(tabel);
     }
 
+    // -----------------------------------------------------------------
+    // 1b. users.updated_at
+    // -----------------------------------------------------------------
+    //
+    // `users` satu-satunya dari lima belas tabel yang ditulisi `updated_at`
+    // oleh kode tetapi tidak punya kolomnya. Setiap perubahan akun karena itu
+    // gagal 500 — ubah peran, nonaktifkan akun, atur ulang sandi, ketiganya —
+    // dan controller-nya membalas pesan umum sehingga sebabnya hanya terlihat
+    // di log server.
+    console.log('\n── Memeriksa users.updated_at ──────────────────────');
+    if (await adaKolom(client, 'users', 'updated_at')) {
+      console.log('  ✔️  users.updated_at sudah ada');
+    } else {
+      await client.query(
+        `ALTER TABLE users ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`
+      );
+      console.log('  ➕ users.updated_at DITAMBAHKAN');
+      laporan.ditambah.push('users.updated_at');
+    }
+
     // Indeks parsial menyusul kolomnya.
     for (const [tabel, indeks] of Object.entries(INDEKS_AKTIF)) {
       if (laporan.dilewati.includes(tabel)) continue;
