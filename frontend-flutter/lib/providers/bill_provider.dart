@@ -234,6 +234,27 @@ class BillProvider extends ChangeNotifier {
     await launchUrl(uri, webOnlyWindowName: '_self');
   }
 
+  /// Kirim penagihan WhatsApp ke seluruh keluarga yang ber-tunggakan, lewat
+  /// gateway backend (Fonnte) — satu panggilan untuk semua, bukan membuka
+  /// `wa.me` per keluarga seperti `tagihViaWhatsApp`.
+  ///
+  /// Kalau FONNTE_TOKEN di backend kosong, endpoint tetap sukses tetapi hanya
+  /// simulasi (log server); warga tidak benar-benar menerima WA.
+  Future<Map<String, dynamic>> tagihSemuaWA({List<String>? billIds}) async {
+    _isLoading = true;
+    notifyListeners();
+    final response = await ApiService.post(
+      ApiConstants.billsTagihWa,
+      body: billIds == null || billIds.isEmpty ? const {} : {'bill_ids': billIds},
+    );
+    _isLoading = false;
+    if (response['success'] != true) {
+      _errorMessage = response['message'] as String?;
+      notifyListeners();
+    }
+    return response;
+  }
+
   /// Susun pesan penagihan untuk satu tagihan dan buka WhatsApp.
   Future<bool> tagihViaWhatsApp({
     required String noHp,
