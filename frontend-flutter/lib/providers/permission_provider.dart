@@ -22,24 +22,35 @@ class PermissionProvider extends ChangeNotifier {
 
   bool get isAdmin => _role == 'admin';
 
+  /// Set role secara langsung dari AuthService agar status admin/superuser
+  /// dapat dikenali seketika tanpa harus menunggu respons jaringan.
+  void setRole(String r) {
+    if (_role != r) {
+      _role = r;
+      notifyListeners();
+    }
+  }
+
   /// Sebelum izin selesai dimuat, jangan tampilkan apa pun yang belum pasti —
   /// lebih baik menu muncul terlambat daripada muncul lalu hilang.
-  Izin izinUntuk(String kode) {
-    if (isAdmin) return Izin.penuh();
+  /// Namun untuk Administrator (Superuser), izin selalu PENUH.
+  Izin izinUntuk(String kode, {String? userRole}) {
+    if (isAdmin || userRole == 'admin' || _role == 'admin') return Izin.penuh();
     return _izin[kode] ?? const Izin();
   }
 
-  bool bolehLihat(String kode) => izinUntuk(kode).lihat;
-  bool bolehTambah(String kode) => izinUntuk(kode).tambah;
-  bool bolehUbah(String kode) => izinUntuk(kode).ubah;
-  bool bolehHapus(String kode) => izinUntuk(kode).hapus;
+  bool bolehLihat(String kode, {String? userRole}) => izinUntuk(kode, userRole: userRole).lihat;
+  bool bolehTambah(String kode, {String? userRole}) => izinUntuk(kode, userRole: userRole).tambah;
+  bool bolehUbah(String kode, {String? userRole}) => izinUntuk(kode, userRole: userRole).ubah;
+  bool bolehHapus(String kode, {String? userRole}) => izinUntuk(kode, userRole: userRole).hapus;
 
   /// True bila menunya boleh dibuka tetapi isinya tidak boleh diubah.
-  bool hanyaLihat(String kode) => izinUntuk(kode).hanyaLihat;
+  bool hanyaLihat(String kode, {String? userRole}) => izinUntuk(kode, userRole: userRole).hanyaLihat;
 
   /// True bila salah satu dari beberapa menu boleh dilihat — dipakai untuk
   /// memutuskan apakah sebuah grup menu perlu ditampilkan.
-  bool bolehLihatSalahSatu(List<String> kodeList) => kodeList.any(bolehLihat);
+  bool bolehLihatSalahSatu(List<String> kodeList, {String? userRole}) =>
+      kodeList.any((k) => bolehLihat(k, userRole: userRole));
 
   Future<void> muat() async {
     _isLoading = true;

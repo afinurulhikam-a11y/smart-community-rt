@@ -155,6 +155,9 @@ class _AuthGateState extends State<AuthGate> {
     // Izin diusahakan siap sebelum sidebar dibangun, kalau tidak menunya
     // sempat tampil kosong lalu berubah — tetapi tidak ditunggu selamanya.
     if (masuk) {
+      if (auth.userRole.isNotEmpty) {
+        izin.setRole(auth.userRole);
+      }
       try {
         await izin.muat().timeout(_batasTungguIzin);
       } catch (_) {
