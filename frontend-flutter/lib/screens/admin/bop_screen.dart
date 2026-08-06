@@ -11,6 +11,7 @@ import '../../../models/kategori_kas_model.dart';
 import '../../../providers/permission_provider.dart';
 import '../../../widgets/banner_lihat_saja.dart';
 import '../../../widgets/tabel_responsif.dart';
+import '../../../widgets/tombol_kembali.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
 import '../../core/format.dart';
@@ -45,7 +46,8 @@ const Color _merah = Color(0xFFEF4444);
 const Color _hijauTerang = Color(0xFF059669);
 
 class BopScreen extends StatefulWidget {
-  const BopScreen({super.key});
+  final VoidCallback? onBack;
+  const BopScreen({super.key, this.onBack});
 
   @override
   State<BopScreen> createState() => _BopScreenState();
@@ -192,6 +194,8 @@ class _BopScreenState extends State<BopScreen> {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                TombolKembali(onPressed: widget.onBack),
+                const SizedBox(width: 10),
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(

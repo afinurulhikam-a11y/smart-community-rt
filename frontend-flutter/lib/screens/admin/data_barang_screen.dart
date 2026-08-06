@@ -6,6 +6,7 @@ import '../../../providers/inventory_provider.dart';
 import '../../../models/inventory_model.dart';
 import '../../../providers/permission_provider.dart';
 import '../../../widgets/banner_lihat_saja.dart';
+import '../../../widgets/tombol_kembali.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
 import '../../core/format.dart';
@@ -26,7 +27,8 @@ const List<String> _opsiKategori = [
 const List<String> _opsiKondisi = ['Baik', 'Perlu Perbaikan', 'Rusak'];
 
 class DataBarangScreen extends StatefulWidget {
-  const DataBarangScreen({super.key});
+  final VoidCallback? onBack;
+  const DataBarangScreen({super.key, this.onBack});
 
   @override
   State<DataBarangScreen> createState() => _DataBarangScreenState();
@@ -136,8 +138,10 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
         children: [
           if (!pakaiKartu(context))
             Row(
-              mainAxisSize: MainAxisSize.min,
+ mainAxisSize: MainAxisSize.min,
               children: [
+                TombolKembali(onPressed: widget.onBack),
+                const SizedBox(width: 10),
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(

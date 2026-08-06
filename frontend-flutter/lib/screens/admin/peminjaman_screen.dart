@@ -10,6 +10,7 @@ import '../../../models/borrowing_model.dart';
 import '../../../providers/permission_provider.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../widgets/tabel_responsif.dart';
+import '../../../widgets/tombol_kembali.dart';
 import '../../core/theme/warna_konteks.dart';
 
 const Color _hijau = Color(0xFF1B7A6A);
@@ -18,7 +19,8 @@ const Color _hijauTerang = Color(0xFF059669);
 const Color _kuning = Color(0xFFD97706);
 
 class PeminjamanScreen extends StatefulWidget {
-  const PeminjamanScreen({super.key});
+  final VoidCallback? onBack;
+  const PeminjamanScreen({super.key, this.onBack});
 
   @override
   State<PeminjamanScreen> createState() => _PeminjamanScreenState();
@@ -141,6 +143,8 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                TombolKembali(onPressed: widget.onBack),
+                const SizedBox(width: 10),
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(

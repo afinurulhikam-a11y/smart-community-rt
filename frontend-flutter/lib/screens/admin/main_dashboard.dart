@@ -915,36 +915,36 @@ class _MainDashboardState extends State<MainDashboard> {
       case 13:
         return BantuanSosialScreen(onBack: _kembaliMenu);
       case 14:
-        return const StatistikKependudukanScreen();
+        return StatistikKependudukanScreen(onBack: _kembaliMenu);
 
       // Tiga modul di bawah punya dua wajah. Indeks menunya sama untuk semua
       // role — sidebar tidak perlu tahu — dan role yang menentukan layarnya:
       // warga melihat miliknya sendiri, pengurus mengelola milik seluruh RT.
       case 21:
-        return warga ? const BillListScreen() : const IuranWargaScreen();
+        return warga ? const BillListScreen() : IuranWargaScreen(onBack: _kembaliMenu);
       case 22:
-        return warga ? const FinanceReportScreen() : const KasRtScreen();
+        return warga ? const FinanceReportScreen() : KasRtScreen(onBack: _kembaliMenu);
 
       case 23:
-        return const BopScreen();
+        return BopScreen(onBack: _kembaliMenu);
       case 31:
-        return const DataBarangScreen();
+        return DataBarangScreen(onBack: _kembaliMenu);
       case 32:
-        return const PeminjamanScreen();
+        return PeminjamanScreen(onBack: _kembaliMenu);
       case 43:
-        return warga ? const EVisitorScreen(isWarga: true) : const EVisitorScreen();
+        return warga ? const EVisitorScreen(isWarga: true) : EVisitorScreen(onBack: _kembaliMenu);
       case 44:
-        return warga ? const LetterRequestScreen() : const SuratMenyuratScreen();
+        return warga ? const LetterRequestScreen() : SuratMenyuratScreen(onBack: _kembaliMenu);
       case 50:
-        return const AgendaKegiatanScreen();
+        return AgendaKegiatanScreen(onBack: _kembaliMenu);
       case 51:
-        return const SiskamlingScreen();
+        return SiskamlingScreen(onBack: _kembaliMenu);
       case 60:
-        return const StatusDaruratScreen();
+        return StatusDaruratScreen(onBack: _kembaliMenu);
       case 61:
-        return const PengaduanScreen();
+        return PengaduanScreen(onBack: _kembaliMenu);
       case 62:
-        return const PollingWargaScreen();
+        return PollingWargaScreen(onBack: _kembaliMenu);
 
       case 81:
         return const ProfilSayaScreen();

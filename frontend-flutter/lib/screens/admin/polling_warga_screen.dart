@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../core/responsif.dart';
 import '../../../providers/polling_provider.dart';
 import '../../../providers/permission_provider.dart';
+import '../../widgets/tombol_kembali.dart';
 import '../../core/theme/warna_konteks.dart';
 
 /// Kode modul di tabel izin.
@@ -14,7 +15,8 @@ import '../../core/theme/warna_konteks.dart';
 const String _kodeIzin = 'aspirasi.polling';
 
 class PollingWargaScreen extends StatefulWidget {
-  const PollingWargaScreen({super.key});
+  final VoidCallback? onBack;
+  const PollingWargaScreen({super.key, this.onBack});
 
   @override
   State<PollingWargaScreen> createState() => _PollingWargaScreenState();
@@ -78,6 +80,8 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
               Expanded(
                 child: Row(
                   children: [
+                    TombolKembali(onPressed: widget.onBack),
+                    const SizedBox(width: 10),
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(

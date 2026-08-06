@@ -3,13 +3,15 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../../core/responsif.dart';
 import '../../../widgets/tabel_responsif.dart';
+import '../../../widgets/tombol_kembali.dart';
 import '../../../providers/visitor_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
 
 class EVisitorScreen extends StatefulWidget {
   final bool isWarga;
-  const EVisitorScreen({super.key, this.isWarga = false});
+  final VoidCallback? onBack;
+  const EVisitorScreen({super.key, this.isWarga = false, this.onBack});
 
   @override
   State<EVisitorScreen> createState() => _EVisitorScreenState();
@@ -55,6 +57,8 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    TombolKembali(onPressed: widget.onBack),
+                    const SizedBox(width: 10),
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
