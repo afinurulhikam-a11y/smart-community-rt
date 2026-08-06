@@ -70,6 +70,8 @@ String judulMenu(int indeks, {required bool warga}) {
       return 'Polling Warga';
     case 81:
       return 'Profil Saya';
+    case 82:
+      return 'Manajemen Pengguna';
     case 84:
       return 'Log Aktivitas';
     case 85:
