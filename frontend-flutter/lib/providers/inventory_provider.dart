@@ -301,4 +301,25 @@ class InventoryProvider extends ChangeNotifier {
     ).replace(queryParameters: params);
     await launchUrl(uri, webOnlyWindowName: '_self');
   }
+
+  /// Kosongkan seluruh state saat pengguna keluar.
+  ///
+  /// Provider di aplikasi ini dibuat sekali di MultiProvider akar dan hidup
+  /// selama proses berjalan. Tanpa ini, data pengguna sebelumnya masih ada
+  /// di memori saat orang lain masuk — dan sempat terlihat di layar sampai
+  /// pengambilan data yang baru selesai. Pada perangkat bersama yang dipakai
+  /// pengurus bergantian, itu kebocoran yang nyata, bukan sekadar kosmetik.
+  void bersihkan() {
+    _items = [];
+    _borrowings = [];
+    _statsBarang = const InventoryStats();
+    _statsPinjam = const BorrowingStats();
+    _isLoading = false;
+    _errorMessage = null;
+    _barangPinjam = [];
+    _filterBarang = {};
+    _filterPinjam = {};
+    notifyListeners();
+  }
+
 }

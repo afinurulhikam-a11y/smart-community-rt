@@ -205,4 +205,25 @@ class WargaProvider extends ChangeNotifier {
       return {'success': false, 'message': _errorMessage};
     }
   }
+
+  /// Kosongkan seluruh state saat pengguna keluar.
+  ///
+  /// Provider di aplikasi ini dibuat sekali di MultiProvider akar dan hidup
+  /// selama proses berjalan. Tanpa ini, data pengguna sebelumnya masih ada
+  /// di memori saat orang lain masuk — dan sempat terlihat di layar sampai
+  /// pengambilan data yang baru selesai. Pada perangkat bersama yang dipakai
+  /// pengurus bergantian, itu kebocoran yang nyata, bukan sekadar kosmetik.
+  void bersihkan() {
+    _wargaList = [];
+    _isLoading = false;
+    _errorMessage = null;
+    _currentPage = 1;
+    _totalPages = 1;
+    _totalData = 0;
+    _pendingWargaList = [];
+    _isLoadingPending = false;
+    _successMessage = null;
+    notifyListeners();
+  }
+
 }

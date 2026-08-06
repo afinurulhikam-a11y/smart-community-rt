@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../core/responsif.dart';
 import '../../widgets/tabel_responsif.dart';
+import '../../widgets/keadaan_daftar.dart';
 import '../../providers/log_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
@@ -481,15 +482,20 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
                       padding: EdgeInsets.all(40.0),
                       child: Center(child: CircularProgressIndicator(color: Color(0xFF3B82F6))),
                     )
+                  // Galat dibedakan dari kosong. Sebelumnya kegagalan memuat
+                  // jatuh ke cabang `logs.isEmpty` dan layar mengatakan "belum
+                  // ada log aktivitas sistem yang tercatat" — persis kebalikan
+                  // dari kenyataannya, pada layar yang justru ada untuk
+                  // membuktikan sesuatu pernah terjadi.
                   else if (logs.isEmpty)
-                    Padding(
-                      padding: EdgeInsets.all(40.0),
-                      child: Center(
-                        child: Text(
-                          'Belum ada log aktivitas sistem yang tercatat.',
-                          style: TextStyle(color: context.teksKedua),
-                        ),
-                      ),
+                    KeadaanDaftar(
+                      kosong: _adaPenyaring
+                          ? 'Tidak ada kejadian yang cocok dengan penyaring ini.'
+                          : 'Belum ada log aktivitas sistem yang tercatat.',
+                      galat: provider.errorMessage,
+                      offline: provider.offline,
+                      onCobaLagi: _loadData,
+                      ikonKosong: Icons.history_toggle_off,
                     )
                   else
                     Padding(

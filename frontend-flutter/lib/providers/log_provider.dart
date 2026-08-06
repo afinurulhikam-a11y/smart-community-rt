@@ -8,9 +8,20 @@ class LogProvider extends ChangeNotifier {
   String? _errorMessage;
   int _total = 0;
 
+  bool _offline = false;
+
   List<Map<String, dynamic>> get logs => _logs;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+
+  /// Benar bila kegagalan terakhir karena server tidak terjangkau, bukan
+  /// karena server menolak.
+  ///
+  /// `ApiService` sudah lama membedakan keduanya lewat `penandaOffline`, tetapi
+  /// sampai sekarang hanya `AuthService` yang membacanya. Provider lain hanya
+  /// memeriksa `success == true`, sehingga tidak bisa membedakan "ditolak" dari
+  /// "tidak terjangkau" padahal keterangannya ada di tangan.
+  bool get offline => _offline;
 
   /// Jumlah baris yang cocok dengan penyaring — bukan jumlah yang sedang tampil.
   ///
@@ -64,8 +75,10 @@ class LogProvider extends ChangeNotifier {
       // pagination tidak melaporkan "dari 0".
       _total = (response['total'] as num?)?.toInt() ?? _logs.length;
       _errorMessage = null;
+      _offline = false;
     } else {
       _errorMessage = response['message'] as String?;
+      _offline = response[ApiService.penandaOffline] == true;
     }
     notifyListeners();
   }
@@ -79,4 +92,21 @@ class LogProvider extends ChangeNotifier {
   //
   // Endpoint-nya sudah tidak ada, dan `activity_logs` menolak DELETE maupun
   // TRUNCATE di tingkat database. Jangan ditambahkan kembali.
+
+  /// Kosongkan seluruh state saat pengguna keluar.
+  ///
+  /// Provider di aplikasi ini dibuat sekali di MultiProvider akar dan hidup
+  /// selama proses berjalan. Tanpa ini, data pengguna sebelumnya masih ada
+  /// di memori saat orang lain masuk — dan sempat terlihat di layar sampai
+  /// pengambilan data yang baru selesai. Pada perangkat bersama yang dipakai
+  /// pengurus bergantian, itu kebocoran yang nyata, bukan sekadar kosmetik.
+  void bersihkan() {
+    _logs = [];
+    _isLoading = false;
+    _errorMessage = null;
+    _total = 0;
+    _offline = false;
+    notifyListeners();
+  }
+
 }

@@ -21,6 +21,14 @@ import '../../providers/bop_provider.dart';
 import '../../providers/permission_provider.dart';
 import '../../providers/complaint_provider.dart';
 import '../../providers/agenda_provider.dart';
+import '../../providers/warga_provider.dart';
+import '../../providers/bantuan_sosial_provider.dart';
+import '../../providers/inventory_provider.dart';
+import '../../providers/visitor_provider.dart';
+import '../../providers/announcement_provider.dart';
+import '../../providers/patrol_provider.dart';
+import '../../providers/polling_provider.dart';
+import '../../providers/log_provider.dart';
 import '../../widgets/navigasi_bawah.dart';
 import '../../widgets/sidebar_menu.dart';
 import '../../widgets/gradient_stat_card.dart';
@@ -126,6 +134,81 @@ class _MainDashboardState extends State<MainDashboard> {
     }
     if (izin.bolehLihat('kegiatan.agenda')) {
       context.read<AgendaProvider>().fetchAgenda();
+    }
+  }
+
+  /// Muat ulang data milik layar yang SEDANG dibuka.
+  ///
+  /// `RefreshIndicator` di bawah membungkus seluruh badan dashboard, tetapi
+  /// dulu selalu memanggil `_loadData()` — yang hanya menyegarkan delapan
+  /// provider milik layar Beranda. Akibatnya menarik-untuk-menyegarkan di Data
+  /// Warga, Data Barang, Peminjaman, E-Visitor, Siskamling, Polling, Log
+  /// Aktivitas, dan Bantuan Sosial memutar indikatornya lalu tidak melakukan
+  /// apa pun terhadap yang terlihat di layar.
+  ///
+  /// Gerakan yang berputar tanpa hasil lebih buruk daripada tidak ada gerakan
+  /// sama sekali: ia meyakinkan pengguna bahwa datanya baru.
+  ///
+  /// Indeksnya sama persis dengan yang dipakai sidebar dan `_buildBody`, jadi
+  /// tidak ada registri menu kedua yang harus dijaga tetap seiring.
+  Future<void> _muatUlangLayarAktif() async {
+    // Provider diambil SEBELUM await mana pun. Membaca `context` setelah
+    // sebuah await berisiko: widget-nya bisa sudah dilepas ketika baris itu
+    // dijalankan, dan analyzer menandainya sebagai use_build_context_synchronously.
+    final warga = context.read<WargaProvider>();
+    final bansos = context.read<BantuanSosialProvider>();
+    final demografi = context.read<DemographicProvider>();
+    final tagihan = context.read<BillProvider>();
+    final kas = context.read<FinanceProvider>();
+    final bop = context.read<BopProvider>();
+    final inventaris = context.read<InventoryProvider>();
+    final tamu = context.read<VisitorProvider>();
+    final surat = context.read<LetterProvider>();
+    final agenda = context.read<AgendaProvider>();
+    final pengumuman = context.read<AnnouncementProvider>();
+    final ronda = context.read<PatrolProvider>();
+    final darurat = context.read<EmergencyProvider>();
+    final pengaduan = context.read<ComplaintProvider>();
+    final polling = context.read<PollingProvider>();
+    final log = context.read<LogProvider>();
+
+    switch (_selectedMenuIndex) {
+      case 12:
+        await warga.fetchWarga();
+      case 13:
+        await bansos.fetchBantuanSosial();
+      case 14:
+        await demografi.fetchDemographics();
+      case 21:
+        await tagihan.fetchBills();
+      case 22:
+        await kas.refresh();
+      case 23:
+        await bop.refresh();
+      case 31:
+      case 32:
+        await inventaris.fetchInventory();
+      case 43:
+        await tamu.fetchVisitors();
+      case 44:
+        await surat.fetchLetters();
+      case 50:
+        await agenda.fetchAgenda();
+        await pengumuman.fetchAnnouncements();
+      case 51:
+        await ronda.fetchSchedules();
+      case 60:
+        await darurat.fetchAlerts();
+      case 61:
+        await pengaduan.fetchComplaints();
+      case 62:
+        await polling.fetchPolling();
+      case 84:
+        await log.fetchLogs();
+      default:
+        // Beranda (0) dan layar tanpa daftar sendiri — Profil, Menu & Akses,
+        // Reset Sistem — jatuh ke pemuatan dashboard.
+        _loadData();
     }
   }
 
@@ -447,7 +530,16 @@ class _MainDashboardState extends State<MainDashboard> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
     final isDesktop = ResponsiveLayout.isDesktop(context);
-    final ws = context.watch<WebSocketService>();
+    // WebSocketService SENGAJA tidak di-watch di sini — lihat Builder di bawah.
+    //
+    // Ia memanggil notifyListeners pada SETIAP pesan masuk, termasuk pesan
+    // CONNECTED dan tipe apa pun yang ditambahkan kelak, bukan hanya alarm.
+    // Meng-watch-nya di tingkat ini membangun ulang seluruh dashboard setiap
+    // kali — dan SidebarMenu (554 baris, memeriksa izin untuk setiap item)
+    // ikut terbawa karena ia bukan const.
+    //
+    // Watch-nya dipindahkan ke dalam Builder yang benar-benar memakainya,
+    // sehingga pesan WebSocket hanya membangun ulang bagian alarm.
     final emergency = context.watch<EmergencyProvider>();
 
     final warga = auth.userRole == 'warga';
@@ -494,6 +586,9 @@ class _MainDashboardState extends State<MainDashboard> {
         children: [
           Builder(
             builder: (context) {
+              // Builder memberi BuildContext-nya sendiri, jadi watch di sini
+              // membatasi pembangunan ulang pada subtree ini saja.
+              final ws = context.watch<WebSocketService>();
               final activeFromWs = ws.hasActiveAlarm;
               final activeAlertObj = emergency.activeAlert;
               final hasActive = activeFromWs || activeAlertObj != null;
@@ -550,7 +645,7 @@ class _MainDashboardState extends State<MainDashboard> {
                         // secara refleks di aplikasi Android, dan sebelumnya
                         // tidak melakukan apa pun di sini.
                         child: RefreshIndicator(
-                          onRefresh: () async => _loadData(),
+                          onRefresh: _muatUlangLayarAktif,
                           child: SingleChildScrollView(
                             // Selalu bisa digulir, walau isinya pendek —
                             // kalau tidak, gerakan tariknya tidak tertangkap
