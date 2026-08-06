@@ -2154,3 +2154,31 @@ CREATE INDEX IF NOT EXISTS idx_borrowings_user          ON public.borrowings (us
 CREATE INDEX IF NOT EXISTS idx_payment_trx_user         ON public.payment_transactions (user_id);
 CREATE INDEX IF NOT EXISTS idx_anggota_keluarga_kk      ON public.anggota_keluarga (keluarga_id);
 CREATE INDEX IF NOT EXISTS idx_polling_options_polling  ON public.polling_options (polling_id);
+
+
+--
+-- ===================================================================
+-- users.updated_at  (migrasi v23)
+-- ===================================================================
+--
+-- Ditulis tangan, bukan hasil pg_dump.
+--
+-- `users` satu-satunya dari lima belas tabel yang ditulisi `updated_at` oleh
+-- kode tetapi tidak punya kolomnya. Akibatnya SETIAP perubahan akun gagal
+-- dengan `column "updated_at" of relation "users" does not exist`:
+--
+--   PUT /users/:id/role        -> 500
+--   PUT /users/:id/status      -> 500
+--   PUT /users/credentials     -> 500
+--
+-- Artinya mengubah peran, menonaktifkan akun, dan mengatur ulang sandi
+-- ketiganya mustahil lewat aplikasi. Yang menyembunyikannya: controller-nya
+-- menangkap galat itu dan membalas pesan umum "Gagal memperbarui kredensial",
+-- sehingga penyebabnya hanya terbaca di log server.
+--
+-- Kolomnya ditambahkan, bukan penulisannya yang dihapus: empat belas tabel
+-- lain sudah memilikinya, dan pada sistem yang seluruh nilainya bertumpu pada
+-- pengawasan, "kapan akun ini terakhir diubah" justru pertanyaan yang wajar.
+--
+
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP;
