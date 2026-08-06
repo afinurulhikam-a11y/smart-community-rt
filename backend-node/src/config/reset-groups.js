@@ -47,7 +47,6 @@ const TABEL_DILINDUNGI = [
   'jenis_iuran',
   'kategori_kas',
   'kategori_bop',
-  'struktur_rt',
   'master_pendidikan',
   'master_pekerjaan',
   'reset_logs',

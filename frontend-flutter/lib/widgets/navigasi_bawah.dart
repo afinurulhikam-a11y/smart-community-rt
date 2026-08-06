@@ -43,7 +43,7 @@ String judulMenu(int indeks, {required bool warga}) {
     case 13:
       return 'Bantuan Sosial';
     case 14:
-      return 'Statistik';
+      return 'Statistik & Grafik';
     case 21:
       return warga ? 'Tagihan Saya' : 'Iuran Warga';
     case 22:
