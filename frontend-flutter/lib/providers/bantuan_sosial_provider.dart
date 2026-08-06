@@ -106,6 +106,7 @@ class BantuanSosialProvider extends ChangeNotifier {
       await fetchStats();
       return true;
     }
+    _errorMessage = response['message'] as String?;
     return false;
   }
 
