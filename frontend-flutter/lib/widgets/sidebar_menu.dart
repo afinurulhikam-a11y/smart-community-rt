@@ -54,9 +54,9 @@ class _SidebarMenuState extends State<SidebarMenu> {
   // saat role tidak punya akses Keuangan.
   late PermissionProvider _izin;
 
-  bool _lihat(String kode) => _izin.bolehLihat(kode);
-  bool _hanyaLihat(String kode) => _izin.hanyaLihat(kode);
-  bool _lihatSalahSatu(List<String> kode) => _izin.bolehLihatSalahSatu(kode);
+  bool _lihat(String kode) => _izin.bolehLihat(kode, userRole: widget.role);
+  bool _hanyaLihat(String kode) => _izin.hanyaLihat(kode, userRole: widget.role);
+  bool _lihatSalahSatu(List<String> kode) => _izin.bolehLihatSalahSatu(kode, userRole: widget.role);
 
   @override
   Widget build(BuildContext context) {

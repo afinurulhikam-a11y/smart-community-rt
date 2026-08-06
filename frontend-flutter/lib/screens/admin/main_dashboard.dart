@@ -105,37 +105,37 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   void _loadData() {
-    // Sejak izin per modul berlaku, TIDAK ADA lagi endpoint di bawah ini yang
-    // "terbuka untuk semua role" — masing-masing dijaga requirePermission.
-    // Memanggilnya tanpa memeriksa izin membuat bendahara menabrak 403 di
-    // /letters dan warga di /bop setiap kali dashboard dibuka, diam-diam.
     final izin = context.read<PermissionProvider>();
+    final auth = context.read<AuthService>();
+    if (auth.userRole.isNotEmpty) {
+      izin.setRole(auth.userRole);
+    }
 
-    if (izin.bolehLihat('keuangan.iuran')) {
+    if (izin.bolehLihat('keuangan.iuran', userRole: auth.userRole)) {
       context.read<BillProvider>().fetchBills();
     }
-    if (izin.bolehLihat('keuangan.kas')) {
+    if (izin.bolehLihat('keuangan.kas', userRole: auth.userRole)) {
       context.read<FinanceProvider>().fetchTransactions();
       context.read<FinanceProvider>().fetchSummary();
     }
-    if (izin.bolehLihat('layanan.surat')) {
+    if (izin.bolehLihat('layanan.surat', userRole: auth.userRole)) {
       context.read<LetterProvider>().fetchLetters();
     }
-    if (izin.bolehLihat('aspirasi.darurat')) {
+    if (izin.bolehLihat('aspirasi.darurat', userRole: auth.userRole)) {
       context.read<EmergencyProvider>().fetchAlerts();
     }
     // Dipakai kartu "Pengaduan Aktif" pada dashboard warga.
-    if (izin.bolehLihat('aspirasi.pengaduan')) {
+    if (izin.bolehLihat('aspirasi.pengaduan', userRole: auth.userRole)) {
       context.read<ComplaintProvider>().fetchComplaints();
     }
-    if (izin.bolehLihat('keuangan.bop')) {
+    if (izin.bolehLihat('keuangan.bop', userRole: auth.userRole)) {
       context.read<BopProvider>().fetchSummary();
       context.read<BopProvider>().fetchTransactions();
     }
-    if (izin.bolehLihat('kependudukan.statistik') || izin.bolehLihat('kependudukan.warga')) {
+    if (izin.bolehLihat('kependudukan.statistik', userRole: auth.userRole) || izin.bolehLihat('kependudukan.warga', userRole: auth.userRole)) {
       context.read<DemographicProvider>().fetchDemographics();
     }
-    if (izin.bolehLihat('kegiatan.agenda')) {
+    if (izin.bolehLihat('kegiatan.agenda', userRole: auth.userRole)) {
       context.read<AgendaProvider>().fetchAgenda();
     }
   }
