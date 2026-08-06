@@ -1,5 +1,3 @@
-import 'dart:ui' show PlatformDispatcher;
-
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -42,9 +40,8 @@ class TemaProvider extends ChangeNotifier {
     } catch (_) {
       // Sengaja diabaikan; lihat penjelasan di atas.
     }
-    // Belum pernah memilih: ikuti sistem sekali. Setelah pengguna menekan
-    // tombolnya, pilihannya yang menang selamanya.
-    return PlatformDispatcher.instance.platformBrightness == Brightness.dark;
+    // Bila belum ada preferensi tersimpan, default aplikasi adalah mode terang (whitemode).
+    return false;
   }
 
   Future<void> ganti() => setGelap(!_gelap);
