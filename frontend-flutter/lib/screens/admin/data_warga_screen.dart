@@ -863,6 +863,13 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                       controller: noHpCtrl,
                       enabled: bolehEditSemua,
                       keyboardType: TextInputType.phone,
+                      // Dialog ini menulis ke kolom `no_hp` yang sama dengan
+                      // formulir Tambah Warga. Menyaring salah satunya saja
+                      // berarti huruf tetap bisa masuk lewat pintu yang lain.
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(15),
+                      ],
                       style: TextStyle(fontSize: 13, color: context.teksUtama),
                       decoration: InputDecoration(
                         hintText: 'Misal: 081234567890',
@@ -1282,8 +1289,34 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                         child: TextFormField(
                           controller: hpCtrl,
                           keyboardType: TextInputType.phone,
+                          // `keyboardType` hanya MENYARANKAN papan ketik angka,
+                          // ia tidak menolak apa pun: papan ketik telepon
+                          // Android tetap memuat + * #, dan menempel dari
+                          // papan klip maupun papan ketik fisik bisa
+                          // memasukkan huruf. Yang benar-benar menyaring
+                          // adalah inputFormatters.
+                          //
+                          // Batas 15 digit mengikuti E.164 dan menjaga kolom
+                          // `no_hp` yang bertipe varchar(20) tidak kelebihan.
+                          //
+                          // Pola yang sama sudah dipakai kolom NIK dan No. KK
+                          // di formulir ini; kolom telepon yang tertinggal.
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(15),
+                          ],
                           decoration: buildDecor('Nomor HP / WhatsApp', Icons.phone_outlined),
-                          validator: (v) => (v == null || v.trim().isEmpty) ? 'Wajib diisi' : null,
+                          validator: (v) {
+                            final teks = v?.trim() ?? '';
+                            if (teks.isEmpty) return 'Wajib diisi';
+                            // Nomor Indonesia terpendek (08xxxxxxxx) sepuluh
+                            // digit. Lebih pendek dari itu pasti salah ketik,
+                            // dan nomor yang salah berarti pesan WhatsApp
+                            // penagihan maupun jadwal ronda tidak pernah
+                            // sampai — tanpa ada yang tahu.
+                            if (teks.length < 10) return 'Minimal 10 digit';
+                            return null;
+                          },
                         ),
                       ),
                     ],
