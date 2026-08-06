@@ -516,7 +516,16 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                                         ),
                                       );
                                       if (conf == true && mounted) {
-                                        await provider.deleteBantuanSosial(b['id']);
+                                        final ok = await provider.deleteBantuanSosial(b['id']);
+                                        if (!context.mounted) return;
+                                        if (ok) {
+                                          pesanSukses(context, 'Data berhasil dihapus');
+                                        } else {
+                                          pesanGagal(
+                                            context,
+                                            provider.errorMessage ?? 'Gagal menghapus data',
+                                          );
+                                        }
                                       }
                                     },
                                   ),
