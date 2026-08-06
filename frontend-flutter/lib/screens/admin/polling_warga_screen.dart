@@ -6,6 +6,7 @@ import '../../../providers/polling_provider.dart';
 import '../../../providers/permission_provider.dart';
 import '../../widgets/tombol_kembali.dart';
 import '../../core/theme/warna_konteks.dart';
+import '../../core/pesan.dart';
 
 /// Kode modul di tabel izin.
 ///
@@ -32,13 +33,7 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
 
   void _pesan(String teks, {bool sukses = true}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(teks),
-        backgroundColor: sukses ? const Color(0xFF0F766E) : const Color(0xFFEF4444),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    tampilkanPesan(context, teks, sukses: sukses, perilaku: SnackBarBehavior.floating);
   }
 
   String _activeTab = 'Semua';

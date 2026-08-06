@@ -11,6 +11,7 @@ import '../../../widgets/tabel_responsif.dart';
 import '../../../widgets/tombol_kembali.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
+import '../../core/pesan.dart';
 
 /// Kode modul di tabel izin. Bendahara hanya punya `view` di sini.
 const String _kodeIzin = 'kependudukan.bansos';
@@ -60,9 +61,7 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
 
     if (!await launchUrl(url)) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Gagal mengunduh file')));
+        pesanGagal(context, 'Gagal mengunduh file');
       }
     }
   }
@@ -857,15 +856,11 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                 ElevatedButton(
                   onPressed: () async {
                     if (!isEdit && selectedUserId == null) {
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(const SnackBar(content: Text('Pilih warga terlebih dahulu')));
+                      pesanGagal(context, 'Pilih warga terlebih dahulu');
                       return;
                     }
                     if (tahunController.text.isEmpty) {
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(const SnackBar(content: Text('Tahun wajib diisi')));
+                      pesanGagal(context, 'Tahun wajib diisi');
                       return;
                     }
 
@@ -894,16 +889,9 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                     if (!context.mounted || !ctx.mounted) return;
                     if (success) {
                       Navigator.pop(ctx);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(isEdit ? 'Data diperbarui' : 'Data ditambahkan')),
-                      );
+                      pesanSukses(context, isEdit ? 'Data diperbarui' : 'Data ditambahkan');
                     } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(provider.errorMessage ?? 'Gagal menyimpan data'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
+                      pesanGagal(context, provider.errorMessage ?? 'Gagal menyimpan data');
                     }
                   },
                   style: ElevatedButton.styleFrom(

@@ -8,6 +8,7 @@ import '../../../providers/announcement_provider.dart';
 import '../../../providers/permission_provider.dart';
 import '../../../widgets/tombol_kembali.dart';
 import '../../core/theme/warna_konteks.dart';
+import '../../core/pesan.dart';
 
 /// Kode modul di tabel izin. Bendahara dan warga hanya punya `view`.
 const String _kodeIzin = 'kegiatan.agenda';
@@ -155,13 +156,7 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
 
   void _pesan(String teks, {bool sukses = true}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(teks),
-        backgroundColor: sukses ? const Color(0xFF0F766E) : const Color(0xFFEF4444),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    tampilkanPesan(context, teks, sukses: sukses, perilaku: SnackBarBehavior.floating);
   }
 
   @override
@@ -965,9 +960,7 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
             ElevatedButton(
               onPressed: () async {
                 if (judulController.text.isEmpty) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(const SnackBar(content: Text('Judul agenda tidak boleh kosong')));
+                  pesanGagal(context, 'Judul agenda tidak boleh kosong');
                   return;
                 }
                 final formattedDate =
@@ -989,9 +982,7 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
 
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (success && mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(const SnackBar(content: Text('Agenda berhasil dibuat!')));
+                  pesanSukses(context, 'Agenda berhasil dibuat!');
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -1131,9 +1122,7 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
             ElevatedButton(
               onPressed: () async {
                 if (judulController.text.isEmpty) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(const SnackBar(content: Text('Judul agenda tidak boleh kosong')));
+                  pesanGagal(context, 'Judul agenda tidak boleh kosong');
                   return;
                 }
                 final formattedDate =
@@ -1156,9 +1145,7 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
 
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (success && mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(const SnackBar(content: Text('Agenda berhasil diubah!')));
+                  pesanSukses(context, 'Agenda berhasil diubah!');
                 }
               },
               style: ElevatedButton.styleFrom(

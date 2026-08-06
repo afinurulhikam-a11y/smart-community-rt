@@ -8,6 +8,7 @@ import '../../widgets/tombol_kembali.dart';
 import '../../../providers/emergency_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
+import '../../core/pesan.dart';
 
 class StatusDaruratScreen extends StatefulWidget {
   final VoidCallback? onBack;
@@ -182,18 +183,16 @@ class _StatusDaruratScreenState extends State<StatusDaruratScreen> {
                           );
                           if (mounted) {
                             if (success) {
-                              messenger.showSnackBar(
-                                SnackBar(
-                                  content: Text(provider.successMessage ?? 'Sinyal darurat berhasil dikirim!'),
-                                  backgroundColor: const Color(0xFF059669),
-                                ),
+                              tampilkanPesanDi(
+                                messenger,
+                                provider.successMessage ?? 'Sinyal darurat berhasil dikirim!',
+                                sukses: true,
                               );
                             } else {
-                              messenger.showSnackBar(
-                                SnackBar(
-                                  content: Text(provider.errorMessage ?? 'PIN Keamanan salah atau gagal mengirim sinyal.'),
-                                  backgroundColor: const Color(0xFFEF4444),
-                                ),
+                              tampilkanPesanDi(
+                                messenger,
+                                provider.errorMessage ?? 'PIN Keamanan salah atau gagal mengirim sinyal.',
+                                sukses: false,
                               );
                             }
                             _loadData();
@@ -323,11 +322,10 @@ class _StatusDaruratScreenState extends State<StatusDaruratScreen> {
                           if (mounted) {
                             if (success) {
                               if (ctx.mounted) Navigator.pop(ctx);
-                              messenger.showSnackBar(
-                                SnackBar(
-                                  content: Text(provider.successMessage ?? 'Status darurat berhasil diselesaikan.'),
-                                  backgroundColor: const Color(0xFF059669),
-                                ),
+                              tampilkanPesanDi(
+                                messenger,
+                                provider.successMessage ?? 'Status darurat berhasil diselesaikan.',
+                                sukses: true,
                               );
                               _loadData();
                             } else {

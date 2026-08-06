@@ -5,6 +5,7 @@ import '../../core/responsif.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/letter_provider.dart';
 import '../../core/theme/warna_konteks.dart';
+import '../../core/pesan.dart';
 
 class LetterRequestScreen extends StatefulWidget {
   const LetterRequestScreen({super.key});
@@ -117,9 +118,7 @@ class _LetterRequestScreenState extends State<LetterRequestScreen> {
           ElevatedButton(
             onPressed: () async {
               if (jenisSuratController.text.isEmpty || keperluanController.text.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Jenis surat dan keperluan wajib diisi')),
-                );
+                pesanGagal(context, 'Jenis surat dan keperluan wajib diisi');
                 return;
               }
               final provider = context.read<LetterProvider>();
@@ -130,12 +129,7 @@ class _LetterRequestScreenState extends State<LetterRequestScreen> {
               if (success) {
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Pengajuan surat berhasil dikirim!'),
-                      backgroundColor: AppTheme.successColor,
-                    ),
-                  );
+                  pesanSukses(context, 'Pengajuan surat berhasil dikirim!');
                 }
               }
             },

@@ -11,6 +11,7 @@ import '../../core/services/pdf_service.dart';
 import '../../widgets/tombol_kembali.dart';
 import '../../providers/permission_provider.dart';
 import '../../core/theme/warna_konteks.dart';
+import '../../core/pesan.dart';
 
 /// Kode modul di tabel izin.
 ///
@@ -54,9 +55,7 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
 
   void _submitLetter() async {
     if (_selectedJenisSurat == null || _keperluanController.text.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Lengkapi form terlebih dahulu')));
+      pesanGagal(context, 'Lengkapi form terlebih dahulu');
       return;
     }
 
@@ -67,14 +66,10 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
     );
 
     if (success && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Permohonan berhasil diajukan')));
+      pesanSukses(context, 'Permohonan berhasil diajukan');
       setState(() => _isFormView = false);
     } else if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(provider.errorMessage ?? 'Gagal mengajukan')));
+      pesanGagal(context, provider.errorMessage ?? 'Gagal mengajukan');
     }
   }
 

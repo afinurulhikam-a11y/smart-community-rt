@@ -15,6 +15,7 @@ import '../../../widgets/tombol_kembali.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
 import '../../core/sandi.dart';
+import '../../core/pesan.dart';
 
 /// Pilihan baku untuk field demografi.
 ///
@@ -731,12 +732,7 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
     Navigator.pop(context);
 
     if (res['success'] != true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(res['message']?.toString() ?? 'Gagal memuat data akun.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      pesanGagal(context, res['message']?.toString() ?? 'Gagal memuat data akun.');
       return;
     }
 
@@ -1062,24 +1058,16 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                           if (r['success'] == true) {
                             Navigator.pop(dialogCtx);
                             if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    r['message']?.toString() ?? 'Kredensial berhasil diperbarui.',
-                                  ),
-                                  backgroundColor: const Color(0xFF10B981),
-                                ),
+                              pesanSukses(
+                                context,
+                                r['message']?.toString() ?? 'Kredensial berhasil diperbarui.',
                               );
                               await context.read<WargaProvider>().fetchWarga();
                             }
                           } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  r['message']?.toString() ?? 'Gagal memperbarui kredensial.',
-                                ),
-                                backgroundColor: Colors.red,
-                              ),
+                            pesanGagal(
+                              context,
+                              r['message']?.toString() ?? 'Gagal memperbarui kredensial.',
                             );
                           }
                         },
@@ -1114,9 +1102,7 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
         final file = result.files.first;
         if (file.bytes == null) {
           if (context.mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('Gagal membaca file.')));
+            pesanGagal(context, 'Gagal membaca file.');
           }
           return;
         }
@@ -1129,31 +1115,26 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
           if (!context.mounted) return;
 
           if (res['success'] == true) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  res['message'] ?? 'Import berhasil',
-                  style: const TextStyle(color: Colors.white),
-                ),
-                backgroundColor: Colors.green,
-              ),
+            tampilkanPesan(
+              context,
+              res['message'] ?? 'Import berhasil',
+              sukses: true,
+              // Pesan impor menyebut jumlah baris yang gagal; beri waktu membacanya.
+              durasi: const Duration(seconds: 8),
             );
           } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  res['message'] ?? 'Gagal import data',
-                  style: const TextStyle(color: Colors.white),
-                ),
-                backgroundColor: Colors.red,
-              ),
+            tampilkanPesan(
+              context,
+              res['message'] ?? 'Gagal import data',
+              sukses: false,
+              durasi: const Duration(seconds: 8),
             );
           }
         }
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        pesanGagal(context, 'Error: $e');
       }
     }
   }
@@ -1764,13 +1745,11 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                 } else {
                   Future.delayed(const Duration(milliseconds: 150), () {
                     if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(result['message'] ?? 'Gagal menambahkan data warga'),
-                        backgroundColor: const Color(0xFFEF4444),
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
+                    tampilkanPesan(
+                      context,
+                      result['message'] ?? 'Gagal menambahkan data warga',
+                      sukses: false,
+                      perilaku: SnackBarBehavior.floating,
                     );
                   });
                 }

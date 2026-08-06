@@ -9,6 +9,7 @@ import '../../providers/permission_provider.dart';
 import '../../widgets/tabel_responsif.dart';
 import '../../widgets/tombol_kembali.dart';
 import '../../core/theme/warna_konteks.dart';
+import '../../core/pesan.dart';
 
 const String _kodeIzin = 'kegiatan.ronda';
 
@@ -481,11 +482,10 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                                   if (confirm == true) {
                                     final ok = await provider.deleteAttendance(a['id']);
                                     if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text(ok ? 'Log absensi berhasil dihapus.' : 'Gagal menghapus log absensi.'),
-                                          backgroundColor: ok ? Colors.green : Colors.red,
-                                        ),
+                                      tampilkanPesan(
+                                        context,
+                                        ok ? 'Log absensi berhasil dihapus.' : 'Gagal menghapus log absensi.',
+                                        sukses: ok,
                                       );
                                     }
                                   }
@@ -652,11 +652,10 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                         if (confirm == true) {
                           final ok = await provider.regenerateQr();
                           if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(ok ? 'QR berhasil di-regenerate!' : 'Gagal regenerate QR.'),
-                                backgroundColor: ok ? Colors.green : Colors.red,
-                              ),
+                            tampilkanPesan(
+                              context,
+                              ok ? 'QR berhasil di-regenerate!' : 'Gagal regenerate QR.',
+                              sukses: ok,
                             );
                           }
                         }
@@ -841,11 +840,10 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
             catatan: catatan.isNotEmpty ? catatan : null,
           );
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(res['message'] ?? ''),
-                backgroundColor: res['success'] == true ? Colors.green : Colors.red,
-              ),
+            tampilkanPesan(
+              context,
+              res['message'] ?? '',
+              sukses: res['success'] == true,
             );
           }
         }
@@ -1052,11 +1050,9 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                 }
                 final expectedHari = listHari[selectedTanggal.weekday % 7];
                 if (selectedHari != expectedHari) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Hari ($selectedHari) tidak sesuai dengan tanggal (${DateFormat('dd/MM/yyyy').format(selectedTanggal)} adalah $expectedHari).'),
-                      backgroundColor: Colors.red,
-                    ),
+                  pesanGagal(
+                    context,
+                    'Hari ($selectedHari) tidak sesuai dengan tanggal (${DateFormat('dd/MM/yyyy').format(selectedTanggal)} adalah $expectedHari).',
                   );
                   hasError = true;
                 }
@@ -1073,15 +1069,12 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                 );
 
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        success
-                            ? 'Jadwal ronda berhasil ditambahkan!'
-                            : (context.read<PatrolProvider>().errorMessage ?? 'Gagal menambahkan jadwal ronda.'),
-                      ),
-                      backgroundColor: success ? Colors.green : Colors.red,
-                    ),
+                  tampilkanPesan(
+                    context,
+                    success
+                        ? 'Jadwal ronda berhasil ditambahkan!'
+                        : (context.read<PatrolProvider>().errorMessage ?? 'Gagal menambahkan jadwal ronda.'),
+                    sukses: success,
                   );
                 }
               },
@@ -1228,11 +1221,9 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                 }
                 final expectedHari = listHari[selectedTanggal.weekday % 7];
                 if (selectedHari != expectedHari) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Hari ($selectedHari) tidak sesuai dengan tanggal (${DateFormat('dd/MM/yyyy').format(selectedTanggal)} adalah $expectedHari).'),
-                      backgroundColor: Colors.red,
-                    ),
+                  pesanGagal(
+                    context,
+                    'Hari ($selectedHari) tidak sesuai dengan tanggal (${DateFormat('dd/MM/yyyy').format(selectedTanggal)} adalah $expectedHari).',
                   );
                   return;
                 }
@@ -1249,15 +1240,12 @@ class _SiskamlingScreenState extends State<SiskamlingScreen> with SingleTickerPr
                 );
 
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        success
-                            ? 'Jadwal ronda berhasil diperbarui!'
-                            : (context.read<PatrolProvider>().errorMessage ?? 'Gagal memperbarui jadwal ronda.'),
-                      ),
-                      backgroundColor: success ? Colors.green : Colors.red,
-                    ),
+                  tampilkanPesan(
+                    context,
+                    success
+                        ? 'Jadwal ronda berhasil diperbarui!'
+                        : (context.read<PatrolProvider>().errorMessage ?? 'Gagal memperbarui jadwal ronda.'),
+                    sukses: success,
                   );
                 }
               },

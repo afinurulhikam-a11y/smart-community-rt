@@ -9,6 +9,7 @@ import '../../../providers/complaint_provider.dart';
 import '../../../providers/permission_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
+import '../../core/pesan.dart';
 
 /// Kode modul di tabel izin. Warga `view + create` dan hanya melihat aduannya
 /// sendiri (disaring backend); bendahara `view` saja.
@@ -66,13 +67,7 @@ class _PengaduanScreenState extends State<PengaduanScreen> {
 
   void _pesan(String teks, {bool sukses = true}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(teks),
-        backgroundColor: sukses ? const Color(0xFF0F766E) : const Color(0xFFEF4444),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    tampilkanPesan(context, teks, sukses: sukses, perilaku: SnackBarBehavior.floating);
   }
 
   /// Rincian satu aduan, termasuk tanggapan pengurus bila sudah ada.

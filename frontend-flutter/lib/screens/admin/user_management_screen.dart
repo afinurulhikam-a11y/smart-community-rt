@@ -7,6 +7,7 @@ import '../../models/user_model.dart';
 import '../../providers/user_provider.dart';
 import '../../widgets/tabel_responsif.dart';
 import '../../widgets/tombol_kembali.dart';
+import '../../core/pesan.dart';
 
 class UserManagementScreen extends StatefulWidget {
   final VoidCallback? onBack;
@@ -46,12 +47,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   void _pesan(String teks, {bool sukses = true}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(teks),
-        backgroundColor: sukses ? const Color(0xFF10B981) : const Color(0xFFEF4444),
-      ),
-    );
+    tampilkanPesan(context, teks, sukses: sukses);
   }
 
   @override

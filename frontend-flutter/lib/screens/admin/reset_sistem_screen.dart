@@ -7,6 +7,7 @@ import '../../models/reset_model.dart';
 import '../../providers/reset_provider.dart';
 import '../../widgets/responsive_layout.dart';
 import '../../core/theme/warna_konteks.dart';
+import '../../core/pesan.dart';
 
 /// Warna aksen aplikasi. AppTheme.primaryColor masih #1B5E20 warisan lama,
 /// sedangkan seluruh layar admin memakai #1B7A6A — layar ini mengikuti yang
@@ -63,13 +64,12 @@ class _ResetSistemScreenState extends State<ResetSistemScreen> {
   }
 
   void _pesan(String teks, {bool gagal = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(teks),
-        backgroundColor: gagal ? AppTheme.dangerColor : _hijau,
-        behavior: SnackBarBehavior.floating,
-        duration: Duration(seconds: gagal ? 8 : 4),
-      ),
+    tampilkanPesan(
+      context,
+      teks,
+      sukses: !gagal,
+      perilaku: SnackBarBehavior.floating,
+      durasi: Duration(seconds: gagal ? 8 : 4),
     );
   }
 
@@ -504,12 +504,11 @@ class _DialogKonfirmasiState extends State<_DialogKonfirmasi> {
 
     setState(() => _sudahUnduh = berhasil);
     if (!berhasil) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Berkas cadangan gagal diunduh. Penghapusan tidak dilanjutkan.'),
-          backgroundColor: AppTheme.dangerColor,
-          behavior: SnackBarBehavior.floating,
-        ),
+      tampilkanPesan(
+        context,
+        'Berkas cadangan gagal diunduh. Penghapusan tidak dilanjutkan.',
+        sukses: false,
+        perilaku: SnackBarBehavior.floating,
       );
     }
   }
@@ -530,13 +529,12 @@ class _DialogKonfirmasiState extends State<_DialogKonfirmasi> {
     // tinggal memperbaikinya tanpa mengulang seluruh alur dari awal.
     if (hasil['success'] != true) {
       setState(() => _sedangKirim = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(hasil['message']?.toString() ?? 'Reset gagal.'),
-          backgroundColor: AppTheme.dangerColor,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 8),
-        ),
+      tampilkanPesan(
+        context,
+        hasil['message']?.toString() ?? 'Reset gagal.',
+        sukses: false,
+        perilaku: SnackBarBehavior.floating,
+        durasi: const Duration(seconds: 8),
       );
       return;
     }

@@ -14,6 +14,7 @@ import '../../../widgets/tombol_kembali.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
 import '../../core/format.dart';
+import '../../core/pesan.dart';
 
 const List<String> _namaBulan = [
   'Januari',
@@ -95,9 +96,7 @@ class _KasRtScreenState extends State<KasRtScreen> {
 
   void _pesan(String teks, {bool sukses = true}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(teks), backgroundColor: sukses ? const Color(0xFF10B981) : _merah),
-    );
+    tampilkanPesan(context, teks, sukses: sukses);
   }
 
   @override
