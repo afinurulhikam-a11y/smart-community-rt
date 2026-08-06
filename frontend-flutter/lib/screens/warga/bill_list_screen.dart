@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/bill_provider.dart';
 import '../../providers/payment_provider.dart';
 import 'payment_screen.dart';
 import '../../core/theme/warna_konteks.dart';
+import '../../core/format.dart';
 
 const Color _hijau = Color(0xFF1B7A6A);
 
@@ -54,7 +54,10 @@ class _BillListScreenState extends State<BillListScreen> with SingleTickerProvid
     super.dispose();
   }
 
-  NumberFormat get _rp => NumberFormat.currency(locale: 'id_ID', symbol: 'Rp', decimalDigits: 0);
+  // Dulu `NumberFormat.currency(symbol: 'Rp')` — TANPA spasi, sehingga warga
+  // melihat "Rp50.000" di sini dan "Rp 50.000" di dasbornya. Kini satu
+  // bentuk untuk seluruh aplikasi; lihat lib/core/format.dart.
+  String _rp(num? n) => rupiah(n);
 
   void _pesan(String teks, {bool sukses = true}) {
     if (!mounted) return;
@@ -313,7 +316,7 @@ class _BillListScreenState extends State<BillListScreen> with SingleTickerProvid
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    _rp.format(bill.nominal),
+                    _rp(bill.nominal),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   Container(
@@ -360,7 +363,7 @@ class _BillListScreenState extends State<BillListScreen> with SingleTickerProvid
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  _rp.format(total),
+                  _rp(total),
                   style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _hijau),
                 ),
               ],

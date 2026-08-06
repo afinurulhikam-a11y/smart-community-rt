@@ -48,13 +48,7 @@ class PermissionProvider extends ChangeNotifier {
     try {
       final r = await ApiService.get(ApiConstants.menuAksesSaya).timeout(const Duration(seconds: 5));
       if (r['success'] == true && r['data'] != null) {
-        final d = r['data'] as Map<String, dynamic>;
-        _role = d['role']?.toString() ?? '';
-        _roleLabel = d['role_label']?.toString() ?? '';
-        _izin = {
-          for (final m in (d['menus'] as List<dynamic>? ?? []).whereType<Map<String, dynamic>>())
-            m['kode'].toString(): Izin.fromJson(m),
-        };
+        terapkanData(r['data'] as Map<String, dynamic>);
       }
     } catch (e) {
       debugPrint('Error loading permissions: $e');
@@ -63,6 +57,22 @@ class PermissionProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  /// Terapkan muatan izin dari server.
+  ///
+  /// Dipisah dari [muat] supaya penguraiannya bisa diuji tanpa jaringan.
+  /// Seluruh gerbang menu untuk setiap peran bertumpu pada bagian ini, dan
+  /// sampai sekarang ia tidak punya satu pun uji — sebuah kekeliruan di sini
+  /// diam-diam membuka atau menyembunyikan modul bagi peran yang salah, dan
+  /// tidak ada yang menangkapnya sebelum sampai ke perangkat.
+  void terapkanData(Map<String, dynamic> data) {
+    _role = data['role']?.toString() ?? '';
+    _roleLabel = data['role_label']?.toString() ?? '';
+    _izin = {
+      for (final m in (data['menus'] as List<dynamic>? ?? []).whereType<Map<String, dynamic>>())
+        m['kode'].toString(): Izin.fromJson(m),
+    };
   }
 
   /// Dipanggil saat logout supaya izin pengguna sebelumnya tidak terbawa.
