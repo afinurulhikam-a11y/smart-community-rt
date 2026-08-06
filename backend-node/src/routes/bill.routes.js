@@ -5,6 +5,7 @@ const {
   getBillStats,
   createBill,
   generateBills,
+  tagihSemuaWA,
   payBill,
   payBillsBulk,
   deleteBill,
@@ -23,6 +24,7 @@ router.get('/', requirePermission('keuangan.iuran', 'view'), getBills);
 router.post('/', requirePermission('keuangan.iuran', 'create'), createBill);
 router.post('/generate', requirePermission('keuangan.iuran', 'create'), generateBills);
 router.post('/pay-bulk', requirePermission('keuangan.iuran', 'create'), payBillsBulk);
+router.post('/tagih-wa', requirePermission('keuangan.iuran', 'update'), tagihSemuaWA);
 
 // Rute ini MELUNASI tagihan seketika dan memposting pemasukan ke Kas RT, jadi
 // ia untuk mencatat uang tunai/transfer yang BENAR-BENAR SUDAH DITERIMA

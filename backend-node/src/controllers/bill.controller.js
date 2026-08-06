@@ -320,6 +320,102 @@ async function generateBills(req, res) {
 }
 
 /**
+ * Kirim penagihan WhatsApp ke semua keluarga yang masih punya tunggakan,
+ * dalam SATU panggilan dari klien.
+ *
+ * Sebelumnya penagihan "kirim semua" dilakukan di sisi klien dengan membuka
+ * `wa.me` per keluarga — yang terblokir browser begitu jumlah tabnya banyak,
+ * dan nomor yang dipakai adalah WhatsApp milik operator, bukan gateway yang
+ * tercatat di sistem. Endpoint ini menyerahkan penagihan ke whatsapp.service
+ * (Fonnte), jadi satu klik mengirim ke semua keluarga dengan nomor HP.
+ *
+ * Bila tidak ada FONNTE_TOKEN di .env, whatsapp.service melakukan simulasi
+ * (log ke console) dan endpoint tetap mengembalikan sukses — sama seperti
+ * perilaku `generateBills`.
+ */
+async function tagihSemuaWA(req, res) {
+  try {
+    const { bill_ids } = req.body;
+
+    let result;
+    if (Array.isArray(bill_ids) && bill_ids.length > 0) {
+      // Daftar eksplisit dari klien (kotak centang), hanya tagihan belum lunas.
+      result = await pool.query(
+        `${BASE_SELECT} WHERE b.id = ANY($1::uuid[]) AND b.status = $2`,
+        [bill_ids, STATUS_BELUM]
+      );
+    } else {
+      // Seluruh tunggakan sesuai filter yang sedang aktif di layar.
+      const { where, params } = buildFilter(req);
+      const tambah = where
+        ? `${where} AND b.status = '${STATUS_BELUM}'`
+        : `WHERE b.status = '${STATUS_BELUM}'`;
+      result = await pool.query(
+        `${BASE_SELECT} ${tambah} ORDER BY b.bulan DESC, k.kepala_keluarga ASC`,
+        params
+      );
+    }
+
+    // Kelompokkan per kartu keluarga agar satu keluarga menerima satu pesan
+    // berisi semua tunggakannya, bukan satu pesan per tagihan.
+    const perKk = {};
+    for (const r of result.rows) {
+      (perKk[r.no_kk] ||= []).push(r);
+    }
+
+    let denganHp = 0;
+    let tanpaHp = 0;
+    const kiriman = [];
+
+    for (const kk of Object.values(perKk)) {
+      const kepala = kk[0];
+      if (!kepala.no_hp) { tanpaHp++; continue; }
+      denganHp++;
+
+      const rincian = kk
+        .map((r) => `• ${r.nama_iuran || r.jenis_tagihan} (${r.bulan}): Rp ${Number(r.nominal).toLocaleString('id-ID')}`)
+        .join('\n');
+      const total = kk.reduce((s, r) => s + Number(r.nominal), 0);
+
+      kiriman.push({
+        target: kepala.no_hp,
+        message:
+          `Assalamualaikum, Yth. Bapak/Ibu ${kepala.kepala_keluarga}.\n\n` +
+          `Kami informasi kan tagihan iuran RT yang belum dibayar:\n\n${rincian}\n\n` +
+          `Total: Rp ${total.toLocaleString('id-ID')}\n\n` +
+          `Mohon dapat diselesaikan. Terima kasih.`,
+      });
+    }
+
+    // Dikirim asinkron, bukan menunggu satu per satu, supaya permintaan HTTP
+    // klien tidak menggantung berjam-jam untuk puluhan keluarga. Bila token
+    // gateway belum terpasang, service melakukan simulasi.
+    if (kiriman.length > 0) {
+      const { sendWA } = require('../services/whatsapp.service');
+      (async () => {
+        for (const k of kiriman) await sendWA(k);
+      })().catch((e) => console.log('ℹ️ Catatan WA Penagihan Serentak:', e.message));
+    }
+
+    await logActivity(
+      req,
+      'CREATE',
+      `Kirim penagihan WA ke ${denganHp} keluarga (${tanpaHp} tanpa nomor HP)`
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: `${denganHp} keluarga akan menerima notifikasi WhatsApp` +
+        (tanpaHp > 0 ? `, ${tanpaHp} keluarga tanpa nomor HP dilewati` : '') + '.',
+      data: { keluarga: Object.keys(perKk).length, denganHp, tanpaHp },
+    });
+  } catch (err) {
+    console.error('TagihSemuaWA Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Gagal mengirim penagihan WhatsApp.' });
+  }
+}
+
+/**
  * Catat pembayaran iuran sebagai pemasukan di buku Kas RT.
  *
  * Dipanggil di dalam transaksi yang sama dengan INSERT bill_payments, sehingga
@@ -683,6 +779,7 @@ module.exports = {
   getBillStats,
   createBill,
   generateBills,
+  tagihSemuaWA,
   payBill,
   payBillsBulk,
   deleteBill,

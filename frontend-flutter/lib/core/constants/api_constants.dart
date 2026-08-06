@@ -106,6 +106,7 @@ class ApiConstants {
   static String get billExport => '$baseUrl/bills/export';
   static String get billsGenerate => '$baseUrl/bills/generate';
   static String get billsPayBulk => '$baseUrl/bills/pay-bulk';
+  static String get billsTagihWa => '$baseUrl/bills/tagih-wa';
   static String payBill(String id) => '$baseUrl/bills/$id/pay';
   static String billReceipt(String id) => '$baseUrl/bills/$id/receipt';
   static String bill(String id) => '$baseUrl/bills/$id';

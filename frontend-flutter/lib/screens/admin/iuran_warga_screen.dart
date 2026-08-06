@@ -49,7 +49,6 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
   bool get _bolehUbah => context.watch<PermissionProvider>().bolehUbah(_kodeIzin);
   bool get _bolehHapus => context.watch<PermissionProvider>().bolehHapus(_kodeIzin);
 
-  int _itemsPerPage = 25;
   String _searchQuery = '';
   String _status = 'Semua Status';
   int? _jenisIuranId;
@@ -576,103 +575,63 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
           const Divider(height: 1),
           Padding(
             padding: EdgeInsets.all(paddingKartu(context)),
-            child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 16,
-              runSpacing: 12,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          'Tampilkan',
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 13, color: context.teksKedua),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: context.garis),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<int>(
-                            value: _itemsPerPage,
-                            isDense: true,
-                            icon: Icon(
-                              Icons.arrow_drop_down,
-                              size: 16,
-                              color: context.teksKedua,
-                            ),
-                            style: TextStyle(fontSize: 13, color: context.teksUtama),
-                            items: [
-                              10,
-                              25,
-                              50,
-                              100,
-                            ].map((v) => DropdownMenuItem(value: v, child: Text('$v'))).toList(),
-                            onChanged: (v) => setState(() {
-                              _itemsPerPage = v!;
-                              _loadData(page: 1);
-                            }),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          'data',
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 13, color: context.teksKedua),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(
-                  width: lebarKolomFilter(context, maksimal: 260),
-                  child: TextField(
-                    controller: _searchController,
-                    onSubmitted: (v) {
-                      _searchQuery = v;
-                      _loadData();
-                    },
-                    decoration: InputDecoration(
-                      hintText: 'Cari nama, no KK, alamat...',
-                      hintStyle: TextStyle(fontSize: 13, color: context.teksTersier),
-                      prefixIcon: Icon(Icons.search, size: 18, color: context.teksKedua),
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.arrow_forward, size: 16),
-                        onPressed: () {
-                          _searchQuery = _searchController.text;
+            // Kolom pencarian diletakkan sendiri di tengah, dengan label "Cari"
+            // di kiri kolomnya, supaya mata tidak perlu menyusuri baris untuk
+            // mencari tempat mengetik.
+            //
+            // Tidak memakai lebarKolomFilter di sini: nilainya double.infinity
+            // pada mobile, yang tidak aman di dalam Row (overflow). Kuncinya
+            // ConstrainedBox berlebar maksimum + Expanded, jadi lebar selalu
+            // berhingga dan bidang teks menyerap sisa ruang.
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 460),
+                child: Row(
+                  children: [
+                    Text(
+                      'Cari',
+                      style: TextStyle(fontSize: 13, color: context.teksKedua),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        onSubmitted: (v) {
+                          _searchQuery = v;
                           _loadData();
                         },
+                        decoration: InputDecoration(
+                          hintText: 'Cari nama, no KK, alamat...',
+                          hintStyle: TextStyle(fontSize: 13, color: context.teksTersier),
+                          prefixIcon: Icon(Icons.search, size: 18, color: context.teksKedua),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.arrow_forward, size: 16),
+                            onPressed: () {
+                              _searchQuery = _searchController.text;
+                              _loadData();
+                            },
+                          ),
+                          filled: true,
+                          fillColor: context.latarLembut,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: context.garis),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: context.garis),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: Color(0xFF1B7A6A), width: 1.5),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                        ),
                       ),
-                      filled: true,
-                      fillColor: context.latarLembut,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: context.garis),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: context.garis),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFF1B7A6A), width: 1.5),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
           if (provider.isLoading)
@@ -1005,16 +964,50 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
         title: const Text('Tagih via WhatsApp'),
         content: SizedBox(
           width: lebarDialog(context, maksimal: 520),
-          height: 420,
+          height: 480,
           child: perKk.isEmpty
               ? const Center(child: Text('Tidak ada tunggakan pada filter ini.'))
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Kirim SEMUA lewat gateway backend (Fonnte) dalam satu
+                    // klik. Tombol ini yang dipakai untuk pengiriman massal —
+                    // daftar di bawah tetap ada untuk mengirim per keluarga.
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final r = await context.read<BillProvider>().tagihSemuaWA();
+                          if (!c.mounted) return;
+                          Navigator.pop(c);
+                          _pesan(
+                            r['message']?.toString() ?? 'Selesai.',
+                            sukses: r['success'] == true,
+                          );
+                        },
+                        icon: const Icon(Icons.send_rounded, size: 18),
+                        label: Text(
+                          'Kirim Semua ke ${perKk.length} Keluarga',
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF22C55E),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
                     Text(
                       '${perKk.length} keluarga memiliki tunggakan. '
-                      'Browser memblokir pembukaan banyak tab sekaligus, jadi kirim satu per satu.',
-                      style: TextStyle(fontSize: 12, color: context.teksKedua),
+                      'Tombol di atas mengirim lewat gateway (Fonnte); '
+                      'browser memblokir pembukaan banyak tab, jadi kirim per keluarga '
+                      'hanya untuk kasus tertentu.',
+                      style: TextStyle(fontSize: 11, color: context.teksKedua),
                     ),
                     const SizedBox(height: 12),
                     Expanded(
