@@ -313,7 +313,7 @@ async function generateBills(req, res) {
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('GenerateBills Error:', err.message);
-    return res.status(500).json({ success: false, message: 'Gagal membuat tagihan: ' + err.message });
+    return res.status(500).json({ success: false, message: 'Gagal membuat tagihan. Periksa log server untuk detailnya.' });
   } finally {
     client.release();
   }

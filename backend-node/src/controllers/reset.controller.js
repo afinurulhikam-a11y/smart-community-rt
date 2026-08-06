@@ -317,6 +317,12 @@ async function eksekusiReset(req, res) {
     console.error('EksekusiReset Error:', err.message);
     return res.status(500).json({
       success: false,
+      // Satu-satunya tempat pesan galat mentah masih ikut dikirim, dan itu
+      // disengaja: rutenya roleGuard('admin'), dan penyebab gagalnya reset
+      // hampir selalu urutan foreign key — nama constraint-nya justru
+      // keterangan yang dibutuhkan untuk memperbaikinya. Menggantinya dengan
+      // "terjadi kesalahan" akan membuat administrator menebak-nebak sambil
+      // mengulang perintah yang menghapus data.
       message: `Reset dibatalkan, tidak ada data yang terhapus. Penyebab: ${err.message}`,
     });
   } finally {

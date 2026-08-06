@@ -119,8 +119,18 @@ app.use((req, res, next) => {
   next();
 });
 app.use(compression());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+// Batas ukuran badan permintaan.
+//
+// Sebelumnya 50MB untuk SETIAP rute. Login, vote polling, checkout tamu —
+// semuanya menyanggupi menampung 50MB di memori sebelum satu baris validasi
+// pun berjalan. `/api/payments/notifikasi` bahkan tanpa autentikasi, jadi
+// tuasnya terbuka untuk siapa saja yang bisa menjangkau server.
+//
+// 1MB cukup untuk setiap muatan JSON di sistem ini. Rute yang benar-benar
+// menerima berkas besar — impor Excel dan unggah — memakai multer yang punya
+// batasnya sendiri dan tidak melewati parser JSON ini sama sekali.
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ limit: '1mb', extended: true }));
 app.use(morgan('dev'));
 app.use('/public', express.static(path.join(__dirname, '../public')));
 
@@ -175,11 +185,39 @@ app.use('/api/patrol', patrolRoutes);
 app.use('/api/upload', uploadRoutes);
 
 // Health check
-app.get('/api/health', (req, res) => {
+//
+// Menyentuh database, bukan sekadar melaporkan bahwa Express hidup.
+//
+// Sebelumnya endpoint ini selalu 200 walau PostgreSQL mati total — sehingga
+// satu-satunya cara mengetahui sistem rusak adalah dengan memakai aplikasinya
+// dan menemui 500 di setiap layar. Health check yang tidak bisa membedakan
+// "sehat" dari "tidak bisa melayani apa pun" lebih buruk daripada tidak ada,
+// karena ia meyakinkan pembacanya bahwa keadaan baik-baik saja.
+//
+// `SELECT 1` sekaligus membuktikan pool masih punya koneksi tersisa — kondisi
+// yang paling mungkin terjadi diam-diam saat impor Excel besar berjalan
+// bersamaan dengan lalu lintas biasa.
+app.get('/api/health', async (req, res) => {
   const { getConnectedClients } = require('./config/websocket');
-  res.json({
-    success: true,
-    message: 'Smart Community RT — Backend API is running 🚀',
+  const { pool } = require('./config/database');
+
+  let database = 'ok';
+  let sehat = true;
+  try {
+    await pool.query('SELECT 1');
+  } catch (err) {
+    database = `gagal: ${err.message}`;
+    sehat = false;
+  }
+
+  // 503 saat database tidak terjangkau, supaya pemantau otomatis maupun manusia
+  // sama-sama melihat kegagalannya tanpa harus membaca isi bodinya.
+  res.status(sehat ? 200 : 503).json({
+    success: sehat,
+    message: sehat
+      ? 'Smart Community RT — Backend API is running 🚀'
+      : 'Backend hidup, tetapi database tidak dapat dihubungi.',
+    database,
     websocket_clients: getConnectedClients(),
     timestamp: new Date().toISOString(),
   });

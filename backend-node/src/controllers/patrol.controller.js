@@ -114,7 +114,7 @@ async function createSchedule(req, res) {
     return res.status(201).json({ success: true, message: 'Jadwal ronda berhasil ditambahkan.', data: result.rows[0] });
   } catch (err) {
     console.error('CreateSchedule Error:', err.message);
-    return res.status(500).json({ success: false, message: err.message || 'Terjadi kesalahan server.' });
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
   }
 }
 
@@ -203,7 +203,7 @@ async function updateSchedule(req, res) {
     return res.status(200).json({ success: true, message: 'Jadwal ronda berhasil diperbarui.', data: result.rows[0] });
   } catch (err) {
     console.error('UpdateSchedule Error:', err.message);
-    return res.status(500).json({ success: false, message: err.message || 'Terjadi kesalahan server.' });
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
   }
 }
 
@@ -441,7 +441,7 @@ async function submitAttendance(req, res) {
     }
   } catch (err) {
     console.error('SubmitAttendance Error:', err.message);
-    return res.status(500).json({ success: false, message: err.message || 'Terjadi kesalahan server.' });
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
   }
 }
 

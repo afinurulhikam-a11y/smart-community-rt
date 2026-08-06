@@ -104,10 +104,17 @@ function filterBarang(req) {
 
 async function getInventory(req, res) {
   try {
+    // Batas bawaan. Sebelumnya endpoint ini mengembalikan SELURUH tabel setiap
+    // kali dipanggil. Pada skala RT hari ini tidak terasa; tabel ini termasuk
+    // yang tumbuh terus tanpa pernah dipangkas, jadi yang berubah hanya kapan
+    // masalahnya muncul. Klien boleh meminta lebih lewat ?limit=, dengan batas
+    // atas supaya satu permintaan tidak bisa menarik seluruh basis data.
+    const batas = Math.min(parseInt(req.query.limit, 10) || 200, 1000);
+
     const { where, params } = filterBarang(req);
     const result = await pool.query(
-      `${SELECT_BARANG} ${where} ORDER BY i.nama_barang ASC`,
-      params
+      `${SELECT_BARANG} ${where} ORDER BY i.nama_barang ASC LIMIT $${params.length + 1}`,
+      [...params, batas]
     );
     return res.status(200).json({ success: true, count: result.rows.length, data: result.rows });
   } catch (err) {
@@ -347,10 +354,17 @@ function filterPinjam(req) {
 
 async function getBorrowings(req, res) {
   try {
+    // Batas bawaan. Sebelumnya endpoint ini mengembalikan SELURUH tabel setiap
+    // kali dipanggil. Pada skala RT hari ini tidak terasa; tabel ini termasuk
+    // yang tumbuh terus tanpa pernah dipangkas, jadi yang berubah hanya kapan
+    // masalahnya muncul. Klien boleh meminta lebih lewat ?limit=, dengan batas
+    // atas supaya satu permintaan tidak bisa menarik seluruh basis data.
+    const batas = Math.min(parseInt(req.query.limit, 10) || 200, 1000);
+
     const { where, params } = filterPinjam(req);
     const result = await pool.query(
-      `${SELECT_PINJAM} ${where} ORDER BY b.tanggal_pinjam DESC, b.id DESC`,
-      params
+      `${SELECT_PINJAM} ${where} ORDER BY b.tanggal_pinjam DESC, b.id DESC LIMIT $${params.length + 1}`,
+      [...params, batas]
     );
     return res.status(200).json({ success: true, count: result.rows.length, data: result.rows });
   } catch (err) {
