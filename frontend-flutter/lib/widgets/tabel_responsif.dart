@@ -135,6 +135,38 @@ class TabelResponsif extends StatelessWidget {
 
   bool get _adaAksi => baris.any((b) => b.aksi != null);
 
+  /// Rapatkan isi kolom aksi ke tepi kiri kolomnya.
+  ///
+  /// Menyejajarkan KOTAK tombol dengan judul kolom saja belum cukup: setiap
+  /// kontrol Material menaruh glifnya di TENGAH sasaran sentuh 48dp, sehingga
+  /// ikon 20px tampak masuk 14px ke dalam meski kotaknya sudah rata kiri.
+  /// Terukur begitu — dan itulah yang membuat kolomnya terlihat tidak lurus.
+  ///
+  /// Yang digeser hanya letak glif di dalam kotaknya, lewat `alignment` dan
+  /// `padding` pada gaya tombolnya. Ukuran kotaknya TIDAK dikecilkan, jadi
+  /// sasaran sentuh 48dp tetap utuh — mengecilkannya akan menukar kerapian
+  /// tampilan dengan tombol yang lebih sering meleset saat ditekan di ponsel.
+  ///
+  /// Disetel lewat `Theme` supaya berlaku untuk apa pun yang diletakkan di
+  /// kolom aksi — satu IconButton, PopupMenuButton, maupun sederet keduanya —
+  /// tanpa setiap layar perlu mengulang pengaturan yang sama.
+  Widget _rapatkanAksi(BuildContext context, Widget aksi) {
+    final tema = Theme.of(context);
+    final gayaLama = tema.iconButtonTheme.style ?? const ButtonStyle();
+
+    return Theme(
+      data: tema.copyWith(
+        iconButtonTheme: IconButtonThemeData(
+          style: gayaLama.copyWith(
+            alignment: Alignment.centerLeft,
+            padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+          ),
+        ),
+      ),
+      child: aksi,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     assert(
@@ -236,8 +268,15 @@ class TabelResponsif extends StatelessWidget {
                       // tidak cocok dengan jumlah kolom dan DataTable melempar galat.
                       //
                       // Rata kiri, menyamai judul kolomnya — lihat komentar di
-                      // atas untuk alasan kenapa "tengah" tidak bisa dipakai.
-                      if (_adaAksi) DataCell(b.aksi ?? const SizedBox.shrink()),
+                      // atas untuk alasan kenapa "tengah" tidak bisa dipakai,
+                      // dan `_rapatkanAksi` untuk kenapa kotak yang rata saja
+                      // belum membuat ikonnya terlihat lurus.
+                      if (_adaAksi)
+                        DataCell(
+                          b.aksi == null
+                              ? const SizedBox.shrink()
+                              : _rapatkanAksi(context, b.aksi!),
+                        ),
                     ],
                   ),
               ],
