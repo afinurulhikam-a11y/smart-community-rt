@@ -34,7 +34,7 @@
  * Idempoten: aman dijalankan berulang.
  */
 require('dotenv').config();
-const { pool } = require('./src/config/database');
+const { pool } = require('../../src/config/database');
 
 async function jalankan() {
   const client = await pool.connect();
