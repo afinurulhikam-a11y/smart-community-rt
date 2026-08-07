@@ -34,6 +34,9 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
   String _jenisBantuan = 'Semua Jenis';
   String _status = 'Semua Status';
   String _searchQuery = '';
+  // Controller pencarian — dibutuhkan agar tombol Reset bisa mengosongkan
+  // teks di kolom pencarian, bukan hanya mengosongkan state pendeteksinya.
+  final TextEditingController _searchController = TextEditingController();
 
   final List<String> _tahunList = ['Semua', '2026', '2025', '2024', '2023', '2022', '2021', '2020'];
 
@@ -43,6 +46,24 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  /// Kembalikan seluruh filter & pencarian ke kondisi awal, lalu muat ulang.
+  void _resetSemuaFilter() {
+    setState(() {
+      _selectedTahun = 'Semua';
+      _jenisBantuan = 'Semua Jenis';
+      _status = 'Semua Status';
+      _searchQuery = '';
+      _searchController.clear();
+    });
+    _loadData();
   }
 
   Future<void> _exportData(String format) async {
@@ -309,6 +330,7 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: TextField(
+                  controller: _searchController,
                   onChanged: (v) => setState(() => _searchQuery = v),
                   onSubmitted: (_) => _loadData(),
                   decoration: InputDecoration(
@@ -326,10 +348,13 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
             SizedBox(
               height: AppTheme.sasaranSentuh,
               child: OutlinedButton.icon(
-                onPressed: _loadData,
+                // Reset seluruh filter (tahun, jenis, status, pencarian) ke
+                // nilai awal lalu muat ulang — sama dengan tombol Reset di
+                // layar Data Warga.
+                onPressed: _resetSemuaFilter,
                 icon: Icon(Icons.refresh, size: 16, color: context.teksKedua),
                 label: Text(
-                  'Refresh',
+                  'Reset',
                   style: TextStyle(color: context.teksKedua, fontSize: 13),
                 ),
                 style: OutlinedButton.styleFrom(
