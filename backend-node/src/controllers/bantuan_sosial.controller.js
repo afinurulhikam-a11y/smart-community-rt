@@ -99,16 +99,17 @@ async function createBantuanSosial(req, res) {
     const { user_id, jenis_bantuan, tahun, nominal, keterangan } = req.body;
     if (!user_id || !jenis_bantuan || !tahun) return res.status(400).json({ success: false, message: 'user_id, jenis_bantuan, dan tahun wajib diisi.' });
 
-    // Nominal wajib, dan itu ditegakkan di sini — bukan hanya di form.
-    //
-    // Sebelumnya nilainya `nominal || 0`, sehingga permintaan tanpa nominal
-    // tetap tersimpan sebagai Rp 0. Ini pencatatan alokasi uang kepada orang
-    // tertentu: baris bernilai nol tidak bisa dibedakan antara "bantuan barang
-    // tanpa nilai uang" dan "petugas lupa mengisi", dan keduanya ikut terbawa
-    // ke rekap serta baris log.
+    // Nominal boleh bernilai 0 (bantuan barang tanpa nilai uang), tetapi bila
+    // 0 maka keterangan WAJIB diisi — agar baris bernilai nol tetap punya
+    // penjelasan, bukan barang yang lupa dicatat. Bila nominal lebih dari 0,
+    // keterangan bersifat opsional.
     const nominalAngka = Number(nominal);
-    if (nominal === undefined || nominal === null || nominal === '' || !Number.isFinite(nominalAngka) || nominalAngka <= 0) {
-      return res.status(400).json({ success: false, message: 'Nominal wajib diisi dan harus lebih besar dari 0.' });
+    if (nominal === undefined || nominal === null || nominal === '' || !Number.isFinite(nominalAngka) || nominalAngka < 0) {
+      return res.status(400).json({ success: false, message: 'Nominal wajib diisi dan tidak boleh negatif.' });
+    }
+    const ketFinal = (keterangan || '').toString().trim();
+    if (nominalAngka === 0 && ketFinal === '') {
+      return res.status(400).json({ success: false, message: 'Keterangan wajib diisi bila nominal 0.' });
     }
 
     // Validasi user exists
@@ -121,7 +122,7 @@ async function createBantuanSosial(req, res) {
 
     const result = await pool.query(
       `INSERT INTO bantuan_sosial (user_id, jenis_bantuan, tahun, nominal, keterangan, created_by) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [user_id, jenis_bantuan, tahun, nominalAngka, keterangan || null, req.user.id]
+      [user_id, jenis_bantuan, tahun, nominalAngka, ketFinal || null, req.user.id]
     );
     // Nama penerima diambil supaya lognya bisa dibaca tanpa membuka tabel lain.
     // Ini alokasi uang kepada orang tertentu — baris log yang hanya memuat UUID
@@ -149,10 +150,20 @@ async function updateBantuanSosial(req, res) {
     // Ini update parsial: kolom yang tidak dikirim dipertahankan lewat COALESCE.
     // Jadi `nominal` boleh saja absen — yang tidak boleh adalah dikirim dengan
     // nilai yang tidak sah, karena itu akan menimpa angka yang sudah benar.
+    // Aturan sama dengan create: nominal 0 diperbolehkan hanya bila keterangan
+    // ikut diisi (bukan kosong).
+    let nominalBaru = null;
     if (nominal !== undefined && nominal !== null && nominal !== '') {
       const n = Number(nominal);
-      if (!Number.isFinite(n) || n <= 0) {
-        return res.status(400).json({ success: false, message: 'Nominal harus berupa angka lebih besar dari 0.' });
+      if (!Number.isFinite(n) || n < 0) {
+        return res.status(400).json({ success: false, message: 'Nominal harus berupa angka tidak negatif.' });
+      }
+      nominalBaru = n;
+    }
+    if (nominalBaru === 0) {
+      const ketFinal = (keterangan || '').toString().trim();
+      if (ketFinal === '') {
+        return res.status(400).json({ success: false, message: 'Keterangan wajib diisi bila nominal 0.' });
       }
     }
 
