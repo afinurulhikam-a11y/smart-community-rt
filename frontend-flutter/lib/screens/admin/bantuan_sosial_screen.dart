@@ -552,6 +552,7 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                         totalPages: provider.totalPages,
                         totalData: provider.totalData,
                         perPage: provider.perPage,
+                        footerTerpusat: true,
                         onPageChanged: (page) => _loadData(page: page),
                       ),
                     ),

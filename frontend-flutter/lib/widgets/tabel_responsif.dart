@@ -114,6 +114,11 @@ class TabelResponsif extends StatelessWidget {
   /// Jumlah data per halaman — dipakai menghitung rentang pada ringkasan
   /// "Menampilkan X–Y dari Z". Default 10 menyesuaikan batas backend.
   final int? perPage;
+
+  /// Bila `true`, footer hanya memuat pagination (Previous/Next + "Halaman X
+  /// dari Y") yang di tengah, TANPA ringkasan "Menampilkan X–Y dari Z".
+  /// Dipakai Bantuan Sosial; layar lain yang ingin ringkasan diputar default.
+  final bool footerTerpusat;
   final ValueChanged<int>? onPageChanged;
 
   const TabelResponsif({
@@ -129,6 +134,7 @@ class TabelResponsif extends StatelessWidget {
     this.totalPages,
     this.totalData,
     this.perPage,
+    this.footerTerpusat = false,
     this.onPageChanged,
   });
 
@@ -222,7 +228,7 @@ class TabelResponsif extends StatelessWidget {
     return content;
   }
 
-  Widget _buildFooter(BuildContext context) {
+Widget _buildFooter(BuildContext context) {
     final halaman = currentPage ?? 1;
     final totalHal = totalPages ?? 1;
     final per = perPage ?? 10;
@@ -232,6 +238,43 @@ class TabelResponsif extends StatelessWidget {
     // bukan dari panjang baris, agar benar walau halaman terakhir lebih pendek.
     final mulai = (halaman - 1) * per + 1;
     final akhir = (halaman * per) > total ? total : halaman * per;
+
+    // Pagination tunggal yang bisa dipakai ulang, dibungkus Row agar tombol
+    // Previous/Next di kiri & kanan dan "Halaman X dari Y" di tengah.
+    Widget pagination() => Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.chevron_left),
+          visualDensity: VisualDensity.compact,
+          tooltip: 'Halaman sebelumnya',
+          onPressed: (halaman > 1)
+              ? () => onPageChanged?.call(halaman - 1)
+              : null,
+        ),
+        Text(
+          'Halaman $halaman dari $totalHal',
+          style: TextStyle(fontSize: 12, color: context.teksKedua),
+        ),
+        IconButton(
+          icon: const Icon(Icons.chevron_right),
+          visualDensity: VisualDensity.compact,
+          tooltip: 'Halaman berikutnya',
+          onPressed: (halaman < totalHal)
+              ? () => onPageChanged?.call(halaman + 1)
+              : null,
+        ),
+      ],
+    );
+
+    // Mode terpusat: hanya pagination ditampilkan, tanpa ringkasan, dan
+    // berada di tengah baris.
+    if (footerTerpusat) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Center(child: pagination()),
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -245,31 +288,7 @@ class TabelResponsif extends StatelessWidget {
             'Menampilkan $mulai–$akhir dari $total data',
             style: TextStyle(fontSize: 12, color: context.teksKedua),
           ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.chevron_left),
-                visualDensity: VisualDensity.compact,
-                tooltip: 'Halaman sebelumnya',
-                onPressed: (halaman > 1)
-                    ? () => onPageChanged?.call(halaman - 1)
-                    : null,
-              ),
-              Text(
-                'Halaman $halaman dari $totalHal',
-                style: TextStyle(fontSize: 12, color: context.teksKedua),
-              ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right),
-                visualDensity: VisualDensity.compact,
-                tooltip: 'Halaman berikutnya',
-                onPressed: (halaman < totalHal)
-                    ? () => onPageChanged?.call(halaman + 1)
-                    : null,
-              ),
-            ],
-          ),
+          pagination(),
         ],
       ),
     );
