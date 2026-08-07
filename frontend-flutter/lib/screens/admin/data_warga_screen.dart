@@ -14,7 +14,6 @@ import '../../../widgets/tabel_responsif.dart';
 import '../../../widgets/tombol_kembali.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
-import '../../core/sandi.dart';
 import '../../core/pesan.dart';
 import '../../core/izin_layar.dart';
 
@@ -784,9 +783,8 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
     //
     // Yang diketik di sini bukan sandi pengurus sendiri melainkan sandi yang
     // akan ia sampaikan kepada warga — dibacakan lewat telepon atau ditulis di
-    // kertas. Menyembunyikannya tanpa jalan keluar membuat tombol "Buatkan
-    // Sandi Acak" mustahil dipakai: sandinya dibuat, lalu tidak bisa dibaca
-    // oleh orang yang perlu menyampaikannya.
+    // kertas. Tombol mata tetap disediakan agar sandi yang dimasukkan bisa
+    // dibaca oleh orang yang perlu menyampaikannya.
     //
     // Tetap tertutup saat dialog dibuka, karena layar ini sering dibuka di
     // depan warga yang bersangkutan maupun orang lain di balai RT.
@@ -1024,44 +1022,6 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                             : null,
                       ),
                     ),
-                    if (bolehEditSemua) ...[
-                      const SizedBox(height: 6),
-                      // Dulu tombol ini mengisi "123456".
-                      //
-                      // Dua hal salah sekaligus. Pertama, backend menolaknya —
-                      // sandi minimal 8 karakter — jadi tombolnya SELALU gagal
-                      // dengan 400, dan karena pemeriksaannya berjalan setelah
-                      // perubahan peran di transaksi yang sama, perubahan peran
-                      // pun ikut terbuang. Itulah yang terlihat sebagai
-                      // "backend-nya belum berfungsi".
-                      //
-                      // Kedua, sandi seragam yang bisa ditebak adalah persis
-                      // yang dihapus dari pembuatan akun: username-nya NIK,
-                      // dan NIK tercetak di dokumen yang beredar luas di satu
-                      // lingkungan RT. Satu tombol mengembalikan seluruh
-                      // rantai pengambilalihan akun itu.
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          setDialogState(() {
-                            passCtrl.text = sandiAcak();
-                            // Langsung ditampilkan. Sandi yang baru dibuat acak
-                            // tidak ada gunanya bila tetap tertutup — pengurus
-                            // membuatnya justru untuk dibacakan ke warga.
-                            sandiTerlihat = true;
-                          });
-                        },
-                        icon: const Icon(Icons.casino_outlined, size: 14),
-                        label: const Text(
-                          'Buatkan Sandi Acak',
-                          style: TextStyle(fontSize: 11),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          visualDensity: VisualDensity.compact,
-                          side: const BorderSide(color: Color(0xFF10B981)),
-                          foregroundColor: const Color(0xFF10B981),
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
