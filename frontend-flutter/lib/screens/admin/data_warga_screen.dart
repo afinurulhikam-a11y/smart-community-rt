@@ -754,50 +754,51 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
           ),
         ),
       ],
-      aksi: Row(
+aksi: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Kolom aksi memakai alignment centerLeft + padding 0 dari
-          // `_rapatkanAksi` di tabel_responsif — KONSISTEN dengan semua layar
-          // lain (Iuran, Kas RT, BOP, Bantuan Sosial). Tombol pertama menempel
-          // di tepi kiri kolom, tepat sejajar di bawah label "AKSI"; tombol
-          // kedua & ketiga berjarak tetap di kanannya (48dp per kotak),
-          // sehingga ikon berada pada satu garis horizontal yang simetris.
+          // Gaya seragam untuk KETIGA tombol, agar hover-nya presisi & pixel-perfect:
+          // ukuran kotak tetap sama (38×38), alignment center (menimpa theme
+          // centerLeft dari _rapatkanAksi), padding nol, dan kotak sentuh
+          // menyesuaikan isi — sehingga lingkaran hover tepat di tengah ikon,
+          // dengan lebar sama di semua tombol.
           //
-          // Alignment center TIDAK dipakai di sini: ia memusatkan ikon di
-          // tengah kotak 48dp dan membuat tombol pertama menyisong lebih dalam
-          // ke kanan dari labelnya — mematahkan keselarasan header-table yang
-          // dibangun _rapatkanAksi.
+          // Fungsi tombol tidak berubah: Edit, Hapus, Akun & Kredensial.
           if (_bolehUbah && item != null)
             IconButton(
               tooltip: 'Edit Data Warga',
               icon: const Icon(Icons.edit_outlined, color: Color(0xFF0F766E), size: 20),
-              style: IconButton.styleFrom(
-                hoverColor: const Color(0xFF0F766E).withValues(alpha: 0.12),
-              ),
+              style: _gayaAksiHover(const Color(0xFF0F766E)),
               onPressed: () => _showEditWargaDialog(context, item),
             ),
           if (_bolehHapus && item != null)
             IconButton(
               tooltip: 'Hapus Warga',
               icon: const Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 20),
-              style: IconButton.styleFrom(
-                hoverColor: const Color(0xFFEF4444).withValues(alpha: 0.12),
-              ),
+              style: _gayaAksiHover(const Color(0xFFEF4444)),
               onPressed: () => _hapusWarga(context, item),
             ),
           IconButton(
             tooltip: 'Akun & Kredensial',
             icon: const Icon(Icons.manage_accounts_outlined, color: Color(0xFF10B981), size: 20),
-            style: IconButton.styleFrom(
-              hoverColor: const Color(0xFF10B981).withValues(alpha: 0.12),
-            ),
+            style: _gayaAksiHover(const Color(0xFF10B981)),
             onPressed: () => _tampilkanDialogKredensial(context, nik, name),
           ),
         ],
       ),
     );
   }
+
+  /// Gaya seragam tombol aksi tabel Data Warga, supaya efek hover-nya presisi,
+  /// simetris, dan sama untuk semua tombol.
+  ButtonStyle _gayaAksiHover(Color warnaIkon) => IconButton.styleFrom(
+    alignment: Alignment.center,
+    minimumSize: const Size(38, 38),
+    maximumSize: const Size(38, 38),
+    padding: EdgeInsets.zero,
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    hoverColor: warnaIkon.withValues(alpha: 0.12),
+  );
 
   Future<void> _tampilkanDialogKredensial(
     BuildContext context,
