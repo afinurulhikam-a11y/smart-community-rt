@@ -306,13 +306,13 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
           ),
         _filledBtn(
           Icons.table_chart_outlined,
-          'Export Excel',
+          'Laporan Excel',
           const Color(0xFF10B981),
           () => context.read<BillProvider>().downloadExport(format: 'excel'),
         ),
         _filledBtn(
           Icons.picture_as_pdf_outlined,
-          'Export PDF',
+          'Laporan PDF',
           const Color(0xFFEF4444),
           () => context.read<BillProvider>().downloadExport(format: 'pdf'),
         ),
