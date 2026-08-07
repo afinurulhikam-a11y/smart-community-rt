@@ -744,4 +744,56 @@ async function importWargaExcel(req, res) {
   }
 }
 
-module.exports = { getWarga, exportWargaExcel, exportWargaPdf, tambahWargaLengkap, updateWargaLengkap, deleteWargaLengkap, importWargaExcel };
+/**
+ * Kirim kredensial login warga (username + sandi bawaan) lewat gateway WA.
+ *
+ * Nama dan nomor HP diambil dari DATABASE berdasarkan NIK, bukan dari body —
+ * supaya tombol di layar tidak bisa dipakai mengirim ke nomor sembarangan.
+ * Sandinya memakai nilai bawaan yang sama dengan pembuatan akun; untuk warga
+ * yang akunnya sudah ada lebih dulu, sandi yang berlaku memang sandi akun itu,
+ * jadi pesan ini hanya bermakna untuk akun yang baru dibuat.
+ */
+async function kirimKredensialWA(req, res) {
+  try {
+    const { nik } = req.body;
+    if (!nik) {
+      return res.status(400).json({ success: false, message: 'NIK wajib diisi.' });
+    }
+
+    const warga = await pool.query(
+      `SELECT u.nama, COALESCE(u.no_hp, ak.no_hp) AS no_hp, u.username
+       FROM users u
+       LEFT JOIN anggota_keluarga ak ON ak.nik = u.nik
+       WHERE u.nik = $1 OR u.username = $1`,
+      [nik]
+    );
+    if (warga.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Warga dengan NIK tersebut tidak ditemukan.' });
+    }
+
+    const data = warga.rows[0];
+    if (!data.no_hp) {
+      return res.status(400).json({ success: false, message: 'Nomor HP warga belum terisi, tidak bisa dikirim WhatsApp.' });
+    }
+
+    const { sendCredentialsWA } = require('../services/whatsapp.service');
+    await sendCredentialsWA({
+      userNama: data.nama,
+      noHp: data.no_hp,
+      username: data.username || nik,
+      password: '12345678',
+    });
+
+    await logActivity(
+      req,
+      'CREATE',
+      `Mengirim kredensial login via WhatsApp ke ${data.nama} (NIK ${nik})`
+    );
+    return res.status(200).json({ success: true, message: 'Kredensial berhasil dikirim via WhatsApp.' });
+  } catch (err) {
+    console.error('Kirim Kredensial WA Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Gagal mengirim kredensial via WhatsApp.' });
+  }
+}
+
+module.exports = { getWarga, exportWargaExcel, exportWargaPdf, tambahWargaLengkap, updateWargaLengkap, deleteWargaLengkap, importWargaExcel, kirimKredensialWA };

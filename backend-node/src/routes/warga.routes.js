@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getWarga, exportWargaExcel, exportWargaPdf, tambahWargaLengkap, updateWargaLengkap, deleteWargaLengkap, importWargaExcel } = require('../controllers/warga.controller');
+const { getWarga, exportWargaExcel, exportWargaPdf, tambahWargaLengkap, updateWargaLengkap, deleteWargaLengkap, importWargaExcel, kirimKredensialWA } = require('../controllers/warga.controller');
 const { authMiddleware, requirePermission } = require('../middleware/auth.middleware');
 
 const { validate } = require('../middleware/validate.middleware');
@@ -28,6 +28,7 @@ router.get('/', requirePermission('kependudukan.warga', 'view'), getWarga);
 router.post('/', requirePermission('kependudukan.warga', 'create'), validate(wargaSchema), tambahWargaLengkap);
 router.get('/export/excel', requirePermission('kependudukan.warga', 'view'), exportWargaExcel);
 router.post('/import/excel', requirePermission('kependudukan.warga', 'create'), importWargaExcel);
+router.post('/kirim-kredensial-wa', requirePermission('kependudukan.warga', 'update'), kirimKredensialWA);
 router.get('/export/pdf', requirePermission('kependudukan.warga', 'view'), exportWargaPdf);
 
 // Ubah data warga. NIK tidak boleh berubah (kunci utama anggota sekaligus

@@ -83,6 +83,26 @@ async function sendWA({ target, message }) {
   });
 }
 
+/** Notifikasi WhatsApp untuk Kredensial Akun Baru Warga */
+async function sendCredentialsWA({ userNama, noHp, username, password }) {
+  const pesan = 
+`Assalamualaikum, Yth. Bapak/Ibu *${userNama || 'Warga'}*,
+
+Akun akses aplikasi Smart Community RT Anda telah dibuat:
+
+• *Username*: ${username}
+• *Password*: ${password}
+
+Demi keamanan akun, mohon segera *GANTI password* setelah login pertama Anda melalui menu Profil.
+
+Terima kasih.
+— *Pengurus RT*`;
+
+  if (noHp) {
+    await sendWA({ target: noHp, message: pesan });
+  }
+}
+
 /** Notifikasi WhatsApp untuk Sinyal Darurat Panic Button */
 async function sendEmergencyWA({ userNama, alamat, noHp, tipeEmergency }) {
   const pesan = 
@@ -169,6 +189,7 @@ Terima kasih atas dedikasi Bpk/Ibu dalam menjaga keamanan bersama!
 
 module.exports = {
   sendWA,
+  sendCredentialsWA,
   sendEmergencyWA,
   sendBillWA,
   sendLetterApprovedWA,
