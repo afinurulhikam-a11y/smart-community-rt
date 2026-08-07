@@ -78,9 +78,30 @@ async function getDemographicsSummary(req, res) {
           COUNT(*)::int AS total_warga,
           COUNT(*) FILTER (WHERE ak.jenis_kelamin = 'L')::int AS laki_laki,
           COUNT(*) FILTER (WHERE ak.jenis_kelamin = 'P')::int AS perempuan,
+          -- Warga yang jenis kelaminnya bukan L maupun P.
+          --
+          -- Tanpa hitungan ini mereka hilang tanpa suara: total_warga
+          -- memasukkannya, sedangkan kartu Laki-laki + Perempuan dan grafik
+          -- Komposisi Gender tidak — jadi satu halaman menampilkan 36 jiwa
+          -- sementara grafik gendernya hanya menjumlah 35, tanpa satu pun error.
+          -- Kategori lain sudah aman karena dibangun lewat kategoriWarga, yang
+          -- memunculkan "Tidak Diisi" dengan sendirinya; gender satu-satunya
+          -- yang dirakit tangan dari dua FILTER.
+          --
+          -- Catatan: JANGAN pakai backtick di komentar ini. Seluruh kueri
+          -- berada di dalam template literal JavaScript, dan satu backtick
+          -- menutupnya di tengah jalan.
+          COUNT(*) FILTER (
+            WHERE ak.jenis_kelamin IS NULL OR ak.jenis_kelamin NOT IN ('L', 'P')
+          )::int AS gender_kosong,
 
+          -- age() bernilai negatif untuk tanggal di masa depan, dan "< 5"
+          -- menerimanya — salah ketik tahun akan tercatat sebagai balita.
+          -- Usianya memang tidak diketahui, jadi digolongkan bersama yang
+          -- kosong, bukan ditebak.
           COUNT(*) FILTER (
             WHERE ak.tanggal_lahir IS NOT NULL
+              AND ak.tanggal_lahir <= CURRENT_DATE
               AND date_part('year', age(CURRENT_DATE, ak.tanggal_lahir)) < 5
           )::int AS balita,
           COUNT(*) FILTER (
@@ -95,7 +116,9 @@ async function getDemographicsSummary(req, res) {
           COUNT(*) FILTER (
             WHERE date_part('year', age(CURRENT_DATE, ak.tanggal_lahir)) >= 60
           )::int AS lansia,
-          COUNT(*) FILTER (WHERE ak.tanggal_lahir IS NULL)::int AS usia_kosong,
+          COUNT(*) FILTER (
+            WHERE ak.tanggal_lahir IS NULL OR ak.tanggal_lahir > CURRENT_DATE
+          )::int AS usia_kosong,
 
           COUNT(*) FILTER (
             WHERE ak.status_pernikahan IN ('Cerai Hidup', 'Cerai Mati')
@@ -105,13 +128,7 @@ async function getDemographicsSummary(req, res) {
 
       // Statistik tingkat keluarga dihitung per KK, bukan per jiwa.
       pool.query(`
-        SELECT
-          COUNT(*)::int AS total_kk,
-          COUNT(*) FILTER (
-            WHERE status_rumah ILIKE '%Sewa%'
-               OR status_rumah ILIKE '%Kontrak%'
-               OR status_rumah ILIKE '%Kos%'
-          )::int AS rumah_sewa_kos
+        SELECT COUNT(*)::int AS total_kk
         ${SUMBER_KELUARGA} ${filterRtKk}
       `, params),
 
@@ -143,11 +160,16 @@ async function getDemographicsSummary(req, res) {
         balita: w.balita || 0,
         lansia: w.lansia || 0,
         janda_duda: w.janda_duda || 0,
-        rumah_sewa_kos: kk.rumah_sewa_kos || 0,
       },
+      // "Tidak Diisi" hanya ikut bila memang ada isinya, persis seperti
+      // kategori lain: GROUP BY tidak pernah menghasilkan baris berjumlah nol,
+      // jadi basis data yang rapi tidak akan menampilkan potongan kosong.
+      // Diletakkan di urutan terakhir dengan alasan yang sama seperti
+      // `urutkanKategori`: ia tidak boleh mendahului kategori yang terisi.
       gender: [
         { label: 'Laki-laki', jumlah: w.laki_laki || 0 },
         { label: 'Perempuan', jumlah: w.perempuan || 0 },
+        ...(w.gender_kosong > 0 ? [{ label: LABEL_KOSONG, jumlah: w.gender_kosong }] : []),
       ],
       // Urutan bucket usia sengaja tetap (bukan diurutkan jumlah) agar sumbu
       // chart terbaca dari termuda ke tertua.
