@@ -176,7 +176,12 @@ class _StatistikKependudukanScreenState extends State<StatistikKependudukanScree
           GradientStatCard(
             label: 'Total Jiwa',
             value: summary.totalWarga.toString(),
-            subtitle: 'Warga aktif terdata',
+            // Bukan lagi "warga aktif": angkanya menghitung SETIAP anggota
+            // keluarga yang kartu keluarganya belum dihapus, sama persis dengan
+            // yang didaftar layar Data Warga. Penyaring `is_aktif` sudah
+            // dilepas agar kedua layar tidak melaporkan jumlah yang berbeda,
+            // dan subjudul ini tertinggal menyebut aturan yang tidak berlaku.
+            subtitle: 'Seluruh warga terdata',
             icon: Icons.people,
             gradientColors: const [Color(0xFF0F766E), Color(0xFF14B8A6)],
           ),
@@ -221,13 +226,7 @@ class _StatistikKependudukanScreenState extends State<StatistikKependudukanScree
             Color(0xFFF43F5E),
             Color(0xFFFB7185),
           ]),
-          // Dihitung per kartu keluarga, bukan per jiwa — label menyebut KK
-          // supaya tidak dikira jumlah orang.
-          _buildMiniCard('KK Sewa/Kos', rentan.rumahSewaKos.toString(), Icons.house, const [
-            Color(0xFF3B82F6),
-            Color(0xFF60A5FA),
-          ]),
-        ], defaultCrossAxisCount: 4),
+        ], defaultCrossAxisCount: 3),
 
         const SizedBox(height: 24),
 

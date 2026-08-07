@@ -45,19 +45,21 @@ class DemographicSummary {
   }
 }
 
-/// Kelompok rentan & sosial. `rumahSewaKos` dihitung per kartu keluarga,
-/// bukan per jiwa — label di layar harus mencerminkan itu.
+/// Kelompok rentan & sosial — seluruhnya dihitung per jiwa.
+///
+/// `rumahSewaKos` dihapus bersama kartunya di layar Statistik. Ia satu-satunya
+/// isi kelompok ini yang dihitung per kartu keluarga, bukan per jiwa, sehingga
+/// berdiri sejajar dengan tiga angka lain yang tidak sebanding dengannya.
+/// Hitungannya juga dilepas dari kueri backend, bukan sekadar disembunyikan.
 class DemographicRentan {
   final int balita;
   final int lansia;
   final int jandaDuda;
-  final int rumahSewaKos;
 
   const DemographicRentan({
     required this.balita,
     required this.lansia,
     required this.jandaDuda,
-    required this.rumahSewaKos,
   });
 
   factory DemographicRentan.fromJson(Map<String, dynamic> json) {
@@ -65,7 +67,6 @@ class DemographicRentan {
       balita: _toInt(json['balita']),
       lansia: _toInt(json['lansia']),
       jandaDuda: _toInt(json['janda_duda']),
-      rumahSewaKos: _toInt(json['rumah_sewa_kos']),
     );
   }
 }
