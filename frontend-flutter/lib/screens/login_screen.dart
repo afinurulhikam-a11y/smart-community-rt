@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../core/services/auth_service.dart';
 import '../core/pesan.dart';
@@ -290,6 +291,14 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 8),
             TextFormField(
               controller: _emailController,
+              // Batasi maksimal 16 karakter — NIK warga selalu 16 digit.
+              // `LengthLimitingTextInputFormatter` berlaku saat mengetik maupun
+              // menempel (paste), dan memotong kelebihan sebelum validator
+              // berjalan. `FilteringTextInputFormatter.digitsOnly` SENGAJA tidak
+              // dipakai: field ini juga menerima username/email pengurus yang
+              // mengandung huruf, jadi memaksa digit saja akan memutus login
+              // non-NIK.
+              inputFormatters: [LengthLimitingTextInputFormatter(16)],
               decoration: InputDecoration(
                 hintText: 'Masukkan NIK atau Username',
                 hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
@@ -317,6 +326,7 @@ class _LoginScreenState extends State<LoginScreen> {
               style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
               validator: (v) {
                 if (v == null || v.isEmpty) return 'Username wajib diisi';
+                if (v.length > 16) return 'Maksimal 16 karakter';
                 return null;
               },
             ),

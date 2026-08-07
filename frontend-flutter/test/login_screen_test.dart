@@ -62,11 +62,12 @@ void main() {
     final kolom = find.byType(TextField);
     expect(kolom, findsNWidgets(2));
 
-    await tester.enterText(kolom.at(0), 'warga@example.com');
+    // NIK 16 digit — field login kini dibatasi maksimal 16 karakter.
+    await tester.enterText(kolom.at(0), '0812345678901234');
     await tester.enterText(kolom.at(1), 'warga123');
     await tester.pump();
 
-    expect(find.text('warga@example.com'), findsOneWidget);
+    expect(find.text('0812345678901234'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
