@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/bantuan_sosial_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -808,7 +809,7 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                       const SizedBox(height: 8),
                       if (!isEdit)
                         DropdownButtonFormField<String>(
-                          decoration: buildDecor('Pilih Warga', Icons.person_outline),
+                          decoration: buildDecor('Pilih Warga *', Icons.person_outline),
                           initialValue: selectedUserId,
                           dropdownColor: context.latarKartu,
                           borderRadius: BorderRadius.circular(12),
@@ -822,7 +823,7 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                         ),
                       if (!isEdit) const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
-                        decoration: buildDecor('Jenis Bantuan', Icons.card_giftcard),
+                        decoration: buildDecor('Jenis Bantuan *', Icons.card_giftcard),
                         initialValue: selectedJenis,
                         dropdownColor: context.latarKartu,
                         borderRadius: BorderRadius.circular(12),
@@ -834,17 +835,19 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                       const SizedBox(height: 16),
                       TextField(
                         controller: tahunController,
-                        decoration: buildDecor('Tahun', Icons.calendar_month_outlined),
+                        decoration: buildDecor('Tahun *', Icons.calendar_month_outlined),
                         keyboardType: TextInputType.number,
                       ),
                       const SizedBox(height: 16),
                       TextField(
                         controller: nominalController,
-                        decoration: buildDecor(
-                          'Nominal (Opsional)',
-                          Icons.monetization_on_outlined,
-                        ),
+                        decoration: buildDecor('Nominal *', Icons.monetization_on_outlined),
                         keyboardType: TextInputType.number,
+                        // keyboardType hanya menyarankan papan tombol angka; ia
+                        // tidak menyaring apa pun. Tanpa formatter ini, huruf
+                        // yang terketik lolos ke controller lalu ditolak sebagai
+                        // "wajib diisi" — padahal kolomnya jelas terisi.
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       ),
                       const SizedBox(height: 16),
                       if (isEdit) ...[
@@ -890,12 +893,22 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                       pesanGagal(context, 'Tahun wajib diisi');
                       return;
                     }
+                    // Nominal tidak lagi opsional. Baris bernilai nol tidak bisa
+                    // dibedakan antara bantuan tanpa nilai uang dan petugas yang
+                    // lupa mengisi, padahal keduanya ikut ke rekap dan log.
+                    // Aturan yang sama ditegakkan di backend, jadi ini lapisan
+                    // pertama — bukan satu-satunya.
+                    final nominal = double.tryParse(nominalController.text.trim());
+                    if (nominal == null || nominal <= 0) {
+                      pesanGagal(context, 'Nominal wajib diisi dan harus lebih besar dari 0');
+                      return;
+                    }
 
                     final payload = {
                       if (isEdit) 'user_id': data['user_id'] else 'user_id': selectedUserId,
                       'jenis_bantuan': selectedJenis,
                       'tahun': int.tryParse(tahunController.text) ?? DateTime.now().year,
-                      'nominal': double.tryParse(nominalController.text),
+                      'nominal': nominal,
                       'keterangan': ketController.text,
                       if (isEdit) 'status': status,
                     };
@@ -908,7 +921,7 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                         userId: selectedUserId!,
                         jenisBantuan: selectedJenis,
                         tahun: int.tryParse(tahunController.text) ?? DateTime.now().year,
-                        nominal: double.tryParse(nominalController.text),
+                        nominal: nominal,
                         keterangan: ketController.text,
                       );
                     }
