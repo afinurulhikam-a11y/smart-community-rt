@@ -737,7 +737,12 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                           items: provider.wargaList.map((w) {
                             return DropdownMenuItem<String>(
                               value: w['id'],
-                              child: Text('${w['nama']} (${w['nik'] ?? '-'})'),
+                              // Eksklusif nama saja. Sebelumnya ada ' (${w['nik'] ?? '-'})';
+                              // endpoint /users tidak pernah mengirim nik, jadi itu selalu
+                              // dirender sebagai '(-)' yang tidak memuat NIK dan tidak
+                              // dipakai dalam logika apa pun — sisa tampilan yang
+                              // menyesatkan.
+                              child: Text('${w['nama']}'),
                             );
                           }).toList(),
                           onChanged: (v) => setDialogState(() => selectedUserId = v),
