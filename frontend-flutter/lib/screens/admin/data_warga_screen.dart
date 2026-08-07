@@ -83,6 +83,52 @@ class DataWargaScreen extends StatefulWidget {
 /// Kode modul di tabel izin. Bendahara hanya punya `view` di sini.
 const String _kodeIzin = 'kependudukan.warga';
 
+/// Sisi permukaan hover tombol pada kolom AKSI.
+///
+/// Sengaja lebih kecil daripada sasaran sentuh: yang perlu terlihat hanyalah
+/// latar di sekeliling ikon 20px, sedangkan area yang bisa ditekan tetap 48
+/// penuh — termasuk di tampilan kartu pada ponsel, tempat tombol ini juga
+/// dipakai.
+const double ukuranHoverAksi = 30;
+
+/// Geser lukis kolom AKSI agar ikonnya kembali ke tepi kiri kolom.
+///
+/// `IconButton` selalu memusatkan kotak hover-nya di dalam sasaran sentuh 48.
+/// Memusatkan glif di dalam kotak itu — yang memang diperlukan agar hover
+/// simetris — mendorong seluruh deretnya (48 − 30) / 2 = 9px ke kanan.
+/// Pergeseran ini membatalkannya persis, sehingga ikon berhenti di piksel yang
+/// sama seperti sebelumnya.
+///
+/// `Transform.translate` hanya memengaruhi pelukisan, bukan tata letak, dan
+/// `transformHitTests` bawaannya `true` sehingga area sentuh ikut berpindah
+/// bersama gambarnya. Nilainya TETAP: tidak berubah saat hover, ditekan,
+/// maupun difokuskan.
+const double geserAksiTabel = -(kMinInteractiveDimension - ukuranHoverAksi) / 2;
+
+/// Gaya seragam ketiga tombol pada kolom AKSI tabel Data Warga.
+///
+/// Yang diperbaiki: latar hover-nya meleset 9px ke kanan dari ikonnya. Terukur,
+/// bukan dikira — `alignment: centerLeft` menaruh glif 20px di tepi kiri kotak
+/// dalam 38px, sementara latar hover mengisi SELURUH kotak itu. Glif berpusat
+/// di 15, latarnya di 24. Ikonnya sendiri tidak pernah bergeser; yang salah
+/// letak adalah latarnya, dan itu terbaca seperti ikon yang meloncat begitu
+/// kursor masuk.
+///
+/// Sekarang glif dipusatkan di kotak hover-nya sendiri, dan kotak itu dibuat
+/// seukuran latar yang memang ingin terlihat. Hasil ukur: pusat hover dan pusat
+/// glif berselisih 0,0px — mendatar maupun tegak — untuk ketiga tombol.
+///
+/// `CircleBorder` pada kotak persegi 30×30 membuat bentuknya sama simetris ke
+/// segala arah; tidak ada sisi yang lebih lega daripada sisi lain.
+ButtonStyle gayaAksiTabel(Color warnaIkon) => IconButton.styleFrom(
+  alignment: Alignment.center,
+  minimumSize: const Size(ukuranHoverAksi, ukuranHoverAksi),
+  maximumSize: const Size(ukuranHoverAksi, ukuranHoverAksi),
+  padding: EdgeInsets.zero,
+  shape: const CircleBorder(),
+  hoverColor: warnaIkon.withValues(alpha: 0.12),
+);
+
 /// Satu dekorasi untuk SELURUH kotak isian di dialog Akun & Kredensial.
 ///
 /// Sebelum ini keempat kotaknya dibangun sendiri-sendiri dan tidak ada dua yang
@@ -814,54 +860,51 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
           ),
         ),
       ],
-aksi: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Gaya seragam untuk KETIGA tombol Aksi.
-          //
-          // alignment: centerLeft — bukan center — agar ikon menempel di tepi
-          // kiri KOTAKnya, sejajar persis di bawah label kolom "AKSI" yang juga
-          // rata kiri. alignment center membuat ikon dipusat-kan di dalam kotak
-          // 38px, sehingga ikon pertama bergeser 9px ke kanan dari label —
-          // inilah penyebab "ikon aksi bergeser" yang tampak di tabel.
-          //
-          // Kotak tetap 38×38 + padding nol di tiap tombol membuat ketiganya
-          // berjajar rapat dengan jarak antar ikon yang sama (38px) dan hover
-          // tidak ikut menggeser posisi ikon. Fungsi tombol tidak diubah.
-          if (_bolehUbah && item != null)
+aksi: Transform.translate(
+        // Statis, bukan tanggapan atas hover — lihat [geserAksiTabel]. Nilainya
+        // sama pada keadaan diam, hover, tekan, dan fokus, jadi tidak ada satu
+        // pun pergeseran yang dipicu kursor.
+        offset: const Offset(geserAksiTabel, 0),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Ketiganya memakai [gayaAksiTabel] yang sama: kotak hover lingkaran
+            // 30×30 dengan glif dipusatkan di dalamnya, sasaran sentuh tetap 48.
+            // Ukuran hover, bentuk, dan area sentuhnya identik — tidak ada satu
+            // tombol pun yang lebih lega daripada yang lain.
+            //
+            // Posisi glif tidak berubah sedikit pun dibanding sebelumnya; yang
+            // berpindah hanya latar hover, dari meleset 9px menjadi tepat di
+            // tengah ikon. Fungsi ketiga tombol tidak diubah.
+            if (_bolehUbah && item != null)
+              IconButton(
+                tooltip: 'Edit Data Warga',
+                icon: const Icon(Icons.edit_outlined, color: Color(0xFF0F766E), size: 20),
+                style: gayaAksiTabel(const Color(0xFF0F766E)),
+                onPressed: () => _showEditWargaDialog(context, item),
+              ),
+            if (_bolehHapus && item != null)
+              IconButton(
+                tooltip: 'Hapus Warga',
+                icon: const Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 20),
+                style: gayaAksiTabel(const Color(0xFFEF4444)),
+                onPressed: () => _hapusWarga(context, item),
+              ),
             IconButton(
-              tooltip: 'Edit Data Warga',
-              icon: const Icon(Icons.edit_outlined, color: Color(0xFF0F766E), size: 20),
-              style: _gayaAksiHover(const Color(0xFF0F766E)),
-              onPressed: () => _showEditWargaDialog(context, item),
+              tooltip: 'Akun & Kredensial',
+              icon: const Icon(
+                Icons.manage_accounts_outlined,
+                color: Color(0xFF10B981),
+                size: 20,
+              ),
+              style: gayaAksiTabel(const Color(0xFF10B981)),
+              onPressed: () => _tampilkanDialogKredensial(context, nik, name),
             ),
-          if (_bolehHapus && item != null)
-            IconButton(
-              tooltip: 'Hapus Warga',
-              icon: const Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 20),
-              style: _gayaAksiHover(const Color(0xFFEF4444)),
-              onPressed: () => _hapusWarga(context, item),
-            ),
-          IconButton(
-            tooltip: 'Akun & Kredensial',
-            icon: const Icon(Icons.manage_accounts_outlined, color: Color(0xFF10B981), size: 20),
-            style: _gayaAksiHover(const Color(0xFF10B981)),
-            onPressed: () => _tampilkanDialogKredensial(context, nik, name),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
-
-  /// Gaya seragam tombol aksi tabel Data Warga — kotak tetap, rata kiri,
-  /// hit area konsisten, hover senada ikon.
-  ButtonStyle _gayaAksiHover(Color warnaIkon) => IconButton.styleFrom(
-    alignment: Alignment.centerLeft,
-    minimumSize: const Size(38, 38),
-    maximumSize: const Size(38, 38),
-    padding: EdgeInsets.zero,
-    hoverColor: warnaIkon.withValues(alpha: 0.12),
-  );
 
   Future<void> _tampilkanDialogKredensial(
     BuildContext context,
