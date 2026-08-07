@@ -816,26 +816,34 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
             IconButton(
               tooltip: 'Bayar',
               icon: const Icon(Icons.payments_outlined, size: 18, color: Color(0xFF059669)),
+              // Hover yang presisi: `_rapatkanAksi` di tabel_responsif menimpa
+              // theme dengan alignment centerLeft + padding 0, sehingga inkwell
+              // 48dp lebih lebar dari ikon 18px dan sorotan hover muncul di
+              // area kosong di kanan ikon. Alignment center di sini memusatkan
+              // ikon dalam kotak tombolnya, membuat sorotan hover tepat pada
+              // ikon.
+              style: IconButton.styleFrom(
+                alignment: Alignment.center,
+                hoverColor: const Color(0xFF059669).withValues(alpha: 0.12),
+              ),
               onPressed: () => _bayarSatu(b),
-            ),
-          if (!b.isLunas && _bolehUbah && (b.noHp?.isNotEmpty ?? false))
-            IconButton(
-              tooltip: 'Tagih via WhatsApp',
-              icon: const Icon(Icons.chat_outlined, size: 18, color: Color(0xFF22C55E)),
-              onPressed: () => _tagihSatu(b),
             ),
           if (b.isLunas)
             const Padding(
               // Jeda antara penanda "lunas" dan tombol hapus: TabelResponsif
               // memampatkan ikon (padding 0), jadi tanpa jarak ini keduanya
               // menempel.
-              padding: EdgeInsets.only(right: 12),
+              padding: EdgeInsets.only(right: 24),
               child: Icon(Icons.check_circle, color: Color(0xFF10B981), size: 20),
             ),
           if (_bolehHapus)
             IconButton(
               tooltip: 'Hapus Tagihan',
               icon: const Icon(Icons.delete_outline, size: 18, color: Color(0xFFEF4444)),
+              style: IconButton.styleFrom(
+                alignment: Alignment.center,
+                hoverColor: const Color(0xFFEF4444).withValues(alpha: 0.12),
+              ),
               onPressed: () => _hapusTagihan(b),
             ),
           if (!b.isLunas && !_bolehUbah && !_bolehHapus)
@@ -938,13 +946,6 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
     );
     if (ok != true || !mounted) return;
     final hasil = await context.read<BillProvider>().deleteBill(b.id);
-    _pesan(hasil['message']?.toString() ?? 'Selesai.', sukses: hasil['success'] == true);
-  }
-
-  Future<void> _tagihSatu(BillModel b) async {
-    // Lewat gateway backend (Fonnte), bukan membuka wa.me — sama seperti
-    // pengiriman massal. Nomor tujuan diambil server dari data KK.
-    final hasil = await context.read<BillProvider>().tagihSemuaWA(billIds: [b.id]);
     _pesan(hasil['message']?.toString() ?? 'Selesai.', sukses: hasil['success'] == true);
   }
 
