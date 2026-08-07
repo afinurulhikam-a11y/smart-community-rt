@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const { SUMBER_WARGA, SUMBER_KELUARGA } = require('../utils/lingkup-warga');
 
 const LABEL_KOSONG = 'Tidak Diisi';
 
@@ -29,42 +30,35 @@ async function getDemographicsSummary(req, res) {
     // memuat id/email/role sehingga filternya tidak pernah aktif.
     const { rt } = req.query;
     const filterRt = rt ? 'AND k.rt = $1' : '';
-    const filterRtKk = rt ? (rt ? 'WHERE rt = $1 AND deleted_at IS NULL' : 'WHERE deleted_at IS NULL') : 'WHERE deleted_at IS NULL';
+    const filterRtKk = rt ? 'AND rt = $1' : '';
     const params = rt ? [rt] : [];
 
-    // TIDAK ada penyaringan `ak.deleted_at` di sini, dan itu memang benar.
+    // Lingkupnya datang dari src/utils/lingkup-warga.js dan TIDAK ditulis ulang
+    // di sini. Dua hal yang dulu berbeda antara berkas ini dan Data Warga, dan
+    // dua-duanya gagal tanpa suara:
     //
-    // Kedua kueri di bawah sempat memakai `ak.deleted_at IS NULL`, padahal
-    // `anggota_keluarga` tidak punya kolom itu — migrasi soft-delete hanya
-    // menyentuh users, keluarga, inventory, complaints, letters, agenda, dan
-    // finances. Akibatnya SELURUH endpoint ini selalu 500, dan kartu
-    // "Data Warga" di dashboard menampilkan 0 karena providernya tidak pernah
-    // menerima data.
+    // 1. `ak.deleted_at IS NULL` — kolom yang tidak pernah ada di
+    //    `anggota_keluarga`. Membuat SELURUH endpoint ini 500, dan kartunya
+    //    menampilkan 0 karena `?? 0` di sisi Flutter menelan kegagalannya.
     //
-    // Yang menyembunyikannya: layar Data Warga memakai kuerinya sendiri yang
-    // hanya menyaring `k.deleted_at` — kolom yang MEMANG ada — sehingga
-    // daftarnya tampil normal. Satu layar menunjukkan 41 orang, layar lain
-    // menunjukkan 0, dan keduanya seolah membaca sumber yang sama.
+    // 2. `ak.is_aktif = true` — kolom yang memang ada, jadi tidak ada error
+    //    sama sekali. Layar Data Warga menghitung semua anggota, berkas ini
+    //    menghitung yang aktif saja, dan kedua angka itu tampil berdampingan di
+    //    aplikasi yang sama sebagai jumlah warga. Tidak ada yang salah menurut
+    //    kodenya masing-masing; yang salah adalah keduanya menjawab pertanyaan
+    //    berbeda dengan label yang sama.
     //
-    // Tidak ada satu baris pun di seluruh kode yang menulis
-    // `anggota_keluarga.deleted_at`, jadi penyaringnya bukan aturan yang lupa
-    // diterapkan — ia memang tidak pernah punya tempat di tabel ini. Anggota
-    // yang keluarganya dihapus tetap tersaring lewat JOIN ke `keluarga`.
-    //
-    // `ak.is_aktif = true` DIPERTAHANKAN: itu kolom yang benar-benar ada dan
-    // memang bermakna — warga yang pindah ditandai tidak aktif dan tidak
-    // seharusnya ikut dihitung dalam statistik kependudukan. Karena itu angka
-    // di sini bisa sedikit lebih kecil daripada di Data Warga, yang sengaja
-    // menampilkan semuanya.
+    // Sekarang keduanya memakai konstanta yang sama, jadi jumlahnya tidak bisa
+    // berbeda tanpa seseorang mengubah satu berkas yang dibaca keduanya.
+    // Status aktif tetap tersimpan dan tetap tampil sebagai lencana per baris
+    // di Data Warga.
 
     // Satu helper untuk semua pecahan kategori warga (agama, pendidikan, dst).
     // Nama kolom berasal dari konstanta di file ini, bukan dari input user.
     const kategoriWarga = (kolom) => pool.query(`
       SELECT COALESCE(NULLIF(TRIM(ak.${kolom}), ''), '${LABEL_KOSONG}') AS label,
              COUNT(*)::int AS jumlah
-      FROM anggota_keluarga ak
-      JOIN keluarga k ON ak.keluarga_id = k.id
-      WHERE ak.is_aktif = true AND k.deleted_at IS NULL ${filterRt}
+      ${SUMBER_WARGA} ${filterRt}
       GROUP BY 1
       ORDER BY jumlah DESC, label ASC
     `, params);
@@ -106,9 +100,7 @@ async function getDemographicsSummary(req, res) {
           COUNT(*) FILTER (
             WHERE ak.status_pernikahan IN ('Cerai Hidup', 'Cerai Mati')
           )::int AS janda_duda
-        FROM anggota_keluarga ak
-        JOIN keluarga k ON ak.keluarga_id = k.id
-        WHERE ak.is_aktif = true AND k.deleted_at IS NULL ${filterRt}
+        ${SUMBER_WARGA} ${filterRt}
       `, params),
 
       // Statistik tingkat keluarga dihitung per KK, bukan per jiwa.
@@ -120,15 +112,13 @@ async function getDemographicsSummary(req, res) {
                OR status_rumah ILIKE '%Kontrak%'
                OR status_rumah ILIKE '%Kos%'
           )::int AS rumah_sewa_kos
-        FROM keluarga
-        ${filterRtKk}
+        ${SUMBER_KELUARGA} ${filterRtKk}
       `, params),
 
       pool.query(`
         SELECT COALESCE(NULLIF(TRIM(status_rumah), ''), '${LABEL_KOSONG}') AS label,
                COUNT(*)::int AS jumlah
-        FROM keluarga
-        ${filterRtKk}
+        ${SUMBER_KELUARGA} ${filterRtKk}
         GROUP BY 1
         ORDER BY jumlah DESC, label ASC
       `, params),

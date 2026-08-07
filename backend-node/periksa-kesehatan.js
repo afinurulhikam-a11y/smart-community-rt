@@ -1,5 +1,6 @@
 require('dotenv').config();
 const { pool } = require('./src/config/database');
+const { SUMBER_WARGA } = require('./src/utils/lingkup-warga');
 
 /**
  * Pemeriksaan kesehatan setelah sesi pengujian.
@@ -106,6 +107,52 @@ const PERIKSA = [
     nama: 'Akun tanpa username',
     kenapa: 'login mencocokkan email OR username; kolom kosong menyimpang dari desain.',
     sql: 'SELECT email FROM users WHERE username IS NULL',
+  },
+  {
+    nama: 'Lingkup warga menyimpang dari definisi yang disepakati',
+    kenapa:
+      'Data Warga dan kartu TOTAL WARGA sama-sama melabeli angkanya "warga" dan ' +
+      'tampil di aplikasi yang sama. Selisih sekecil apa pun berarti salah satunya ' +
+      'berbohong, dan tidak ada error di mana pun yang akan memberi tahu.',
+    // Sisi kiri memakai SUMBER_WARGA — konstanta yang benar-benar dipakai kedua
+    // layar. Sisi kanan ditulis tangan di sini sebagai definisi yang disepakati:
+    // setiap anggota keluarga yang kartu keluarganya belum dihapus.
+    //
+    // Membandingkan konstanta itu dengan dirinya sendiri akan selalu lolos,
+    // termasuk ketika konstantanya sendiri yang salah — jadi pembandingnya harus
+    // ditulis terpisah. Kalau seseorang menambahkan penyaring ke SUMBER_WARGA
+    // (`ak.is_aktif = true` adalah yang dulu terjadi, dan itu juga membuang
+    // baris ber-NULL), baris temuan akan muncul di sini.
+    //
+    // BATASNYA, dan ini sudah diuji bukan diperkirakan: pemeriksaan ini buta
+    // selama belum ada satu pun warga tidak aktif. Dengan penyaring itu
+    // disisipkan pada database tanpa baris tidak-aktif, hasilnya tetap nol
+    // temuan; pada database dengan 3 tidak-aktif + 1 NULL, ia langsung
+    // melaporkan 32 lawan 36. Pemeriksaan berikutnya menutup separuh celah itu
+    // dengan menandai baris NULL sebelum sempat mengurangi angka siapa pun.
+    sql: `
+      SELECT dipakai.n AS dipakai_aplikasi,
+             seharusnya.n AS seharusnya,
+             dipakai.n - seharusnya.n AS selisih
+      FROM (SELECT COUNT(*)::int AS n ${SUMBER_WARGA}) dipakai,
+           (
+             SELECT COUNT(*)::int AS n
+             FROM anggota_keluarga ak2
+             JOIN keluarga k2 ON ak2.keluarga_id = k2.id
+             WHERE k2.deleted_at IS NULL
+           ) seharusnya
+      WHERE dipakai.n <> seharusnya.n`,
+  },
+  {
+    nama: 'Warga dengan is_aktif NULL',
+    kenapa:
+      'NULL bukan "aktif" maupun "tidak aktif": penyaring `= true` membuangnya diam-diam ' +
+      'sementara Data Warga menampilkannya sebagai Aktif. Kolomnya DEFAULT true, jadi ' +
+      'baris NULL berarti ada jalur tulis yang mengisinya secara eksplisit.',
+    sql: `SELECT ak.id, ak.nama, ak.nik
+          FROM anggota_keluarga ak
+          JOIN keluarga k ON ak.keluarga_id = k.id
+          WHERE k.deleted_at IS NULL AND ak.is_aktif IS NULL`,
   },
 ];
 

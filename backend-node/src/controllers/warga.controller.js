@@ -5,6 +5,7 @@ const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit-table');
 const { jenisKelamin: normalJk, labelJenisKelamin } = require('../utils/normalisasi');
 const { sandiAcak } = require('../utils/sandi');
+const { SUMBER_WARGA } = require('../utils/lingkup-warga');
 
 /**
  * Tata letak kolom Excel/PDF. Export menulis dengan urutan ini dan import
@@ -32,13 +33,15 @@ const KOLOM = [
   { header: 'NO HP', key: 'no_hp', width: 16 },
 ];
 
+// Lingkupnya diambil dari src/utils/lingkup-warga.js, bukan ditulis ulang di
+// sini — layar ini dan kartu TOTAL WARGA di dashboard harus menghitung baris
+// yang sama persis. Lihat catatan di berkas itu untuk apa yang terjadi ketika
+// keduanya berpisah.
 const BASE_QUERY = `
   SELECT
     ak.*,
     k.no_kk, k.alamat, k.rt, k.rw, k.kelurahan, k.kecamatan, k.status_rumah
-  FROM anggota_keluarga ak
-  JOIN keluarga k ON ak.keluarga_id = k.id
-  WHERE k.deleted_at IS NULL
+  ${SUMBER_WARGA}
 `;
 
 /**
