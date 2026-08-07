@@ -483,17 +483,35 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
+                                  tooltip: 'Riwayat Pembaruan Data',
                                   icon: const Icon(Icons.history, color: Colors.orange, size: 18),
+                                  // Hover presisi: alignment center memusatkan
+                                  // ikon dalam kotak 48dp yang dipaksa
+                                  // _rapatkanAksi (centerLeft + padding 0).
+                                  style: IconButton.styleFrom(
+                                    alignment: Alignment.center,
+                                    hoverColor: Colors.orange.withValues(alpha: 0.12),
+                                  ),
                                   onPressed: () => _showHistoryDialog(b['id']),
                                 ),
                                 if (_bolehUbah)
                                   IconButton(
+                                    tooltip: 'Edit',
                                     icon: const Icon(Icons.edit, color: Colors.blue, size: 18),
+                                    style: IconButton.styleFrom(
+                                      alignment: Alignment.center,
+                                      hoverColor: Colors.blue.withValues(alpha: 0.12),
+                                    ),
                                     onPressed: () => _showFormDialog(data: b),
                                   ),
                                 if (_bolehHapus)
                                   IconButton(
+                                    tooltip: 'Hapus',
                                     icon: const Icon(Icons.delete, color: Colors.red, size: 18),
+                                    style: IconButton.styleFrom(
+                                      alignment: Alignment.center,
+                                      hoverColor: Colors.red.withValues(alpha: 0.12),
+                                    ),
                                     onPressed: () async {
                                       final conf = await showDialog<bool>(
                                         context: context,
