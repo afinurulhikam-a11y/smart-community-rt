@@ -118,7 +118,12 @@ class _MainDashboardState extends State<MainDashboard> {
     }
     if (izin.bolehLihat('keuangan.kas', userRole: auth.userRole)) {
       context.read<FinanceProvider>().fetchTransactions();
-      context.read<FinanceProvider>().fetchSummary();
+      // Summary dashboard SELALU seluruh masa: card SALDO KAS menampilkan
+      // "saldo kas RT", bukan angka yang ikut tersaring filter 'Non Iuran'
+      // atau bulan yang dipilih pengurus di layar Kas RT. fetchTransactions
+      // memanggil fetchSummary dengan _filterAktif; di sini dipanggil lagi
+      // secara eksplisit tanpa filter supaya card-nya independen.
+      context.read<FinanceProvider>().fetchSummary(bulan: null, sumber: null);
       context.read<FinanceProvider>().fetchBulanan();
     }
     if (izin.bolehLihat('layanan.surat', userRole: auth.userRole)) {
