@@ -237,9 +237,13 @@ class BillProvider extends ChangeNotifier {
     await launchUrl(uri, webOnlyWindowName: '_self');
   }
 
-  /// Kirim penagihan WhatsApp ke seluruh keluarga yang ber-tunggakan, lewat
-  /// gateway backend (Fonnte) — satu panggilan untuk semua, bukan membuka
-  /// `wa.me` per keluarga seperti `tagihViaWhatsApp`.
+  /// Kirim penagihan WhatsApp lewat gateway backend (Fonnte). Dipakai untuk
+  /// pengiriman massal (`billIds` kosong → seluruh tunggakan sesuai filter)
+  /// maupun per keluarga / per tagihan (berikan daftar `bill_ids`).
+  ///
+  /// Dulu pengiriman manual membuka `wa.me` per keluarga di sisi klien — yang
+  /// terblokir browser bila banyak tab, dan memakai WhatsApp operator, bukan
+  /// gateway sistem. Sekarang semua jalur lewat endpoint ini.
   ///
   /// Kalau FONNTE_TOKEN di backend kosong, endpoint tetap sukses tetapi hanya
   /// simulasi (log server); warga tidak benar-benar menerima WA.
@@ -259,37 +263,6 @@ class BillProvider extends ChangeNotifier {
       _errorMessage = response['message'] as String?;
     }
     return response;
-  }
-
-  /// Susun pesan penagihan untuk satu tagihan dan buka WhatsApp.
-  Future<bool> tagihViaWhatsApp({
-    required String noHp,
-    required String namaKepalaKeluarga,
-    required List<BillModel> tagihan,
-  }) async {
-    if (tagihan.isEmpty) return false;
-
-    final total = tagihan.fold<double>(0, (s, b) => s + b.nominal);
-    final rincian = tagihan
-        .map((b) => '• ${b.namaIuran} (${b.bulan}): Rp ${b.nominal.toStringAsFixed(0)}')
-        .join('\n');
-
-    final pesan = Uri.encodeComponent(
-      'Assalamualaikum, Yth. Bapak/Ibu $namaKepalaKeluarga.\n\n'
-      'Kami informasikan tagihan iuran RT yang belum dibayar:\n\n$rincian\n\n'
-      'Total: Rp ${total.toStringAsFixed(0)}\n\n'
-      'Mohon dapat diselesaikan. Terima kasih.',
-    );
-
-    // Nomor lokal 08xx harus diubah ke format internasional 628xx.
-    var nomor = noHp.replaceAll(RegExp(r'[^0-9]'), '');
-    if (nomor.startsWith('0')) nomor = '62${nomor.substring(1)}';
-    if (nomor.isEmpty) return false;
-
-    return launchUrl(
-      Uri.parse('https://wa.me/$nomor?text=$pesan'),
-      mode: LaunchMode.externalApplication,
-    );
   }
 
   /// Kosongkan seluruh state saat pengguna keluar.
