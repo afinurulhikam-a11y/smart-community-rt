@@ -25,6 +25,12 @@ RUN curl -fsSL -o /tmp/flutter.tar.xz \
 
 ENV PATH="/opt/flutter/bin:$PATH"
 
+# Flutter memakai git untuk membaca versi SDK. Direktori /opt/flutter dimiliki
+# root sedangkan build dijalankan user lain (Vercel/buildah), dan git menolak
+# bekerja pada direktori dengan kepemilikan asing ("dubious ownership").
+# Daftarkan sebagai safe.directory sebelum perintah flutter pertama.
+RUN git config --global --add safe.directory /opt/flutter
+
 WORKDIR /app
 COPY . .
 
