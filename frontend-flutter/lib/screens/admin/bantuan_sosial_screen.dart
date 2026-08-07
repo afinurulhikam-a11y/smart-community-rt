@@ -483,22 +483,13 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                             aksi: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                IconButton(
-                                  tooltip: 'Riwayat Pembaruan Data',
-                                  icon: const Icon(Icons.history, color: Colors.orange, size: 18),
-                                  // Hover presisi: alignment center memusatkan
-                                  // ikon dalam kotak 48dp yang dipaksa
-                                  // _rapatkanAksi (centerLeft + padding 0).
-                                  style: IconButton.styleFrom(
-                                    alignment: Alignment.center,
-                                    hoverColor: Colors.orange.withValues(alpha: 0.12),
-                                  ),
-                                  onPressed: () => _showHistoryDialog(b['id']),
-                                ),
                                 if (_bolehUbah)
                                   IconButton(
                                     tooltip: 'Edit',
                                     icon: const Icon(Icons.edit, color: Colors.blue, size: 18),
+                                    // Hover presisi: alignment center memusatkan
+                                    // ikon dalam kotak 48dp yang dipaksa
+                                    // _rapatkanAksi (centerLeft + padding 0).
                                     style: IconButton.styleFrom(
                                       alignment: Alignment.center,
                                       hoverColor: Colors.blue.withValues(alpha: 0.12),
@@ -641,76 +632,6 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
-  }
-
-  void _showHistoryDialog(int id) async {
-    final provider = context.read<BantuanSosialProvider>();
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => const Center(child: CircularProgressIndicator()),
-    );
-
-    final history = await provider.fetchBantuanSosialHistory(id);
-    if (mounted) Navigator.pop(context); // Close loading
-
-    if (mounted) {
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Riwayat Pembaruan Data'),
-          content: SizedBox(
-            width: lebarDialog(context, maksimal: 500),
-            child: history.isEmpty
-                ? const Text('Belum ada riwayat perubahan.')
-                : ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: history.length,
-                    separatorBuilder: (_, __) => const Divider(),
-                    itemBuilder: (c, i) {
-                      final h = history[i];
-                      final isStatusChanged = h['old_status'] != h['new_status'];
-                      final titleText = isStatusChanged
-                          ? '${h['old_status'] ?? '-'} ➔ ${h['new_status'] ?? '-'}'
-                          : 'Pembaruan Data';
-
-                      String formattedDate = '-';
-                      if (h['created_at'] != null) {
-                        try {
-                          final dt = DateTime.parse(h['created_at']).toLocal();
-                          final d =
-                              '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
-                          final t =
-                              '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}:${dt.second.toString().padLeft(2, '0')}';
-                          formattedDate = '$d\n$t';
-                        } catch (e) {
-                          formattedDate = h['created_at'].toString().split('T')[0];
-                        }
-                      }
-
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const CircleAvatar(
-                          backgroundColor: Color(0xFFFEFCE8),
-                          child: Icon(Icons.history, color: Colors.orange),
-                        ),
-                        title: Text(titleText, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text(
-                          'Oleh: ${h['changed_by_name'] ?? 'Sistem'}\nKeterangan: ${h['keterangan_log'] ?? '-'}',
-                        ),
-                        trailing: Text(
-                          formattedDate,
-                          textAlign: TextAlign.right,
-                          style: TextStyle(color: context.teksKedua, fontSize: 12),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Tutup'))],
-        ),
-      );
-    }
   }
 
   void _showFormDialog({Map<String, dynamic>? data}) {
