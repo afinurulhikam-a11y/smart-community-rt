@@ -427,52 +427,33 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
               _loadData();
             },
           ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                height: AppTheme.sasaranSentuh,
-                child: ElevatedButton.icon(
-                  onPressed: _loadData,
-                  icon: const Icon(Icons.filter_alt_outlined, size: 16),
-                  label: const Text(
-                    'Filter',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF22C55E),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              InkWell(
-                onTap: () {
-                  setState(() {
-                    _status = 'Semua Status';
-                    _jenisIuranId = null;
-                    _bulan = 'Semua Bulan';
-                    _tahun = DateTime.now().year.toString();
-                    _searchQuery = '';
-                    _searchController.clear();
-                  });
-                  _loadData();
-                },
-                child: Container(
-                  height: AppTheme.sasaranSentuh,
-                  width: AppTheme.sasaranSentuh,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: context.garis),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(Icons.close, size: 16, color: context.teksKedua),
-                ),
-              ),
-            ],
+          // Tanpa tombol "Filter": setiap dropdown langsung memuat ulang saat
+          // nilainya berubah, jadi tombol itu hanya duplikasi. Yang tersisa
+          // hanyalah Reset untuk mengembalikan semua filter ke awal.
+          OutlinedButton.icon(
+            onPressed: () {
+              setState(() {
+                _status = 'Semua Status';
+                _jenisIuranId = null;
+                _bulan = 'Semua Bulan';
+                _tahun = DateTime.now().year.toString();
+                _searchQuery = '';
+                _searchController.clear();
+              });
+              _loadData();
+            },
+            icon: const Icon(Icons.refresh, size: 16),
+            label: const Text(
+              'Reset',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: context.teksKedua,
+              side: BorderSide(color: context.garis),
+              minimumSize: const Size(0, AppTheme.sasaranSentuh),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
           ),
         ],
       ),
