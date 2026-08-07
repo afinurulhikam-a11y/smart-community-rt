@@ -562,7 +562,7 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
           final index = entry.key;
           final item = entry.value;
           return _buildWargaRow(
-            (((provider.currentPage - 1) * 25) + index + 1).toString(),
+            (((provider.currentPage - 1) * provider.perPage) + index + 1).toString(),
             item['nik']?.toString() ?? '-',
             item['nama']?.toString() ?? '-',
             item['jenis_kelamin']?.toString() ?? '-',
