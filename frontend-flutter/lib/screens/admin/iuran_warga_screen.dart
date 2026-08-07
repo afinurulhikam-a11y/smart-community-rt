@@ -791,22 +791,13 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
       aksi: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (_bolehUbah)
-            IconButton(
-              tooltip: b.isLunas
-                  ? 'Tagihan lunas tidak bisa diubah'
-                  : 'Edit Tagihan',
-              icon: Icon(
-                Icons.edit_outlined,
-                size: 18,
-                color: b.isLunas ? context.garis : const Color(0xFF3B82F6),
-              ),
-              // Backend juga menolak, tapi menonaktifkan tombol lebih jujur
-              // daripada memunculkan error setelah mengisi form.
-              onPressed: b.isLunas ? null : () => _editTagihan(b),
-            ),
-          // Mencatat pembayaran adalah aksi `update` pada tagihan yang sudah
-          // ada, bukan `create`.
+          // Urutan konsisten: Approve → Edit → Delete. Setiap tombol memakai
+          // IconButton 48dp dengan alignment center, jadi jarak antar ikon
+          // selalu sama dan hover-nya presisi.
+
+          // APPROVE: mencatat pembayaran adalah aksi `update` pada tagihan
+          // yang sudah ada, bukan `create`. Untuk baris lunas posisi ini
+          // ditempati penanda hijau nonaktif agar kolomnya tetap sejajar.
           if (!b.isLunas && _bolehUbah)
             IconButton(
               tooltip: 'Bayar',
@@ -822,12 +813,8 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                 hoverColor: const Color(0xFF059669).withValues(alpha: 0.12),
               ),
               onPressed: () => _bayarSatu(b),
-            ),
-          // Penanda "lunas" dibuat IconButton NONAKTIF, bukan ikon telanjang,
-          // agar slotnya selebar tombol Bayar/Hapus (48dp). Dulu ia Padding +
-          // Icon 20px, sehingga tombol Hapus di baris lunas bergeser ~4px dari
-          // posisinya di baris belum bayar — kolom aksi tampak tidak lurus.
-          if (b.isLunas)
+            )
+          else if (b.isLunas)
             IconButton(
               tooltip: 'Sudah lunas',
               onPressed: null,
@@ -839,6 +826,30 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                 disabledForegroundColor: const Color(0xFF10B981),
               ),
             ),
+
+          // EDIT
+          if (_bolehUbah)
+            IconButton(
+              tooltip: b.isLunas
+                  ? 'Tagihan lunas tidak bisa diubah'
+                  : 'Edit Tagihan',
+              icon: Icon(
+                Icons.edit_outlined,
+                size: 18,
+                color: b.isLunas ? context.garis : const Color(0xFF3B82F6),
+              ),
+              // Backend juga menolak, tapi menonaktifkan tombol lebih jujur
+              // daripada memunculkan error setelah mengisi form.
+              onPressed: b.isLunas ? null : () => _editTagihan(b),
+              style: IconButton.styleFrom(
+                alignment: Alignment.center,
+                hoverColor: b.isLunas
+                    ? null
+                    : const Color(0xFF3B82F6).withValues(alpha: 0.12),
+              ),
+            ),
+
+          // DELETE
           if (_bolehHapus)
             IconButton(
               tooltip: 'Hapus Tagihan',
@@ -849,7 +860,11 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
               ),
               onPressed: () => _hapusTagihan(b),
             ),
-          if (!b.isLunas && !_bolehUbah && !_bolehHapus)
+
+          // Kolom aksi kosong — tidak ada izin sama sekali — tetap tampilkan
+          // placeholder agar barisnya tidak terlihat "hilang" dibanding baris
+          // lain yang punya tombol.
+          if (!_bolehUbah && !_bolehHapus)
             Text('—', style: TextStyle(fontSize: 13, color: context.teksTersier)),
         ],
       ),

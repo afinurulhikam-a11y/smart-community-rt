@@ -707,17 +707,33 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
             IconButton(
               tooltip: 'Edit Data Warga',
               icon: const Icon(Icons.edit_outlined, color: Color(0xFF0F766E), size: 20),
+              // Hover presisi: _rapatkanAksi menimpa theme dengan alignment
+              // centerLeft + padding 0, sehingga inkwell 48dp lebih lebar dari
+              // ikon dan sorotan muncul di area kosong di kanan ikon.
+              // Alignment center memusatkan ikon dalam kotak tombolnya.
+              style: IconButton.styleFrom(
+                alignment: Alignment.center,
+                hoverColor: const Color(0xFF0F766E).withValues(alpha: 0.12),
+              ),
               onPressed: () => _showEditWargaDialog(context, item),
             ),
           if (_bolehHapus && item != null)
             IconButton(
               tooltip: 'Hapus Warga',
               icon: const Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 20),
+              style: IconButton.styleFrom(
+                alignment: Alignment.center,
+                hoverColor: const Color(0xFFEF4444).withValues(alpha: 0.12),
+              ),
               onPressed: () => _hapusWarga(context, item),
             ),
           IconButton(
             tooltip: 'Akun & Kredensial',
             icon: const Icon(Icons.manage_accounts_outlined, color: Color(0xFF10B981), size: 20),
+            style: IconButton.styleFrom(
+              alignment: Alignment.center,
+              hoverColor: const Color(0xFF10B981).withValues(alpha: 0.12),
+            ),
             onPressed: () => _tampilkanDialogKredensial(context, nik, name),
           ),
         ],
