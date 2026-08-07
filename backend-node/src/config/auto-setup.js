@@ -84,6 +84,24 @@ async function autoSetupCloud() {
     console.log('ℹ️ Catatan Skema (Lanjut):', e.message);
   }
 
+  // 1b. Kolom wajib-ganti-sandi pada users
+  //
+  // `tambahWargaLengkap` dan `updateUserCredentials` menulis kolom
+  // `must_change_password`. Kolom itu dibuat oleh migration_v23, yang hanya
+  // berjalan sekali lewat skrip manual. Database yang dibuat sebelum migrasi
+  // itu (mis. Railway yang dipasang lebih dulu) tidak punya kolomnya, sehingga
+  // INSERT akun warga baru gagal dengan "column must_change_password ... does
+  // not exist" — dan SELURUH transaksi di-rollback. Entri idempoten ini
+  // menutup celah itu tiap deploy, tanpa menimpa apa pun yang sudah ada.
+  try {
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE;
+    `);
+    console.log('✅ users.must_change_password terverifikasi.');
+  } catch (e) {
+    console.log('ℹ️ Catatan Skema users.must_change_password (Lanjut):', e.message);
+  }
+
   // 2. Menu items
   try {
     for (let i = 0; i < MENU_ITEMS.length; i++) {
