@@ -16,6 +16,21 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
+  /// Penjaga kirim-ganda, dan ia harus ada di layar ini — bukan hanya di
+  /// [AuthService].
+  ///
+  /// `login()` memang menyetel `_isLoading = true` sebelum `await` pertamanya,
+  /// tetapi tombol Masuk membaca nilai itu lewat `context.watch`, dan
+  /// `notifyListeners()` baru membangun ulang pada frame BERIKUTNYA. Jadi dua
+  /// pemicuan dalam satu frame — Enter yang ditahan sehingga berulang, atau
+  /// Enter berbarengan dengan klik — dua-duanya masih melihat tombol dalam
+  /// keadaan aktif dan keduanya mengirim permintaan.
+  ///
+  /// Bendera ini disetel serentak (`setState` menugaskan nilainya seketika,
+  /// walau pembangunan ulangnya ditunda), sehingga pemicuan kedua berhenti di
+  /// baris pertama [_handleLogin] sebelum menyentuh jaringan.
+  bool _sedangMasuk = false;
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -23,12 +38,31 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  /// Satu-satunya jalan masuk: tombol "Masuk ke Sistem" dan tombol Enter pada
+  /// kedua kolom memanggil fungsi yang sama persis.
+  ///
+  /// Logika autentikasinya tidak berubah sedikit pun — validasi form, panggilan
+  /// `auth.login`, dan penanganan gagalnya tetap seperti semula. Yang ditambah
+  /// hanya penjaga kirim-ganda di sekelilingnya.
   Future<void> _handleLogin() async {
+    // Diperiksa PALING awal, sebelum validasi: pemicuan kedua harus berhenti
+    // di sini, bukan sesudah sempat menjalankan apa pun.
+    if (_sedangMasuk) return;
     if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _sedangMasuk = true);
     final auth = context.read<AuthService>();
-    final success = await auth.login(_emailController.text.trim(), _passwordController.text);
-    if (!success && mounted) {
-      pesanGagal(context, auth.errorMessage ?? 'Login gagal');
+    try {
+      final success = await auth.login(_emailController.text.trim(), _passwordController.text);
+      if (!success && mounted) {
+        pesanGagal(context, auth.errorMessage ?? 'Login gagal');
+      }
+    } finally {
+      // Saat login berhasil, AuthGate menukar layar ini sehingga State-nya
+      // sudah dilepas — `setState` pada widget yang tidak terpasang akan
+      // melempar. Yang perlu dibuka kembali hanyalah kasus gagal, dan di situ
+      // layarnya masih hidup.
+      if (mounted) setState(() => _sedangMasuk = false);
     }
   }
 
@@ -248,6 +282,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildRightPanel(AuthService auth, bool isDesktop) {
+    // Dua sumber, satu keadaan: `_sedangMasuk` berubah pada frame pemicuan,
+    // `auth.isLoading` menyusul lewat notifyListeners. Menggabungkannya membuat
+    // tombol tidak pernah tampak aktif padahal permintaan sudah berjalan.
+    final sedangProses = auth.isLoading || _sedangMasuk;
+
     return Container(
       padding: EdgeInsets.symmetric(horizontal: isDesktop ? 48 : 24, vertical: isDesktop ? 40 : 8),
       color: Colors.white,
@@ -291,6 +330,13 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 8),
             TextFormField(
               controller: _emailController,
+              // Enter di kolom ini mengirim form, sama seperti menekan tombol
+              // "Masuk ke Sistem". `TextInputAction.go` dipilih, bukan `.next`:
+              // label "berikutnya" pada papan tombol ponsel menjanjikan
+              // perpindahan fokus yang tidak terjadi — tombolnya tetap
+              // mengirim, karena keduanya sama-sama memicu `onFieldSubmitted`.
+              textInputAction: TextInputAction.go,
+              onFieldSubmitted: (_) => _handleLogin(),
               // Batasi maksimal 16 karakter — NIK warga selalu 16 digit.
               // `LengthLimitingTextInputFormatter` berlaku saat mengetik maupun
               // menempel (paste), dan memotong kelebihan sebelum validator
@@ -347,6 +393,8 @@ class _LoginScreenState extends State<LoginScreen> {
             TextFormField(
               controller: _passwordController,
               obscureText: _obscurePassword,
+              textInputAction: TextInputAction.go,
+              onFieldSubmitted: (_) => _handleLogin(),
               decoration: InputDecoration(
                 hintText: 'Masukkan password',
                 hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
@@ -389,15 +437,20 @@ class _LoginScreenState extends State<LoginScreen> {
               width: double.infinity,
               height: 44,
               child: ElevatedButton.icon(
-                onPressed: auth.isLoading ? null : _handleLogin,
+                // `_sedangMasuk` ikut dibaca supaya tombol dan spinner berubah
+                // pada frame yang sama dengan pemicuannya. Bila hanya
+                // `auth.isLoading`, menekan Enter tidak memberi tanda apa pun
+                // sampai `notifyListeners()` sempat membangun ulang — dan diam
+                // sesaat itulah yang membuat orang menekan Enter sekali lagi.
+                onPressed: sedangProses ? null : _handleLogin,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1B7A6A),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 0,
                 ),
-                icon: auth.isLoading ? const SizedBox() : const Icon(Icons.login_rounded, size: 18),
-                label: auth.isLoading
+                icon: sedangProses ? const SizedBox() : const Icon(Icons.login_rounded, size: 18),
+                label: sedangProses
                     ? const SizedBox(
                         width: 20,
                         height: 20,
