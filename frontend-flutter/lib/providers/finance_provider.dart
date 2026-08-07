@@ -37,6 +37,7 @@ class FinanceProvider extends ChangeNotifier {
 
   Future<void> fetchTransactions({
     String? tipe,
+    String? sumber,
     String? bulan,
     String? tahun,
     int? kategoriId,
@@ -49,6 +50,7 @@ class FinanceProvider extends ChangeNotifier {
 
     _filterAktif = {
       if (tipe != null && tipe.isNotEmpty) 'tipe': tipe,
+      if (sumber != null && sumber.isNotEmpty) 'sumber': sumber,
       if (bulan != null && bulan.isNotEmpty) 'bulan': bulan,
       if (tahun != null && tahun.isNotEmpty) 'tahun': tahun,
       if (kategoriId != null) 'kategori_id': kategoriId.toString(),
@@ -84,15 +86,19 @@ class FinanceProvider extends ChangeNotifier {
       _errorMessage = response['message'] as String?;
     }
 
-    await fetchSummary(bulan: _filterAktif['bulan']);
+    await fetchSummary(bulan: _filterAktif['bulan'], sumber: _filterAktif['sumber']);
     _isLoading = false;
     notifyListeners();
   }
 
-  Future<void> fetchSummary({String? bulan}) async {
+  Future<void> fetchSummary({String? bulan, String? sumber}) async {
+    final q = <String, String>{
+      if (bulan != null && bulan.isNotEmpty) 'bulan': bulan,
+      if (sumber != null && sumber.isNotEmpty) 'sumber': sumber,
+    };
     final response = await ApiService.get(
       ApiConstants.financeSummary,
-      queryParams: bulan != null && bulan.isNotEmpty ? {'bulan': bulan} : null,
+      queryParams: q.isNotEmpty ? q : null,
     );
     if (response['success'] == true && response['data'] != null) {
       _summary = FinanceSummary.fromJson(response['data'] as Map<String, dynamic>);
@@ -115,6 +121,7 @@ class FinanceProvider extends ChangeNotifier {
   /// Muat ulang dengan filter yang sedang aktif.
   Future<void> refresh() => fetchTransactions(
     tipe: _filterAktif['tipe'],
+    sumber: _filterAktif['sumber'],
     bulan: _filterAktif['bulan'],
     tahun: _filterAktif['tahun'],
     kategoriId: _filterAktif['kategori_id'] == null

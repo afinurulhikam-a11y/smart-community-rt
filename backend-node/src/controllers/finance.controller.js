@@ -32,12 +32,21 @@ function formatTanggal(nilai) {
 
 /** Bangun klausa WHERE bersama untuk daftar dan export. */
 function buildFilter(req) {
-  const { tipe, bulan, tahun, kategori_id, search, dari, sampai } = req.query;
+  const { tipe, sumber, bulan, tahun, kategori_id, search, dari, sampai } = req.query;
   const kondisi = [];
   const params = [];
   const p = () => `$${params.length}`;
 
   if (tipe) { params.push(tipe); kondisi.push(`f.tipe = ${p()}`); }
+  // `sumber` membedakan transaksi manual dari hasil pembayaran iuran.
+  // 'non_iuran' berarti hanya kolom yang BUKAN iuran (eksplisit manual atau
+  // baris lama yang tak mencatat sumber), tanpa menyentuh tipe — jadi baik
+  // pemasukan maupun pengeluaran ikut terlihat.
+  if (sumber === 'non_iuran') {
+    kondisi.push(`COALESCE(f.sumber, 'manual') <> 'iuran'`);
+  } else if (sumber) {
+    params.push(sumber); kondisi.push(`f.sumber = ${p()}`);
+  }
   if (bulan) { params.push(`${bulan}%`); kondisi.push(`f.tanggal::TEXT LIKE ${p()}`); }
   if (tahun && !bulan) { params.push(`${tahun}-%`); kondisi.push(`f.tanggal::TEXT LIKE ${p()}`); }
   if (kategori_id) { params.push(kategori_id); kondisi.push(`f.kategori_id = ${p()}`); }
@@ -120,17 +129,41 @@ async function getTransactions(req, res) {
  */
 async function getSummary(req, res) {
   try {
-    const { bulan } = req.query;
+    const { bulan, sumber } = req.query;
 
-    // Field lama mengikuti filter bulan seperti perilaku sebelumnya.
-    const paramsLama = [];
-    let kondisiLama = 'WHERE deleted_at IS NULL';
+    // `sumber: non_iuran` diteruskan dari filter "Jenis" layar Kas RT, supaya
+    // kartu 1-2 konsisten dengan isi tabel. Saldo_total sengaja TIDAK ikut
+    // tersaring: saldo adalah jumlah RIIL semua uang di kas, termasuk yang
+    // berasal dari iuran — hanya menampilkan non-iuran di sini justru
+    // melaporkan saldo yang lebih rendah dari kenyataan.
+    //
+    // Parameter memakai indeks eksplisit ($1, $2, ...) karena kedua query
+    // menggabungkan beberapa klausa; menghitung indeks "dari sisa" rapuh.
+    const sumberKondisi = (pos) => {
+      if (sumber === 'non_iuran') return `COALESCE(sumber, 'manual') <> 'iuran'`;
+      if (sumber) return `sumber = $${pos}`;
+      return '';
+    };
+
+    // Query LAMA: total sepanjang filter bulan (+ sumber), dipakai field
+    // total_pemasukan/total_pengeluaran/saldo.
+    const lmp = [];
+    let lmwhere = 'WHERE deleted_at IS NULL';
     if (bulan) {
-      paramsLama.push(`${bulan}%`);
-      kondisiLama += ` AND tanggal::TEXT LIKE $${paramsLama.length}`;
+      lmp.push(`${bulan}%`);
+      lmwhere += ` AND tanggal::TEXT LIKE $${lmp.length}`;
     }
+    const lms = sumberKondisi(lmp.length + 1);
+    if (lms) lmwhere += ` AND ${lms}`;
 
-    // Periode untuk kartu "bulan ini": pakai yang diminta, atau bulan berjalan.
+    // Query BARU: pemasukan/pengeluaran "bulan ini" + saldo sepanjang masa.
+    // Parameter pertama ($1) selalu periode; sumber eksplisit (bila ada)
+    // menempati $2.
+    const bsource = (sumber && sumber !== 'non_iuran') ? sumber : null;
+    let bwhere = 'WHERE deleted_at IS NULL';
+    if (sumber === 'non_iuran') bwhere += ` AND COALESCE(sumber, 'manual') <> 'iuran'`;
+    if (bsource) bwhere += ` AND sumber = $2`;
+
     const periode = bulan || `${new Date().getFullYear()}-${pad(new Date().getMonth() + 1)}`;
 
     const [lama, baru] = await Promise.all([
@@ -139,8 +172,8 @@ async function getSummary(req, res) {
           COALESCE(SUM(CASE WHEN tipe = 'pemasukan' THEN jumlah ELSE 0 END), 0)::float8 AS total_pemasukan,
           COALESCE(SUM(CASE WHEN tipe = 'pengeluaran' THEN jumlah ELSE 0 END), 0)::float8 AS total_pengeluaran,
           COALESCE(SUM(CASE WHEN tipe = 'pemasukan' THEN jumlah ELSE -jumlah END), 0)::float8 AS saldo
-        FROM finances ${kondisiLama}
-      `, paramsLama),
+        FROM finances ${lmwhere}
+      `, [...lmp, ...(sumber && sumber !== 'non_iuran' ? [sumber] : [])]),
       pool.query(`
         SELECT
           COALESCE(SUM(CASE WHEN tipe = 'pemasukan' AND tanggal::TEXT LIKE $1 THEN jumlah ELSE 0 END), 0)::float8 AS pemasukan_bulan,
@@ -149,8 +182,8 @@ async function getSummary(req, res) {
           COALESCE(SUM(CASE WHEN tipe = 'pemasukan' THEN jumlah ELSE -jumlah END), 0)::float8 AS saldo_total,
           COUNT(*)::int AS jumlah_transaksi
         FROM finances
-        WHERE deleted_at IS NULL
-      `, [`${periode}%`]),
+        ${bwhere}
+      `, [`${periode}%`, ...(bsource ? [bsource] : [])]),
     ]);
 
     return res.status(200).json({

@@ -86,7 +86,10 @@ class _KasRtScreenState extends State<KasRtScreen> {
 
   void _loadData({int page = 1}) {
     context.read<FinanceProvider>().fetchTransactions(
-      tipe: _tipe == 'Semua Jenis' ? null : (_tipe == 'Pemasukan' ? 'pemasukan' : 'pengeluaran'),
+      tipe: _tipe == 'Semua Jenis' || _tipe == 'Non Iuran'
+          ? null
+          : (_tipe == 'Pemasukan' ? 'pemasukan' : 'pengeluaran'),
+      sumber: _tipe == 'Non Iuran' ? 'non_iuran' : null,
       bulan: _periodeFilter,
       tahun: _periodeFilter == null ? _tahun : null,
       search: _searchQuery.isEmpty ? null : _searchQuery,
@@ -302,10 +305,15 @@ class _KasRtScreenState extends State<KasRtScreen> {
         runSpacing: 16,
         crossAxisAlignment: WrapCrossAlignment.end,
         children: [
-          _dropdownFilter('Jenis', _tipe, const ['Semua Jenis', 'Pemasukan', 'Pengeluaran'], (v) {
-            setState(() => _tipe = v!);
-            _loadData();
-          }),
+          _dropdownFilter(
+            'Jenis',
+            _tipe,
+            const ['Semua Jenis', 'Pemasukan', 'Pengeluaran', 'Non Iuran'],
+            (v) {
+              setState(() => _tipe = v!);
+              _loadData();
+            },
+          ),
           _dropdownFilter('Bulan', _bulan, ['Semua Bulan', ..._namaBulan], (v) {
             setState(() => _bulan = v!);
             _loadData();
