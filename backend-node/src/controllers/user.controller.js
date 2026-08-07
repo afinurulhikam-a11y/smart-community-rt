@@ -317,7 +317,7 @@ async function updateUserCredentials(req, res) {
       const hash = await bcrypt.hash(password.trim(), salt);
 
       const newU = await client.query(
-        'INSERT INTO users (username, email, password_hash, nama, no_hp, no_kk, alamat, role, is_active, nik) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, $9) RETURNING id',
+        'INSERT INTO users (username, email, password_hash, nama, no_hp, no_kk, alamat, role, is_active, nik, must_change_password) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, $9, true) RETURNING id',
         [nik, nik, hash, nama, no_hp || akRes.rows[0]?.no_hp || null, noKk, alamat, 'warga', nik]
       );
       userId = newU.rows[0].id;
