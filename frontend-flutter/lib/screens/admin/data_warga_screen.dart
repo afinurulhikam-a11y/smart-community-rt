@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../core/responsif.dart';
 import 'dart:convert';
 import '../../providers/warga_provider.dart';
@@ -1727,16 +1726,13 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                         ),
                         actions: [
                           // Tombol hanya muncul bila nomor HP form terisi —
-                          // tanpa tujuan, membuka WhatsApp tidak masuk akal.
+                          // tanpa tujuan, mengirim via gateway tidak masuk akal.
                           if ((hpCtrl.text.trim().isNotEmpty))
                             TextButton.icon(
                               icon: const Icon(Icons.chat_outlined, size: 18),
                               label: const Text('Share WhatsApp'),
                               onPressed: () => _shareKredensialWhatsApp(
-                                nama: namaCtrl.text.trim(),
-                                username: nikCtrl.text.trim(),
-                                password: _kataSandiBawaan,
-                                noHp: hpCtrl.text.trim(),
+                                nik: nikCtrl.text.trim(),
                               ),
                             ),
                           ElevatedButton(
@@ -2171,33 +2167,20 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
     );
   }
 
-  /// Buka WhatsApp ke nomor warga berisi kredensial login barunya.
+  /// Kirim kredensial login lewat gateway WhatsApp backend (Fonnte).
   ///
-  /// Nomor lokal "08xx" dikonversi ke format internasional "628xx" karena
-  /// `wa.me` mengharuskan format itu. Pesan memuat nama, username (NIK),
-  /// kata sandi bawaan, serta pengingat untuk menggantinya di login pertama.
-  void _shareKredensialWhatsApp({
-    required String nama,
-    required String username,
-    required String password,
-    required String noHp,
-  }) {
-    var nomor = noHp.replaceAll(RegExp(r'[^0-9]'), '');
-    if (nomor.startsWith('0')) nomor = '62${nomor.substring(1)}';
-    if (nomor.isEmpty) return;
-
-    final pesan = Uri.encodeComponent(
-      'Assalamualaikum, Yth. Bapak/Ibu $nama.\n\n'
-      'Akun akses aplikasi Smart Community RT Anda telah dibuat:\n\n'
-      '• Username: $username\n'
-      '• Password: $password\n\n'
-      'Demi keamanan akun, mohon segera GANTI password setelah login pertama '
-      'Anda melalui menu Profil. Terima kasih.',
-    );
-
-    launchUrl(
-      Uri.parse('https://wa.me/$nomor?text=$pesan'),
-      mode: LaunchMode.externalApplication,
+  /// Nama, nomor HP, dan username diambil server dari database berdasarkan
+  /// NIK — bukan dikirim dari layar — supaya nomor tujuan selalu data yang
+  /// benar dan tidak bisa dicolong untuk kirim ke nomor lain. Pesan disusun
+  /// di server (whatsapp.service) memakai sandi bawaan yang sama.
+  Future<void> _shareKredensialWhatsApp({required String nik}) async {
+    if (nik.isEmpty) return;
+    final hasil = await context.read<WargaProvider>().kirimKredensialWA(nik);
+    if (!mounted) return;
+    tampilkanPesan(
+      context,
+      hasil['message']?.toString() ?? 'Selesai.',
+      sukses: hasil['success'] == true,
     );
   }
 }

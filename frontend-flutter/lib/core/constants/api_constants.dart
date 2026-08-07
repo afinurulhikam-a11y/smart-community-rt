@@ -205,6 +205,7 @@ class ApiConstants {
   // Families (Kartu Keluarga) & Warga
   static String get families => '$baseUrl/families';
   static String get warga => '$baseUrl/warga';
+  static String get wargaKirimKredensialWa => '$baseUrl/warga/kirim-kredensial-wa';
 
   // Siskamling (Jadwal Ronda & Absensi Pos Ronda)
   static String get patrolSchedules => '$baseUrl/patrol/schedules';

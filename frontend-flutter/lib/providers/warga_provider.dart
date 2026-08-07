@@ -261,6 +261,22 @@ class WargaProvider extends ChangeNotifier {
     }
   }
 
+  /// Kirim kredensial login (username + sandi bawaan) ke warga lewat gateway
+  /// WhatsApp backend — bukan membuka wa.me di perangkat pengurus.
+  Future<Map<String, dynamic>> kirimKredensialWA(String nik) async {
+    try {
+      final response = await ApiService.post(
+        ApiConstants.wargaKirimKredensialWa,
+        body: {'nik': nik},
+      );
+      return response;
+    } catch (e) {
+      _errorMessage = e.toString();
+      notifyListeners();
+      return {'success': false, 'message': _errorMessage};
+    }
+  }
+
   /// Kosongkan seluruh state saat pengguna keluar.
   ///
   /// Provider di aplikasi ini dibuat sekali di MultiProvider akar dan hidup
