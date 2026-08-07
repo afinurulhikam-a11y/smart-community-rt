@@ -351,13 +351,26 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                     ),
                   ),
                   // Reset filter & pencarian: kembalikan ke nilai awal, kosongkan
-                  // kotak pencarian, lalu muat ulang dari halaman 1. Gaya
-                  // mengikuti tombol Reset di layar lain (outlined, refresh).
+                  // kotak pencarian, lalu muat ulang dari halaman 1.
                   //
-                  // Padding & tinggi disamakan dengan kolom pencarian: horizontal
-                  // 16 + vertical 12 (sama dengan contentPadding TextField) dan
-                  // tinggi minimum sasaranSentuh (48), plus radius 8, sehingga
-                  // keduanya tampak sejajar dan simetris.
+                  // Bentuknya disamakan persis dengan kolom pencarian di
+                  // sebelahnya — tinggi, padding mendatar, garis tepi, dan
+                  // radius — karena keduanya bersebelahan dan beda sedikit saja
+                  // langsung terbaca sebagai tombol yang lebih kecil.
+                  //
+                  // `visualDensity` adalah bagian yang tidak jelas dan justru
+                  // penyebab utamanya. `ButtonStyleButton` mengurangi
+                  // `minimumSize` dengan `VisualDensity.baseSizeAdjustment`,
+                  // sementara `TextField` tidak mengenal kerapatan sama sekali.
+                  // Dengan `adaptivePlatformDensity` bawaan tema, tombol ini
+                  // terukur 48 di Android tetapi **40 di Windows/Linux/macOS**
+                  // dan 44 pada comfortable — kolomnya tetap 48 di ketiganya.
+                  // Menguncinya ke `standard` membuat 48 berarti 48 di mana pun.
+                  //
+                  // Kenapa ini lolos begitu lama: uji widget berjalan dengan
+                  // `defaultTargetPlatform` Android, jadi kerapatannya standard
+                  // dan tingginya kebetulan cocok. Perbedaannya hanya ada di
+                  // layar tempat aplikasi ini dikembangkan.
                   OutlinedButton.icon(
                     onPressed: () => _resetPencarian(),
                     icon: const Icon(Icons.refresh, size: 16),
@@ -368,10 +381,15 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: context.teksKedua,
                       side: BorderSide(color: context.garis),
+                      visualDensity: VisualDensity.standard,
                       minimumSize: const Size(0, AppTheme.sasaranSentuh),
+                      // Sama dengan contentPadding kolom pencarian. Sisi tegaknya
+                      // 0 pada keduanya: tingginya datang dari batas 48 — pada
+                      // kolom lewat prefixIcon dan `constraints` tema, pada tombol
+                      // lewat `minimumSize` — bukan dari padding.
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
-                        vertical: 12,
+                        vertical: 0,
                       ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -739,17 +757,22 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
       aksi: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Ubah data warga. Berada di kiri tombol Akun & Kredensial.
+          // Kolom aksi memakai alignment centerLeft + padding 0 dari
+          // `_rapatkanAksi` di tabel_responsif — KONSISTEN dengan semua layar
+          // lain (Iuran, Kas RT, BOP, Bantuan Sosial). Tombol pertama menempel
+          // di tepi kiri kolom, tepat sejajar di bawah label "AKSI"; tombol
+          // kedua & ketiga berjarak tetap di kanannya (48dp per kotak),
+          // sehingga ikon berada pada satu garis horizontal yang simetris.
+          //
+          // Alignment center TIDAK dipakai di sini: ia memusatkan ikon di
+          // tengah kotak 48dp dan membuat tombol pertama menyisong lebih dalam
+          // ke kanan dari labelnya — mematahkan keselarasan header-table yang
+          // dibangun _rapatkanAksi.
           if (_bolehUbah && item != null)
             IconButton(
               tooltip: 'Edit Data Warga',
               icon: const Icon(Icons.edit_outlined, color: Color(0xFF0F766E), size: 20),
-              // Hover presisi: _rapatkanAksi menimpa theme dengan alignment
-              // centerLeft + padding 0, sehingga inkwell 48dp lebih lebar dari
-              // ikon dan sorotan muncul di area kosong di kanan ikon.
-              // Alignment center memusatkan ikon dalam kotak tombolnya.
               style: IconButton.styleFrom(
-                alignment: Alignment.center,
                 hoverColor: const Color(0xFF0F766E).withValues(alpha: 0.12),
               ),
               onPressed: () => _showEditWargaDialog(context, item),
@@ -759,7 +782,6 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
               tooltip: 'Hapus Warga',
               icon: const Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 20),
               style: IconButton.styleFrom(
-                alignment: Alignment.center,
                 hoverColor: const Color(0xFFEF4444).withValues(alpha: 0.12),
               ),
               onPressed: () => _hapusWarga(context, item),
@@ -768,7 +790,6 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
             tooltip: 'Akun & Kredensial',
             icon: const Icon(Icons.manage_accounts_outlined, color: Color(0xFF10B981), size: 20),
             style: IconButton.styleFrom(
-              alignment: Alignment.center,
               hoverColor: const Color(0xFF10B981).withValues(alpha: 0.12),
             ),
             onPressed: () => _tampilkanDialogKredensial(context, nik, name),
