@@ -45,6 +45,11 @@ RUN flutter build web --release
 # jadi nginx mendengarkan port yang diberikan Vercel, bukan port 80 baku.
 FROM nginx:alpine
 
+# Baku untuk envsubst: nginx resmi tidak memahami sintaks ${PORT:-8080},
+# jadi PORT di-set eksplisit dan template memakai ${PORT} polos. Nilai dari
+# Vercel (melalui PORT) akan menimpanya bila disediakan.
+ENV PORT=8080
+
 COPY --from=build /app/build/web /usr/share/nginx/html
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 
