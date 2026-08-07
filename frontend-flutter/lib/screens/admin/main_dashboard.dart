@@ -1212,13 +1212,13 @@ class _MainDashboardState extends State<MainDashboard> {
                           child: CircularProgressIndicator(
                             value: progress,
                             strokeWidth: 8,
-                            backgroundColor: context.garis,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              percentage >= 75
-                                  ? const Color(0xFF059669)
-                                  : percentage >= 50
-                                  ? const Color(0xFFF59E0B)
-                                  : const Color(0xFFEF4444),
+                            // Track slate gelap (#334155) senada tema dark navy;
+                            // progress utama Emerald (#10B981). Warna TIDAK lagi
+                            // berubah berdasarkan persentase — tetap emerald di
+                            // semua tingkat kepatuhan, selaras elemen UI lain.
+                            backgroundColor: const Color(0xFF334155),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              Color(0xFF10B981),
                             ),
                             strokeCap: StrokeCap.round,
                           ),
@@ -1275,13 +1275,9 @@ class _MainDashboardState extends State<MainDashboard> {
                 child: LinearProgressIndicator(
                   value: progress,
                   minHeight: 8,
-                  backgroundColor: context.garis,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    percentage >= 75
-                        ? const Color(0xFF059669)
-                        : percentage >= 50
-                        ? const Color(0xFFF59E0B)
-                        : const Color(0xFFEF4444),
+                  backgroundColor: const Color(0xFF334155),
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    Color(0xFF10B981),
                   ),
                 ),
               ),
