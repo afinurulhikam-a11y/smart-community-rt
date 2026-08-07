@@ -828,13 +828,21 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
               ),
               onPressed: () => _bayarSatu(b),
             ),
+          // Penanda "lunas" dibuat IconButton NONAKTIF, bukan ikon telanjang,
+          // agar slotnya selebar tombol Bayar/Hapus (48dp). Dulu ia Padding +
+          // Icon 20px, sehingga tombol Hapus di baris lunas bergeser ~4px dari
+          // posisinya di baris belum bayar — kolom aksi tampak tidak lurus.
           if (b.isLunas)
-            const Padding(
-              // Jeda antara penanda "lunas" dan tombol hapus: TabelResponsif
-              // memampatkan ikon (padding 0), jadi tanpa jarak ini keduanya
-              // menempel.
-              padding: EdgeInsets.only(right: 24),
-              child: Icon(Icons.check_circle, color: Color(0xFF10B981), size: 20),
+            IconButton(
+              tooltip: 'Sudah lunas',
+              onPressed: null,
+              icon: const Icon(Icons.check_circle, size: 18),
+              style: IconButton.styleFrom(
+                alignment: Alignment.center,
+                // Tombol nonaktif mewarnai ikon abu-abu oleh bawaan; jaga
+                // tetap hijau karena ini penanda status, bukan aksi yang mati.
+                disabledForegroundColor: const Color(0xFF10B981),
+              ),
             ),
           if (_bolehHapus)
             IconButton(
