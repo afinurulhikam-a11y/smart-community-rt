@@ -6,6 +6,7 @@ const {
   createBill,
   generateBills,
   tagihSemuaWA,
+  updateBill,
   payBill,
   payBillsBulk,
   deleteBill,
@@ -36,6 +37,7 @@ router.post('/tagih-wa', requirePermission('keuangan.iuran', 'update'), tagihSem
 // mengonfirmasi.
 router.post('/:id/pay', requirePermission('keuangan.iuran', 'update'), payBill);
 router.get('/:id/receipt', requirePermission('keuangan.iuran', 'view'), downloadReceipt);
+router.put('/:id', requirePermission('keuangan.iuran', 'update'), updateBill);
 router.delete('/:id', requirePermission('keuangan.iuran', 'delete'), deleteBill);
 
 module.exports = router;

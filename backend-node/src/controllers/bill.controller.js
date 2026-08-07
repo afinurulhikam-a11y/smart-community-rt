@@ -170,6 +170,65 @@ async function getBillStats(req, res) {
   }
 }
 
+/**
+ * Ubah tagihan yang belum lunas: nominal, keterangan, jatuh tempo.
+ *
+ * Tagihan lunas sengaja ditolak — nominalnya sudah tercatat di Kas RT dan
+ * bil_payments, jadi mengubah angka di sini akan memutus konsistensi antara
+ * tagihan dan pembukuan. Koreksi tagihan lunas lewat Iuran Warga (hapus lalu
+ * buat ulang), bukan dengan menyunting angkanya.
+ */
+async function updateBill(req, res) {
+  try {
+    const { id } = req.params;
+    const { nominal, keterangan, jatuh_tempo } = req.body;
+
+    const tagihan = await pool.query(
+      'SELECT id, status, jenis_tagihan, bulan, nominal FROM bills WHERE id = $1',
+      [id]
+    );
+    if (tagihan.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Tagihan tidak ditemukan.' });
+    }
+    if (tagihan.rows[0].status === STATUS_LUNAS) {
+      return res.status(409).json({
+        success: false,
+        message: 'Tagihan lunas tidak bisa diubah. Nominalnya sudah tercatat di Kas RT — hapus lalu buat ulang bila keliru.',
+      });
+    }
+
+    // Nominal boleh dikosongkan (kembali ke nilai lama), tapi kalau diisi
+    // harus angka positif.
+    let nominalFinal = tagihan.rows[0].nominal;
+    if (nominal !== undefined && nominal !== null && nominal !== '') {
+      const n = Number(nominal);
+      if (!(n > 0)) {
+        return res.status(400).json({ success: false, message: 'Nominal harus lebih dari 0.' });
+      }
+      nominalFinal = n;
+    }
+
+    const result = await pool.query(
+      `UPDATE bills
+       SET nominal = $1, keterangan = $2, jatuh_tempo = $3, updated_at = NOW()
+       WHERE id = $4 RETURNING *`,
+      [nominalFinal, keterangan || null, jatuh_tempo || null, id]
+    );
+
+    const ubah = result.rows[0];
+    await logActivity(
+      req,
+      'UPDATE',
+      `Mengubah tagihan ${ubah.jenis_tagihan} periode ${ubah.bulan} menjadi ` +
+        `sebesar ${rupiah(ubah.nominal)}`
+    );
+    return res.status(200).json({ success: true, message: 'Tagihan berhasil diubah.', data: ubah });
+  } catch (err) {
+    console.error('UpdateBill Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
 /** Ambil jenis iuran sekaligus memvalidasinya. */
 async function ambilJenis(client, jenisIuranId) {
   const r = await client.query('SELECT * FROM jenis_iuran WHERE id = $1', [jenisIuranId]);
@@ -780,6 +839,7 @@ module.exports = {
   createBill,
   generateBills,
   tagihSemuaWA,
+  updateBill,
   payBill,
   payBillsBulk,
   deleteBill,
