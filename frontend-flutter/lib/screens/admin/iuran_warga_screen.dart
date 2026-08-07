@@ -826,7 +826,10 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
             ),
           if (b.isLunas)
             const Padding(
-              padding: EdgeInsets.only(right: 4),
+              // Jeda antara penanda "lunas" dan tombol hapus: TabelResponsif
+              // memampatkan ikon (padding 0), jadi tanpa jarak ini keduanya
+              // menempel.
+              padding: EdgeInsets.only(right: 12),
               child: Icon(Icons.check_circle, color: Color(0xFF10B981), size: 20),
             ),
           if (_bolehHapus)
