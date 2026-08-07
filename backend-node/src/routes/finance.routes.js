@@ -5,6 +5,7 @@ const {
   getSummary,
   createTransaction,
   updateTransaction,
+  deleteTransaction,
   exportFinances,
 } = require('../controllers/finance.controller');
 const { authMiddleware, requirePermission } = require('../middleware/auth.middleware');
@@ -29,5 +30,6 @@ router.get('/', requirePermission('keuangan.kas', 'view'), getTransactions);
 
 router.post('/', requirePermission('keuangan.kas', 'create'), validate(financeSchema), createTransaction);
 router.put('/:id', requirePermission('keuangan.kas', 'update'), validate(financeSchema), updateTransaction);
+router.delete('/:id', requirePermission('keuangan.kas', 'delete'), deleteTransaction);
 
 module.exports = router;

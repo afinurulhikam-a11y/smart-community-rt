@@ -390,10 +390,37 @@ async function exportFinances(req, res) {
   }
 }
 
+/** Hapus satu transaksi kas manual. Baris dari iuran ditolak — dikoreksi
+ *  lewat Iuran Warga, bukan dari buku kas. */
+async function deleteTransaction(req, res) {
+  try {
+    const { id } = req.params;
+
+    const boleh = await pastikanManual(id);
+    if (!boleh.ok) return res.status(boleh.kode).json({ success: false, message: boleh.pesan });
+
+    const result = await pool.query(
+      'DELETE FROM finances WHERE id = $1 RETURNING id, tipe, jumlah, deskripsi',
+      [id]
+    );
+    const hapus = result.rows[0];
+    await logActivity(
+      req,
+      'DELETE',
+      `Menghapus ${hapus.tipe} Kas RT ${rupiah(hapus.jumlah)} — ${hapus.deskripsi || '-'}`
+    );
+    return res.status(200).json({ success: true, message: 'Transaksi berhasil dihapus.', data: hapus });
+  } catch (err) {
+    console.error('Delete Finance Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
 module.exports = {
   getTransactions,
   getSummary,
   createTransaction,
   updateTransaction,
+  deleteTransaction,
   exportFinances,
 };

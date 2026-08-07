@@ -13,6 +13,7 @@ class FinanceProvider extends ChangeNotifier {
   int _currentPage = 1;
   int _totalPages = 1;
   int _totalData = 0;
+  int _perPage = 10;
 
   List<FinanceModel> get transactions => _transactions;
   FinanceSummary? get summary => _summary;
@@ -21,6 +22,7 @@ class FinanceProvider extends ChangeNotifier {
   int get currentPage => _currentPage;
   int get totalPages => _totalPages;
   int get totalData => _totalData;
+  int get perPage => _perPage;
 
   /// Filter yang sedang aktif, dipakai bersama oleh daftar, ringkasan, dan
   /// export supaya angka di ketiganya tidak pernah berbeda.
@@ -49,7 +51,7 @@ class FinanceProvider extends ChangeNotifier {
 
     final params = Map<String, String>.from(_filterAktif);
     params['page'] = page.toString();
-    params['limit'] = '25';
+    params['limit'] = '10';
 
     final response = await ApiService.get(
       ApiConstants.finances,
@@ -69,6 +71,7 @@ class FinanceProvider extends ChangeNotifier {
       if (response['pagination'] != null) {
         _totalPages = response['pagination']['total_pages'] ?? 1;
         _totalData = response['pagination']['total_data'] ?? 0;
+        _perPage = response['pagination']['per_page'] as int? ?? 10;
       }
       _errorMessage = null;
     } else {
@@ -145,6 +148,13 @@ class FinanceProvider extends ChangeNotifier {
     return response;
   }
 
+  /// Hapus satu transaksi kas manual. Baris dari iuran ditolak backend.
+  Future<Map<String, dynamic>> deleteTransaction(String id) async {
+    final response = await ApiService.delete(ApiConstants.finance(id));
+    if (response['success'] == true) await refresh();
+    return response;
+  }
+
 
   /// Unduh laporan dengan filter aktif. Token lewat query param karena browser
   /// tidak menyertakan header pada navigasi unduhan.
@@ -172,6 +182,7 @@ class FinanceProvider extends ChangeNotifier {
     _currentPage = 1;
     _totalPages = 1;
     _totalData = 0;
+    _perPage = 10;
     _filterAktif = {};
     notifyListeners();
   }
