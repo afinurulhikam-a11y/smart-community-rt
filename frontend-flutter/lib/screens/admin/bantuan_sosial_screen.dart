@@ -67,7 +67,7 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
     }
   }
 
-  void _loadData() {
+  void _loadData({int page = 1}) {
     final provider = context.read<BantuanSosialProvider>();
     provider.fetchStats();
     provider.fetchWargaList();
@@ -76,6 +76,7 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
       jenisBantuan: _jenisBantuan == 'Semua Jenis' ? null : _jenisBantuan,
       status: _status == 'Semua Status' ? null : _status,
       search: _searchQuery.isNotEmpty ? _searchQuery : null,
+      page: page,
     );
   }
 
@@ -450,9 +451,13 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                         baris: provider.bantuanList.asMap().entries.map((entry) {
                           final index = entry.key;
                           final b = entry.value;
+                          // Nomor urut mengikuti halaman, bukan posisi dalam
+                          // array halaman ini — menyamai Data Warga / Kas RT.
+                          final nomor =
+                              ((provider.currentPage - 1) * provider.perPage) + index + 1;
                           return BarisTabel(
                             sel: [
-                              SelTabel.teks('No', '${index + 1}', sembunyiDiKartu: true),
+                              SelTabel.teks('No', '$nomor', sembunyiDiKartu: true),
                               SelTabel.teks('Nama Warga', b['nama_warga'] ?? '-', utama: true),
                               SelTabel.teks('NIK', b['nik_warga'] ?? '-'),
                               SelTabel.teks('Jenis Bantuan', b['jenis_bantuan'] ?? '-'),
@@ -543,6 +548,11 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                             ),
                           );
                         }).toList(),
+                        currentPage: provider.currentPage,
+                        totalPages: provider.totalPages,
+                        totalData: provider.totalData,
+                        perPage: provider.perPage,
+                        onPageChanged: (page) => _loadData(page: page),
                       ),
                     ),
                 ],

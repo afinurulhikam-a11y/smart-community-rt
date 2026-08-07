@@ -6,7 +6,11 @@ const PDFDocument = require('pdfkit-table');
 async function getBantuanSosial(req, res) {
   try {
     const { tahun, jenis_bantuan, status, search } = req.query;
-    let query = `SELECT bs.*, u.nama AS nama_warga, COALESCE(u.nik, u.username) AS nik_warga, c.nama AS created_by_nama FROM bantuan_sosial bs JOIN users u ON bs.user_id = u.id LEFT JOIN users c ON bs.created_by = c.id WHERE 1=1`;
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const offset = (page - 1) * limit;
+
+    let where = 'WHERE 1=1';
     const params = [];
 
     // Daftar penerima bantuan sosial adalah salah satu data paling sensitif di
@@ -14,16 +18,47 @@ async function getBantuanSosial(req, res) {
     // nama dan NIK. Warga hanya boleh melihat catatannya sendiri.
     if (req.user.role === 'warga') {
       params.push(req.user.id);
-      query += ` AND bs.user_id = $${params.length}`;
+      where += ` AND bs.user_id = $${params.length}`;
     }
 
-    if (tahun && tahun !== 'Semua') { params.push(parseInt(tahun)); query += ` AND bs.tahun = $${params.length}`; }
-    if (jenis_bantuan && jenis_bantuan !== 'Semua Jenis') { params.push(jenis_bantuan); query += ` AND bs.jenis_bantuan = $${params.length}`; }
-    if (status && status !== 'Semua Status') { params.push(status); query += ` AND bs.status = $${params.length}`; }
-    if (search) { params.push(`%${search}%`); query += ` AND (u.nama ILIKE $${params.length} OR COALESCE(u.nik, u.username) ILIKE $${params.length})`; }
-    query += ' ORDER BY bs.created_at DESC';
-    const result = await pool.query(query, params);
-    return res.status(200).json({ success: true, count: result.rows.length, data: result.rows });
+    if (tahun && tahun !== 'Semua') { params.push(parseInt(tahun)); where += ` AND bs.tahun = $${params.length}`; }
+    if (jenis_bantuan && jenis_bantuan !== 'Semua Jenis') { params.push(jenis_bantuan); where += ` AND bs.jenis_bantuan = $${params.length}`; }
+    if (status && status !== 'Semua Status') { params.push(status); where += ` AND bs.status = $${params.length}`; }
+    if (search) { params.push(`%${search}%`); where += ` AND (u.nama ILIKE $${params.length} OR COALESCE(u.nik, u.username) ILIKE $${params.length})`; }
+
+    // Jumlah total dihitung dengan filter yang SAMA supaya halaman terakhir
+    // tidak salah menyatakan berapa banyak data yang ada.
+    const countResult = await pool.query(
+      `SELECT COUNT(*) AS total FROM bantuan_sosial bs
+       JOIN users u ON bs.user_id = u.id
+       ${where}`,
+      params
+    );
+    const totalData = parseInt(countResult.rows[0].total, 10);
+    const totalPages = Math.ceil(totalData / limit);
+
+    const result = await pool.query(
+      `SELECT bs.*, u.nama AS nama_warga, COALESCE(u.nik, u.username) AS nik_warga, c.nama AS created_by_nama
+       FROM bantuan_sosial bs
+       JOIN users u ON bs.user_id = u.id
+       LEFT JOIN users c ON bs.created_by = c.id
+       ${where}
+       ORDER BY bs.created_at DESC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, limit, offset]
+    );
+
+    return res.status(200).json({
+      success: true,
+      count: result.rows.length,
+      pagination: {
+        total_data: totalData,
+        total_pages: totalPages,
+        current_page: page,
+        per_page: limit,
+      },
+      data: result.rows,
+    });
   } catch (err) {
     console.error('GetBantuanSosial Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });

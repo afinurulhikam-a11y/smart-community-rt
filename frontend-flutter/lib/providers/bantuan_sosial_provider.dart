@@ -15,26 +15,48 @@ class BantuanSosialProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
+  // Pagination sisi server, menyamai layar lain (Kas RT, Iuran, Data Warga).
+  int _currentPage = 1;
+  int _totalPages = 1;
+  int _totalData = 0;
+  int _perPage = 10;
+
+  int get currentPage => _currentPage;
+  int get totalPages => _totalPages;
+  int get totalData => _totalData;
+  int get perPage => _perPage;
+
   Future<void> fetchBantuanSosial({
     String? tahun,
     String? jenisBantuan,
     String? status,
     String? search,
+    int page = 1,
   }) async {
     _isLoading = true;
+    _currentPage = page;
     notifyListeners();
-    final queryParams = <String, String>{};
+    final queryParams = <String, String>{
+      'page': page.toString(),
+      'limit': '10',
+    };
     if (tahun != null) queryParams['tahun'] = tahun;
     if (jenisBantuan != null) queryParams['jenis_bantuan'] = jenisBantuan;
     if (status != null) queryParams['status'] = status;
     if (search != null) queryParams['search'] = search;
     final response = await ApiService.get(
       ApiConstants.bantuanSosial,
-      queryParams: queryParams.isNotEmpty ? queryParams : null,
+      queryParams: queryParams,
     );
     _isLoading = false;
     if (response['success'] == true) {
       _bantuanList = List<Map<String, dynamic>>.from(response['data'] ?? []);
+      final pag = response['pagination'] as Map<String, dynamic>?;
+      if (pag != null) {
+        _totalPages = pag['total_pages'] as int? ?? 1;
+        _totalData = pag['total_data'] as int? ?? 0;
+        _perPage = pag['per_page'] as int? ?? 10;
+      }
       _errorMessage = null;
     } else {
       _errorMessage = response['message'] as String?;
@@ -131,6 +153,10 @@ class BantuanSosialProvider extends ChangeNotifier {
     _isLoading = false;
     _errorMessage = null;
     _wargaList = [];
+    _currentPage = 1;
+    _totalPages = 1;
+    _totalData = 0;
+    _perPage = 10;
     notifyListeners();
   }
 
