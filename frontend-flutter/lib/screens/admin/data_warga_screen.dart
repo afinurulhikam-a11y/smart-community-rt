@@ -817,13 +817,17 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
 aksi: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Gaya seragam untuk KETIGA tombol, agar hover-nya presisi & pixel-perfect:
-          // ukuran kotak tetap sama (38×38), alignment center (menimpa theme
-          // centerLeft dari _rapatkanAksi), padding nol, dan kotak sentuh
-          // menyesuaikan isi — sehingga lingkaran hover tepat di tengah ikon,
-          // dengan lebar sama di semua tombol.
+          // Gaya seragam untuk KETIGA tombol Aksi.
           //
-          // Fungsi tombol tidak berubah: Edit, Hapus, Akun & Kredensial.
+          // alignment: centerLeft — bukan center — agar ikon menempel di tepi
+          // kiri KOTAKnya, sejajar persis di bawah label kolom "AKSI" yang juga
+          // rata kiri. alignment center membuat ikon dipusat-kan di dalam kotak
+          // 38px, sehingga ikon pertama bergeser 9px ke kanan dari label —
+          // inilah penyebab "ikon aksi bergeser" yang tampak di tabel.
+          //
+          // Kotak tetap 38×38 + padding nol di tiap tombol membuat ketiganya
+          // berjajar rapat dengan jarak antar ikon yang sama (38px) dan hover
+          // tidak ikut menggeser posisi ikon. Fungsi tombol tidak diubah.
           if (_bolehUbah && item != null)
             IconButton(
               tooltip: 'Edit Data Warga',
@@ -849,14 +853,13 @@ aksi: Row(
     );
   }
 
-  /// Gaya seragam tombol aksi tabel Data Warga, supaya efek hover-nya presisi,
-  /// simetris, dan sama untuk semua tombol.
+  /// Gaya seragam tombol aksi tabel Data Warga — kotak tetap, rata kiri,
+  /// hit area konsisten, hover senada ikon.
   ButtonStyle _gayaAksiHover(Color warnaIkon) => IconButton.styleFrom(
-    alignment: Alignment.center,
+    alignment: Alignment.centerLeft,
     minimumSize: const Size(38, 38),
     maximumSize: const Size(38, 38),
     padding: EdgeInsets.zero,
-    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     hoverColor: warnaIkon.withValues(alpha: 0.12),
   );
 
