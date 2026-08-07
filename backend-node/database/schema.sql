@@ -971,7 +971,8 @@ CREATE TABLE public.users (
     alamat text,
     no_rt character varying(3) DEFAULT '001'::character varying,
     role character varying(50) DEFAULT 'warga'::character varying,
-    nik character varying(16)
+    nik character varying(16),
+    must_change_password boolean DEFAULT false
 );
 
 

@@ -92,7 +92,7 @@ async function login(req, res) {
 async function getMe(req, res) {
   try {
     const result = await pool.query(
-      'SELECT id, username, nama, email, no_hp, no_kk, alamat, no_rt, role, is_active, created_at FROM users WHERE id = $1',
+      'SELECT id, username, nama, email, no_hp, no_kk, alamat, no_rt, role, is_active, must_change_password, created_at FROM users WHERE id = $1',
       [req.user.id]
     );
 
@@ -218,7 +218,12 @@ async function changePassword(req, res) {
     const salt = await bcrypt.genSalt(10);
     const newHash = await bcrypt.hash(newPassword, salt);
 
-    await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [newHash, userId]);
+    // Kata sandi telah diganti → buka tanda "wajib ganti" bila ada, supaya
+    // warga yang baru pertama kali login tidak disuruh ganti terus-menerus.
+    await pool.query(
+      'UPDATE users SET password_hash = $1, must_change_password = false WHERE id = $2',
+      [newHash, userId]
+    );
 
     // Hanya faktanya yang dicatat. Kata sandi lama maupun baru tidak pernah
     // masuk ke tabel ini — dan tabel ini permanen.

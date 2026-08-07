@@ -229,6 +229,13 @@ class AuthService extends ChangeNotifier {
     _isLoading = false;
 
     if (response['success'] == true) {
+      // Wajib ganti sandi sudah dipenuhi — lepas tandanya di memori lokal
+      // agar AuthGate tidak menampilkan dialog itu lagi pada sesi ini.
+      if (_user != null) {
+        _user!['must_change_password'] = false;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_data', jsonEncode(_user));
+      }
       _errorMessage = null;
       notifyListeners();
       return true;

@@ -6,6 +6,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/auth_service.dart';
 import 'core/services/websocket_service.dart';
+import 'core/pesan.dart';
 
 // Providers
 import 'providers/bill_provider.dart';
@@ -133,6 +134,11 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   bool _isChecking = true;
 
+  // Cegah dialog wajib ganti sandi tampil dua kali dalam satu build. Nilainya
+  // sengaja tidak disimpan permanen: kalau warga keluar dan masuk lagi tanpa
+  // mengganti sandi, dialog harus muncul lagi.
+  bool _dialogSandiDitampilkan = false;
+
   @override
   void initState() {
     super.initState();
@@ -170,6 +176,184 @@ class _AuthGateState extends State<AuthGate> {
     if (mounted) {
       setState(() => _isChecking = false);
     }
+  }
+
+  /// Tampilkan dialog yang MEWAJIBKAN penggantian kata sandi.
+  ///
+  /// Akun warga baru dibuat dengan kata sandi awal yang sama untuk semua (atau
+  /// yang dicatat saat pendaftaran), jadi sudah diketahui orang lain selama
+  /// proses tersebut. Warga yang pertama kali masuk wajib menggantinya sebelum
+  /// aplikasi dipakai — bukan sekadar disarankan. Karena itu dialognya tidak
+  /// bisa ditutup (barrierDismissible false) dan tanpa tombol batal; hanya
+  /// "Simpan" yang meneruskannya. Sesi tetap bisa keluar lewat tombol logout
+  /// aplikasi, dan warga diingatkan lagi pada login berikutnya.
+  Future<void> _tampilkanWajibGantiSandi(AuthService auth) async {
+    final lamaCtrl = TextEditingController();
+    final baruCtrl = TextEditingController();
+    final ulangiCtrl = TextEditingController();
+    bool sembunyikan = true;
+    bool menyimpan = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1B7A6A).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.lock_reset_rounded, color: Color(0xFF1B7A6A)),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Ganti Kata Sandi',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 420,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFF59E0B)),
+                    ),
+                    child: const Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.security, color: Color(0xFFD97706), size: 20),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Untuk keamanan akun, Anda wajib mengganti kata sandi '
+                            'bawaan sebelum memakai aplikasi.',
+                            style: TextStyle(fontSize: 12, color: Color(0xFF92400E), height: 1.4),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: lamaCtrl,
+                    obscureText: sembunyikan,
+                    decoration: InputDecoration(
+                      labelText: 'Kata Sandi Lama',
+                      prefixIcon: const Icon(Icons.password, size: 20),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          sembunyikan ? Icons.visibility_off : Icons.visibility,
+                          size: 18,
+                        ),
+                        onPressed: () => setLocal(() => sembunyikan = !sembunyikan),
+                      ),
+                      filled: true,
+                      fillColor: Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: baruCtrl,
+                    obscureText: sembunyikan,
+                    decoration: InputDecoration(
+                      labelText: 'Kata Sandi Baru',
+                      prefixIcon: const Icon(Icons.lock_outline, size: 20),
+                      filled: true,
+                      fillColor: Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: ulangiCtrl,
+                    obscureText: sembunyikan,
+                    decoration: InputDecoration(
+                      labelText: 'Ulangi Kata Sandi Baru',
+                      prefixIcon: const Icon(Icons.lock_outline, size: 20),
+                      filled: true,
+                      fillColor: Theme.of(ctx).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: menyimpan ? null : () async {
+                await auth.logout();
+                if (ctx.mounted) Navigator.pop(ctx);
+              },
+              child: const Text('Keluar'),
+            ),
+            ElevatedButton(
+              onPressed: menyimpan
+                  ? null
+                  : () async {
+                      final lama = lamaCtrl.text.trim();
+                      final baru = baruCtrl.text.trim();
+                      final ulangi = ulangiCtrl.text.trim();
+
+                      if (lama.isEmpty || baru.isEmpty) {
+                        tampilkanPesan(ctx, 'Lengkapi semua kolom.', sukses: false);
+                        return;
+                      }
+                      if (baru.length < 6) {
+                        tampilkanPesan(ctx, 'Kata sandi baru minimal 6 karakter.', sukses: false);
+                        return;
+                      }
+                      if (baru != ulangi) {
+                        tampilkanPesan(ctx, 'Ulangi kata sandi baru tidak cocok.', sukses: false);
+                        return;
+                      }
+
+                      setLocal(() => menyimpan = true);
+                      final ok = await auth.changePassword(oldPassword: lama, newPassword: baru);
+                      if (!ctx.mounted) return;
+                      setLocal(() => menyimpan = false);
+
+                      if (ok) {
+                        Navigator.pop(ctx);
+                      } else {
+                        tampilkanPesan(ctx, auth.errorMessage ?? 'Gagal mengganti kata sandi.', sukses: false);
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1B7A6A),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: Text(menyimpan ? 'Menyimpan...' : 'Simpan'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    lamaCtrl.dispose();
+    baruCtrl.dispose();
+    ulangiCtrl.dispose();
+    _dialogSandiDitampilkan = false;
   }
 
   @override
@@ -234,6 +418,17 @@ class _AuthGateState extends State<AuthGate> {
         // Pemicu pemuatan hak akses di latar belakang jika belum sempat dimuat
         if (!izin.sudahDimuat && !izin.isLoading) {
           WidgetsBinding.instance.addPostFrameCallback((_) => izin.muat());
+        }
+
+        // Wajib ganti kata sandi untuk akun baru. Ditampilkan setelah login
+        // (atau setelah sesi dipulihkan) — bukan saat `_isChecking`, supaya
+        // dialognya tampil di atas layar yang sudah siap, bukan di atas splash.
+        final wajibGanti = auth.user?['must_change_password'] == true;
+        if (wajibGanti && !_dialogSandiDitampilkan) {
+          _dialogSandiDitampilkan = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _tampilkanWajibGantiSandi(auth);
+          });
         }
 
         // Semua role memakai MainDashboard; sidebar menyaring menunya
