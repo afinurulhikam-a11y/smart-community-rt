@@ -251,9 +251,12 @@ class BillProvider extends ChangeNotifier {
       body: billIds == null || billIds.isEmpty ? const {} : {'bill_ids': billIds},
     );
     _isLoading = false;
+    // notifyListeners() harus dipanggil di DUA arah. Awalnya hanya dipanggil
+    // saat gagal, sehingga pada keberhasilan UI tidak pernah diberi tahu bahwa
+    // loading selesai — spinner berputar tanpa henti.
+    notifyListeners();
     if (response['success'] != true) {
       _errorMessage = response['message'] as String?;
-      notifyListeners();
     }
     return response;
   }
