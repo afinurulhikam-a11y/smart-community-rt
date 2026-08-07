@@ -151,6 +151,25 @@ class BillProvider extends ChangeNotifier {
     return response;
   }
 
+  /// Ubah tagihan yang belum lunas: nominal, keterangan, jatuh tempo.
+  Future<Map<String, dynamic>> updateBill(
+    String id, {
+    double? nominal,
+    String? keterangan,
+    String? jatuhTempo,
+  }) async {
+    final response = await ApiService.put(
+      ApiConstants.bill(id),
+      body: {
+        if (nominal != null) 'nominal': nominal,
+        if (keterangan != null && keterangan.isNotEmpty) 'keterangan': keterangan,
+        if (jatuhTempo != null && jatuhTempo.isNotEmpty) 'jatuh_tempo': jatuhTempo,
+      },
+    );
+    if (response['success'] == true) await refresh();
+    return response;
+  }
+
   /// Buat tagihan untuk seluruh kartu keluarga sekaligus pada satu periode.
   Future<Map<String, dynamic>> generateBills({
     required int jenisIuranId,
@@ -158,8 +177,7 @@ class BillProvider extends ChangeNotifier {
     double? nominal,
     String? keterangan,
     String? jatuhTempo,
-  }) async {
-    _isLoading = true;
+  }) async {    _isLoading = true;
     notifyListeners();
 
     final response = await ApiService.post(

@@ -791,6 +791,20 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
       aksi: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (_bolehUbah)
+            IconButton(
+              tooltip: b.isLunas
+                  ? 'Tagihan lunas tidak bisa diubah'
+                  : 'Edit Tagihan',
+              icon: Icon(
+                Icons.edit_outlined,
+                size: 18,
+                color: b.isLunas ? context.garis : const Color(0xFF3B82F6),
+              ),
+              // Backend juga menolak, tapi menonaktifkan tombol lebih jujur
+              // daripada memunculkan error setelah mengisi form.
+              onPressed: b.isLunas ? null : () => _editTagihan(b),
+            ),
           // Mencatat pembayaran adalah aksi `update` pada tagihan yang sudah
           // ada, bukan `create`.
           if (!b.isLunas && _bolehUbah)
@@ -936,6 +950,166 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
     if (ok != true || !mounted) return;
     final hasil = await context.read<BillProvider>().deleteBill(b.id);
     _pesan(hasil['message']?.toString() ?? 'Selesai.', sukses: hasil['success'] == true);
+  }
+
+  /// Ubah nominal, keterangan, dan jatuh tempo tagihan yang belum lunas.
+  void _editTagihan(BillModel b) {
+    final nominalCtrl = TextEditingController(text: b.nominal.toStringAsFixed(0));
+    final keteranganCtrl = TextEditingController(text: b.keterangan ?? '');
+    final jatuhTempoCtrl = TextEditingController(
+      text: b.jatuhTempo == null ? '' : DateFormat('yyyy-MM-dd').format(b.jatuhTempo!),
+    );
+    DateTime? jatuhTempo;
+
+    InputDecoration dekor(String label, IconData ikon) => InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(fontSize: 14, color: context.teksKedua),
+      prefixIcon: Icon(ikon, color: const Color(0xFF1B7A6A), size: 20),
+      filled: true,
+      fillColor: context.latarLembut,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: context.garis),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: context.garis),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFF1B7A6A), width: 1.5),
+      ),
+    );
+
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+        contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+        actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1B7A6A).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.edit_outlined, color: Color(0xFF1B7A6A)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Edit Tagihan',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 18,
+                  color: context.teksUtama,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: lebarDialog(context, maksimal: 420),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: context.latarLembut,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: context.garis),
+                  ),
+                  child: Text(
+                    '${b.namaIuran} — ${b.bulan}\n${b.kepalaKeluarga}',
+                    style: TextStyle(fontSize: 13, color: context.teksKedua, height: 1.4),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: nominalCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: dekor('Nominal (Rp)', Icons.attach_money),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: keteranganCtrl,
+                  maxLines: 2,
+                  decoration: dekor('Keterangan', Icons.notes),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: jatuhTempoCtrl,
+                  readOnly: true,
+                  decoration: dekor('Jatuh Tempo (opsional)', Icons.event),
+                  onTap: () async {
+                    final dipilih = await showDatePicker(
+                      context: c,
+                      initialDate: b.jatuhTempo ?? DateTime.now(),
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                      helpText: 'Pilih Jatuh Tempo',
+                    );
+                    if (dipilih != null) {
+                      jatuhTempo = dipilih;
+                      jatuhTempoCtrl.text =
+                          '${dipilih.year.toString().padLeft(4, '0')}-${dipilih.month.toString().padLeft(2, '0')}-${dipilih.day.toString().padLeft(2, '0')}';
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              foregroundColor: context.teksKedua,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Batal', style: TextStyle(fontWeight: FontWeight.w600)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final nominal = double.tryParse(nominalCtrl.text);
+              if (nominal == null || nominal <= 0) {
+                _pesan('Nominal harus berupa angka lebih dari 0.', sukses: false);
+                return;
+              }
+              Navigator.pop(c);
+              final hasil = await context.read<BillProvider>().updateBill(
+                b.id,
+                nominal: nominal,
+                keterangan: keteranganCtrl.text.trim(),
+                jatuhTempo: jatuhTempo == null
+                    ? null
+                    : DateFormat('yyyy-MM-dd').format(jatuhTempo!),
+              );
+              _pesan(
+                hasil['message']?.toString() ?? 'Selesai.',
+                sukses: hasil['success'] == true,
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1B7A6A),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 0,
+            ),
+            child: const Text('Simpan', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   // --------------------------------------------------------------- dialogs
