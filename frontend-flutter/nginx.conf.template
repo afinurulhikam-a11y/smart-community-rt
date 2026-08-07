@@ -1,0 +1,12 @@
+server {
+    listen ${PORT:-8080};
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Flutter web = SPA: semua rute yang tidak cocok dengan berkas
+    # dikembalikan ke index.html agar router sisi klien bekerja.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
