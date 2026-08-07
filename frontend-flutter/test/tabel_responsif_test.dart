@@ -202,4 +202,29 @@ void main() {
     expect(find.text('Menampilkan 1–3 dari 3 data'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('footer terpusat tak menampilkan ringkasan saat footerTerpusat',
+      (tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      bungkus(TabelResponsif(
+        kolom: kolom,
+        baris: contohBaris(jumlah: 10),
+        currentPage: 2,
+        totalPages: 6,
+        totalData: 57,
+        perPage: 10,
+        footerTerpusat: true,
+      )),
+    );
+    await tester.pump();
+
+    // "Menampilkan X–Y dari Z" disembunyikan, "Halaman X dari Y" tetap ada.
+    expect(find.text('Menampilkan 11–20 dari 57 data'), findsNothing);
+    expect(find.text('Halaman 2 dari 6'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
