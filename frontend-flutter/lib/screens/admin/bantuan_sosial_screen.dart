@@ -672,6 +672,15 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
       'Lainnya',
     ];
 
+    // Nominal 0 (bantuan barang tanpa nilai uang) mewajibkan keterangan;
+    // nominal lebih dari 0 membuat keterangan opsional. Dibaca tiap dialog
+    // rebuild sehingga label dan validasi mengikutinya.
+    bool nominalNol() {
+      final t = nominalController.text.trim();
+      final n = int.tryParse(t) ?? 0;
+      return n == 0;
+    }
+
     showDialog(
       context: context,
       builder: (ctx) {
@@ -785,6 +794,10 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                         // yang terketik lolos ke controller lalu ditolak sebagai
                         // "wajib diisi" — padahal kolomnya jelas terisi.
                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        // Rebuild label Keterangan mengikuti nilai nominal:
+                        // nominal 0 → "Keterangan (Wajib)", lebih dari 0 →
+                        // opsional.
+                        onChanged: (_) => setDialogState(() {}),
                       ),
                       const SizedBox(height: 16),
                       if (isEdit) ...[
@@ -803,7 +816,12 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                       ],
                       TextField(
                         controller: ketController,
-                        decoration: buildDecor('Keterangan (Opsional)', Icons.notes),
+                        decoration: buildDecor(
+                          nominalNol()
+                              ? 'Keterangan (Wajib)'
+                              : 'Keterangan (Opsional)',
+                          Icons.notes,
+                        ),
                         maxLines: 3,
                       ),
                     ],
@@ -830,14 +848,17 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                       pesanGagal(context, 'Tahun wajib diisi');
                       return;
                     }
-                    // Nominal tidak lagi opsional. Baris bernilai nol tidak bisa
-                    // dibedakan antara bantuan tanpa nilai uang dan petugas yang
-                    // lupa mengisi, padahal keduanya ikut ke rekap dan log.
-                    // Aturan yang sama ditegakkan di backend, jadi ini lapisan
-                    // pertama — bukan satu-satunya.
+                    // Nominal boleh bernilai 0 (bantuan barang), tetapi bila 0
+                    // maka keterangan WAJIB diisi. Nominal lebih dari 0 membuat
+                    // keterangan opsional. Aturan yang sama ditegakkan di
+                    // backend, jadi ini lapisan pertama — bukan satu-satunya.
                     final nominal = double.tryParse(nominalController.text.trim());
-                    if (nominal == null || nominal <= 0) {
-                      pesanGagal(context, 'Nominal wajib diisi dan harus lebih besar dari 0');
+                    if (nominal == null || nominal < 0) {
+                      pesanGagal(context, 'Nominal wajib diisi dan tidak boleh negatif');
+                      return;
+                    }
+                    if (nominal == 0 && ketController.text.trim().isEmpty) {
+                      pesanGagal(context, 'Keterangan wajib diisi bila nominal 0');
                       return;
                     }
 
