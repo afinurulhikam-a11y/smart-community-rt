@@ -20,6 +20,17 @@ const { SUMBER_WARGA } = require('./src/utils/lingkup-warga');
 const BASE = `http://localhost:${process.env.PORT || 3001}/api`;
 
 /** Akun bawaan seed-master. Dipakai menyapu endpoint per role. */
+/**
+ * Pemeriksaan yang tidak sempat berjalan.
+ *
+ * Dicatat terpisah dari temuan karena keduanya berbeda arti: temuan berarti ada
+ * yang salah, dilewati berarti tidak ada yang tahu. Tanpa daftar ini, backend
+ * yang mati membuat separuh pemeriksaan dilewati dan laporannya tetap ditutup
+ * dengan "Semuanya sehat" — kalimat yang justru paling menyesatkan ketika
+ * pemeriksanya sendiri tidak berjalan.
+ */
+const DILEWATI = [];
+
 const AKUN = [
   ['admin', 'admin123'],
   ['ketua', 'ketua123'],
@@ -226,6 +237,73 @@ async function periksaEndpoint() {
   return temuan;
 }
 
+/**
+ * Bandingkan jumlah warga seperti yang benar-benar dilihat pengguna.
+ *
+ * Pemeriksaan SQL di PERIKSA membandingkan konstanta lingkup dengan definisi
+ * yang ditulis tangan di berkas ini. Yang ini lebih jauh: ia memanggil dua
+ * endpoint yang persis dibaca oleh layar Data Warga dan kartu TOTAL WARGA di
+ * dashboard, lalu membandingkan angka yang keluar. Apa pun yang membuat kedua
+ * layar berbeda — klausa WHERE, pagination, kegagalan yang tertelan `?? 0` —
+ * akan terlihat di sini, termasuk penyebab yang belum terpikirkan.
+ *
+ * Dua layar itu pernah menampilkan 41 dan 0 secara bersamaan, dan tidak ada
+ * satu pun pesan kesalahan di mana pun. Endpoint demografi mengembalikan 500
+ * karena menyaring kolom yang tidak ada, dan sisi Flutter menuliskannya sebagai
+ * angka nol yang tampak sah.
+ */
+async function periksaAngkaWarga() {
+  console.log('\n== Jumlah warga: Data Warga vs kartu dashboard\n');
+
+  let token;
+  try {
+    const r = await fetch(`${BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'admin@example.com', password: 'admin123' }),
+    });
+    const j = await r.json();
+    if (!j.success) {
+      console.log(`  [LEWAT] tidak bisa masuk sebagai admin (${j.message})`);
+      DILEWATI.push('Jumlah warga Data Warga vs kartu dashboard — gagal masuk sebagai admin');
+      return 0;
+    }
+    token = j.data.token;
+  } catch (err) {
+    console.log(`  Backend tidak merespons di ${BASE} — bagian ini dilewati.`);
+    console.log(`  (${err.message})`);
+    DILEWATI.push('Jumlah warga Data Warga vs kartu dashboard — backend tidak merespons');
+    return 0;
+  }
+
+  const ambil = async (jalur) => {
+    const res = await fetch(BASE + jalur, { headers: { Authorization: `Bearer ${token}` } });
+    return { status: res.status, body: await res.json().catch(() => ({})) };
+  };
+
+  // limit=1 disengaja: yang dibaca adalah pagination.total_data, bukan panjang
+  // array. Layar Data Warga menampilkan angka yang sama di penomorannya.
+  const w = await ambil('/warga?page=1&limit=1');
+  const d = await ambil('/demographics/summary');
+
+  const dataWarga = w.body?.pagination?.total_data ?? null;
+  const kartu = d.body?.data?.summary?.total_warga ?? null;
+
+  console.log(`  Data Warga        : ${dataWarga}   (HTTP ${w.status})`);
+  console.log(`  Kartu TOTAL WARGA : ${kartu}   (HTTP ${d.status})`);
+
+  if (dataWarga === null || kartu === null) {
+    console.log('  [MASALAH] salah satu endpoint tidak mengembalikan angkanya.');
+    return 1;
+  }
+  if (dataWarga !== kartu) {
+    console.log(`  [MASALAH] kedua layar berbeda ${Math.abs(dataWarga - kartu)} orang.`);
+    return 1;
+  }
+  console.log('  [ OK ] kedua layar sepakat.');
+  return 0;
+}
+
 async function ringkasIsi() {
   console.log('\n== Isi tabel\n');
   const t = await pool.query(
@@ -246,13 +324,25 @@ async function ringkasIsi() {
 
   const a = await periksaData();
   const b = await periksaEndpoint();
+  const c = await periksaAngkaWarga();
   await ringkasIsi();
 
-  const total = a + b;
+  const total = a + b + c;
   console.log('');
+
+  if (DILEWATI.length > 0) {
+    console.log(`${DILEWATI.length} pemeriksaan TIDAK dijalankan:`);
+    for (const x of DILEWATI) console.log(`  - ${x}`);
+    console.log('');
+  }
+
   if (total === 0) {
-    console.log('Semuanya sehat.\n');
-    process.exit(0);
+    console.log(
+      DILEWATI.length === 0
+        ? 'Semuanya sehat.\n'
+        : 'Tidak ada temuan pada yang sempat diperiksa — tetapi tidak semuanya diperiksa.\n'
+    );
+    process.exit(DILEWATI.length === 0 ? 0 : 1);
   }
   console.log(`${total} temuan perlu diperiksa.\n`);
   process.exit(1);
