@@ -458,7 +458,7 @@ class _KasRtScreenState extends State<KasRtScreen> {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Center(child: label),
+                      Align(alignment: Alignment.centerLeft, child: label),
                       const SizedBox(height: 8),
                       Align(alignment: Alignment.centerRight, child: tombol),
                     ],
@@ -466,7 +466,9 @@ class _KasRtScreenState extends State<KasRtScreen> {
                 }
                 return Row(
                   children: [
-                    Expanded(child: Center(child: label)),
+                    Expanded(
+                      child: Align(alignment: Alignment.centerLeft, child: label),
+                    ),
                     const SizedBox(width: 12),
                     tombol,
                   ],
