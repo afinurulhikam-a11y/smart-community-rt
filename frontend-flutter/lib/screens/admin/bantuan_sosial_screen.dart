@@ -414,7 +414,9 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                             ],
                           ),
                           Text(
-                            '${provider.bantuanList.length} data',
+                            // Total SELURUH data dari backend, bukan jumlah
+                            // baris pada halaman pagination saat ini.
+                            '${provider.totalData} data',
                             style: TextStyle(fontSize: 12, color: context.teksKedua),
                           ),
                         ],
@@ -517,11 +519,19 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                                   IconButton(
                                     tooltip: 'Edit',
                                     icon: const Icon(Icons.edit, color: Colors.blue, size: 18),
-                                    // Hover presisi: alignment center memusatkan
-                                    // ikon dalam kotak 48dp yang dipaksa
-                                    // _rapatkanAksi (centerLeft + padding 0).
+                                    // Hover presisi: ikon dipusatkan dalam kotak
+                                    // tetap 38×38 (alignment center), sehingga
+                                    // lingkaran hover tepat di tengah ikon dan
+                                    // ukuran/hit-area sama untuk semua tombol.
+                                    // Padding nol + kotak tetap menjaga tombol
+                                    // pertama tetap di posisi awal di bawah
+                                    // label "AKSI"; tidak ada wrapper/flex yang
+                                    // menggeser posisinya.
                                     style: IconButton.styleFrom(
                                       alignment: Alignment.center,
+                                      minimumSize: const Size(38, 38),
+                                      maximumSize: const Size(38, 38),
+                                      padding: EdgeInsets.zero,
                                       hoverColor: Colors.blue.withValues(alpha: 0.12),
                                     ),
                                     onPressed: () => _showFormDialog(data: b),
@@ -532,6 +542,9 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                                     icon: const Icon(Icons.delete, color: Colors.red, size: 18),
                                     style: IconButton.styleFrom(
                                       alignment: Alignment.center,
+                                      minimumSize: const Size(38, 38),
+                                      maximumSize: const Size(38, 38),
+                                      padding: EdgeInsets.zero,
                                       hoverColor: Colors.red.withValues(alpha: 0.12),
                                     ),
                                     onPressed: () async {
