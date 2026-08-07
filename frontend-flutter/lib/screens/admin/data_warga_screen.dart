@@ -353,6 +353,11 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                   // Reset filter & pencarian: kembalikan ke nilai awal, kosongkan
                   // kotak pencarian, lalu muat ulang dari halaman 1. Gaya
                   // mengikuti tombol Reset di layar lain (outlined, refresh).
+                  //
+                  // Padding & tinggi disamakan dengan kolom pencarian: horizontal
+                  // 16 + vertical 12 (sama dengan contentPadding TextField) dan
+                  // tinggi minimum sasaranSentuh (48), plus radius 8, sehingga
+                  // keduanya tampak sejajar dan simetris.
                   OutlinedButton.icon(
                     onPressed: () => _resetPencarian(),
                     icon: const Icon(Icons.refresh, size: 16),
@@ -364,7 +369,10 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                       foregroundColor: context.teksKedua,
                       side: BorderSide(color: context.garis),
                       minimumSize: const Size(0, AppTheme.sasaranSentuh),
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
