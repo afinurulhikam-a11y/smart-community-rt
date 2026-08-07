@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/constants/api_constants.dart';
 import '../core/services/api_service.dart';
@@ -7,6 +8,11 @@ import '../models/bill_model.dart';
 class BillProvider extends ChangeNotifier {
   List<BillModel> _bills = [];
   BillStats _stats = BillStats.kosong();
+  // Statistik khusus bulan berjalan, dipakai card "Progress Iuran Bulan Ini"
+  // di dashboard. Sengaja TERPISAH dari `_stats` yang mengikuti filter daftar
+  // layar — card itu harus selalu menampilkan bulan berjalan, apa pun filter
+  // yang dipilih pengurus di layar Iuran Warga.
+  BillStats _statsBulanIni = BillStats.kosong();
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -18,6 +24,7 @@ class BillProvider extends ChangeNotifier {
 
   List<BillModel> get bills => _bills;
   BillStats get stats => _stats;
+  BillStats get statsBulanIni => _statsBulanIni;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
@@ -114,6 +121,20 @@ class BillProvider extends ChangeNotifier {
     );
     if (response['success'] == true && response['data'] != null) {
       _stats = BillStats.fromJson(response['data'] as Map<String, dynamic>);
+    }
+  }
+
+  /// Statistik untuk bulan berjalan, dipakai card Progress Iuran dashboard.
+  Future<void> fetchStatsBulanIni() async {
+    final sekarang = DateTime.now();
+    final bulanIni = DateFormat('yyyy-MM').format(sekarang);
+    final response = await ApiService.get(
+      ApiConstants.billStats,
+      queryParams: {'bulan': bulanIni, 'tahun': sekarang.year.toString()},
+    );
+    if (response['success'] == true && response['data'] != null) {
+      _statsBulanIni = BillStats.fromJson(response['data'] as Map<String, dynamic>);
+      notifyListeners();
     }
   }
 
@@ -293,6 +314,7 @@ class BillProvider extends ChangeNotifier {
   void bersihkan() {
     _bills = [];
     _stats = BillStats.kosong();
+    _statsBulanIni = BillStats.kosong();
     _isLoading = false;
     _errorMessage = null;
     _currentPage = 1;
