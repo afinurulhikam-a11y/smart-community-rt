@@ -4,7 +4,6 @@ const bcrypt = require('bcryptjs');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit-table');
 const { jenisKelamin: normalJk, labelJenisKelamin } = require('../utils/normalisasi');
-const { sandiAcak } = require('../utils/sandi');
 const { SUMBER_WARGA } = require('../utils/lingkup-warga');
 
 /**
@@ -362,8 +361,10 @@ async function tambahWargaLengkap(req, res) {
     const resUser = await client.query('SELECT id FROM users WHERE username = $1 OR email = $1', [nik]);
     let sandiAwal = null;
     if (resUser.rows.length === 0) {
-      // Acak, bukan '123456'. Lihat src/utils/sandi.js untuk alasannya.
-      sandiAwal = sandiAcak();
+      // Kata sandi bawaan seragam untuk semua warga baru. `must_change_password`
+      // di-set true sehingga warga wajib menggantinya di login pertama — sandi
+      // ini hanya jembatan masuk sekali pakai, bukan sandi permanen.
+      sandiAwal = '12345678';
       const salt = await bcrypt.genSalt(10);
       const passwordHash = await bcrypt.hash(sandiAwal, salt);
 
@@ -691,7 +692,7 @@ async function importWargaExcel(req, res) {
 
         const resUser = await client.query('SELECT id FROM users WHERE username = $1', [nik]);
         if (resUser.rows.length === 0) {
-          const sandiAwal = sandiAcak();
+          const sandiAwal = '12345678';
           const salt = await bcrypt.genSalt(10);
           const passwordHash = await bcrypt.hash(sandiAwal, salt);
           await client.query(
