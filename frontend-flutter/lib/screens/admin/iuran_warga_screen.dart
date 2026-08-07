@@ -939,12 +939,10 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
   }
 
   Future<void> _tagihSatu(BillModel b) async {
-    final berhasil = await context.read<BillProvider>().tagihViaWhatsApp(
-      noHp: b.noHp ?? '',
-      namaKepalaKeluarga: b.kepalaKeluarga,
-      tagihan: [b],
-    );
-    if (!berhasil) _pesan('Gagal membuka WhatsApp. Pastikan nomor HP terisi.', sukses: false);
+    // Lewat gateway backend (Fonnte), bukan membuka wa.me — sama seperti
+    // pengiriman massal. Nomor tujuan diambil server dari data KK.
+    final hasil = await context.read<BillProvider>().tagihSemuaWA(billIds: [b.id]);
+    _pesan(hasil['message']?.toString() ?? 'Selesai.', sukses: hasil['success'] == true);
   }
 
   // --------------------------------------------------------------- dialogs
@@ -1035,12 +1033,19 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                                 Icons.chat,
                                 color: adaHp ? const Color(0xFF22C55E) : context.garis,
                               ),
+                              // Per keluarga juga lewat gateway backend — satu
+                              // klik, tanpa membuka wa.me.
                               onPressed: adaHp
-                                  ? () => context.read<BillProvider>().tagihViaWhatsApp(
-                                      noHp: list.first.noHp!,
-                                      namaKepalaKeluarga: list.first.kepalaKeluarga,
-                                      tagihan: list,
-                                    )
+                                  ? () async {
+                                      final hasil = await context
+                                          .read<BillProvider>()
+                                          .tagihSemuaWA(billIds: list.map((b) => b.id).toList());
+                                      if (!c.mounted) return;
+                                      _pesan(
+                                        hasil['message']?.toString() ?? 'Selesai.',
+                                        sukses: hasil['success'] == true,
+                                      );
+                                    }
                                   : null,
                             ),
                           );
