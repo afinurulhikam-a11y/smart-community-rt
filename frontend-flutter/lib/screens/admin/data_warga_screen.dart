@@ -83,6 +83,66 @@ class DataWargaScreen extends StatefulWidget {
 /// Kode modul di tabel izin. Bendahara hanya punya `view` di sini.
 const String _kodeIzin = 'kependudukan.warga';
 
+/// Satu dekorasi untuk SELURUH kotak isian di dialog Akun & Kredensial.
+///
+/// Sebelum ini keempat kotaknya dibangun sendiri-sendiri dan tidak ada dua yang
+/// sama. Terukur, bukan diperkirakan:
+///
+///   Nomor HP  (TextField)  tinggi 48  radius 12  latar #F8FAFC
+///   Password  (TextField)  tinggi 48  radius 12  latar #F8FAFC
+///   Username  (Container)  tinggi 42  radius  8  latar #F8FAFC
+///   Role      (Dropdown)   tinggi 50  radius  8  latar putih
+///
+/// Tiga tinggi berbeda dan dua radius dalam satu kolom vertikal — dropdown-nya
+/// yang paling menonjol karena 2px lebih tinggi dari kotak isian sekaligus
+/// berlatar putih sendirian.
+///
+/// Yang paling menipu: kedua `TextField` MENULIS radius 8, tetapi
+/// `inputDecorationTheme` menyediakan `enabledBorder` ber-radius 12 — dan
+/// `enabledBorder` menang atas `border` untuk keadaan enabled. Jadi angka 8 di
+/// kode itu tidak pernah terpakai sama sekali, dan membacanya justru meyakinkan
+/// bahwa keduanya sudah sama. Karena itu di sini SEMUA keadaan tepi ditulis
+/// eksplisit; menyetel `border` saja tidak cukup.
+///
+/// `fillColor` diambil dari tema, bukan ditulis ulang, karena nilainya berbeda
+/// antara mode terang dan gelap — menyalin salah satunya akan membuat kotak ini
+/// menyimpang dari `TextField` di sebelahnya begitu mode gelap dinyalakan.
+InputDecoration dekorKredensial(
+  BuildContext context, {
+  String? hint,
+  Widget? suffixIcon,
+}) {
+  final temaIsian = Theme.of(context).inputDecorationTheme;
+  OutlineInputBorder tepi(Color warna) => OutlineInputBorder(
+    borderRadius: BorderRadius.circular(AppTheme.radiusS),
+    borderSide: BorderSide(color: warna),
+  );
+
+  return InputDecoration(
+    filled: true,
+    fillColor: temaIsian.fillColor,
+    hintText: hint,
+    hintStyle: TextStyle(color: context.teksTersier, fontSize: 13),
+    suffixIcon: suffixIcon,
+    // `isDense` menahan tinggi bawaan InputDecorator agar padding di bawah ini
+    // yang menentukan, sehingga keempat kotak berakhir di angka yang sama.
+    isDense: true,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    border: tepi(context.garis),
+    enabledBorder: tepi(context.garis),
+    disabledBorder: tepi(context.garis),
+    focusedBorder: tepi(AppTheme.primaryColor),
+  );
+}
+
+/// Gaya teks isi untuk kotak-kotak di dialog itu — 13sp, sama untuk semuanya.
+///
+/// Perlu ditulis terpisah karena `DropdownButton` tidak mewarisi gaya dari
+/// `InputDecoration`: tanpa ini teks yang terpilih memakai `titleMedium` (16sp)
+/// dan terlihat lebih besar daripada isi kotak di atas dan di bawahnya.
+TextStyle gayaIsiKredensial(BuildContext context) =>
+    TextStyle(fontSize: 13, color: context.teksUtama);
+
 class _DataWargaScreenState extends State<DataWargaScreen> {
   bool get _bolehTambah => context.watch<PermissionProvider>().bolehTambah(_kodeIzin);
   bool get _bolehUbah => context.watch<PermissionProvider>().bolehUbah(_kodeIzin);
@@ -937,21 +997,17 @@ aksi: Row(
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: context.latarLembut,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: context.garis),
-                      ),
+                    // Hanya-baca, tetapi tetap dibangun dari dekorasi yang
+                    // sama supaya kotaknya persis sebesar kotak isian di
+                    // bawahnya. Sebagai Container biasa ia terukur 42 — enam
+                    // piksel lebih pendek, dan itu terlihat.
+                    InputDecorator(
+                      decoration: dekorKredensial(context),
                       child: Text(
                         data['username']?.toString() ?? nik,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: context.teksUtama,
-                        ),
+                        style: gayaIsiKredensial(
+                          context,
+                        ).copyWith(fontWeight: FontWeight.w600),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -975,12 +1031,10 @@ aksi: Row(
                         FilteringTextInputFormatter.digitsOnly,
                         LengthLimitingTextInputFormatter(15),
                       ],
-                      style: TextStyle(fontSize: 13, color: context.teksUtama),
-                      decoration: InputDecoration(
-                        hintText: 'Misal: 081234567890',
-                        hintStyle: TextStyle(color: context.teksTersier),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      style: gayaIsiKredensial(context),
+                      decoration: dekorKredensial(
+                        context,
+                        hint: 'Misal: 081234567890',
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -1014,17 +1068,27 @@ aksi: Row(
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: bolehUbahRole ? context.latarKartu : context.latarLembut,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: context.garis),
-                      ),
+                    // `InputDecorator`, bukan `Container`: kotaknya kini dilukis
+                    // oleh mesin yang sama dengan TextField di atas dan di
+                    // bawahnya, sehingga tinggi, padding, tepi, radius, dan
+                    // latarnya identik menurut konstruksi — bukan karena
+                    // angkanya kebetulan disalin dengan benar.
+                    //
+                    // `DropdownButton` dipertahankan apa adanya (bukan diganti
+                    // `DropdownButtonFormField`) supaya semantik `value:` tidak
+                    // berubah: nilainya tetap dikendalikan `selectedRole` milik
+                    // dialog, bukan state internal FormField.
+                    InputDecorator(
+                      decoration: dekorKredensial(context),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
                           value: selectedRole,
                           isExpanded: true,
+                          // Menahan tinggi bawaan 48 milik DropdownButton agar
+                          // padding dekorasi yang menentukan; tanpa ini kotaknya
+                          // membengkak melewati kotak isian di sekitarnya.
+                          isDense: true,
+                          style: gayaIsiKredensial(context),
                           dropdownColor: context.latarKartu,
                           onChanged: bolehUbahRole
                               ? (v) {
@@ -1056,14 +1120,12 @@ aksi: Row(
                       controller: passCtrl,
                       enabled: bolehEditSemua,
                       obscureText: !sandiTerlihat,
-                      style: TextStyle(fontSize: 13, color: context.teksUtama),
-                      decoration: InputDecoration(
-                        hintText: bolehEditSemua
+                      style: gayaIsiKredensial(context),
+                      decoration: dekorKredensial(
+                        context,
+                        hint: bolehEditSemua
                             ? 'Kosongkan jika tidak ingin mengubah'
                             : 'Hanya-baca',
-                        hintStyle: TextStyle(color: context.teksTersier),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                         suffixIcon: bolehEditSemua
                             ? IconButton(
                                 icon: Icon(
