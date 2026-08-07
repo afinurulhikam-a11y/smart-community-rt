@@ -12,6 +12,9 @@ import '../models/bop_model.dart';
 class BopProvider extends ChangeNotifier {
   List<FinanceModel> _transactions = [];
   BopSummary? _summary;
+  // Agregat bulanan untuk grafik dashboard — dihitung backend dari SEMUA
+  // baris, bukan dari daftar ter-paginate.
+  List<Map<String, dynamic>> _bulanan = [];
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -28,6 +31,7 @@ class BopProvider extends ChangeNotifier {
 
   List<FinanceModel> get transactions => _transactions;
   BopSummary? get summary => _summary;
+  List<Map<String, dynamic>> get bulanan => _bulanan;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   int get currentPage => _currentPage;
@@ -99,6 +103,18 @@ class BopProvider extends ChangeNotifier {
     );
     if (response['success'] == true && response['data'] != null) {
       _summary = BopSummary.fromJson(response['data'] as Map<String, dynamic>);
+      notifyListeners();
+    }
+  }
+
+  /// Agregat pemasukan/pengeluaran per bulan untuk grafik dashboard BOP.
+  Future<void> fetchBulanan({int rentang = 6}) async {
+    final response = await ApiService.get(
+      ApiConstants.bopBulanan,
+      queryParams: {'rentang': rentang.toString()},
+    );
+    if (response['success'] == true) {
+      _bulanan = List<Map<String, dynamic>>.from(response['data'] ?? []);
       notifyListeners();
     }
   }
@@ -189,6 +205,7 @@ class BopProvider extends ChangeNotifier {
   /// pengurus bergantian, itu kebocoran yang nyata, bukan sekadar kosmetik.
   void bersihkan() {
     _transactions = [];
+    _bulanan = [];
     _summary = null;
     _isLoading = false;
     _errorMessage = null;

@@ -126,6 +126,7 @@ class ApiConstants {
   // Finances (Kas RT)
   static String get finances => '$baseUrl/finances';
   static String get financeSummary => '$baseUrl/finances/summary';
+  static String get financeBulanan => '$baseUrl/finances/bulanan';
   static String get financeExport => '$baseUrl/finances/export';
   static String finance(String id) => '$baseUrl/finances/$id';
 
@@ -136,6 +137,7 @@ class ApiConstants {
   // BOP
   static String get bop => '$baseUrl/bop';
   static String get bopSummary => '$baseUrl/bop/summary';
+  static String get bopBulanan => '$baseUrl/bop/bulanan';
   static String get bopExport => '$baseUrl/bop/export';
   static String bopById(String id) => '$baseUrl/bop/$id';
 

@@ -189,6 +189,33 @@ async function getSummary(req, res) {
   }
 }
 
+/**
+ * Agregat pemasukan/pengeluaran per bulan untuk grafik dashboard BOP.
+ * Dihitung di SQL dari SEMUA baris, bukan dari daftar ter-paginate.
+ */
+async function getBulanan(req, res) {
+  try {
+    const rentang = parseInt(req.query.rentang, 10) || 6;
+    const dibatasi = Math.min(Math.max(rentang, 1), 24);
+
+    const result = await pool.query(`
+      SELECT
+        to_char(f.tanggal, 'YYYY-MM') AS bulan,
+        COALESCE(SUM(CASE WHEN f.tipe = 'pemasukan' THEN f.jumlah ELSE 0 END), 0)::float8 AS pemasukan,
+        COALESCE(SUM(CASE WHEN f.tipe = 'pengeluaran' THEN f.jumlah ELSE 0 END), 0)::float8 AS pengeluaran
+      FROM bop_finances f
+      WHERE f.tanggal >= date_trunc('month', CURRENT_DATE - make_interval(months => $1 - 1))
+      GROUP BY 1
+      ORDER BY 1
+    `, [dibatasi]);
+
+    return res.status(200).json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error('Get BOP Bulanan Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
 /** Kategori IN hanya untuk pemasukan, OUT hanya untuk pengeluaran. */
 async function validasiKategori(kategoriId, tipe) {
   if (!kategoriId) return { ok: true, kategori: null };
@@ -486,6 +513,7 @@ async function exportBop(req, res) {
 module.exports = {
   getTransactions,
   getSummary,
+  getBulanan,
   createTransaction,
   updateTransaction,
   deleteTransaction,

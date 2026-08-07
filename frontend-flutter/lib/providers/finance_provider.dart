@@ -7,6 +7,11 @@ import '../models/finance_model.dart';
 class FinanceProvider extends ChangeNotifier {
   List<FinanceModel> _transactions = [];
   FinanceSummary? _summary;
+  // Agregat bulanan untuk grafik dashboard. Dihitung di backend lewat
+  // GET /finances/bulanan, bukan dari daftar transaksi yang ter-paginate —
+  // daftar itu hanya berisi satu halaman, sehingga chart yang dibangun dari
+  // situ salah melaporkan bulan-bulan di luar halaman pertama.
+  List<Map<String, dynamic>> _bulanan = [];
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -17,6 +22,7 @@ class FinanceProvider extends ChangeNotifier {
 
   List<FinanceModel> get transactions => _transactions;
   FinanceSummary? get summary => _summary;
+  List<Map<String, dynamic>> get bulanan => _bulanan;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   int get currentPage => _currentPage;
@@ -90,6 +96,18 @@ class FinanceProvider extends ChangeNotifier {
     );
     if (response['success'] == true && response['data'] != null) {
       _summary = FinanceSummary.fromJson(response['data'] as Map<String, dynamic>);
+      notifyListeners();
+    }
+  }
+
+  /// Agregat pemasukan/pengeluaran per bulan untuk grafik dashboard.
+  Future<void> fetchBulanan({int rentang = 6}) async {
+    final response = await ApiService.get(
+      ApiConstants.financeBulanan,
+      queryParams: {'rentang': rentang.toString()},
+    );
+    if (response['success'] == true) {
+      _bulanan = List<Map<String, dynamic>>.from(response['data'] ?? []);
       notifyListeners();
     }
   }
@@ -177,6 +195,7 @@ class FinanceProvider extends ChangeNotifier {
   void bersihkan() {
     _transactions = [];
     _summary = null;
+    _bulanan = [];
     _isLoading = false;
     _errorMessage = null;
     _currentPage = 1;
