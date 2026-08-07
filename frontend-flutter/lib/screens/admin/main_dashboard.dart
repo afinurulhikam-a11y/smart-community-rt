@@ -114,6 +114,7 @@ class _MainDashboardState extends State<MainDashboard> {
 
     if (izin.bolehLihat('keuangan.iuran', userRole: auth.userRole)) {
       context.read<BillProvider>().fetchBills();
+      context.read<BillProvider>().fetchStatsBulanIni();
     }
     if (izin.bolehLihat('keuangan.kas', userRole: auth.userRole)) {
       context.read<FinanceProvider>().fetchTransactions();
@@ -187,6 +188,7 @@ class _MainDashboardState extends State<MainDashboard> {
         await demografi.fetchDemographics();
       case 21:
         await tagihan.fetchBills();
+        await tagihan.fetchStatsBulanIni();
       case 22:
         await kas.refresh();
         await kas.fetchBulanan();
@@ -1114,10 +1116,16 @@ class _MainDashboardState extends State<MainDashboard> {
 
   // === PROGRESS PENAGIHAN IURAN BULAN INI ===
   Widget _buildProgressIuranCard(BillProvider bills) {
-    final currentMonthStr = DateFormat('yyyy-MM').format(DateTime.now());
-    final thisMonthBills = bills.bills.where((b) => b.bulan == currentMonthStr).toList();
-    final totalBills = thisMonthBills.length;
-    final paidBills = thisMonthBills.where((b) => b.isLunas).length;
+    // Memakai statistik bulan berjalan yang dihitung BACKEND
+    // (GET /bills/stats?bulan=YYYY-MM&tahun=YYYY), bukan memotong-memotong
+    // `bills.bills` di klien. Dulu card ini menghitung dari daftar yang
+    // ter-paginate (hanya halaman pertama 10 baris) dan `unpaidBills` yang
+    // merangkum seluruh data dalam memori — keduanya membuat angka bulan ini
+    // salah. `fetchStatsBulanIni` di provider mengambil angka yang jujur.
+    final st = bills.statsBulanIni;
+    final totalBills = st.totalTagihan;
+    final paidBills = st.jumlahLunas;
+    final unpaid = st.jumlahTunggakan;
     final progress = totalBills > 0 ? paidBills / totalBills : 0.0;
     final percentage = (progress * 100).toInt();
 
@@ -1239,7 +1247,7 @@ class _MainDashboardState extends State<MainDashboard> {
                           Icons.pending_rounded,
                           const Color(0xFFD97706),
                           'Belum Bayar',
-                          '${bills.unpaidBills.length} warga',
+                          '$unpaid warga',
                         ),
                         const SizedBox(height: 10),
                         _buildProgressStatRow(
