@@ -60,7 +60,6 @@ import '../warga/warga_dashboard_content.dart';
 import '../warga/bill_list_screen.dart';
 import '../warga/finance_report_screen.dart';
 import '../warga/letter_request_screen.dart';
-import '../../../models/finance_model.dart';
 import '../../core/pesan.dart';
 
 class MainDashboard extends StatefulWidget {
@@ -119,6 +118,7 @@ class _MainDashboardState extends State<MainDashboard> {
     if (izin.bolehLihat('keuangan.kas', userRole: auth.userRole)) {
       context.read<FinanceProvider>().fetchTransactions();
       context.read<FinanceProvider>().fetchSummary();
+      context.read<FinanceProvider>().fetchBulanan();
     }
     if (izin.bolehLihat('layanan.surat', userRole: auth.userRole)) {
       context.read<LetterProvider>().fetchLetters();
@@ -133,6 +133,7 @@ class _MainDashboardState extends State<MainDashboard> {
     if (izin.bolehLihat('keuangan.bop', userRole: auth.userRole)) {
       context.read<BopProvider>().fetchSummary();
       context.read<BopProvider>().fetchTransactions();
+      context.read<BopProvider>().fetchBulanan();
     }
     if (izin.bolehLihat('kependudukan.statistik', userRole: auth.userRole) || izin.bolehLihat('kependudukan.warga', userRole: auth.userRole)) {
       context.read<DemographicProvider>().fetchDemographics();
@@ -188,8 +189,10 @@ class _MainDashboardState extends State<MainDashboard> {
         await tagihan.fetchBills();
       case 22:
         await kas.refresh();
+        await kas.fetchBulanan();
       case 23:
         await bop.refresh();
+        await bop.fetchBulanan();
       case 31:
       case 32:
         await inventaris.fetchInventory();
@@ -1061,8 +1064,8 @@ class _MainDashboardState extends State<MainDashboard> {
         if (izin.bolehLihat('keuangan.kas') || izin.bolehLihat('keuangan.bop')) ...[
           _buildFinancialChart(
             _chartDataSource == 'Kas RT'
-                ? finance.transactions
-                : context.watch<BopProvider>().transactions,
+                ? finance.bulanan
+                : context.watch<BopProvider>().bulanan,
           ),
           const SizedBox(height: 24),
         ],
@@ -1748,8 +1751,12 @@ class _MainDashboardState extends State<MainDashboard> {
     return value.toStringAsFixed(0);
   }
 
-  Widget _buildFinancialChart(List<FinanceModel> transactions) {
-    // Generate monthly data from transactions
+  Widget _buildFinancialChart(List<Map<String, dynamic>> bulanan) {
+    // Agregat per bulan datang dari backend (GET /finances/bulanan dan
+    // /bop/bulanan), dijumlahkan di SQL atas SEMUA baris. Dulu chart ini
+    // dibangun dari daftar transaksi yang ter-paginate — hanya halaman pertama
+    // — sehingga bulan-bulan di luar halaman itu dilaporkan nol padahal datanya
+    // ada.
     final now = DateTime.now();
     final List<Map<String, dynamic>> monthlyData = [];
 
@@ -1761,26 +1768,23 @@ class _MainDashboardState extends State<MainDashboard> {
     final jumlahBulan = sempit ? 4 : 6;
     final polaLabel = sempit ? 'MMM' : 'MMM yyyy';
 
+    // Backend hanya mengembalikan bulan yang MEMILIKI transaksi; bulan kosong
+    // diisi nol di sini agar sumbu tetap utuh dan tidak melompat-lompat.
+    final perBulan = <String, Map<String, dynamic>>{
+      for (final b in bulanan) b['bulan'].toString(): b,
+    };
+
     for (int i = jumlahBulan - 1; i >= 0; i--) {
       final month = DateTime(now.year, now.month - i, 1);
       final monthLabel = DateFormat(polaLabel, 'id_ID').format(month);
       final monthKey = DateFormat('yyyy-MM').format(month);
 
-      double pemasukan = 0;
-      double pengeluaran = 0;
-
-      for (final tx in transactions) {
-        final txMonth = DateFormat('yyyy-MM').format(tx.tanggal);
-        if (txMonth == monthKey) {
-          if (tx.tipe == 'pemasukan') {
-            pemasukan += tx.jumlah;
-          } else {
-            pengeluaran += tx.jumlah;
-          }
-        }
-      }
-
-      monthlyData.add({'label': monthLabel, 'pemasukan': pemasukan, 'pengeluaran': pengeluaran});
+      final data = perBulan[monthKey];
+      monthlyData.add({
+        'label': monthLabel,
+        'pemasukan': (data?['pemasukan'] as num?)?.toDouble() ?? 0,
+        'pengeluaran': (data?['pengeluaran'] as num?)?.toDouble() ?? 0,
+      });
     }
 
     // Calculate max value for scaling

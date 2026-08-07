@@ -164,6 +164,38 @@ async function getSummary(req, res) {
 }
 
 /**
+ * Agregat pemasukan/pengeluaran per bulan untuk grafik dashboard.
+ *
+ * Dihitung di SQL, bukan di klien dari daftar transaksi — daftar itu
+ * ter-paginate (mis. 10 baris), jadi chart yang dibangun dari `data` hanya
+ * melihat halaman pertama dan salah melaporkan bulan-bulan lain. Query ini
+ * menjumlahkan SEMUA baris per bulan, tanpa LIMIT.
+ */
+async function getBulanan(req, res) {
+  try {
+    const rentang = parseInt(req.query.rentang, 10) || 6;
+    const dibatasi = Math.min(Math.max(rentang, 1), 24);
+
+    const result = await pool.query(`
+      SELECT
+        to_char(f.tanggal, 'YYYY-MM') AS bulan,
+        COALESCE(SUM(CASE WHEN f.tipe = 'pemasukan' THEN f.jumlah ELSE 0 END), 0)::float8 AS pemasukan,
+        COALESCE(SUM(CASE WHEN f.tipe = 'pengeluaran' THEN f.jumlah ELSE 0 END), 0)::float8 AS pengeluaran
+      FROM finances f
+      WHERE f.deleted_at IS NULL
+        AND f.tanggal >= date_trunc('month', CURRENT_DATE - make_interval(months => $1 - 1))
+      GROUP BY 1
+      ORDER BY 1
+    `, [dibatasi]);
+
+    return res.status(200).json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error('GetBulanan Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
+/**
  * Ambil kategori dan pastikan tipenya cocok dengan jenis transaksi.
  * Kategori IN hanya untuk pemasukan, OUT hanya untuk pengeluaran.
  */
@@ -419,6 +451,7 @@ async function deleteTransaction(req, res) {
 module.exports = {
   getTransactions,
   getSummary,
+  getBulanan,
   createTransaction,
   updateTransaction,
   deleteTransaction,

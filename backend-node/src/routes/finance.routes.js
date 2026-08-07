@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   getTransactions,
   getSummary,
+  getBulanan,
   createTransaction,
   updateTransaction,
   deleteTransaction,
@@ -25,6 +26,7 @@ router.use(authMiddleware);
 
 // Rute statis didaftarkan lebih dulu agar tidak tertelan pola '/:id'.
 router.get('/summary', requirePermission('keuangan.kas', 'view'), getSummary);
+router.get('/bulanan', requirePermission('keuangan.kas', 'view'), getBulanan);
 router.get('/export', requirePermission('keuangan.kas', 'view'), exportFinances);
 router.get('/', requirePermission('keuangan.kas', 'view'), getTransactions);
 
