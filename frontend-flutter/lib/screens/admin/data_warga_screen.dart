@@ -259,103 +259,118 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-              Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Pencarian',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: context.teksKedua,
-                      ),
+              // `Wrap`, bukan `Row`: label, kolom pencarian, dan tombol Reset
+              // berada sebaris di layar lebar, dan turun ke barisnya sendiri
+              // saat layar sempit (font besar). `Expanded` di dalam `Row` tidak
+              // bisa dipakai di sini karena menambahkan tombol membuat ruang
+              // yang tersisa untuk field lebih kecil dari lebar intrinsik
+              // TextField — yang meluber 7,6px pada font sistem 1,3x.
+              Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 12,
+                runSpacing: 8,
+                children: [
+                  Text(
+                    'Pencarian',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: context.teksKedua,
                     ),
-                    const SizedBox(width: 12),
-                    // `Flexible` + `ConstrainedBox`, BUKAN `SizedBox(width:
-                    // lebarKolomFilter(...))`.
-                    //
-                    // `lebarKolomFilter` mengembalikan `double.infinity` pada
-                    // layar sempit supaya kotak filter memenuhi satu baris —
-                    // itu benar di dalam `Wrap` atau `Column`, tetapi di dalam
-                    // `Row` lebar tak hingga melanggar batasan tata letak dan
-                    // melempar "BoxConstraints forces an infinite width".
-                    //
-                    // Bentuk ini menjaga kedua perilakunya: melebar mengikuti
-                    // ruang yang ada, dengan batas 280 di layar lebar.
-                    Flexible(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 280),
-                        child: TextField(
-                          controller: _searchController,
-                          style: TextStyle(color: context.teksUtama, fontSize: 13),
-                          // Mencari saat ENTER, bukan setiap huruf.
-                          //
-                          // Dulu `onChanged` menembakkan satu permintaan per
-                          // ketukan tombol: mengetik "Budi" berarti empat
-                          // panggilan ke server. `ApiService` mencoba ulang dua
-                          // kali saat gagal, jadi di jaringan buruk angkanya
-                          // berlipat — dan tanpa penomoran permintaan, jawaban
-                          // untuk "B" yang datang belakangan bisa menimpa hasil
-                          // "Budi" sehingga daftarnya tidak lagi cocok dengan
-                          // isi kotaknya.
-                          //
-                          // Kas RT, Log Aktivitas, Peminjaman, dan E-Visitor
-                          // sudah memakai pola ini; layar inilah yang berbeda
-                          // sendiri.
-                          textInputAction: TextInputAction.search,
-                          onSubmitted: (val) {
-                            _searchQuery = val.trim();
+                  ),
+                  // Lebar tetap 280: sama dengan batas maksimum yang dipakai
+                  // sebelumnya, tetapi di dalam `Wrap` ia tidak memaksa field
+                  // menyusut hingga meluber saat tombol Reset ikut di baris.
+                  SizedBox(
+                    width: 280,
+                    child: TextField(
+                      controller: _searchController,
+                      style: TextStyle(color: context.teksUtama, fontSize: 13),
+                      // Mencari saat ENTER, bukan setiap huruf.
+                      //
+                      // Dulu `onChanged` menembakkan satu permintaan per
+                      // ketukan tombol: mengetik "Budi" berarti empat
+                      // panggilan ke server. `ApiService` mencoba ulang dua
+                      // kali saat gagal, jadi di jaringan buruk angkanya
+                      // berlipat — dan tanpa penomoran permintaan, jawaban
+                      // untuk "B" yang datang belakangan bisa menimpa hasil
+                      // "Budi" sehingga daftarnya tidak lagi cocok dengan
+                      // isi kotaknya.
+                      //
+                      // Kas RT, Log Aktivitas, Peminjaman, dan E-Visitor
+                      // sudah memakai pola ini; layar inilah yang berbeda
+                      // sendiri.
+                      textInputAction: TextInputAction.search,
+                      onSubmitted: (val) {
+                        _searchQuery = val.trim();
+                        context.read<WargaProvider>().fetchWarga(
+                          search: _searchQuery.isEmpty ? null : _searchQuery,
+                          page: 1,
+                        );
+                      },
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: context.latarKartu,
+                        hintStyle: TextStyle(color: context.teksTersier, fontSize: 13),
+                        hintText: 'Cari nama, NIK, KK — tekan Enter',
+                        // Ikonnya dibuat bisa ditekan, bukan sekadar hiasan:
+                        // di ponsel tombol Enter tidak selalu terlihat, dan
+                        // pencarian yang hanya bisa dijalankan lewat tombol
+                        // tak kasatmata sama saja dengan tidak ada.
+                        prefixIcon: IconButton(
+                          icon: const Icon(Icons.search, size: 18),
+                          color: context.teksUtama,
+                          tooltip: 'Cari',
+                          onPressed: () {
+                            _searchQuery = _searchController.text.trim();
                             context.read<WargaProvider>().fetchWarga(
                               search: _searchQuery.isEmpty ? null : _searchQuery,
                               page: 1,
                             );
                           },
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: context.latarKartu,
-                            hintStyle: TextStyle(color: context.teksTersier, fontSize: 13),
-                            hintText: 'Cari nama, NIK, KK — tekan Enter',
-                            // Ikonnya dibuat bisa ditekan, bukan sekadar hiasan:
-                            // di ponsel tombol Enter tidak selalu terlihat, dan
-                            // pencarian yang hanya bisa dijalankan lewat tombol
-                            // tak kasatmata sama saja dengan tidak ada.
-                            prefixIcon: IconButton(
-                              icon: const Icon(Icons.search, size: 18),
-                              color: context.teksUtama,
-                              tooltip: 'Cari',
-                              onPressed: () {
-                                _searchQuery = _searchController.text.trim();
-                                context.read<WargaProvider>().fetchWarga(
-                                  search: _searchQuery.isEmpty ? null : _searchQuery,
-                                  page: 1,
-                                );
-                              },
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(
-                                color: context.garis,
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: BorderSide(
-                                color: context.garis,
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(color: Color(0xFF1B7A6A)),
-                            ),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: context.garis,
                           ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: context.garis,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xFF1B7A6A)),
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  // Reset filter & pencarian: kembalikan ke nilai awal, kosongkan
+                  // kotak pencarian, lalu muat ulang dari halaman 1. Gaya
+                  // mengikuti tombol Reset di layar lain (outlined, refresh).
+                  OutlinedButton.icon(
+                    onPressed: () => _resetPencarian(),
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: const Text(
+                      'Reset',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: context.teksKedua,
+                      side: BorderSide(color: context.garis),
+                      minimumSize: const Size(0, AppTheme.sasaranSentuh),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               Container(
@@ -427,6 +442,15 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
     final lebarLayar = MediaQuery.of(context).size.width;
     final lebarTombol = (lebarLayar - paddingKonten(context) * 2 - AppTheme.spasiS) / 2;
     return SizedBox(width: lebarTombol, child: tombol);
+  }
+
+  /// Kembalikan pencarian ke nilai awal (kosong) lalu muat ulang dari halaman 1.
+  void _resetPencarian() {
+    setState(() {
+      _searchQuery = '';
+      _searchController.clear();
+    });
+    context.read<WargaProvider>().fetchWarga(page: 1);
   }
 
   Widget _buildWargaTable(WargaProvider provider, List<Map<String, dynamic>> paginatedData) {
