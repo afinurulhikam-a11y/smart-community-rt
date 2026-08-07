@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/responsif.dart';
 import 'dart:convert';
 import '../../providers/warga_provider.dart';
@@ -16,6 +17,12 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
 import '../../core/pesan.dart';
 import '../../core/izin_layar.dart';
+
+/// Kata sandi bawaan untuk setiap akun warga baru — cermin dari nilai tetap
+/// di backend (warga.controller.js). Warga wajib menggantinya di login
+/// pertama (must_change_password = true), jadi nilai ini hanya jembatan
+/// masuk sekali pakai.
+const String _kataSandiBawaan = '12345678';
 
 /// Pilihan baku untuk field demografi.
 ///
@@ -1685,17 +1692,14 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                                       // Sandi SUNGGUHAN dari server, bukan
                                       // tulisan tetap.
                                       //
-                                      // Dulu baris ini mencetak "123456"
-                                      // begitu saja, padahal backend sudah
-                                      // membuat sandi acak dan mengembalikannya
-                                      // di `data.password`. Jadi pengurus
-                                      // menyebutkan sandi yang salah kepada
-                                      // warga, warga gagal masuk, dan tidak
-                                      // ada satu pun galat yang menjelaskan
-                                      // kenapa — sandi aslinya hanya ada di
-                                      // respons yang barusan dibuang.
+                                      // Kata sandi bawaan seragam untuk semua
+                                      // akun baru. Backend mengembalikannya di
+                                      // `data.password`; konstanta di sini
+                                      // dipakai agar dialog tetap jujur walau
+                                      // akun sudah ada lebih dulu (respons
+                                      // password-nya null).
                                       SelectableText(
-                                        (result['data']?['password'] ?? '—').toString(),
+                                        _kataSandiBawaan,
                                         style: TextStyle(
                                           fontWeight: FontWeight.bold,
                                           color: context.teksUtama,
@@ -1722,6 +1726,19 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                           ],
                         ),
                         actions: [
+                          // Tombol hanya muncul bila nomor HP form terisi —
+                          // tanpa tujuan, membuka WhatsApp tidak masuk akal.
+                          if ((hpCtrl.text.trim().isNotEmpty))
+                            TextButton.icon(
+                              icon: const Icon(Icons.chat_outlined, size: 18),
+                              label: const Text('Share WhatsApp'),
+                              onPressed: () => _shareKredensialWhatsApp(
+                                nama: namaCtrl.text.trim(),
+                                username: nikCtrl.text.trim(),
+                                password: _kataSandiBawaan,
+                                noHp: hpCtrl.text.trim(),
+                              ),
+                            ),
                           ElevatedButton(
                             onPressed: () => Navigator.pop(c),
                             style: ElevatedButton.styleFrom(
@@ -2151,6 +2168,36 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
       context,
       result['message']?.toString() ?? 'Selesai.',
       sukses: result['success'] == true,
+    );
+  }
+
+  /// Buka WhatsApp ke nomor warga berisi kredensial login barunya.
+  ///
+  /// Nomor lokal "08xx" dikonversi ke format internasional "628xx" karena
+  /// `wa.me` mengharuskan format itu. Pesan memuat nama, username (NIK),
+  /// kata sandi bawaan, serta pengingat untuk menggantinya di login pertama.
+  void _shareKredensialWhatsApp({
+    required String nama,
+    required String username,
+    required String password,
+    required String noHp,
+  }) {
+    var nomor = noHp.replaceAll(RegExp(r'[^0-9]'), '');
+    if (nomor.startsWith('0')) nomor = '62${nomor.substring(1)}';
+    if (nomor.isEmpty) return;
+
+    final pesan = Uri.encodeComponent(
+      'Assalamualaikum, Yth. Bapak/Ibu $nama.\n\n'
+      'Akun akses aplikasi Smart Community RT Anda telah dibuat:\n\n'
+      '• Username: $username\n'
+      '• Password: $password\n\n'
+      'Demi keamanan akun, mohon segera GANTI password setelah login pertama '
+      'Anda melalui menu Profil. Terima kasih.',
+    );
+
+    launchUrl(
+      Uri.parse('https://wa.me/$nomor?text=$pesan'),
+      mode: LaunchMode.externalApplication,
     );
   }
 }
