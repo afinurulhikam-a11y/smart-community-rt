@@ -317,51 +317,32 @@ class _KasRtScreenState extends State<KasRtScreen> {
               _loadData();
             },
           ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                height: AppTheme.sasaranSentuh,
-                child: ElevatedButton.icon(
-                  onPressed: _loadData,
-                  icon: const Icon(Icons.filter_alt_outlined, size: 16),
-                  label: const Text(
-                    'Filter',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF22C55E),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              InkWell(
-                onTap: () {
-                  setState(() {
-                    _tipe = 'Semua Jenis';
-                    _bulan = 'Semua Bulan';
-                    _tahun = DateTime.now().year.toString();
-                    _searchQuery = '';
-                    _searchController.clear();
-                  });
-                  _loadData();
-                },
-                child: Container(
-                  height: AppTheme.sasaranSentuh,
-                  width: AppTheme.sasaranSentuh,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: context.garis),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(Icons.close, size: 16, color: context.teksKedua),
-                ),
-              ),
-            ],
+          // Tanpa tombol "Filter": setiap dropdown langsung memuat ulang saat
+          // nilainya berubah, jadi tombol itu hanya duplikasi. Yang tersisa
+          // hanyalah Reset untuk mengembalikan semua filter ke awal.
+          OutlinedButton.icon(
+            onPressed: () {
+              setState(() {
+                _tipe = 'Semua Jenis';
+                _bulan = 'Semua Bulan';
+                _tahun = DateTime.now().year.toString();
+                _searchQuery = '';
+                _searchController.clear();
+              });
+              _loadData();
+            },
+            icon: const Icon(Icons.refresh, size: 16),
+            label: const Text(
+              'Reset',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: context.teksKedua,
+              side: BorderSide(color: context.garis),
+              minimumSize: const Size(0, AppTheme.sasaranSentuh),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
           ),
         ],
       ),
@@ -426,17 +407,16 @@ class _KasRtScreenState extends State<KasRtScreen> {
         children: [
           Padding(
             padding: EdgeInsets.symmetric(horizontal: paddingKartu(context), vertical: 16),
-            child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                Row(
+            // Label di tengah, tombol laporan di kanan atas sejajar labelnya —
+            // pada layar lebar. Di layar sempit keduanya tidak muat satu baris,
+            // jadi tombol turun ke barisnya sendiri (LayoutBuilder memilih).
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final label = Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.history, color: Color(0xFF10B981), size: 20),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     // Flexible + ellipsis: di layar 320px judul ini bersama
                     // ikonnya melampaui lebar kartu.
                     Flexible(
@@ -451,8 +431,8 @@ class _KasRtScreenState extends State<KasRtScreen> {
                       ),
                     ),
                   ],
-                ),
-                Wrap(
+                );
+                final tombol = Wrap(
                   spacing: 8,
                   children: [
                     _outlinedBtn(
@@ -470,84 +450,85 @@ class _KasRtScreenState extends State<KasRtScreen> {
                       kecil: true,
                     ),
                   ],
-                ),
-              ],
+                );
+
+                if (constraints.maxWidth < 560) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(child: label),
+                      const SizedBox(height: 8),
+                      Align(alignment: Alignment.centerRight, child: tombol),
+                    ],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(child: Center(child: label)),
+                    const SizedBox(width: 12),
+                    tombol,
+                  ],
+                );
+              },
             ),
           ),
           const Divider(height: 1),
           Padding(
             padding: EdgeInsets.all(paddingKartu(context)),
-            child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 16,
-              runSpacing: 12,
-              children: [
-                // Padding kanan 12 dihapus: Wrap induknya sudah memberi jarak
-                // lewat `spacing: 16`, jadi padding tambahan hanya membuat
-                // jaraknya tidak rata sekaligus menyempitkan ruang Row ini.
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+            // Kolom pencarian diletakkan di tengah dengan label "Pencarian" di
+            // kiri kolomnya. Tidak memakai lebarKolomFilter di sini: nilainya
+            // double.infinity pada mobile, yang tidak aman di dalam Row —
+            // ConstrainedBox + Expanded membuat lebar selalu berhingga.
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 460),
+                child: Row(
                   children: [
-                    // Flexible + ellipsis. Tanpa ini Row-nya tidak bisa
-                    // menyusut sama sekali: pada font sistem 1,3x label
-                    // "Tampilkan" plus dropdown-nya melimpah 8,7px.
-                    Flexible(
-                      child: Text(
-                        'Tampilkan',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 13, color: context.teksKedua),
-                      ),
+                    Text(
+                      'Pencarian',
+                      style: TextStyle(fontSize: 13, color: context.teksKedua),
                     ),
-
-                    Flexible(
-                      child: Text(
-                        'data',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 13, color: context.teksKedua),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        onSubmitted: (v) {
+                          _searchQuery = v;
+                          _loadData();
+                        },
+                        decoration: InputDecoration(
+                          hintText: 'Cari keterangan / kategori...',
+                          hintStyle: TextStyle(fontSize: 12, color: context.teksTersier),
+                          prefixIcon: Icon(Icons.search, size: 18, color: context.teksKedua),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.arrow_forward, size: 16),
+                            onPressed: () {
+                              _searchQuery = _searchController.text;
+                              _loadData();
+                            },
+                          ),
+                          filled: true,
+                          fillColor: context.latarLembut,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: context.garis),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: context.garis),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: Color(0xFF1B7A6A), width: 1.5),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                        ),
+                        style: const TextStyle(fontSize: 13),
                       ),
                     ),
                   ],
                 ),
-                SizedBox(
-                  width: lebarKolomFilter(context, maksimal: 260),
-                  child: TextField(
-                    controller: _searchController,
-                    onSubmitted: (v) {
-                      _searchQuery = v;
-                      _loadData();
-                    },
-                    decoration: InputDecoration(
-                      hintText: 'Cari keterangan / kategori...',
-                      hintStyle: TextStyle(fontSize: 12, color: context.teksTersier),
-                      prefixIcon: Icon(Icons.search, size: 18, color: context.teksKedua),
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.arrow_forward, size: 16),
-                        onPressed: () {
-                          _searchQuery = _searchController.text;
-                          _loadData();
-                        },
-                      ),
-                      filled: true,
-                      fillColor: context.latarLembut,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: context.garis),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: context.garis),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFF1B7A6A), width: 1.5),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                    ),
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
           if (provider.isLoading)
