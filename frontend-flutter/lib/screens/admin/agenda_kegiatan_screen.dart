@@ -942,7 +942,6 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
                     decoration: const InputDecoration(
                       labelText: 'Deskripsi',
                       prefixIcon: Icon(Icons.description),
-                      alignLabelWithHint: true,
                     ),
                   ),
                 ],
@@ -1105,7 +1104,6 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Deskripsi',
                     prefixIcon: Icon(Icons.description),
-                    alignLabelWithHint: true,
                   ),
                 ),
               ],
