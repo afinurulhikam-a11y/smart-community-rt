@@ -173,7 +173,11 @@ InputDecoration dekorKredensial(
     // `isDense` menahan tinggi bawaan InputDecorator agar padding di bawah ini
     // yang menentukan, sehingga keempat kotak berakhir di angka yang sama.
     isDense: true,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    // Rapatan vertikal-kompak: 12/10 → 8. Tinggi kotak isian ikut turun
+    // (≈48 → ≈44px), mempertegas efek dari spacing antar field yang sudah
+    // dirapatkan (16 → 10). Nilai bawah-tepian 8 membuat fokus ring tetap
+    // terlihat jelas di bawah teks; nilai 6 membuat teks kena tepi kotak.
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     border: tepi(context.garis),
     enabledBorder: tepi(context.garis),
     disabledBorder: tepi(context.garis),
@@ -1005,7 +1009,9 @@ aksi: Transform.translate(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Divider(),
-                    const SizedBox(height: 12),
+                    // 12px setelah Divider — dipertahankan sebagai jarak judul→field pertama,
+// karena kotak pertama (username) punya label di atasnya.
+                    const SizedBox(height: 8),
                     if (!bolehEditSemua) ...[
                       Container(
                         width: double.infinity,
@@ -1032,7 +1038,7 @@ aksi: Transform.translate(
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                     ],
                     Text(
                       'Username Login',
@@ -1056,10 +1062,10 @@ aksi: Transform.translate(
                         ).copyWith(fontWeight: FontWeight.w600),
                       ),
                     ),
-                    // Grup dirapatkan: 16px → 10px (gap antar input field).
+                    // Grup dirapatkan: 16px → 10px — sekarang 8px (gap antar input field).
                     // Label→input tetap 4px di semua empat field, sehingga
                     // ritme vertikal dialog tetap konsisten.
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     Text(
                       'Nomor HP / WhatsApp',
                       style: TextStyle(
@@ -1086,8 +1092,8 @@ aksi: Transform.translate(
                         hint: 'Misal: 081234567890',
                       ),
                     ),
-                    // Grup dirapatkan: 16px → 10px (gap antar input field).
-                    const SizedBox(height: 10),
+                    // Grup dirapatkan: 16px → 10px — sekarang 8px (gap antar input field).
+                    const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -1156,7 +1162,7 @@ aksi: Transform.translate(
                         ),
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     Text(
                       'Ubah / Reset Password',
                       style: TextStyle(
