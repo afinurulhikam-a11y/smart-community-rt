@@ -5,8 +5,8 @@ import '../../core/responsif.dart';
 import '../../widgets/gradient_stat_card.dart';
 import '../../widgets/responsive_layout.dart';
 import '../../widgets/tombol_kembali.dart';
-import '../../../providers/demographic_provider.dart';
-import '../../../models/demographic_model.dart';
+import '../../providers/demographic_provider.dart';
+import '../../models/demographic_model.dart';
 import '../../core/theme/warna_konteks.dart';
 
 /// Palet bersama untuk seluruh chart. Sebelumnya tiap chart memakai warna

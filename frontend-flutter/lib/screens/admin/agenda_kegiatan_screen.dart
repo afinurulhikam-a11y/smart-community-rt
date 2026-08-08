@@ -3,10 +3,10 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/responsif.dart';
 import '../../core/theme/app_theme.dart';
-import '../../../providers/agenda_provider.dart';
-import '../../../providers/announcement_provider.dart';
-import '../../../providers/permission_provider.dart';
-import '../../../widgets/tombol_kembali.dart';
+import '../../providers/agenda_provider.dart';
+import '../../providers/announcement_provider.dart';
+import '../../providers/permission_provider.dart';
+import '../../widgets/tombol_kembali.dart';
 import '../../core/theme/warna_konteks.dart';
 import '../../core/pesan.dart';
 

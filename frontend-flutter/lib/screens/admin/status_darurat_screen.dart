@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import '../../core/responsif.dart';
 import '../../widgets/tabel_responsif.dart';
 import '../../widgets/tombol_kembali.dart';
-import '../../../providers/emergency_provider.dart';
+import '../../providers/emergency_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
 import '../../core/pesan.dart';
