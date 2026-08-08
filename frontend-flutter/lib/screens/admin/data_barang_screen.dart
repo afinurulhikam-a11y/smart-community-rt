@@ -709,41 +709,99 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
         ? existing!.kondisi
         : _opsiKondisi.first;
 
+    InputDecoration dekor(
+      String label,
+      IconData ikon, {
+      String? helperText,
+      String? hintText,
+    }) => InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(fontSize: 14, color: context.teksKedua),
+      hintText: hintText,
+      helperText: helperText,
+      prefixIcon: Icon(ikon, color: _hijau, size: 20),
+      filled: true,
+      fillColor: context.latarLembut,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: context.garis),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: context.garis),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _hijau, width: 1.5),
+      ),
+    );
+
     showDialog(
       context: context,
       builder: (c) => StatefulBuilder(
         builder: (c2, setLocal) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(existing == null ? 'Tambah Barang' : 'Ubah Barang'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+          actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: _hijau.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.inventory_2_outlined, color: _hijau, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  existing == null ? 'Tambah Barang' : 'Ubah Barang',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                    color: context.teksUtama,
+                  ),
+                ),
+              ),
+            ],
+          ),
           content: SizedBox(
             width: lebarDialog(context, maksimal: 440),
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   TextField(
                     controller: namaCtrl,
-                    decoration: const InputDecoration(labelText: 'Nama Barang *'),
+                    decoration: dekor('Nama Barang *', Icons.inventory_2_outlined),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
                   DropdownButtonFormField<String>(
                     initialValue: kategori,
                     isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Kategori'),
+                    decoration: dekor('Kategori', Icons.category_outlined),
+                    dropdownColor: context.latarKartu,
+                    borderRadius: BorderRadius.circular(12),
                     items: _opsiKategori
                         .map((k) => DropdownMenuItem(value: k, child: Text(k)))
                         .toList(),
                     onChanged: (v) => setLocal(() => kategori = v!),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
                         child: TextField(
                           controller: jumlahCtrl,
                           keyboardType: TextInputType.number,
-                          decoration: InputDecoration(
-                            labelText: 'Jumlah Total *',
+                          decoration: dekor(
+                            'Jumlah Total *',
+                            Icons.format_list_numbered,
                             helperText: existing != null && existing.sedangDipinjam > 0
                                 ? 'Min. ${existing.sedangDipinjam} (sedang dipinjam)'
                                 : null,
@@ -755,7 +813,9 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
                         child: DropdownButtonFormField<String>(
                           initialValue: kondisi,
                           isExpanded: true,
-                          decoration: const InputDecoration(labelText: 'Kondisi'),
+                          decoration: dekor('Kondisi', Icons.rule_outlined),
+                          dropdownColor: context.latarKartu,
+                          borderRadius: BorderRadius.circular(12),
                           items: _opsiKondisi
                               .map((k) => DropdownMenuItem(value: k, child: Text(k)))
                               .toList(),
@@ -764,55 +824,63 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
                   TextField(
                     controller: nilaiCtrl,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Nilai per Unit (Rp)',
+                    decoration: dekor(
+                      'Nilai per Unit (Rp)',
+                      Icons.attach_money,
                       helperText: 'Dipakai kartu Total Nilai',
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
                   TextField(
                     controller: lokasiCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Lokasi Penyimpanan',
+                    decoration: dekor(
+                      'Lokasi Penyimpanan',
+                      Icons.place_outlined,
                       hintText: 'contoh: Gudang RT',
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
                   TextField(
                     controller: tglCtrl,
                     readOnly: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Tanggal Perolehan',
-                      prefixIcon: Icon(Icons.calendar_today, size: 18),
-                    ),
+                    decoration: dekor('Tanggal Perolehan', Icons.calendar_today),
                     onTap: () async {
                       final dipilih = await showDatePicker(
                         context: c,
                         initialDate: existing?.tanggalPerolehan ?? DateTime.now(),
                         firstDate: DateTime(2000),
                         lastDate: DateTime.now(),
+                        helpText: 'Pilih Tanggal Perolehan',
                       );
                       if (dipilih != null) {
                         tglCtrl.text = DateFormat('yyyy-MM-dd').format(dipilih);
                       }
                     },
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
                   TextField(
                     controller: ketCtrl,
                     maxLines: 2,
-                    decoration: const InputDecoration(labelText: 'Keterangan (opsional)'),
+                    decoration: dekor('Keterangan (opsional)', Icons.notes),
                   ),
                 ],
               ),
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(c), child: const Text('Batal')),
+            TextButton(
+              onPressed: () => Navigator.pop(c),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                foregroundColor: context.teksKedua,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Batal', style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
             ElevatedButton(
               onPressed: () async {
                 if (namaCtrl.text.trim().isEmpty) {
@@ -849,8 +917,13 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
                       });
                 _pesan(r['message']?.toString() ?? 'Selesai.', sukses: r['success'] == true);
               },
-              style: ElevatedButton.styleFrom(backgroundColor: _hijau),
-              child: const Text('Simpan', style: TextStyle(color: Colors.white)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _hijau,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              child: const Text('Simpan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
