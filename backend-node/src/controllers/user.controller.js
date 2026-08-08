@@ -47,51 +47,6 @@ async function getUsers(req, res) {
 }
 
 /**
- * Mengubah peran sebuah akun.
- *
- * Ini jalur peningkatan wewenang yang paling langsung di seluruh sistem:
- * `validRoles` memuat 'admin', dan endpoint-nya dijaga roleGuard('admin').
- * Artinya seorang admin bisa mengangkat akun mana pun menjadi admin.
- *
- * Sebelumnya perbuatan itu sama sekali tidak meninggalkan jejak. Sekarang
- * peran LAMA dibaca lebih dulu supaya lognya berbunyi "warga → admin", bukan
- * sekadar "peran diubah" — tanpa nilai lamanya, log tidak bisa membuktikan
- * apa-apa.
- */
-async function updateUserRole(req, res) {
-  try {
-    const { id } = req.params;
-    const { role } = req.body;
-    const validRoles = ['warga', 'admin', 'ketua_rt', 'sekretaris', 'bendahara'];
-    if (!role || !validRoles.includes(role)) {
-      return res.status(400).json({ success: false, message: `Role harus salah satu dari: ${validRoles.join(', ')}` });
-    }
-
-    const sebelum = await pool.query('SELECT nama, email, role FROM users WHERE id = $1', [id]);
-    if (sebelum.rows.length === 0) return res.status(404).json({ success: false, message: 'User tidak ditemukan.' });
-
-    const result = await pool.query(`UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2 RETURNING id, nama, email, role`, [role, id]);
-    // `id` adalah UUID. `parseInt` di sini dulu menghasilkan NaN, sehingga
-    // kuncinya tidak pernah cocok dan cache sesi TIDAK pernah dibersihkan —
-    // perubahan peran atau status baru berlaku setelah cache basi sendiri
-    // 30 detik kemudian, bukan seketika.
-    invalidateAuthCache(id);
-
-    const lama = sebelum.rows[0];
-    await logActivity(
-      req,
-      TIPE.AKSES,
-      `Mengubah peran akun ${lama.nama} (${lama.email}) — peran: ${lama.role} → ${role}`
-    );
-
-    return res.status(200).json({ success: true, message: `Role berhasil diubah ke "${role}".`, data: result.rows[0] });
-  } catch (err) {
-    console.error('UpdateUserRole Error:', err.message);
-    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
-  }
-}
-
-/**
  * Mengaktifkan atau menonaktifkan akun.
  *
  * Menonaktifkan akun adalah cara paling halus membungkam seseorang — misalnya
@@ -396,7 +351,6 @@ async function updateUserCredentials(req, res) {
 
 module.exports = {
   getUsers,
-  updateUserRole,
   updateUserStatus,
   createUser,
   getPendingUsers,

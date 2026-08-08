@@ -54,8 +54,7 @@ import 'profil_saya_screen.dart';
 import 'log_aktivitas_screen.dart';
 import 'menu_akses_screen.dart';
 import 'reset_sistem_screen.dart';
-import 'user_management_screen.dart';
-import '../../providers/user_provider.dart';
+
 import '../warga/warga_dashboard_content.dart';
 import '../warga/bill_list_screen.dart';
 import '../warga/finance_report_screen.dart';
@@ -217,11 +216,7 @@ class _MainDashboardState extends State<MainDashboard> {
         await pengaduan.fetchComplaints();
       case 62:
         await polling.fetchPolling();
-      case 82:
-        await context.read<UserProvider>().fetchUsers();
-        if (!mounted) return;
-        await context.read<UserProvider>().fetchPendingUsers();
-      case 84:
+
         await log.fetchLogs();
       default:
         // Beranda (0) dan layar tanpa daftar sendiri — Profil, Menu & Akses,
@@ -968,8 +963,7 @@ class _MainDashboardState extends State<MainDashboard> {
 
       case 81:
         return const ProfilSayaScreen();
-      case 82:
-        return UserManagementScreen(onBack: _kembaliMenu);
+
       case 84:
         return const LogAktivitasScreen();
       case 85:
