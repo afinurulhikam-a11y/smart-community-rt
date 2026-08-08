@@ -16,6 +16,7 @@ import '../../core/theme/warna_konteks.dart';
 import '../../core/format.dart';
 import '../../core/pesan.dart';
 import '../../core/izin_layar.dart';
+import 'data_warga_screen.dart';
 
 const List<String> _namaBulan = [
   'Januari',
@@ -753,36 +754,41 @@ class _KasRtScreenState extends State<KasRtScreen> {
       // Dua penjagaan yang berbeda dan keduanya perlu: `bolehDiubah` soal
       // aturan data (baris dari pembayaran iuran dikoreksi lewat Iuran
       // Warga), sedangkan izin soal wewenang role.
-      aksi: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (_bolehUbah)
-            IconButton(
-              tooltip: t.bolehDiubah
-                  ? 'Ubah'
-                  : 'Transaksi dari pembayaran iuran tidak bisa diubah di sini',
-              icon: Icon(
-                Icons.edit_outlined,
-                size: 18,
-                color: t.bolehDiubah ? const Color(0xFF3B82F6) : context.garis,
+      aksi: Transform.translate(
+        offset: const Offset(geserAksiTabel, 0),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_bolehUbah)
+              IconButton(
+                tooltip: t.bolehDiubah
+                    ? 'Ubah'
+                    : 'Transaksi dari pembayaran iuran tidak bisa diubah di sini',
+                icon: Icon(
+                  Icons.edit_outlined,
+                  size: 20,
+                  color: t.bolehDiubah ? const Color(0xFF3B82F6) : context.garis,
+                ),
+                style: gayaAksiTabel(t.bolehDiubah ? const Color(0xFF3B82F6) : context.garis),
+                onPressed: t.bolehDiubah ? () => _showFormTransaksi(t.tipe, existing: t) : null,
               ),
-              onPressed: t.bolehDiubah ? () => _showFormTransaksi(t.tipe, existing: t) : null,
-            ),
-          if (_bolehHapus)
-            IconButton(
-              tooltip: t.bolehDiubah
-                  ? 'Hapus'
-                  : 'Transaksi dari pembayaran iuran tidak bisa dihapus di sini',
-              icon: Icon(
-                Icons.delete_outline,
-                size: 18,
-                color: t.bolehDiubah ? const Color(0xFFEF4444) : context.garis,
+            if (_bolehHapus)
+              IconButton(
+                tooltip: t.bolehDiubah
+                    ? 'Hapus'
+                    : 'Transaksi dari pembayaran iuran tidak bisa dihapus di sini',
+                icon: Icon(
+                  Icons.delete_outline,
+                  size: 20,
+                  color: t.bolehDiubah ? const Color(0xFFEF4444) : context.garis,
+                ),
+                style: gayaAksiTabel(t.bolehDiubah ? const Color(0xFFEF4444) : context.garis),
+                onPressed: t.bolehDiubah ? () => _hapusTransaksi(t) : null,
               ),
-              onPressed: t.bolehDiubah ? () => _hapusTransaksi(t) : null,
-            ),
-          if (!_bolehUbah && !_bolehHapus)
-            Text('—', style: TextStyle(fontSize: 13, color: context.teksTersier)),
-        ],
+            if (!_bolehUbah && !_bolehHapus)
+              Text('—', style: TextStyle(fontSize: 13, color: context.teksTersier)),
+          ],
+        ),
       ),
     );
   }
