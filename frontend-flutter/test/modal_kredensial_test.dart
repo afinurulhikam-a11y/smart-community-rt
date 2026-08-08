@@ -53,6 +53,13 @@ List<Widget> kotakKredensial(BuildContext c) => [
       hint: 'Kosongkan jika tidak ingin mengubah',
       suffixIcon: IconButton(
         icon: const Icon(Icons.visibility_outlined, size: 18),
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(
+          minWidth: 48,
+          maxWidth: 48,
+          minHeight: AppTheme.sasaranSentuh,
+          maxHeight: AppTheme.sasaranSentuh,
+        ),
         onPressed: () {},
       ),
     ),
