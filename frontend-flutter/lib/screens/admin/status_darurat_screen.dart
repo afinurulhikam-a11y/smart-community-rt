@@ -29,12 +29,12 @@ class _StatusDaruratScreenState extends State<StatusDaruratScreen> {
     });
   }
 
-  void _loadData() {
+  void _loadData({int page = 1}) {
     final provider = context.read<EmergencyProvider>();
     String? statusFilter;
     if (_status == 'Aktif') statusFilter = 'active';
     if (_status == 'Selesai') statusFilter = 'dismissed';
-    provider.fetchAlerts(status: statusFilter);
+    provider.fetchAlerts(status: statusFilter, page: page, limit: 10);
   }
 
   void _showSimulateDialog() {
@@ -664,6 +664,9 @@ class _StatusDaruratScreenState extends State<StatusDaruratScreen> {
                                 ),
                         );
                       }).toList(),
+                      currentPage: emergency.currentPage,
+                      totalPages: emergency.totalPages,
+                      onPageChanged: (page) => _loadData(page: page),
                     ),
                   );
                 },

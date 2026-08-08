@@ -215,7 +215,7 @@ class TabelResponsif extends StatelessWidget {
       );
     }
 
-    if (currentPage != null && totalPages != null && totalPages! > 1) {
+    if (currentPage != null && totalPages != null) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

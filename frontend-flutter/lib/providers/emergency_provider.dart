@@ -10,6 +10,11 @@ class EmergencyProvider extends ChangeNotifier {
   String? _errorMessage;
   String? _successMessage;
 
+  int _currentPage = 1;
+  int _totalPages = 1;
+  int _totalData = 0;
+  int _perPage = 10;
+
   EmergencyProvider() {
     fetchAlerts();
   }
@@ -19,6 +24,11 @@ class EmergencyProvider extends ChangeNotifier {
   bool get isSending => _isSending;
   String? get errorMessage => _errorMessage;
   String? get successMessage => _successMessage;
+
+  int get currentPage => _currentPage;
+  int get totalPages => _totalPages;
+  int get totalData => _totalData;
+  int get perPage => _perPage;
 
   EmergencyModel? get activeAlert {
     try {
@@ -43,7 +53,7 @@ class EmergencyProvider extends ChangeNotifier {
     _isSending = false;
     if (response['success'] == true) {
       _successMessage = response['message'] as String?;
-      await fetchAlerts();
+      await fetchAlerts(page: _currentPage, limit: _perPage);
       notifyListeners();
       return true;
     } else {
@@ -67,7 +77,7 @@ class EmergencyProvider extends ChangeNotifier {
     _isLoading = false;
     if (response['success'] == true) {
       _successMessage = response['message'] as String?;
-      await fetchAlerts();
+      await fetchAlerts(page: _currentPage, limit: _perPage);
       notifyListeners();
       return true;
     } else {
@@ -77,19 +87,37 @@ class EmergencyProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> fetchAlerts({String? status}) async {
+  Future<void> fetchAlerts({String? status, int page = 1, int limit = 10}) async {
     _isLoading = true;
+    _currentPage = page;
+    _perPage = limit;
     notifyListeners();
-    final queryParams = <String, String>{};
+
+    final queryParams = <String, String>{
+      'page': page.toString(),
+      'limit': limit.toString(),
+    };
     if (status != null) queryParams['status'] = status;
+
     final response = await ApiService.get(
       ApiConstants.emergencyAlerts,
-      queryParams: queryParams.isNotEmpty ? queryParams : null,
+      queryParams: queryParams,
     );
     if (response['success'] == true) {
       final dataList = response['data'] as List<dynamic>;
       _alerts = dataList.map((j) => EmergencyModel.fromJson(j as Map<String, dynamic>)).toList();
       _errorMessage = null;
+
+      if (response['pagination'] != null) {
+        final p = response['pagination'] as Map<String, dynamic>;
+        _totalData = p['total_data'] as int? ?? _alerts.length;
+        _totalPages = p['total_pages'] as int? ?? 1;
+        _currentPage = p['current_page'] as int? ?? page;
+        _perPage = p['per_page'] as int? ?? limit;
+      } else {
+        _totalData = _alerts.length;
+        _totalPages = 1;
+      }
     } else {
       _errorMessage = response['message'] as String?;
     }
@@ -110,7 +138,10 @@ class EmergencyProvider extends ChangeNotifier {
     _isSending = false;
     _errorMessage = null;
     _successMessage = null;
+    _currentPage = 1;
+    _totalPages = 1;
+    _totalData = 0;
+    _perPage = 10;
     notifyListeners();
   }
-
 }

@@ -183,7 +183,30 @@ async function dismissAlarm(req, res) {
 
 async function getAlerts(req, res) {
   try {
-    const { status } = req.query;
+    const { status, page, limit } = req.query;
+
+    const queryParams = [];
+    let whereClause = 'WHERE 1=1';
+
+    if (status) {
+      queryParams.push(status);
+      whereClause += ` AND ea.status = $${queryParams.length}`;
+    }
+
+    let limitNum = parseInt(limit, 10);
+    let pageNum = parseInt(page, 10);
+    const usePagination = !isNaN(limitNum) && limitNum > 0;
+
+    if (usePagination) {
+      if (isNaN(pageNum) || pageNum < 1) pageNum = 1;
+    }
+
+    const countResult = await pool.query(
+      `SELECT COUNT(*) FROM emergency_alerts ea ${whereClause}`,
+      queryParams
+    );
+    const totalData = parseInt(countResult.rows[0].count, 10);
+
     let query = `SELECT ea.*, 
       COALESCE(u.nama, 'Administrator') AS nama_warga, 
       COALESCE(u.alamat, '') AS alamat, 
@@ -192,12 +215,37 @@ async function getAlerts(req, res) {
       FROM emergency_alerts ea 
       LEFT JOIN users u ON ea.user_id = u.id 
       LEFT JOIN users d ON ea.dismissed_by = d.id 
-      WHERE 1=1`;
-    const params = [];
-    if (status) { params.push(status); query += ` AND ea.status = $${params.length}`; }
-    query += ' ORDER BY ea.created_at DESC LIMIT 50';
-    const result = await pool.query(query, params);
-    return res.status(200).json({ success: true, count: result.rows.length, data: result.rows });
+      ${whereClause}
+      ORDER BY ea.created_at DESC`;
+
+    if (usePagination) {
+      const offset = (pageNum - 1) * limitNum;
+      queryParams.push(limitNum);
+      query += ` LIMIT $${queryParams.length}`;
+      queryParams.push(offset);
+      query += ` OFFSET $${queryParams.length}`;
+    } else {
+      query += ' LIMIT 50';
+    }
+
+    const result = await pool.query(query, queryParams);
+
+    const responseData = {
+      success: true,
+      count: result.rows.length,
+      data: result.rows,
+    };
+
+    if (usePagination) {
+      responseData.pagination = {
+        total_data: totalData,
+        total_pages: Math.ceil(totalData / limitNum) || 1,
+        current_page: pageNum,
+        per_page: limitNum,
+      };
+    }
+
+    return res.status(200).json(responseData);
   } catch (err) {
     console.error('GetAlerts Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
