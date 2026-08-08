@@ -451,8 +451,10 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
             style: OutlinedButton.styleFrom(
               foregroundColor: context.teksKedua,
               side: BorderSide(color: context.garis),
+              visualDensity: VisualDensity.standard,
               minimumSize: const Size(0, AppTheme.sasaranSentuh),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              maximumSize: const Size(double.infinity, AppTheme.sasaranSentuh),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
           ),
@@ -473,7 +475,10 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
         Text(label, style: TextStyle(fontSize: 12, color: context.teksKedua)),
         const SizedBox(height: 8),
         Container(
-          constraints: const BoxConstraints(minHeight: AppTheme.sasaranSentuh),
+          constraints: const BoxConstraints(
+            minHeight: AppTheme.sasaranSentuh,
+            maxHeight: AppTheme.sasaranSentuh,
+          ),
           width: lebarKolomFilter(context),
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
