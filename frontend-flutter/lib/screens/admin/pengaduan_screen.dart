@@ -10,6 +10,7 @@ import '../../providers/permission_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
 import '../../core/pesan.dart';
+import 'data_warga_screen.dart';
 
 /// Kode modul di tabel izin. Warga `view + create` dan hanya melihat aduannya
 /// sendiri (disaring backend); bendahara `view` saja.
@@ -584,13 +585,14 @@ class _PengaduanScreenState extends State<PengaduanScreen> {
                             SelTabel.teks('TANGGAL', dateStr),
                           ],
                           aksi: Transform.translate(
-                            offset: const Offset(-9.0, 0),
+                            offset: const Offset(geserAksiTabel, 0),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 IconButton(
                                   tooltip: 'Lihat Detail',
-                                  icon: const Icon(Icons.visibility_outlined, size: 18, color: Color(0xFF0F766E)),
+                                  icon: const Icon(Icons.visibility_outlined, size: 20, color: Color(0xFF0F766E)),
+                                  style: gayaAksiTabel(const Color(0xFF0F766E)),
                                   onPressed: () => _showDetail(c),
                                 ),
                                 // Menindaklanjuti aduan adalah wewenang
@@ -600,8 +602,11 @@ class _PengaduanScreenState extends State<PengaduanScreen> {
                                     tooltip: status == 'Menunggu' ? 'Proses' : 'Selesaikan',
                                     icon: Icon(
                                       status == 'Menunggu' ? Icons.published_with_changes : Icons.check_circle_outline,
-                                      size: 18,
+                                      size: 20,
                                       color: status == 'Menunggu' ? const Color(0xFF3B82F6) : const Color(0xFF10B981),
+                                    ),
+                                    style: gayaAksiTabel(
+                                      status == 'Menunggu' ? const Color(0xFF3B82F6) : const Color(0xFF10B981),
                                     ),
                                     onPressed: () async {
                                       final newStatus = status == 'Menunggu' ? 'Diproses' : 'Selesai';
