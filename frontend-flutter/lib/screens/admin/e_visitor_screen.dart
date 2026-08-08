@@ -32,13 +32,14 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
     });
   }
 
-  void _loadData() {
+  void _loadData({int page = 1}) {
     final provider = context.read<VisitorProvider>();
     provider.fetchStats();
     provider.fetchVisitors(
       status: _status == 'Semua Status' ? null : _status,
       tipe: _tipe == 'Semua Tipe' ? null : _tipe,
       search: _searchQuery.isNotEmpty ? _searchQuery : null,
+      page: page,
     );
   }
 
@@ -213,14 +214,14 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
               // jadi berganda dan tidak rata.
               _buildDropdown(_status, ['Semua Status', 'Di Dalam', 'Checkout'], (v) {
                 setState(() => _status = v!);
-                _loadData();
+                _loadData(page: 1);
               }),
               _buildDropdown(_tipe, ['Semua Tipe', 'Kunjungan', 'Menginap'], (v) {
                 setState(() => _tipe = v!);
-                _loadData();
+                _loadData(page: 1);
               }),
               TextButton.icon(
-                onPressed: _loadData,
+                onPressed: () => _loadData(page: 1),
                 icon: const Icon(Icons.refresh, size: 18),
                 label: const Text('Refresh'),
                 style: TextButton.styleFrom(foregroundColor: context.teksKedua),
@@ -279,7 +280,7 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
                             ],
                           ),
                           Text(
-                            '${provider.visitors.length} data',
+                            '${provider.totalData} data',
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -310,8 +311,16 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
                         child: Center(child: Text('Tidak ada data pengunjung')),
                       ),
                       baris: provider.visitors.asMap().entries.map((entry) {
-                        return _buildDataRow(entry.key + 1, entry.value, context, provider);
+                        return _buildDataRow(
+                          (((provider.currentPage - 1) * provider.perPage) + entry.key + 1),
+                          entry.value,
+                          context,
+                          provider,
+                        );
                       }).toList(),
+                      currentPage: provider.currentPage,
+                      totalPages: provider.totalPages,
+                      onPageChanged: (page) => _loadData(page: page),
                     ),
                   ),
                 ],

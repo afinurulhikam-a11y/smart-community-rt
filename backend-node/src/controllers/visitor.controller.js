@@ -3,31 +3,45 @@ const { logActivity, ringkas, TIPE } = require('../services/log.service');
 
 async function getVisitors(req, res) {
   try {
-    // Batas bawaan. Sebelumnya endpoint ini mengembalikan SELURUH tabel setiap
-    // kali dipanggil. Pada skala RT hari ini tidak terasa; tabel ini termasuk
-    // yang tumbuh terus tanpa pernah dipangkas, jadi yang berubah hanya kapan
-    // masalahnya muncul. Klien boleh meminta lebih lewat ?limit=, dengan batas
-    // atas supaya satu permintaan tidak bisa menarik seluruh basis data.
-    const batas = Math.min(parseInt(req.query.limit, 10) || 200, 1000);
+    const { status, tipe, search, tanggal, page: rawPage, limit: rawLimit } = req.query;
 
-    const { status, tipe, search, tanggal } = req.query;
-    let query = `SELECT v.*, u.nama AS created_by_nama FROM visitors v LEFT JOIN users u ON v.created_by = u.id WHERE 1=1`;
+    const page = Math.max(parseInt(rawPage, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(rawLimit, 10) || 10, 1), 100);
+    const offset = (page - 1) * limit;
+
+    let baseQuery = `FROM visitors v LEFT JOIN users u ON v.created_by = u.id WHERE 1=1`;
     const params = [];
 
     // Warga hanya melihat tamu yang didaftarkannya sendiri
     if (req.user.role === 'warga') {
       params.push(req.user.id);
-      query += ` AND v.created_by = $${params.length}`;
+      baseQuery += ` AND v.created_by = $${params.length}`;
     }
 
-    if (status && status !== 'Semua Status') { params.push(status); query += ` AND v.status = $${params.length}`; }
-    if (tipe && tipe !== 'Semua Tipe') { params.push(tipe); query += ` AND v.tipe_keperluan = $${params.length}`; }
-    if (tanggal) { params.push(tanggal); query += ` AND v.jam_masuk::DATE = $${params.length}::DATE`; }
-    if (search) { params.push(`%${search}%`); query += ` AND (v.nama_tamu ILIKE $${params.length} OR v.blok_tujuan ILIKE $${params.length} OR v.plat_nomor ILIKE $${params.length})`; }
-    params.push(batas);
-    query += ` ORDER BY v.jam_masuk DESC LIMIT $${params.length}`;
-    const result = await pool.query(query, params);
-    return res.status(200).json({ success: true, count: result.rows.length, data: result.rows });
+    if (status && status !== 'Semua Status') { params.push(status); baseQuery += ` AND v.status = $${params.length}`; }
+    if (tipe && tipe !== 'Semua Tipe') { params.push(tipe); baseQuery += ` AND v.tipe_keperluan = $${params.length}`; }
+    if (tanggal) { params.push(tanggal); baseQuery += ` AND v.jam_masuk::DATE = $${params.length}::DATE`; }
+    if (search) { params.push(`%${search}%`); baseQuery += ` AND (v.nama_tamu ILIKE $${params.length} OR v.blok_tujuan ILIKE $${params.length} OR v.plat_nomor ILIKE $${params.length})`; }
+
+    const countResult = await pool.query(`SELECT COUNT(*) as count ${baseQuery}`, params);
+    const totalData = parseInt(countResult.rows[0].count, 10);
+    const totalPages = Math.max(Math.ceil(totalData / limit), 1);
+
+    const dataParams = [...params, limit, offset];
+    const dataQuery = `SELECT v.*, u.nama AS created_by_nama ${baseQuery} ORDER BY v.jam_masuk DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    const result = await pool.query(dataQuery, dataParams);
+
+    return res.status(200).json({
+      success: true,
+      count: result.rows.length,
+      data: result.rows,
+      pagination: {
+        total_data: totalData,
+        total_pages: totalPages,
+        current_page: page,
+        per_page: limit,
+      },
+    });
   } catch (err) {
     console.error('GetVisitors Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
