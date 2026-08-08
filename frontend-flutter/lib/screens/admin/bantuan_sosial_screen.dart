@@ -13,6 +13,7 @@ import '../../widgets/tombol_kembali.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
 import '../../core/pesan.dart';
+import 'data_warga_screen.dart';
 
 /// Kode modul di tabel izin. Bendahara hanya punya `view` di sini.
 const String _kodeIzin = 'kependudukan.bansos';
@@ -512,42 +513,24 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                               ),
                               SelTabel.teks('Keterangan', b['keterangan'] ?? '-'),
                             ],
-                            aksi: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (_bolehUbah)
-                                  IconButton(
-                                    tooltip: 'Edit',
-                                    icon: const Icon(Icons.edit, color: Colors.blue, size: 18),
-                                    // Hover presisi: ikon dipusatkan dalam kotak
-                                    // tetap 38×38 (alignment center), sehingga
-                                    // lingkaran hover tepat di tengah ikon dan
-                                    // ukuran/hit-area sama untuk semua tombol.
-                                    // Padding nol + kotak tetap menjaga tombol
-                                    // pertama tetap di posisi awal di bawah
-                                    // label "AKSI"; tidak ada wrapper/flex yang
-                                    // menggeser posisinya.
-                                    style: IconButton.styleFrom(
-                                      alignment: Alignment.center,
-                                      minimumSize: const Size(38, 38),
-                                      maximumSize: const Size(38, 38),
-                                      padding: EdgeInsets.zero,
-                                      hoverColor: Colors.blue.withValues(alpha: 0.12),
+                            aksi: Transform.translate(
+                              offset: const Offset(geserAksiTabel, 0),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (_bolehUbah)
+                                    IconButton(
+                                      tooltip: 'Edit',
+                                      icon: const Icon(Icons.edit_outlined, color: Color(0xFF0F766E), size: 20),
+                                      style: gayaAksiTabel(const Color(0xFF0F766E)),
+                                      onPressed: () => _showFormDialog(data: b),
                                     ),
-                                    onPressed: () => _showFormDialog(data: b),
-                                  ),
-                                if (_bolehHapus)
-                                  IconButton(
-                                    tooltip: 'Hapus',
-                                    icon: const Icon(Icons.delete, color: Colors.red, size: 18),
-                                    style: IconButton.styleFrom(
-                                      alignment: Alignment.center,
-                                      minimumSize: const Size(38, 38),
-                                      maximumSize: const Size(38, 38),
-                                      padding: EdgeInsets.zero,
-                                      hoverColor: Colors.red.withValues(alpha: 0.12),
-                                    ),
-                                    onPressed: () async {
+                                  if (_bolehHapus)
+                                    IconButton(
+                                      tooltip: 'Hapus',
+                                      icon: const Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 20),
+                                      style: gayaAksiTabel(const Color(0xFFEF4444)),
+                                      onPressed: () async {
                                       final conf = await showDialog<bool>(
                                         context: context,
                                         builder: (c) => AlertDialog(
@@ -584,7 +567,8 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                                   ),
                               ],
                             ),
-                          );
+                          ),
+                        );
                         }).toList(),
                         currentPage: provider.currentPage,
                         totalPages: provider.totalPages,
