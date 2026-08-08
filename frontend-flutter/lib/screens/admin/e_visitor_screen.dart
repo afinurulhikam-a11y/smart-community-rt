@@ -611,6 +611,7 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
     final noHpTujuanCtrl = TextEditingController();
     final detailCtrl = TextEditingController();
     final platCtrl = TextEditingController();
+    final kendaraanLainnyaCtrl = TextEditingController();
     String tipeKeperluan = 'Kunjungan';
     String jenisKendaraan = 'Motor';
     bool isSaving = false;
@@ -682,15 +683,25 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
                         DropdownMenuItem(value: 'Motor', child: Text('Motor')),
                         DropdownMenuItem(value: 'Mobil', child: Text('Mobil')),
                         DropdownMenuItem(value: 'Jalan Kaki', child: Text('Jalan Kaki')),
+                        DropdownMenuItem(value: 'Lainnya', child: Text('Lainnya')),
                       ],
                       onChanged: (v) => setState(() => jenisKendaraan = v!),
                     ),
                     kanan: TextField(
                       controller: platCtrl,
                       textCapitalization: TextCapitalization.characters,
-                      decoration: const InputDecoration(labelText: 'Plat Nomor *'),
+                      decoration: InputDecoration(
+                        labelText: jenisKendaraan == 'Lainnya' ? 'Plat Nomor' : 'Plat Nomor *',
+                      ),
                     ),
                   ),
+                  if (jenisKendaraan == 'Lainnya') ...[
+                    const SizedBox(height: AppTheme.spasiL),
+                    TextField(
+                      controller: kendaraanLainnyaCtrl,
+                      decoration: const InputDecoration(labelText: 'Kendaraan Lainnya *'),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -704,14 +715,18 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
               onPressed: isSaving
                   ? null
                   : () async {
-                      // Validasi: semua kolom wajib diisi
+                      // Validasi: kolom wajib diisi
                       final kosong = <String>[];
                       if (namaCtrl.text.trim().isEmpty) kosong.add('Nama Tamu');
                       if (noHpCtrl.text.trim().isEmpty) kosong.add('No. HP Tamu');
                       if (blokCtrl.text.trim().isEmpty) kosong.add('Blok Tujuan');
                       if (noHpTujuanCtrl.text.trim().isEmpty) kosong.add('No. HP Warga Tujuan');
                       if (detailCtrl.text.trim().isEmpty) kosong.add('Detail Keperluan');
-                      if (platCtrl.text.trim().isEmpty) kosong.add('Plat Nomor');
+                      if (jenisKendaraan == 'Lainnya') {
+                        if (kendaraanLainnyaCtrl.text.trim().isEmpty) kosong.add('Kendaraan Lainnya');
+                      } else {
+                        if (platCtrl.text.trim().isEmpty) kosong.add('Plat Nomor');
+                      }
 
                       if (kosong.isNotEmpty) {
                         pesanGagal(
@@ -721,6 +736,9 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
                         return;
                       }
                       setState(() => isSaving = true);
+                      final kendaraanFinal = jenisKendaraan == 'Lainnya'
+                          ? kendaraanLainnyaCtrl.text.trim()
+                          : jenisKendaraan;
                       final success = await context.read<VisitorProvider>().createVisitor(
                         namaTamu: namaCtrl.text.trim(),
                         noHpTamu: noHpCtrl.text.trim(),
@@ -729,7 +747,7 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
                         tipeKeperluan: tipeKeperluan,
                         detailKeperluan: detailCtrl.text.trim(),
                         platNomor: platCtrl.text.trim(),
-                        jenisKendaraan: jenisKendaraan,
+                        jenisKendaraan: kendaraanFinal,
                       );
                       setState(() => isSaving = false);
                       if (success) {
