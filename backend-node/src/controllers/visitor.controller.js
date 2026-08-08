@@ -65,14 +65,25 @@ async function createVisitor(req, res) {
   try {
     const { nama_tamu, no_hp_tamu, blok_tujuan, no_hp_tujuan, tipe_keperluan, detail_keperluan, plat_nomor, jenis_kendaraan } = req.body;
 
-    // Validasi: semua kolom wajib diisi
+    // Validasi: kolom wajib diisi
     const kosong = [];
     if (!nama_tamu?.trim()) kosong.push('Nama Tamu');
     if (!no_hp_tamu?.trim()) kosong.push('No. HP Tamu');
     if (!blok_tujuan?.trim()) kosong.push('Blok Tujuan');
     if (!no_hp_tujuan?.trim()) kosong.push('No. HP Warga Tujuan');
     if (!detail_keperluan?.trim()) kosong.push('Detail Keperluan');
-    if (!plat_nomor?.trim()) kosong.push('Plat Nomor');
+
+    const jenisK = jenis_kendaraan?.trim();
+    if (!jenisK) {
+      kosong.push('Jenis Kendaraan');
+    } else if (jenisK === 'Lainnya') {
+      kosong.push('Kendaraan Lainnya');
+    }
+
+    const platOptional = jenisK && !['Motor', 'Mobil', 'Jalan Kaki'].includes(jenisK);
+    if (!platOptional && !plat_nomor?.trim()) {
+      kosong.push('Plat Nomor');
+    }
 
     if (kosong.length > 0) {
       return res.status(400).json({
@@ -84,7 +95,7 @@ async function createVisitor(req, res) {
     const result = await pool.query(
       `INSERT INTO visitors (nama_tamu, no_hp_tamu, blok_tujuan, no_hp_tujuan, tipe_keperluan, detail_keperluan, plat_nomor, jenis_kendaraan, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [nama_tamu.trim(), no_hp_tamu.trim(), blok_tujuan.trim(), no_hp_tujuan.trim(), tipe_keperluan || 'Kunjungan', detail_keperluan.trim(), plat_nomor.trim(), jenis_kendaraan || null, req.user.id]
+      [nama_tamu.trim(), no_hp_tamu.trim(), blok_tujuan.trim(), no_hp_tujuan.trim(), tipe_keperluan || 'Kunjungan', detail_keperluan.trim(), plat_nomor ? plat_nomor.trim() : null, jenisK || null, req.user.id]
     );
     const t = result.rows[0];
     await logActivity(req, TIPE.CREATE, `Mencatat tamu masuk: ${ringkas(t.nama_tamu)} → ${t.blok_tujuan || '-'}, keperluan ${t.tipe_keperluan || '-'}${t.plat_nomor ? `, kendaraan ${t.plat_nomor}` : ''}`);
