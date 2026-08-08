@@ -406,7 +406,10 @@ class _BopScreenState extends State<BopScreen> {
                 Text('Kategori', style: TextStyle(fontSize: 12, color: context.teksKedua)),
                 const SizedBox(height: 8),
                 Container(
-                  constraints: const BoxConstraints(minHeight: AppTheme.sasaranSentuh),
+                  constraints: const BoxConstraints(
+                    minHeight: AppTheme.sasaranSentuh,
+                    maxHeight: AppTheme.sasaranSentuh,
+                  ),
                   width: lebarKolomFilter(context, maksimal: 200),
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
@@ -469,8 +472,10 @@ class _BopScreenState extends State<BopScreen> {
             style: OutlinedButton.styleFrom(
               foregroundColor: context.teksKedua,
               side: BorderSide(color: context.garis),
+              visualDensity: VisualDensity.standard,
               minimumSize: const Size(0, AppTheme.sasaranSentuh),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              maximumSize: const Size(double.infinity, AppTheme.sasaranSentuh),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
           ),
@@ -491,7 +496,10 @@ class _BopScreenState extends State<BopScreen> {
         Text(label, style: TextStyle(fontSize: 12, color: context.teksKedua)),
         const SizedBox(height: 8),
         Container(
-          constraints: const BoxConstraints(minHeight: AppTheme.sasaranSentuh),
+          constraints: const BoxConstraints(
+            minHeight: AppTheme.sasaranSentuh,
+            maxHeight: AppTheme.sasaranSentuh,
+          ),
           width: lebarKolomFilter(context, maksimal: 170),
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
