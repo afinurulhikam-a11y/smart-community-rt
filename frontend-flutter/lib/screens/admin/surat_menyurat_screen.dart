@@ -196,12 +196,12 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
                       tinggiBarisMaks: 60,
                       kolom: const ['NO', 'TANGGAL', 'NAMA PEMOHON', 'JENIS SURAT', 'STATUS'],
                       baris: provider.letters.asMap().entries.map((entry) {
-                        final index = entry.key + 1;
+                        final index = (((provider.currentPage - 1) * 25) + entry.key + 1);
                         final data = entry.value;
                         final status = data.status.toLowerCase();
-                        Color statusColor = const Color(0xFFF59E0B);
-                        Color statusBg = const Color(0xFFFEF3C7);
-                        String statusLabel = 'Menunggu';
+                        Color statusColor;
+                        Color statusBg;
+                        String statusLabel;
 
                         if (status == 'disetujui') {
                           statusColor = const Color(0xFF10B981);
@@ -211,10 +211,14 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
                           statusColor = const Color(0xFFEF4444);
                           statusBg = const Color(0xFFFEE2E2);
                           statusLabel = 'Ditolak';
-                        } else if (status == 'diajukan' ||
-                            status == 'diproses' ||
-                            status == 'pending') {
+                        } else if (status == 'diajukan' || status == 'diproses') {
+                          statusColor = const Color(0xFF2563EB);
+                          statusBg = const Color(0xFFDBEAFE);
                           statusLabel = 'Diajukan';
+                        } else {
+                          statusColor = const Color(0xFFD97706);
+                          statusBg = const Color(0xFFFEF3C7);
+                          statusLabel = 'Menunggu';
                         }
 
                         return BarisTabel(
@@ -459,93 +463,101 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: context.garis),
               ),
-              child: Padding(
-                padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
-                child: TabelResponsif(
-                  tinggiBarisMaks: 60,
-                  kolom: const ['NO', 'TANGGAL', 'JENIS SURAT', 'STATUS', 'KETERANGAN'],
-                  baris: provider.letters.asMap().entries.map((entry) {
-                    final index = entry.key + 1;
-                    final data = entry.value;
-                    final status = data.status.toLowerCase();
-                    Color statusColor = const Color(0xFFF59E0B);
-                    Color statusBg = const Color(0xFFFEF3C7);
-                    String statusLabel = 'Menunggu';
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
+                    child: TabelResponsif(
+                      tinggiBarisMaks: 60,
+                      kolom: const ['NO', 'TANGGAL', 'JENIS SURAT', 'STATUS', 'KETERANGAN'],
+                      baris: provider.letters.asMap().entries.map((entry) {
+                        final index = (((provider.currentPage - 1) * 25) + entry.key + 1);
+                        final data = entry.value;
+                        final status = data.status.toLowerCase();
+                        Color statusColor;
+                        Color statusBg;
+                        String statusLabel;
 
-                    if (status == 'disetujui') {
-                      statusColor = const Color(0xFF10B981);
-                      statusBg = const Color(0xFFD1FAE5);
-                      statusLabel = 'Disetujui';
-                    } else if (status == 'ditolak') {
-                      statusColor = const Color(0xFFEF4444);
-                      statusBg = const Color(0xFFFEE2E2);
-                      statusLabel = 'Ditolak';
-                    } else if (status == 'diajukan' ||
-                        status == 'diproses' ||
-                        status == 'pending') {
-                      statusLabel = 'Diajukan';
-                    }
+                        if (status == 'disetujui') {
+                          statusColor = const Color(0xFF10B981);
+                          statusBg = const Color(0xFFD1FAE5);
+                          statusLabel = 'Disetujui';
+                        } else if (status == 'ditolak') {
+                          statusColor = const Color(0xFFEF4444);
+                          statusBg = const Color(0xFFFEE2E2);
+                          statusLabel = 'Ditolak';
+                        } else if (status == 'diajukan' || status == 'diproses') {
+                          statusColor = const Color(0xFF2563EB);
+                          statusBg = const Color(0xFFDBEAFE);
+                          statusLabel = 'Diajukan';
+                        } else {
+                          statusColor = const Color(0xFFD97706);
+                          statusBg = const Color(0xFFFEF3C7);
+                          statusLabel = 'Menunggu';
+                        }
 
-                    return BarisTabel(
-                      sel: [
-                        SelTabel.teks(
-                          'NO',
-                          '$index',
-                          sembunyiDiKartu: true,
-                          gaya: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: context.teksKedua,
-                          ),
-                        ),
-                        SelTabel.teks(
-                          'TANGGAL',
-                          DateFormat('dd MMM yyyy').format(data.tanggalPengajuan),
-                          gaya: TextStyle(fontSize: 14, color: context.teksKedua),
-                        ),
-                        SelTabel.teks(
-                          'JENIS SURAT',
-                          data.jenisSurat,
-                          utama: true,
-                          gaya: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: context.teksUtama,
-                          ),
-                        ),
-                        SelTabel(
-                          'STATUS',
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: statusBg,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              statusLabel,
-                              style: TextStyle(
-                                fontSize: 12,
+                        return BarisTabel(
+                          sel: [
+                            SelTabel.teks(
+                              'NO',
+                              '$index',
+                              sembunyiDiKartu: true,
+                              gaya: TextStyle(
+                                fontSize: 13,
                                 fontWeight: FontWeight.bold,
-                                color: statusColor,
+                                color: context.teksKedua,
                               ),
                             ),
-                          ),
-                        ),
-                        SelTabel.teks(
-                          'KETERANGAN',
-                          data.responseNote ?? '-',
-                          gaya: TextStyle(fontSize: 14, color: context.teksKedua),
-                        ),
-                      ],
-                    );
-                  }).toList(),
-                ),
+                            SelTabel.teks(
+                              'TANGGAL',
+                              DateFormat('dd MMM yyyy').format(data.tanggalPengajuan),
+                              gaya: TextStyle(fontSize: 14, color: context.teksKedua),
+                            ),
+                            SelTabel.teks(
+                              'JENIS SURAT',
+                              data.jenisSurat,
+                              utama: true,
+                              gaya: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: context.teksUtama,
+                              ),
+                            ),
+                            SelTabel(
+                              'STATUS',
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: statusBg,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  statusLabel,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: statusColor,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            SelTabel.teks(
+                              'KETERANGAN',
+                              data.responseNote ?? '-',
+                              gaya: TextStyle(fontSize: 14, color: context.teksKedua),
+                            ),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  _buildPagination(provider),
+                ],
               ),
             );
           },
-        ),
-        Consumer<LetterProvider>(
-          builder: (context, provider, _) => _buildPagination(provider),
         ),
       ],
     );
@@ -556,11 +568,12 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
     final totalData = provider.totalData;
     final currentPage = provider.currentPage;
     final totalPages = provider.totalPages;
-    final mulai = (currentPage - 1) * 25;
-    final akhir = (mulai + provider.letters.length).clamp(0, totalData);
+    const perPage = 25;
+    final mulai = totalData == 0 ? 0 : (currentPage - 1) * perPage + 1;
+    final akhir = (currentPage * perPage).clamp(0, totalData);
 
     return Padding(
-      padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Wrap(
         alignment: WrapAlignment.spaceBetween,
         crossAxisAlignment: WrapCrossAlignment.center,
@@ -569,20 +582,21 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
         children: [
           Text(
             totalData == 0
-                ? 'Tidak ada data'
-                : 'Menampilkan ${mulai + 1} – $akhir dari $totalData surat',
+                ? 'Tidak ada transaksi'
+                : 'Menampilkan $mulai - $akhir dari $totalData transaksi',
             style: TextStyle(fontSize: 13, color: context.teksKedua),
           ),
           Wrap(
-            spacing: 4,
-            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 6,
+            runSpacing: 6,
             children: [
               _pageBtn(
-                '<',
+                'Previous',
                 false,
                 currentPage > 1 ? () => _loadData(page: currentPage - 1) : null,
               ),
-              ...List.generate(totalPages.clamp(0, 5), (i) {
+              ...List.generate(totalPages.clamp(0, 10), (i) {
                 final n = i + 1;
                 return _pageBtn(
                   '$n',
@@ -591,7 +605,7 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
                 );
               }),
               _pageBtn(
-                '>',
+                'Next',
                 false,
                 currentPage < totalPages ? () => _loadData(page: currentPage + 1) : null,
               ),
@@ -606,6 +620,7 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
     final mati = onTap == null;
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
@@ -618,7 +633,7 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
           style: TextStyle(
             fontSize: 13,
             color: aktif ? Colors.white : (mati ? context.teksTersier : context.teksKedua),
-            fontWeight: aktif ? FontWeight.bold : FontWeight.normal,
+            fontWeight: aktif ? FontWeight.bold : FontWeight.w500,
           ),
         ),
       ),
