@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/responsif.dart';
 import '../../core/services/auth_service.dart';
@@ -492,7 +493,16 @@ class _ProfilSayaScreenState extends State<ProfilSayaScreen> {
                     ],
                     kanan: [
                       _buildLabel('No HP / WhatsApp'),
-                      _buildInputField(_noHpController, 'No HP', Icons.phone_outlined),
+                      _buildInputField(
+                        _noHpController,
+                        'No HP',
+                        Icons.phone_outlined,
+                        keyboardType: TextInputType.phone,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(15),
+                        ],
+                      ),
                     ],
                   ),
                 ],
@@ -601,7 +611,13 @@ class _ProfilSayaScreenState extends State<ProfilSayaScreen> {
     );
   }
 
-  Widget _buildInputField(TextEditingController controller, String hint, IconData icon) {
+  Widget _buildInputField(
+    TextEditingController controller,
+    String hint,
+    IconData icon, {
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+  }) {
     return Container(
       constraints: const BoxConstraints(minHeight: AppTheme.sasaranSentuh),
       decoration: BoxDecoration(
@@ -611,6 +627,8 @@ class _ProfilSayaScreenState extends State<ProfilSayaScreen> {
       ),
       child: TextField(
         controller: controller,
+        keyboardType: keyboardType,
+        inputFormatters: inputFormatters,
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: TextStyle(fontSize: 13, color: context.teksTersier),
