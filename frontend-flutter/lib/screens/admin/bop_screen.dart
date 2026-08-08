@@ -16,6 +16,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
 import '../../core/format.dart';
 import '../../core/pesan.dart';
+import 'data_warga_screen.dart';
 
 const List<String> _namaBulan = [
   'Januari',
@@ -836,24 +837,29 @@ class _BopScreenState extends State<BopScreen> {
           ),
         ),
       ],
-      aksi: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (_bolehUbah)
-            IconButton(
-              tooltip: 'Ubah',
-              icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF3B82F6)),
-              onPressed: () => _showFormTransaksi(t.tipe, existing: t),
-            ),
-          if (_bolehHapus)
-            IconButton(
-              tooltip: 'Hapus',
-              icon: const Icon(Icons.delete_outline, size: 18, color: _merah),
-              onPressed: () => _hapusTransaksi(t),
-            ),
-          if (!_bolehUbah && !_bolehHapus)
-            Text('—', style: TextStyle(fontSize: 13, color: context.teksTersier)),
-        ],
+      aksi: Transform.translate(
+        offset: const Offset(geserAksiTabel, 0),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_bolehUbah)
+              IconButton(
+                tooltip: 'Ubah',
+                icon: const Icon(Icons.edit_outlined, size: 20, color: Color(0xFF3B82F6)),
+                style: gayaAksiTabel(const Color(0xFF3B82F6)),
+                onPressed: () => _showFormTransaksi(t.tipe, existing: t),
+              ),
+            if (_bolehHapus)
+              IconButton(
+                tooltip: 'Hapus',
+                icon: const Icon(Icons.delete_outline, size: 20, color: _merah),
+                style: gayaAksiTabel(_merah),
+                onPressed: () => _hapusTransaksi(t),
+              ),
+            if (!_bolehUbah && !_bolehHapus)
+              Text('—', style: TextStyle(fontSize: 13, color: context.teksTersier)),
+          ],
+        ),
       ),
     );
   }
