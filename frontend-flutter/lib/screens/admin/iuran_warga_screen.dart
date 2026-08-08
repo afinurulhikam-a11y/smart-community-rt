@@ -678,6 +678,7 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                 totalPages: provider.totalPages,
                 totalData: provider.totalData,
                 perPage: provider.perPage,
+                footerTerpusat: true,
                 onPageChanged: (page) => _loadData(page: page),
               ),
             ),
