@@ -974,81 +974,128 @@ class _BopScreenState extends State<BopScreen> {
     );
 
     final masuk = tipe == 'pemasukan';
+    final warnaUtama = masuk ? _hijauTerang : _merah;
+
+    InputDecoration dekor(String label, IconData ikon) => InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(fontSize: 14, color: context.teksKedua),
+      prefixIcon: Icon(ikon, color: warnaUtama, size: 20),
+      filled: true,
+      fillColor: context.latarLembut,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: context.garis),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: context.garis),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: warnaUtama, width: 1.5),
+      ),
+    );
 
     showDialog(
       context: context,
       builder: (c) => StatefulBuilder(
         builder: (c2, setLocal) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+          actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
           title: Row(
             children: [
-              Icon(
-                masuk ? Icons.arrow_downward : Icons.arrow_upward,
-                color: masuk ? _hijauTerang : _merah,
-                size: 20,
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: warnaUtama.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  masuk ? Icons.arrow_downward : Icons.arrow_upward,
+                  color: warnaUtama,
+                  size: 20,
+                ),
               ),
-              const SizedBox(width: 8),
-              Text(
-                existing == null
-                    ? (masuk ? 'Catat Pemasukan BOP' : 'Catat Belanja BOP')
-                    : 'Ubah Transaksi BOP',
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  existing == null
+                      ? (masuk ? 'Catat Pemasukan BOP' : 'Catat Belanja BOP')
+                      : 'Ubah Transaksi BOP',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                    color: context.teksUtama,
+                  ),
+                ),
               ),
             ],
           ),
           content: SizedBox(
-            width: lebarDialog(context, maksimal: 420),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: tanggalCtrl,
-                  readOnly: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Tanggal',
-                    prefixIcon: Icon(Icons.calendar_today, size: 18),
+            width: lebarDialog(context, maksimal: 440),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: tanggalCtrl,
+                    readOnly: true,
+                    decoration: dekor('Tanggal', Icons.calendar_today),
+                    onTap: () async {
+                      final dipilih = await showDatePicker(
+                        context: c,
+                        initialDate: existing?.tanggal ?? DateTime.now(),
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                        helpText: 'Pilih Tanggal',
+                      );
+                      if (dipilih != null) {
+                        tanggalCtrl.text = DateFormat('yyyy-MM-dd').format(dipilih);
+                      }
+                    },
                   ),
-                  onTap: () async {
-                    final dipilih = await showDatePicker(
-                      context: c,
-                      initialDate: existing?.tanggal ?? DateTime.now(),
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime.now().add(const Duration(days: 365)),
-                    );
-                    if (dipilih != null) {
-                      tanggalCtrl.text = DateFormat('yyyy-MM-dd').format(dipilih);
-                    }
-                  },
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<int>(
-                  initialValue: kategoriId,
-                  isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Kategori'),
-                  items: kategoriList
-                      .map((k) => DropdownMenuItem(value: k.id, child: Text(k.namaKategori)))
-                      .toList(),
-                  onChanged: (v) => setLocal(() => kategoriId = v),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: jumlahCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Jumlah (Rp)',
-                    prefixIcon: Icon(Icons.attach_money, size: 18),
+                  const SizedBox(height: 14),
+                  DropdownButtonFormField<int>(
+                    initialValue: kategoriId,
+                    isExpanded: true,
+                    decoration: dekor('Kategori', Icons.category_outlined),
+                    dropdownColor: context.latarKartu,
+                    borderRadius: BorderRadius.circular(12),
+                    items: kategoriList
+                        .map((k) => DropdownMenuItem(value: k.id, child: Text(k.namaKategori)))
+                        .toList(),
+                    onChanged: (v) => setLocal(() => kategoriId = v),
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: deskripsiCtrl,
-                  maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'Keterangan'),
-                ),
-              ],
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: jumlahCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: dekor('Jumlah (Rp)', Icons.attach_money),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: deskripsiCtrl,
+                    maxLines: 2,
+                    decoration: dekor('Keterangan', Icons.notes),
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(c), child: const Text('Batal')),
+            TextButton(
+              onPressed: () => Navigator.pop(c),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                foregroundColor: context.teksKedua,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Batal', style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
             ElevatedButton(
               onPressed: () async {
                 final jumlah = double.tryParse(jumlahCtrl.text);
@@ -1080,8 +1127,13 @@ class _BopScreenState extends State<BopScreen> {
                       );
                 if (mounted) _tampilkanHasil(hasil);
               },
-              style: ElevatedButton.styleFrom(backgroundColor: masuk ? _hijauTerang : _merah),
-              child: const Text('Simpan', style: TextStyle(color: Colors.white)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: warnaUtama,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 0,
+              ),
+              child: const Text('Simpan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
