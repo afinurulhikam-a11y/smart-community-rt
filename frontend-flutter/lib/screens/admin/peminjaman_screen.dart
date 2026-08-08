@@ -13,6 +13,7 @@ import '../../widgets/tabel_responsif.dart';
 import '../../widgets/tombol_kembali.dart';
 import '../../core/theme/warna_konteks.dart';
 import '../../core/pesan.dart';
+import 'data_warga_screen.dart';
 
 const Color _hijau = Color(0xFF1B7A6A);
 const Color _merah = Color(0xFFEF4444);
@@ -539,76 +540,64 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
           ),
         ),
       ],
-      aksi: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (isPending && _bolehUbah) ...[
-            ElevatedButton(
-              onPressed: () async {
-                final r = await context.read<InventoryProvider>().approveBorrowing(b.id);
-                if (mounted && r['success'] == true) {
-                  pesanSukses(context, 'Peminjaman berhasil disetujui.');
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _hijauTerang,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      aksi: Transform.translate(
+        offset: const Offset(geserAksiTabel, 0),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isPending && _bolehUbah) ...[
+              IconButton(
+                tooltip: 'Setujui',
+                icon: const Icon(Icons.check_circle_outline, size: 20, color: _hijauTerang),
+                style: gayaAksiTabel(_hijauTerang),
+                onPressed: () async {
+                  final r = await context.read<InventoryProvider>().approveBorrowing(b.id);
+                  if (mounted && r['success'] == true) {
+                    pesanSukses(context, 'Peminjaman berhasil disetujui.');
+                  }
+                },
               ),
-              child: const Text('Setujui', style: TextStyle(fontSize: 11)),
-            ),
-            const SizedBox(width: 6),
-            OutlinedButton(
-              onPressed: () async {
-                final r = await context.read<InventoryProvider>().rejectBorrowing(b.id);
-                if (mounted && r['success'] == true) {
-                  // Hijau: yang dilaporkan adalah aksinya berhasil dijalankan,
-                  // bukan isi keputusannya.
-                  pesanSukses(context, 'Peminjaman ditolak.');
-                }
-              },
-              style: OutlinedButton.styleFrom(
-                foregroundColor: _merah,
-                side: const BorderSide(color: _merah),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              IconButton(
+                tooltip: 'Tolak',
+                icon: const Icon(Icons.highlight_off_outlined, size: 20, color: _merah),
+                style: gayaAksiTabel(_merah),
+                onPressed: () async {
+                  final r = await context.read<InventoryProvider>().rejectBorrowing(b.id);
+                  if (mounted && r['success'] == true) {
+                    pesanSukses(context, 'Peminjaman ditolak.');
+                  }
+                },
               ),
-              child: const Text('Tolak', style: TextStyle(fontSize: 11)),
-            ),
-          ] else if ((isDipinjam || !b.isDikembalikan) && !isDitolak && _bolehUbah) ...[
-            ElevatedButton(
-              onPressed: () => _kembalikan(b),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _hijauTerang,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ] else if ((isDipinjam || !b.isDikembalikan) && !isDitolak && _bolehUbah) ...[
+              IconButton(
+                tooltip: 'Kembalikan',
+                icon: const Icon(Icons.assignment_return_outlined, size: 20, color: _hijauTerang),
+                style: gayaAksiTabel(_hijauTerang),
+                onPressed: () => _kembalikan(b),
               ),
-              child: const Text('Kembalikan', style: TextStyle(fontSize: 11)),
-            ),
+            ],
+            if (!b.isDikembalikan && _bolehUbah)
+              IconButton(
+                tooltip: 'Ubah',
+                icon: const Icon(Icons.edit_outlined, size: 20, color: Color(0xFF3B82F6)),
+                style: gayaAksiTabel(const Color(0xFF3B82F6)),
+                onPressed: () => _showFormPinjam(b),
+              ),
+            if (_bolehHapus || (context.watch<AuthService>().userId.toString() == b.userId && !b.isDikembalikan))
+              IconButton(
+                tooltip: b.bisaDibatalkan
+                    ? 'Batalkan catatan'
+                    : 'Riwayat pengembalian tidak bisa dihapus',
+                icon: Icon(
+                  Icons.delete_outline,
+                  size: 20,
+                  color: b.bisaDibatalkan ? _merah : context.garis,
+                ),
+                style: gayaAksiTabel(b.bisaDibatalkan ? _merah : context.garis),
+                onPressed: b.bisaDibatalkan ? () => _batalkan(b) : null,
+              ),
           ],
-          if (!b.isDikembalikan && _bolehUbah)
-            IconButton(
-              tooltip: 'Ubah',
-              icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF3B82F6)),
-              onPressed: () => _showFormPinjam(b),
-            ),
-          if (_bolehHapus || (context.watch<AuthService>().userId.toString() == b.userId && !b.isDikembalikan))
-            IconButton(
-              tooltip: b.bisaDibatalkan
-                  ? 'Batalkan catatan'
-                  : 'Riwayat pengembalian tidak bisa dihapus',
-              icon: Icon(
-                Icons.delete_outline,
-                size: 18,
-                color: b.bisaDibatalkan ? _merah : context.garis,
-              ),
-              onPressed: b.bisaDibatalkan ? () => _batalkan(b) : null,
-            ),
-        ],
+        ),
       ),
     );
   }
