@@ -170,6 +170,16 @@ InputDecoration dekorKredensial(
     hintText: hint,
     hintStyle: TextStyle(color: context.teksTersier, fontSize: 13),
     suffixIcon: suffixIcon,
+    suffixIconConstraints: const BoxConstraints(
+      minWidth: 48,
+      maxWidth: 48,
+      minHeight: AppTheme.sasaranSentuh,
+      maxHeight: AppTheme.sasaranSentuh,
+    ),
+    constraints: const BoxConstraints(
+      minHeight: AppTheme.sasaranSentuh,
+      maxHeight: AppTheme.sasaranSentuh,
+    ),
     // `isDense` menahan tinggi bawaan InputDecorator agar padding di bawah ini
     // yang menentukan, sehingga keempat kotak berakhir di angka yang sama.
     isDense: true,
@@ -1193,6 +1203,13 @@ aksi: Transform.translate(
                                       ? Icons.visibility_off_outlined
                                       : Icons.visibility_outlined,
                                   size: 18,
+                                ),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                  minWidth: 48,
+                                  maxWidth: 48,
+                                  minHeight: AppTheme.sasaranSentuh,
+                                  maxHeight: AppTheme.sasaranSentuh,
                                 ),
                                 color: context.teksKedua,
                                 tooltip: sandiTerlihat
