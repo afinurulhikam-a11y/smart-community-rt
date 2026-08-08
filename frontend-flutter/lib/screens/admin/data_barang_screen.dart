@@ -346,8 +346,9 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
               ),
             ],
           ),
-          InkWell(
-            onTap: () {
+          IconButton(
+            tooltip: 'Reset Filter',
+            onPressed: () {
               setState(() {
                 _kategori = 'Semua Kategori';
                 _kondisi = 'Semua Kondisi';
@@ -356,13 +357,15 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
               });
               _loadData();
             },
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                border: Border.all(color: context.garis),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(Icons.close, size: 16, color: context.teksKedua),
+            icon: const Icon(Icons.close, size: 16),
+            style: IconButton.styleFrom(
+              foregroundColor: context.teksKedua,
+              side: BorderSide(color: context.garis),
+              visualDensity: VisualDensity.standard,
+              minimumSize: const Size(AppTheme.sasaranSentuh, AppTheme.sasaranSentuh),
+              maximumSize: const Size(AppTheme.sasaranSentuh, AppTheme.sasaranSentuh),
+              padding: EdgeInsets.zero,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
           ),
         ],
@@ -382,7 +385,10 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
         Text(label, style: TextStyle(fontSize: 12, color: context.teksKedua)),
         const SizedBox(height: 8),
         Container(
-          constraints: const BoxConstraints(minHeight: AppTheme.sasaranSentuh),
+          constraints: const BoxConstraints(
+            minHeight: AppTheme.sasaranSentuh,
+            maxHeight: AppTheme.sasaranSentuh,
+          ),
           width: lebarKolomFilter(context, maksimal: 190),
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
