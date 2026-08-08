@@ -583,48 +583,33 @@ class _PengaduanScreenState extends State<PengaduanScreen> {
                             ),
                             SelTabel.teks('TANGGAL', dateStr),
                           ],
-                          aksi: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              OutlinedButton.icon(
-                                onPressed: () => _showDetail(c),
-                                icon: const Icon(Icons.visibility_outlined, size: 14),
-                                label: const Text('Detail', style: TextStyle(fontSize: 12)),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFF0F766E),
-                                  side: const BorderSide(color: Color(0xFFCCFBF1)),
-                                  backgroundColor: const Color(0xFFF0FDFA),
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  minimumSize: Size.zero,
+                          aksi: Transform.translate(
+                            offset: const Offset(-9.0, 0),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  tooltip: 'Lihat Detail',
+                                  icon: const Icon(Icons.visibility_outlined, size: 18, color: Color(0xFF0F766E)),
+                                  onPressed: () => _showDetail(c),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              // Menindaklanjuti aduan adalah wewenang
-                              // pengurus; warga hanya memantau statusnya.
-                              if (status != 'Selesai' && _bolehUbah)
-                                ElevatedButton(
-                                  onPressed: () async {
-                                    final newStatus = status == 'Menunggu' ? 'Diproses' : 'Selesai';
-                                    await provider.updateComplaintStatus(id, status: newStatus);
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: status == 'Menunggu'
-                                        ? Colors.blue
-                                        : Colors.green,
-                                    foregroundColor: Colors.white,
-                                    elevation: 0,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
+                                // Menindaklanjuti aduan adalah wewenang
+                                // pengurus; warga hanya memantau statusnya.
+                                if (status != 'Selesai' && _bolehUbah)
+                                  IconButton(
+                                    tooltip: status == 'Menunggu' ? 'Proses' : 'Selesaikan',
+                                    icon: Icon(
+                                      status == 'Menunggu' ? Icons.published_with_changes : Icons.check_circle_outline,
+                                      size: 18,
+                                      color: status == 'Menunggu' ? const Color(0xFF3B82F6) : const Color(0xFF10B981),
                                     ),
-                                    minimumSize: Size.zero,
+                                    onPressed: () async {
+                                      final newStatus = status == 'Menunggu' ? 'Diproses' : 'Selesai';
+                                      await provider.updateComplaintStatus(id, status: newStatus);
+                                    },
                                   ),
-                                  child: Text(
-                                    status == 'Menunggu' ? 'Proses' : 'Selesaikan',
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                            ],
+                              ],
+                            ),
                           ),
                         );
                       }).toList(),
@@ -644,43 +629,46 @@ class _PengaduanScreenState extends State<PengaduanScreen> {
                   
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Wrap(
-                      alignment: WrapAlignment.spaceBetween,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 16,
-                      runSpacing: 12,
-                      children: [
-                        Text(
-                          totalData == 0
-                              ? 'Tidak ada data'
-                              : 'Menampilkan ${mulai + 1} – $akhir dari $totalData pengaduan',
-                          style: TextStyle(fontSize: 13, color: context.teksKedua),
-                        ),
-                        Wrap(
-                          spacing: 4,
-                          runSpacing: 4,
-                          children: [
-                            _pageBtn(
-                              '<',
-                              false,
-                              currentPage > 1 ? () => _loadData(page: currentPage - 1) : null,
-                            ),
-                            ...List.generate(totalPages.clamp(0, 5), (i) {
-                              final n = i + 1;
-                              return _pageBtn(
-                                '$n',
-                                n == currentPage,
-                                () => _loadData(page: n),
-                              );
-                            }),
-                            _pageBtn(
-                              '>',
-                              false,
-                              currentPage < totalPages ? () => _loadData(page: currentPage + 1) : null,
-                            ),
-                          ],
-                        ),
-                      ],
+                    child: Center(
+                      child: Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 16,
+                        runSpacing: 12,
+                        children: [
+                          Text(
+                            totalData == 0
+                                ? 'Tidak ada data'
+                                : 'Menampilkan ${mulai + 1} – $akhir dari $totalData pengaduan',
+                            style: TextStyle(fontSize: 13, color: context.teksKedua),
+                          ),
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: 4,
+                            runSpacing: 4,
+                            children: [
+                              _pageBtn(
+                                '<',
+                                false,
+                                currentPage > 1 ? () => _loadData(page: currentPage - 1) : null,
+                              ),
+                              ...List.generate(totalPages.clamp(0, 5), (i) {
+                                final n = i + 1;
+                                return _pageBtn(
+                                  '$n',
+                                  n == currentPage,
+                                  () => _loadData(page: n),
+                                );
+                              }),
+                              _pageBtn(
+                                '>',
+                                false,
+                                currentPage < totalPages ? () => _loadData(page: currentPage + 1) : null,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 },
