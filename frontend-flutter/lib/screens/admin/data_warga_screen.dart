@@ -1019,9 +1019,7 @@ aksi: Transform.translate(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Divider(),
-                    // 12px setelah Divider — dipertahankan sebagai jarak judul→field pertama,
-// karena kotak pertama (username) punya label di atasnya.
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     if (!bolehEditSemua) ...[
                       Container(
                         width: double.infinity,
@@ -1048,7 +1046,7 @@ aksi: Transform.translate(
                           ],
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
                     ],
                     Text(
                       'Username Login',
@@ -1058,28 +1056,25 @@ aksi: Transform.translate(
                         color: context.teksUtama,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    // Hanya-baca, tetapi tetap dibangun dari dekorasi yang
-                    // sama supaya kotaknya persis sebesar kotak isian di
-                    // bawahnya. Sebagai Container biasa ia terukur 42 — enam
-                    // piksel lebih pendek, dan itu terlihat.
+                    const SizedBox(height: 6),
                     SizedBox(
                       height: AppTheme.sasaranSentuh,
                       child: InputDecorator(
                         key: const Key('username'),
                         decoration: dekorKredensial(context),
-                        child: Text(
-                          data['username']?.toString() ?? nik,
-                          style: gayaIsiKredensial(
-                            context,
-                          ).copyWith(fontWeight: FontWeight.w600),
+                        textAlignVertical: TextAlignVertical.center,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            data['username']?.toString() ?? nik,
+                            style: gayaIsiKredensial(
+                              context,
+                            ).copyWith(fontWeight: FontWeight.w600),
+                          ),
                         ),
                       ),
                     ),
-                    // Grup dirapatkan: 16px → 10px — sekarang 8px (gap antar input field).
-                    // Label→input tetap 4px di semua empat field, sehingga
-                    // ritme vertikal dialog tetap konsisten.
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 14),
                     Text(
                       'Nomor HP / WhatsApp',
                       style: TextStyle(
@@ -1088,7 +1083,7 @@ aksi: Transform.translate(
                         color: context.teksUtama,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     SizedBox(
                       height: AppTheme.sasaranSentuh,
                       child: TextField(
@@ -1096,9 +1091,7 @@ aksi: Transform.translate(
                         controller: noHpCtrl,
                         enabled: bolehEditSemua,
                         keyboardType: TextInputType.phone,
-                        // Dialog ini menulis ke kolom `no_hp` yang sama dengan
-                        // formulir Tambah Warga. Menyaring salah satunya saja
-                        // berarti huruf tetap bisa masuk lewat pintu yang lain.
+                        textAlignVertical: TextAlignVertical.center,
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(15),
@@ -1110,10 +1103,10 @@ aksi: Transform.translate(
                         ),
                       ),
                     ),
-                    // Grup dirapatkan: 16px → 10px — sekarang 8px (gap antar input field).
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 14),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Text(
                           'Role / Peran Sistem',
@@ -1141,50 +1134,41 @@ aksi: Transform.translate(
                           ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    // `InputDecorator`, bukan `Container`: kotaknya kini dilukis
-                    // oleh mesin yang sama dengan TextField di atas dan di
-                    // bawahnya, sehingga tinggi, padding, tepi, radius, dan
-                    // latarnya identik menurut konstruksi — bukan karena
-                    // angkanya kebetulan disalin dengan benar.
-                    //
-                    // `DropdownButton` dipertahankan apa adanya (bukan diganti
-                    // `DropdownButtonFormField`) supaya semantik `value:` tidak
-                    // berubah: nilainya tetap dikendalikan `selectedRole` milik
-                    // dialog, bukan state internal FormField.
+                    const SizedBox(height: 6),
                     SizedBox(
                       height: AppTheme.sasaranSentuh,
                       child: InputDecorator(
                         key: const Key('role'),
                         decoration: dekorKredensial(context),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: selectedRole,
-                            isExpanded: true,
-                            // Menahan tinggi bawaan 48 milik DropdownButton agar
-                            // padding dekorasi yang menentukan; tanpa ini kotaknya
-                            // membengkak melewati kotak isian di sekitarnya.
-                            isDense: true,
-                            style: gayaIsiKredensial(context),
-                            dropdownColor: context.latarKartu,
-                            onChanged: bolehUbahRole
-                                ? (v) {
-                                    if (v != null) setDialogState(() => selectedRole = v);
-                                  }
-                                : null,
-                            items: [
-                              const DropdownMenuItem(value: 'warga', child: Text('Warga')),
-                              const DropdownMenuItem(value: 'ketua_rt', child: Text('Ketua RT')),
-                              const DropdownMenuItem(value: 'sekretaris', child: Text('Sekretaris')),
-                              const DropdownMenuItem(value: 'bendahara', child: Text('Bendahara')),
-                              if (userRoleCaller == 'admin')
-                                const DropdownMenuItem(value: 'admin', child: Text('Administrator')),
-                            ],
+                        textAlignVertical: TextAlignVertical.center,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: selectedRole,
+                              isExpanded: true,
+                              isDense: true,
+                              style: gayaIsiKredensial(context),
+                              dropdownColor: context.latarKartu,
+                              onChanged: bolehUbahRole
+                                  ? (v) {
+                                      if (v != null) setDialogState(() => selectedRole = v);
+                                    }
+                                  : null,
+                              items: [
+                                const DropdownMenuItem(value: 'warga', child: Text('Warga')),
+                                const DropdownMenuItem(value: 'ketua_rt', child: Text('Ketua RT')),
+                                const DropdownMenuItem(value: 'sekretaris', child: Text('Sekretaris')),
+                                const DropdownMenuItem(value: 'bendahara', child: Text('Bendahara')),
+                                if (userRoleCaller == 'admin')
+                                  const DropdownMenuItem(value: 'admin', child: Text('Administrator')),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 14),
                     Text(
                       'Ubah / Reset Password',
                       style: TextStyle(
@@ -1193,7 +1177,7 @@ aksi: Transform.translate(
                         color: context.teksUtama,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     SizedBox(
                       height: AppTheme.sasaranSentuh,
                       child: TextField(
@@ -1201,6 +1185,7 @@ aksi: Transform.translate(
                         controller: passCtrl,
                         enabled: bolehEditSemua,
                         obscureText: !sandiTerlihat,
+                        textAlignVertical: TextAlignVertical.center,
                         style: gayaIsiKredensial(context),
                         decoration: dekorKredensial(
                           context,
