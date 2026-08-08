@@ -349,8 +349,10 @@ class _KasRtScreenState extends State<KasRtScreen> {
             style: OutlinedButton.styleFrom(
               foregroundColor: context.teksKedua,
               side: BorderSide(color: context.garis),
+              visualDensity: VisualDensity.standard,
               minimumSize: const Size(0, AppTheme.sasaranSentuh),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              maximumSize: const Size(double.infinity, AppTheme.sasaranSentuh),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
           ),
@@ -371,7 +373,10 @@ class _KasRtScreenState extends State<KasRtScreen> {
         Text(label, style: TextStyle(fontSize: 12, color: context.teksKedua)),
         const SizedBox(height: 8),
         Container(
-          constraints: const BoxConstraints(minHeight: AppTheme.sasaranSentuh),
+          constraints: const BoxConstraints(
+            minHeight: AppTheme.sasaranSentuh,
+            maxHeight: AppTheme.sasaranSentuh,
+          ),
           // Selebar layar di ponsel: dengan 180 tetap, tiap filter tetap
           // turun ke barisnya sendiri tetapi menyisakan ruang kosong di
           // kanannya — itu yang membuat tampilan terlihat berserakan.
