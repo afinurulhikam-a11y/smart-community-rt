@@ -8,6 +8,7 @@ import '../../providers/visitor_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
 import '../../core/pesan.dart';
+import 'data_warga_screen.dart';
 
 class EVisitorScreen extends StatefulWidget {
   final bool isWarga;
@@ -541,44 +542,50 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
           ),
         ),
       ],
-      aksi: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (!isCheckout)
-            ElevatedButton(
-              onPressed: () async {
-                await provider.checkoutVisitor(k['id']);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF10B981),
-                foregroundColor: Colors.white,
-                minimumSize: Size.zero,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      aksi: Transform.translate(
+        offset: const Offset(geserAksiTabel, 0),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!isCheckout)
+              _buildActionBtn(
+                Icons.logout,
+                const Color(0xFF10B981),
+                const Color(0xFFD1FAE5),
+                () async {
+                  await provider.checkoutVisitor(k['id']);
+                },
+                tooltip: 'Checkout',
               ),
-              child: const Text('Checkout', style: TextStyle(fontSize: 11)),
-            ),
-          if (!isCheckout && !widget.isWarga) const SizedBox(width: 4),
-          if (!widget.isWarga)
-            _buildActionBtn(Icons.delete, const Color(0xFFEF4444), const Color(0xFFFEE2E2), () async {
-              final conf = await showDialog<bool>(
-                context: context,
-                builder: (c) => AlertDialog(
-                  title: const Text('Hapus'),
-                  content: const Text('Yakin hapus data pengunjung ini?'),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Batal')),
-                    TextButton(
-                      onPressed: () => Navigator.pop(c, true),
-                      child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+            if (!isCheckout && !widget.isWarga) const SizedBox(width: 6),
+            if (!widget.isWarga)
+              _buildActionBtn(
+                Icons.delete,
+                const Color(0xFFEF4444),
+                const Color(0xFFFEE2E2),
+                () async {
+                  final conf = await showDialog<bool>(
+                    context: context,
+                    builder: (c) => AlertDialog(
+                      title: const Text('Hapus'),
+                      content: const Text('Yakin hapus data pengunjung ini?'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Batal')),
+                        TextButton(
+                          onPressed: () => Navigator.pop(c, true),
+                          child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              );
-              if (conf == true && context.mounted) {
-                await provider.deleteVisitor(k['id']);
-              }
-            }),
-        ],
+                  );
+                  if (conf == true && context.mounted) {
+                    await provider.deleteVisitor(k['id']);
+                  }
+                },
+                tooltip: 'Hapus',
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -868,8 +875,14 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
     );
   }
 
-  Widget _buildActionBtn(IconData icon, Color iconColor, Color bgColor, VoidCallback onTap) {
-    return InkWell(
+  Widget _buildActionBtn(
+    IconData icon,
+    Color iconColor,
+    Color bgColor,
+    VoidCallback onTap, {
+    String? tooltip,
+  }) {
+    Widget btn = InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Container(
@@ -878,5 +891,9 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
         child: Icon(icon, size: 14, color: iconColor),
       ),
     );
+    if (tooltip != null) {
+      return Tooltip(message: tooltip, child: btn);
+    }
+    return btn;
   }
 }
