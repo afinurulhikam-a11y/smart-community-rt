@@ -26,7 +26,7 @@ import '../../providers/bantuan_sosial_provider.dart';
 import '../../providers/inventory_provider.dart';
 import '../../providers/visitor_provider.dart';
 import '../../providers/announcement_provider.dart';
-import '../../providers/patrol_provider.dart';
+
 import '../../providers/polling_provider.dart';
 import '../../providers/log_provider.dart';
 import '../../widgets/navigasi_bawah.dart';
@@ -45,7 +45,7 @@ import 'peminjaman_screen.dart';
 import 'e_visitor_screen.dart';
 import 'surat_menyurat_screen.dart';
 import 'agenda_kegiatan_screen.dart';
-import 'siskamling_screen.dart';
+
 import 'pengaduan_screen.dart';
 import 'status_darurat_screen.dart';
 import 'polling_warga_screen.dart';
@@ -178,7 +178,7 @@ class _MainDashboardState extends State<MainDashboard> {
     final surat = context.read<LetterProvider>();
     final agenda = context.read<AgendaProvider>();
     final pengumuman = context.read<AnnouncementProvider>();
-    final ronda = context.read<PatrolProvider>();
+
     final darurat = context.read<EmergencyProvider>();
     final pengaduan = context.read<ComplaintProvider>();
     final polling = context.read<PollingProvider>();
@@ -210,8 +210,7 @@ class _MainDashboardState extends State<MainDashboard> {
       case 50:
         await agenda.fetchAgenda();
         await pengumuman.fetchAnnouncements();
-      case 51:
-        await ronda.fetchSchedules();
+
       case 60:
         await darurat.fetchAlerts();
       case 61:
@@ -874,6 +873,7 @@ class _MainDashboardState extends State<MainDashboard> {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     if (!sempit) ...[
                       Text(
@@ -959,8 +959,6 @@ class _MainDashboardState extends State<MainDashboard> {
         return warga ? const LetterRequestScreen() : SuratMenyuratScreen(onBack: _kembaliMenu);
       case 50:
         return AgendaKegiatanScreen(onBack: _kembaliMenu);
-      case 51:
-        return SiskamlingScreen(onBack: _kembaliMenu);
       case 60:
         return StatusDaruratScreen(onBack: _kembaliMenu);
       case 61:

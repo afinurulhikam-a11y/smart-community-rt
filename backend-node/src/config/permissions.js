@@ -44,7 +44,7 @@ const MENU_ITEMS = [
   { kode: 'layanan.surat', nama: 'Surat Menyurat', grup: 'Layanan Warga', menu_index: 44 },
 
   { kode: 'kegiatan.agenda', nama: 'Agenda & Kegiatan', grup: 'Kegiatan & Info', menu_index: 50 },
-  { kode: 'kegiatan.ronda', nama: 'Jadwal & Absensi Ronda', grup: 'Kegiatan & Info', menu_index: 51 },
+
 
   { kode: 'aspirasi.darurat', nama: 'Status Darurat', grup: 'Aspirasi & Partisipasi', menu_index: 60 },
   { kode: 'aspirasi.pengaduan', nama: 'Pengaduan', grup: 'Aspirasi & Partisipasi', menu_index: 61 },
@@ -78,7 +78,7 @@ const DEFAULT_PERMISSIONS = {
     // Ketua menandatangani surat: boleh menyetujui, tidak menyusun.
     'layanan.surat': VU,
     'kegiatan.agenda': F,
-    'kegiatan.ronda': F,
+
     'aspirasi.darurat': F,
     'aspirasi.pengaduan': F,
     'aspirasi.polling': F,
@@ -101,7 +101,7 @@ const DEFAULT_PERMISSIONS = {
     'layanan.visitor': F,
     'layanan.surat': F,
     'kegiatan.agenda': F,
-    'kegiatan.ronda': F,
+
     'aspirasi.darurat': F,
     'aspirasi.pengaduan': F,
     'aspirasi.polling': F,
@@ -125,7 +125,7 @@ const DEFAULT_PERMISSIONS = {
     'layanan.visitor': N,
     'layanan.surat': N,
     'kegiatan.agenda': V,
-    'kegiatan.ronda': V,
+
     'aspirasi.darurat': V,
     'aspirasi.pengaduan': V,
     'aspirasi.polling': V,
@@ -149,7 +149,7 @@ const DEFAULT_PERMISSIONS = {
     'layanan.visitor': VCU,
     'layanan.surat': VC,
     'kegiatan.agenda': V,
-    'kegiatan.ronda': V,
+
     'aspirasi.darurat': VC,
     'aspirasi.pengaduan': VC,
     // Tetap `view`. Ikut memilih dijaga 'view' di polling.routes.js, karena

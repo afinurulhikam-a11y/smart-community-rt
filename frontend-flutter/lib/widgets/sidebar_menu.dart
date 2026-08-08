@@ -239,7 +239,7 @@ class _SidebarMenuState extends State<SidebarMenu> {
                         ),
                     ],
                   ],
-                  if (_lihatSalahSatu(const ['kegiatan.agenda', 'kegiatan.ronda'])) ...[
+                  if (_lihat('kegiatan.agenda')) ...[
                     _buildExpandableMenuItem(
                       groupIndex: 5,
                       icon: Icons.event_rounded,
@@ -253,13 +253,7 @@ class _SidebarMenuState extends State<SidebarMenu> {
                           label: 'Agenda & Kegiatan',
                           isViewOnly: _hanyaLihat('kegiatan.agenda'),
                         ),
-                      if (_lihat('kegiatan.ronda'))
-                        _buildSubMenuItem(
-                          index: 51,
-                          icon: Icons.shield_outlined,
-                          label: 'Jadwal & Absensi Ronda',
-                          isViewOnly: _hanyaLihat('kegiatan.ronda'),
-                        ),
+
                     ],
                   ],
                   if (_lihatSalahSatu(const [

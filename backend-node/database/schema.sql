@@ -1968,34 +1968,7 @@ ALTER TABLE ONLY public.visitors
 -- Name: patrol_schedules; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE IF NOT EXISTS public.patrol_schedules (
-    id SERIAL PRIMARY KEY,
-    hari VARCHAR(20) NOT NULL,
-    tanggal DATE,
-    shift VARCHAR(50) DEFAULT 'Shift Malam (22:00 - 04:00)',
-    petugas_warga TEXT NOT NULL,
-    keterangan TEXT,
-    created_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
 
-CREATE TABLE IF NOT EXISTS public.patrol_attendances (
-    id SERIAL PRIMARY KEY,
-    schedule_id INTEGER REFERENCES public.patrol_schedules(id) ON DELETE SET NULL,
-    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
-    nama_petugas VARCHAR(150) NOT NULL,
-    tanggal DATE DEFAULT CURRENT_DATE,
-    tipe_absen VARCHAR(20) DEFAULT 'Masuk',
-    waktu_scan TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    waktu_masuk TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    waktu_pulang TIMESTAMP WITH TIME ZONE,
-    lokasi_pos VARCHAR(150) DEFAULT 'Pos Ronda Utama',
-    status VARCHAR(50) DEFAULT 'Aktif Ronda',
-    catatan TEXT,
-    foto_url TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
 
 --
 -- PostgreSQL database dump complete
@@ -2126,9 +2099,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS bill_payments_satu_per_tagihan
 
 -- Satu absensi ronda yang BELUM pulang per petugas per hari. Parsial, supaya
 -- absensi hari-hari sebelumnya tetap bisa berdampingan.
-CREATE UNIQUE INDEX IF NOT EXISTS patrol_absensi_aktif_uniq
-  ON public.patrol_attendances (user_id, tanggal)
-  WHERE waktu_pulang IS NULL;
+
 
 --
 -- Indeks kolom panas. `visitors` dan `patrol_attendances` sebelumnya tidak
@@ -2145,8 +2116,8 @@ CREATE INDEX IF NOT EXISTS idx_visitors_status          ON public.visitors (stat
 CREATE INDEX IF NOT EXISTS idx_visitors_tipe            ON public.visitors (tipe_keperluan);
 CREATE INDEX IF NOT EXISTS idx_visitors_tanggal         ON public.visitors ((jam_masuk::date));
 CREATE INDEX IF NOT EXISTS idx_visitors_pembuat         ON public.visitors (created_by);
-CREATE INDEX IF NOT EXISTS idx_patrol_absensi_user_tgl  ON public.patrol_attendances (user_id, tanggal);
-CREATE INDEX IF NOT EXISTS idx_patrol_absensi_tanggal   ON public.patrol_attendances (tanggal DESC);
+
+
 CREATE INDEX IF NOT EXISTS idx_complaints_user          ON public.complaints (user_id);
 CREATE INDEX IF NOT EXISTS idx_complaints_status        ON public.complaints (status);
 CREATE INDEX IF NOT EXISTS idx_letters_user             ON public.letters (user_id);

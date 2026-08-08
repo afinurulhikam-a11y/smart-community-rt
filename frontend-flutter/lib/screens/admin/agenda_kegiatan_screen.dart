@@ -39,6 +39,8 @@ class AgendaKegiatanScreen extends StatefulWidget {
 
 class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
   bool get _bolehTambah => context.watch<PermissionProvider>().bolehTambah(_kodeIzin);
+  bool get _bolehUbah => context.watch<PermissionProvider>().bolehUbah(_kodeIzin);
+  bool get _bolehHapus => context.watch<PermissionProvider>().bolehHapus(_kodeIzin);
 
   bool get _lihatPengumuman => context.watch<PermissionProvider>().bolehLihat(_kodeIzinPengumuman);
   bool get _tambahPengumuman =>
@@ -165,89 +167,87 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Header
-        Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: SizedBox(
-            width: double.infinity,
-            child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TombolKembali(onPressed: widget.onBack),
-                    const SizedBox(width: 10),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1B7A6A).withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.event_outlined, color: Color(0xFF1B7A6A), size: 20),
+        SizedBox(
+          width: double.infinity,
+          child: Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TombolKembali(onPressed: widget.onBack),
+                  const SizedBox(width: 10),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1B7A6A).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    const SizedBox(width: 10),
-                    Flexible(
-                      child: Text(
-                        _diTabPengumuman
-                            ? 'Kegiatan & Info / Pengumuman'
-                            : 'Kegiatan & Info / Agenda Kegiatan',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: context.teksKedua,
-                        ),
+                    child: const Icon(Icons.event_outlined, color: Color(0xFF1B7A6A), size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Text(
+                      _diTabPengumuman
+                          ? 'Kegiatan & Info / Pengumuman'
+                          : 'Kegiatan & Info / Agenda Kegiatan',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: context.teksKedua,
                       ),
                     ),
-                  ],
+                  ),
+                ],
+              ),
+              // Tombolnya mengikuti tab yang sedang dibuka, dan masing-masing
+              // memakai izinnya sendiri.
+              if (_diTabPengumuman && _tambahPengumuman)
+                ElevatedButton.icon(
+                  onPressed: () => _showFormPengumuman(),
+                  icon: const Icon(Icons.campaign_rounded),
+                  label: const Text('Buat Pengumuman'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF3B82F6),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
-                // Tombolnya mengikuti tab yang sedang dibuka, dan masing-masing
-                // memakai izinnya sendiri.
-                if (_diTabPengumuman && _tambahPengumuman)
-                  ElevatedButton.icon(
-                    onPressed: () => _showFormPengumuman(),
-                    icon: const Icon(Icons.campaign_rounded),
-                    label: const Text('Buat Pengumuman'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF3B82F6),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
+              if (!_diTabPengumuman && _bolehTambah)
+                ElevatedButton.icon(
+                  onPressed: () {
+                    _showAddAgendaDialog();
+                  },
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('Buat Agenda'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF3B82F6),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                if (!_diTabPengumuman && _bolehTambah)
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      _showAddAgendaDialog();
-                    },
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('Buat Agenda'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF3B82F6),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-              ],
-            ),
+                ),
+            ],
           ),
         ),
 
+        const SizedBox(height: 24),
+
         // Custom Tabs
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: paddingKonten(context)),
-          child: Container(
-            decoration: BoxDecoration(
-              color: context.latarKartu,
-              borderRadius: AppTheme.borderRadiusM,
-              border: Border.all(color: context.garis),
-            ),
-            child: _barisTab(),
+        Container(
+          decoration: BoxDecoration(
+            color: context.latarKartu,
+            borderRadius: AppTheme.borderRadiusM,
+            border: Border.all(color: context.garis),
           ),
+          child: _barisTab(),
         ),
+
+        const SizedBox(height: 16),
 
         // Content
         if (_diTabPengumuman)
@@ -295,7 +295,7 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
                   ListView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(24.0),
+                    padding: EdgeInsets.zero,
                     itemCount: provider.agendaList.length,
                     itemBuilder: (context, index) {
                       final event = provider.agendaList[index];
@@ -320,7 +320,7 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
     final akhir = (mulai + provider.agendaList.length).clamp(0, totalData);
 
     return Padding(
-      padding: const EdgeInsets.only(left: 24, right: 24, bottom: 24),
+      padding: const EdgeInsets.symmetric(vertical: 16),
       child: Wrap(
         alignment: WrapAlignment.spaceBetween,
         crossAxisAlignment: WrapCrossAlignment.center,
@@ -428,7 +428,7 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
         return ListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(24.0),
+          padding: EdgeInsets.zero,
           itemCount: provider.announcements.length,
           itemBuilder: (context, i) => _buildKartuPengumuman(provider.announcements[i]),
         );
@@ -722,99 +722,93 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: Wrap(
-                      alignment: WrapAlignment.spaceBetween,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: isRapat ? const Color(0xFFFEF2F2) : const Color(0xFFF0FDF4),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: isRapat
-                                      ? const Color(0xFFFECACA)
-                                      : const Color(0xFFBBF7D0),
-                                ),
-                              ),
-                              child: Text(
-                                tipe,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: isRapat
-                                      ? const Color(0xFFDC2626)
-                                      : const Color(0xFF16A34A),
-                                ),
+                  Row(
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isRapat ? const Color(0xFFFEF2F2) : const Color(0xFFF0FDF4),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isRapat
+                                    ? const Color(0xFFFECACA)
+                                    : const Color(0xFFBBF7D0),
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
+                            child: Text(
+                              tipe,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: isRapat
+                                    ? const Color(0xFFDC2626)
+                                    : const Color(0xFF16A34A),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isUpcoming
+                                  ? const Color(0xFFFFFBEB)
+                                  : context.latarLembut,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              status,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
                                 color: isUpcoming
-                                    ? const Color(0xFFFFFBEB)
-                                    : context.latarLembut,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                status,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: isUpcoming
-                                      ? const Color(0xFFD97706)
-                                      : context.teksKedua,
-                                ),
+                                    ? const Color(0xFFD97706)
+                                    : context.teksKedua,
                               ),
                             ),
-                          ],
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      if (_bolehUbah)
+                        IconButton(
+                          tooltip: 'Ubah',
+                          icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF3B82F6)),
+                          onPressed: () => _showEditAgendaDialog(event),
                         ),
-                        Row(
-                          children: [
-                            InkWell(
-                              onTap: () => _showEditAgendaDialog(event),
-                              child: const Icon(Icons.edit, size: 16, color: Color(0xFFF59E0B)),
-                            ),
-                            const SizedBox(width: 12),
-                            InkWell(
-                              onTap: () async {
-                                final conf = await showDialog<bool>(
-                                  context: context,
-                                  builder: (c) => AlertDialog(
-                                    title: const Text('Hapus'),
-                                    content: const Text('Yakin ingin menghapus agenda ini?'),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(c, false),
-                                        child: const Text('Batal'),
-                                      ),
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(c, true),
-                                        child: const Text(
-                                          'Hapus',
-                                          style: TextStyle(color: Colors.red),
-                                        ),
-                                      ),
-                                    ],
+                      if (_bolehHapus)
+                        IconButton(
+                          tooltip: 'Hapus',
+                          icon: const Icon(Icons.delete_outline, size: 18, color: Color(0xFFEF4444)),
+                          onPressed: () async {
+                            final conf = await showDialog<bool>(
+                              context: context,
+                              builder: (c) => AlertDialog(
+                                title: const Text('Hapus'),
+                                content: const Text('Yakin ingin menghapus agenda ini?'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(c, false),
+                                    child: const Text('Batal'),
                                   ),
-                                );
-                                if (conf == true && mounted) {
-                                  await context.read<AgendaProvider>().deleteAgenda(event['id']);
-                                }
-                              },
-                              child: const Icon(Icons.delete, size: 16, color: Color(0xFFEF4444)),
-                            ),
-                          ],
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(c, true),
+                                    child: const Text(
+                                      'Hapus',
+                                      style: TextStyle(color: Color(0xFFEF4444)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (conf == true && mounted) {
+                              await context.read<AgendaProvider>().deleteAgenda(event['id']);
+                            }
+                          },
                         ),
-                      ],
-                    ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   Text(
