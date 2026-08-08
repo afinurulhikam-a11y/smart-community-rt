@@ -72,17 +72,18 @@ class ApiConstants {
   static String get login => '$baseUrl/auth/login';
   static String get register => '$baseUrl/auth/register';
   static String get me => '$baseUrl/auth/me';
+
   static String get updateProfile => '$baseUrl/auth/profile';
   static String get changePassword => '$baseUrl/auth/change-password';
 
-  // Users
+  // Users — dipakai Data Warga, Bantuan Sosial, dan Peminjaman (bukan lagi
+  // layar Manajemen Pengguna yang dihapus)
   static String get users => '$baseUrl/users';
   static String user(String id) => '$baseUrl/users/$id';
   static String userByNik(String nik) => '$baseUrl/users/by-nik/$nik';
   static String get userCredentials => '$baseUrl/users/credentials';
   static String get pendingUsers => '$baseUrl/users/pending';
   static String userStatus(String id) => '$baseUrl/users/$id/status';
-  static String userRole(String id) => '$baseUrl/users/$id/role';
 
   // System Activity Logs
   static String get activityLogs => '$baseUrl/activity-logs';

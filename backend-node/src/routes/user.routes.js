@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const {
   getUsers,
-  updateUserRole,
   updateUserStatus,
   createUser,
   getPendingUsers,
@@ -30,7 +29,6 @@ router.put('/credentials', requirePermission('kependudukan.warga', 'update'), up
 // persetujuan. Itu daftar data pribadi, bukan informasi umum.
 router.get('/pending', requirePermission('kependudukan.warga', 'view'), getPendingUsers);
 router.post('/', roleGuard('admin'), createUser);
-router.put('/:id/role', roleGuard('admin'), updateUserRole);
 router.put('/:id/status', roleGuard('admin'), updateUserStatus);
 router.delete('/:id', roleGuard('admin'), deleteUser);
 

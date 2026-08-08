@@ -31,7 +31,7 @@ import 'providers/family_provider.dart';
 import 'providers/warga_provider.dart';
 import 'providers/log_provider.dart';
 import 'providers/reset_provider.dart';
-import 'providers/user_provider.dart';
+
 import 'providers/aksi_utama_provider.dart';
 import 'providers/payment_provider.dart';
 
@@ -92,7 +92,7 @@ class SmartCommunityApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => WargaProvider()),
         ChangeNotifierProvider(create: (_) => LogProvider()),
         ChangeNotifierProvider(create: (_) => ResetProvider()),
-        ChangeNotifierProvider(create: (_) => UserProvider()),
+
         ChangeNotifierProvider(create: (_) => PaymentProvider()),
         
         ChangeNotifierProvider(create: (_) => AksiUtamaProvider()),

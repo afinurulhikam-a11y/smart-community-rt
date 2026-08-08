@@ -309,12 +309,7 @@ class _SidebarMenuState extends State<SidebarMenu> {
                         icon: Icons.account_circle_rounded,
                         label: 'Profil Saya',
                       ),
-                      if (isAdmin)
-                        _buildSubMenuItem(
-                          index: 82,
-                          icon: Icons.manage_accounts_rounded,
-                          label: 'Manajemen Pengguna',
-                        ),
+
                       if (_lihat('pengaturan.log'))
                         _buildSubMenuItem(
                           index: 84,
