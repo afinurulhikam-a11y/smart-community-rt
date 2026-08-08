@@ -15,6 +15,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
 import '../../core/format.dart';
 import '../../core/pesan.dart';
+import 'data_warga_screen.dart';
 
 const List<String> _namaBulan = [
   'Januari',
@@ -789,85 +790,70 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
           ),
         ),
       ],
-      aksi: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Urutan konsisten: Approve → Edit → Delete. Setiap tombol memakai
-          // IconButton 48dp dengan alignment center, jadi jarak antar ikon
-          // selalu sama dan hover-nya presisi.
+      aksi: Transform.translate(
+        offset: const Offset(geserAksiTabel, 0),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Urutan konsisten: Approve → Edit → Delete. Setiap tombol memakai
+            // gayaAksiTabel dengan ukuran hover 30×30 dan sasaran sentuh 48dp,
+            // dipusatkan simetris dan ditarik geserAksiTabel (-9px) agar rata
+            // kiri tepat di bawah label "AKSI".
 
-          // APPROVE: mencatat pembayaran adalah aksi `update` pada tagihan
-          // yang sudah ada, bukan `create`. Untuk baris lunas posisi ini
-          // ditempati penanda hijau nonaktif agar kolomnya tetap sejajar.
-          if (!b.isLunas && _bolehUbah)
-            IconButton(
-              tooltip: 'Bayar',
-              icon: const Icon(Icons.payments_outlined, size: 18, color: Color(0xFF059669)),
-              // Hover yang presisi: `_rapatkanAksi` di tabel_responsif menimpa
-              // theme dengan alignment centerLeft + padding 0, sehingga inkwell
-              // 48dp lebih lebar dari ikon 18px dan sorotan hover muncul di
-              // area kosong di kanan ikon. Alignment center di sini memusatkan
-              // ikon dalam kotak tombolnya, membuat sorotan hover tepat pada
-              // ikon.
-              style: IconButton.styleFrom(
-                alignment: Alignment.center,
-                hoverColor: const Color(0xFF059669).withValues(alpha: 0.12),
+            // APPROVE / BAYAR
+            if (!b.isLunas && _bolehUbah)
+              IconButton(
+                tooltip: 'Bayar',
+                icon: const Icon(Icons.payments_outlined, size: 20, color: Color(0xFF059669)),
+                style: gayaAksiTabel(const Color(0xFF059669)),
+                onPressed: () => _bayarSatu(b),
+              )
+            else if (b.isLunas)
+              IconButton(
+                tooltip: 'Sudah lunas',
+                onPressed: null,
+                icon: const Icon(Icons.check_circle, size: 20),
+                style: IconButton.styleFrom(
+                  alignment: Alignment.center,
+                  minimumSize: const Size(ukuranHoverAksi, ukuranHoverAksi),
+                  maximumSize: const Size(ukuranHoverAksi, ukuranHoverAksi),
+                  padding: EdgeInsets.zero,
+                  shape: const CircleBorder(),
+                  disabledForegroundColor: const Color(0xFF10B981),
+                ),
               ),
-              onPressed: () => _bayarSatu(b),
-            )
-          else if (b.isLunas)
-            IconButton(
-              tooltip: 'Sudah lunas',
-              onPressed: null,
-              icon: const Icon(Icons.check_circle, size: 18),
-              style: IconButton.styleFrom(
-                alignment: Alignment.center,
-                // Tombol nonaktif mewarnai ikon abu-abu oleh bawaan; jaga
-                // tetap hijau karena ini penanda status, bukan aksi yang mati.
-                disabledForegroundColor: const Color(0xFF10B981),
-              ),
-            ),
 
-          // EDIT
-          if (_bolehUbah)
-            IconButton(
-              tooltip: b.isLunas
-                  ? 'Tagihan lunas tidak bisa diubah'
-                  : 'Edit Tagihan',
-              icon: Icon(
-                Icons.edit_outlined,
-                size: 18,
-                color: b.isLunas ? context.garis : const Color(0xFF3B82F6),
+            // EDIT
+            if (_bolehUbah)
+              IconButton(
+                tooltip: b.isLunas
+                    ? 'Tagihan lunas tidak bisa diubah'
+                    : 'Edit Tagihan',
+                icon: Icon(
+                  Icons.edit_outlined,
+                  size: 20,
+                  color: b.isLunas ? context.garis : const Color(0xFF3B82F6),
+                ),
+                onPressed: b.isLunas ? null : () => _editTagihan(b),
+                style: gayaAksiTabel(b.isLunas ? context.garis : const Color(0xFF3B82F6)),
               ),
-              // Backend juga menolak, tapi menonaktifkan tombol lebih jujur
-              // daripada memunculkan error setelah mengisi form.
-              onPressed: b.isLunas ? null : () => _editTagihan(b),
-              style: IconButton.styleFrom(
-                alignment: Alignment.center,
-                hoverColor: b.isLunas
-                    ? null
-                    : const Color(0xFF3B82F6).withValues(alpha: 0.12),
-              ),
-            ),
 
-          // DELETE
-          if (_bolehHapus)
-            IconButton(
-              tooltip: 'Hapus Tagihan',
-              icon: const Icon(Icons.delete_outline, size: 18, color: Color(0xFFEF4444)),
-              style: IconButton.styleFrom(
-                alignment: Alignment.center,
-                hoverColor: const Color(0xFFEF4444).withValues(alpha: 0.12),
+            // DELETE
+            if (_bolehHapus)
+              IconButton(
+                tooltip: 'Hapus Tagihan',
+                icon: const Icon(Icons.delete_outline, size: 20, color: Color(0xFFEF4444)),
+                style: gayaAksiTabel(const Color(0xFFEF4444)),
+                onPressed: () => _hapusTagihan(b),
               ),
-              onPressed: () => _hapusTagihan(b),
-            ),
 
-          // Kolom aksi kosong — tidak ada izin sama sekali — tetap tampilkan
-          // placeholder agar barisnya tidak terlihat "hilang" dibanding baris
-          // lain yang punya tombol.
-          if (!_bolehUbah && !_bolehHapus)
-            Text('—', style: TextStyle(fontSize: 13, color: context.teksTersier)),
-        ],
+            // Kolom aksi kosong — tidak ada izin sama sekali — tetap tampilkan
+            // placeholder agar barisnya tidak terlihat "hilang" dibanding baris
+            // lain yang punya tombol.
+            if (!_bolehUbah && !_bolehHapus)
+              Text('—', style: TextStyle(fontSize: 13, color: context.teksTersier)),
+          ],
+        ),
       ),
     );
   }
