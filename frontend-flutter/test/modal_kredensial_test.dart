@@ -163,7 +163,7 @@ void main() {
 
     expect(d.filled, isTrue);
     expect(d.isDense, isTrue);
-    expect(d.contentPadding, const EdgeInsets.symmetric(horizontal: 12, vertical: 10));
+    expect(d.contentPadding, const EdgeInsets.symmetric(horizontal: 12, vertical: 8));
   });
 
   test('dialog Akun & Kredensial tidak membangun dekorasinya sendiri', () {
