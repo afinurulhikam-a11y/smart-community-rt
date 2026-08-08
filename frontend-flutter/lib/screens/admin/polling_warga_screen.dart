@@ -298,7 +298,7 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
     }
 
     return Container(
-      constraints: const BoxConstraints(minHeight: 460),
+      height: 480,
       decoration: BoxDecoration(
         color: context.latarKartu,
         borderRadius: BorderRadius.circular(16),
@@ -312,21 +312,16 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Padding(
-            padding: EdgeInsets.all(paddingKartu(context)),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SizedBox(
-                  width: double.infinity,
-                  child: Wrap(
-                    alignment: WrapAlignment.spaceBetween,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 12,
-                    runSpacing: 12,
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.all(paddingKartu(context)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Row(
                         children: [
@@ -354,114 +349,123 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: context.teksUtama,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: _isDarkMode ? Colors.white70 : context.teksKedua,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                ...options.map(
-                  (opt) => _buildProgressRow(opt['label'], opt['percentage'], opt['color']),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Icon(Icons.calendar_today, size: 12, color: context.teksTersier),
-                    const SizedBox(width: 4),
-                    Text(dateRange, style: TextStyle(fontSize: 11, color: context.teksTersier)),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _tombolPilih(id: id, status: status, options: options, sudahVote: sudahVote),
-              ],
-            ),
-          ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Divider(height: 1, color: context.garis),
-              Container(
-                constraints: const BoxConstraints(minHeight: 52),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (status.toLowerCase() == 'aktif' && _bolehUbah) ...[
-                          _buildActionButton(
-                            Icons.lock_outline,
-                            'Tutup',
-                            const Color(0xFFD97706),
-                            () async {
-                              await context.read<PollingProvider>().updatePollingStatus(
-                                id,
-                                'Ditutup',
-                              );
-                            },
-                          ),
-                          const SizedBox(width: 8),
-                          _buildActionButton(
-                            Icons.check_circle_outline,
-                            'Selesai',
-                            const Color(0xFF166534),
-                            () async {
-                              await context.read<PollingProvider>().updatePollingStatus(
-                                id,
-                                'Selesai',
-                              );
-                            },
-                          ),
-                        ],
-                      ],
-                    ),
-                    if (_bolehHapus)
-                      _buildActionButton(
-                        Icons.delete_outline,
-                        'Hapus',
-                        const Color(0xFFEF4444),
-                        () async {
-                      final conf = await showDialog<bool>(
-                        context: context,
-                        builder: (c) => AlertDialog(
-                          title: const Text('Hapus'),
-                          content: const Text('Yakin hapus polling ini?'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(c, false),
-                              child: const Text('Batal'),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: context.teksUtama,
                             ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(c, true),
-                              child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+                          ),
+                          if (subtitle.isNotEmpty && subtitle != '-') ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              subtitle,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: _isDarkMode ? Colors.white70 : context.teksKedua,
+                              ),
                             ),
                           ],
+                          const SizedBox(height: 16),
+                          ...options.map(
+                            (opt) => _buildProgressRow(opt['label'], opt['percentage'], opt['color']),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Icon(Icons.calendar_today, size: 12, color: context.teksTersier),
+                      const SizedBox(width: 4),
+                      Text(dateRange, style: TextStyle(fontSize: 11, color: context.teksTersier)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _tombolPilih(id: id, status: status, options: options, sudahVote: sudahVote),
+                ],
+              ),
+            ),
+          ),
+          Divider(height: 1, color: context.garis),
+          SizedBox(
+            height: 52,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (status.toLowerCase() == 'aktif' && _bolehUbah) ...[
+                        _buildActionButton(
+                          Icons.lock_outline,
+                          'Tutup',
+                          const Color(0xFFD97706),
+                          () async {
+                            await context.read<PollingProvider>().updatePollingStatus(
+                              id,
+                              'Ditutup',
+                            );
+                          },
                         ),
-                      );
-                      if (conf == true && mounted) {
-                        await context.read<PollingProvider>().deletePolling(id);
-                      }
-                    },
+                        const SizedBox(width: 8),
+                        _buildActionButton(
+                          Icons.check_circle_outline,
+                          'Selesai',
+                          const Color(0xFF166534),
+                          () async {
+                            await context.read<PollingProvider>().updatePollingStatus(
+                              id,
+                              'Selesai',
+                            );
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (_bolehHapus)
+                    _buildActionButton(
+                      Icons.delete_outline,
+                      'Hapus',
+                      const Color(0xFFEF4444),
+                      () async {
+                        final conf = await showDialog<bool>(
+                          context: context,
+                          builder: (c) => AlertDialog(
+                            title: const Text('Hapus'),
+                            content: const Text('Yakin hapus polling ini?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(c, false),
+                                child: const Text('Batal'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(c, true),
+                                child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (conf == true && mounted) {
+                          await context.read<PollingProvider>().deletePolling(id);
+                        }
+                      },
                   ),
                 ],
               ),
             ),
-            ],
           ),
         ],
       ),
@@ -757,13 +761,15 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
   Widget _kotakInfo(IconData ikon, String teks, Color warna) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: warna.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Icon(ikon, size: 15, color: warna),
           const SizedBox(width: 8),
