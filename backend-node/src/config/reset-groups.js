@@ -124,6 +124,8 @@ const RESET_GROUPS = [
     deskripsi: 'Agenda kegiatan dan pengumuman warga.',
     ikon: 'kalender',
     tabel: [
+      { tabel: 'patrol_attendances' },
+      { tabel: 'patrol_schedules' },
       { tabel: 'agenda' },
       { tabel: 'announcements' },
     ],
@@ -136,7 +138,8 @@ const RESET_GROUPS = [
     tabel: [
       { tabel: 'polling_votes' },
       { tabel: 'polling_options' },
-      { tabel: 'polling' },
+      { tabel: 'patrol_attendances' },
+      { tabel: 'patrol_schedules' },
       { tabel: 'complaints' },
       { tabel: 'emergency_alerts' },
     ],

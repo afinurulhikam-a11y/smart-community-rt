@@ -34,7 +34,7 @@ import 'providers/reset_provider.dart';
 import 'providers/user_provider.dart';
 import 'providers/aksi_utama_provider.dart';
 import 'providers/payment_provider.dart';
-import 'providers/patrol_provider.dart';
+
 import 'providers/tema_provider.dart';
 import 'providers/koneksi_provider.dart';
 import 'core/services/cache_lokal.dart';
@@ -94,7 +94,7 @@ class SmartCommunityApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ResetProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => PaymentProvider()),
-        ChangeNotifierProvider(create: (_) => PatrolProvider()),
+        
         ChangeNotifierProvider(create: (_) => AksiUtamaProvider()),
         // Memantau jaringan DAN mengirim ulang tulisan yang tertunda. Dibuat
         // di akar supaya pemantauannya berjalan sepanjang aplikasi hidup,
@@ -470,7 +470,6 @@ void bersihkanSemuaProvider(BuildContext context) {
     context.read<KategoriKasProvider>().bersihkan();
     context.read<LetterProvider>().bersihkan();
     context.read<LogProvider>().bersihkan();
-    context.read<PatrolProvider>().bersihkan();
     context.read<PaymentProvider>().bersihkan();
     context.read<PollingProvider>().bersihkan();
     context.read<ResetProvider>().bersihkan();

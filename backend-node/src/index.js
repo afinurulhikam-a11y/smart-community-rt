@@ -45,7 +45,7 @@ const logRoutes = require('./routes/log.routes');
 const menuAksesRoutes = require('./routes/menu_akses.routes');
 const resetRoutes = require('./routes/reset.routes');
 const paymentRoutes = require('./routes/payment.routes');
-const patrolRoutes = require('./routes/patrol.routes');
+
 const uploadRoutes = require('./routes/upload.routes');
 
 const app = express();
@@ -181,7 +181,7 @@ app.use('/api/activity-logs', logRoutes);
 app.use('/api/menu-akses', menuAksesRoutes);
 app.use('/api/reset', resetRoutes);
 app.use('/api/payments', paymentRoutes);
-app.use('/api/patrol', patrolRoutes);
+
 app.use('/api/upload', uploadRoutes);
 
 // Health check
