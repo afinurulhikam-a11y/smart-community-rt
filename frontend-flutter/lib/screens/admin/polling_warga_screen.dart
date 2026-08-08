@@ -298,6 +298,7 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
     }
 
     return Container(
+      constraints: const BoxConstraints(minHeight: 460),
       decoration: BoxDecoration(
         color: context.latarKartu,
         borderRadius: BorderRadius.circular(16),
@@ -312,6 +313,7 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Padding(
             padding: EdgeInsets.all(paddingKartu(context)),
@@ -387,49 +389,53 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
               ],
             ),
           ),
-          Divider(height: 1, color: context.garis),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Divider(height: 1, color: context.garis),
+              Container(
+                constraints: const BoxConstraints(minHeight: 52),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    if (status.toLowerCase() == 'aktif' && _bolehUbah) ...[
-                      _buildActionButton(
-                        Icons.lock_outline,
-                        'Tutup',
-                        const Color(0xFFD97706),
-                        () async {
-                          await context.read<PollingProvider>().updatePollingStatus(
-                            id,
-                            'Ditutup',
-                          );
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      _buildActionButton(
-                        Icons.check_circle_outline,
-                        'Selesai',
-                        const Color(0xFF166534),
-                        () async {
-                          await context.read<PollingProvider>().updatePollingStatus(
-                            id,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (status.toLowerCase() == 'aktif' && _bolehUbah) ...[
+                          _buildActionButton(
+                            Icons.lock_outline,
+                            'Tutup',
+                            const Color(0xFFD97706),
+                            () async {
+                              await context.read<PollingProvider>().updatePollingStatus(
+                                id,
+                                'Ditutup',
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          _buildActionButton(
+                            Icons.check_circle_outline,
                             'Selesai',
-                          );
-                        },
-                      ),
-                    ],
-                  ],
-                ),
-                if (_bolehHapus)
-                  _buildActionButton(
-                    Icons.delete_outline,
-                    'Hapus',
-                    const Color(0xFFEF4444),
-                    () async {
+                            const Color(0xFF166534),
+                            () async {
+                              await context.read<PollingProvider>().updatePollingStatus(
+                                id,
+                                'Selesai',
+                              );
+                            },
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (_bolehHapus)
+                      _buildActionButton(
+                        Icons.delete_outline,
+                        'Hapus',
+                        const Color(0xFFEF4444),
+                        () async {
                       final conf = await showDialog<bool>(
                         context: context,
                         builder: (c) => AlertDialog(
@@ -452,8 +458,10 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
                       }
                     },
                   ),
-              ],
+                ],
+              ),
             ),
+            ],
           ),
         ],
       ),
