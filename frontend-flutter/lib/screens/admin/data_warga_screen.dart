@@ -1054,6 +1054,7 @@ aksi: Transform.translate(
                     // bawahnya. Sebagai Container biasa ia terukur 42 — enam
                     // piksel lebih pendek, dan itu terlihat.
                     InputDecorator(
+                      key: const Key('username'),
                       decoration: dekorKredensial(context),
                       child: Text(
                         data['username']?.toString() ?? nik,
@@ -1076,6 +1077,7 @@ aksi: Transform.translate(
                     ),
                     const SizedBox(height: 4),
                     TextField(
+                      key: const Key('no_hp'),
                       controller: noHpCtrl,
                       enabled: bolehEditSemua,
                       keyboardType: TextInputType.phone,
@@ -1135,6 +1137,7 @@ aksi: Transform.translate(
                     // berubah: nilainya tetap dikendalikan `selectedRole` milik
                     // dialog, bukan state internal FormField.
                     InputDecorator(
+                      key: const Key('role'),
                       decoration: dekorKredensial(context),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
@@ -1173,6 +1176,7 @@ aksi: Transform.translate(
                     ),
                     const SizedBox(height: 4),
                     TextField(
+                      key: const Key('sandi'),
                       controller: passCtrl,
                       enabled: bolehEditSemua,
                       obscureText: !sandiTerlihat,
