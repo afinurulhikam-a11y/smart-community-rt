@@ -1056,7 +1056,10 @@ aksi: Transform.translate(
                         ).copyWith(fontWeight: FontWeight.w600),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    // Grup dirapatkan: 16px → 10px (gap antar input field).
+                    // Label→input tetap 4px di semua empat field, sehingga
+                    // ritme vertikal dialog tetap konsisten.
+                    const SizedBox(height: 10),
                     Text(
                       'Nomor HP / WhatsApp',
                       style: TextStyle(
@@ -1083,7 +1086,8 @@ aksi: Transform.translate(
                         hint: 'Misal: 081234567890',
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    // Grup dirapatkan: 16px → 10px (gap antar input field).
+                    const SizedBox(height: 10),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -1152,7 +1156,7 @@ aksi: Transform.translate(
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 10),
                     Text(
                       'Ubah / Reset Password',
                       style: TextStyle(
