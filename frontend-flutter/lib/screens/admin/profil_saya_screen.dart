@@ -619,7 +619,11 @@ class _ProfilSayaScreenState extends State<ProfilSayaScreen> {
     List<TextInputFormatter>? inputFormatters,
   }) {
     return Container(
-      constraints: const BoxConstraints(minHeight: AppTheme.sasaranSentuh),
+      height: AppTheme.sasaranSentuh,
+      constraints: const BoxConstraints(
+        minHeight: AppTheme.sasaranSentuh,
+        maxHeight: AppTheme.sasaranSentuh,
+      ),
       decoration: BoxDecoration(
         color: context.latarKartu,
         border: Border.all(color: context.garis),
@@ -629,12 +633,23 @@ class _ProfilSayaScreenState extends State<ProfilSayaScreen> {
         controller: controller,
         keyboardType: keyboardType,
         inputFormatters: inputFormatters,
+        textAlignVertical: TextAlignVertical.center,
+        style: TextStyle(fontSize: 13, color: context.teksUtama),
         decoration: InputDecoration(
+          isDense: true,
           hintText: hint,
           hintStyle: TextStyle(fontSize: 13, color: context.teksTersier),
           prefixIcon: Icon(icon, size: 18, color: context.teksTersier),
+          prefixIconConstraints: const BoxConstraints(
+            minWidth: 40,
+            maxWidth: 40,
+            minHeight: AppTheme.sasaranSentuh,
+            maxHeight: AppTheme.sasaranSentuh,
+          ),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         ),
       ),
     );
@@ -652,7 +667,11 @@ class _ProfilSayaScreenState extends State<ProfilSayaScreen> {
       children: [
         _buildLabel(label),
         Container(
-          constraints: const BoxConstraints(minHeight: AppTheme.sasaranSentuh),
+          height: AppTheme.sasaranSentuh,
+          constraints: const BoxConstraints(
+            minHeight: AppTheme.sasaranSentuh,
+            maxHeight: AppTheme.sasaranSentuh,
+          ),
           decoration: BoxDecoration(
             color: context.latarLembut,
             border: Border.all(color: context.garis),
@@ -661,10 +680,19 @@ class _ProfilSayaScreenState extends State<ProfilSayaScreen> {
           child: TextField(
             controller: controller,
             obscureText: obscure,
+            textAlignVertical: TextAlignVertical.center,
+            style: TextStyle(fontSize: 13, color: context.teksUtama),
             decoration: InputDecoration(
+              isDense: true,
               hintText: hint,
               hintStyle: TextStyle(fontSize: 13, color: context.teksTersier),
               prefixIcon: Icon(Icons.lock_outline, size: 16, color: context.teksTersier),
+              prefixIconConstraints: const BoxConstraints(
+                minWidth: 40,
+                maxWidth: 40,
+                minHeight: AppTheme.sasaranSentuh,
+                maxHeight: AppTheme.sasaranSentuh,
+              ),
               suffixIcon: IconButton(
                 icon: Icon(
                   obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
@@ -673,8 +701,16 @@ class _ProfilSayaScreenState extends State<ProfilSayaScreen> {
                 ),
                 onPressed: onToggle,
               ),
+              suffixIconConstraints: const BoxConstraints(
+                minWidth: 40,
+                maxWidth: 40,
+                minHeight: AppTheme.sasaranSentuh,
+                maxHeight: AppTheme.sasaranSentuh,
+              ),
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             ),
           ),
         ),
