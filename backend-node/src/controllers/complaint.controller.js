@@ -4,7 +4,7 @@ const { logActivity, ringkas, TIPE } = require('../services/log.service');
 async function getComplaints(req, res) {
   try {
     const { status, search } = req.query;
-    let query = `SELECT c.*, u.nama AS nama_pengirim, r.nama AS responded_by_nama,
+    let query = `SELECT c.*, u.nama AS nama_pengirim, u.nama AS nama_pelapor, u.nama AS nama, r.nama AS responded_by_nama,
                  COUNT(*) OVER() AS total_data
                  FROM complaints c 
                  JOIN users u ON c.user_id = u.id 
@@ -20,7 +20,12 @@ async function getComplaints(req, res) {
       query += ` AND c.user_id = $${params.length}`;
     }
 
-    if (status && status !== 'Semua') { params.push(status); query += ` AND c.status = $${params.length}`; }
+    if (status && status !== 'Semua') {
+      let st = status;
+      if (st.toLowerCase() === 'pending') st = 'Menunggu';
+      params.push(st);
+      query += ` AND c.status = $${params.length}`;
+    }
     if (search) { params.push(`%${search}%`); query += ` AND (c.judul ILIKE $${params.length} OR c.kode_tiket ILIKE $${params.length} OR u.nama ILIKE $${params.length})`; }
     query += ' ORDER BY c.created_at DESC';
 
@@ -77,10 +82,12 @@ async function updateComplaintStatus(req, res) {
     const { id } = req.params;
     const { status, response } = req.body;
     const validStatus = ['Menunggu', 'Diproses', 'Selesai', 'Ditolak'];
-    if (!status || !validStatus.includes(status)) return res.status(400).json({ success: false, message: `Status harus salah satu dari: ${validStatus.join(', ')}` });
+    let finalStatus = status;
+    if (finalStatus && finalStatus.toLowerCase() === 'pending') finalStatus = 'Menunggu';
+    if (!finalStatus || !validStatus.includes(finalStatus)) return res.status(400).json({ success: false, message: `Status harus salah satu dari: ${validStatus.join(', ')}` });
     const result = await pool.query(
       `UPDATE complaints SET status = $1, response = $2, responded_by = $3, updated_at = NOW() WHERE id = $4 RETURNING *`,
-      [status, response || null, req.user.id, id]
+      [finalStatus, response || null, req.user.id, id]
     );
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Pengaduan tidak ditemukan.' });
     const a = result.rows[0];
