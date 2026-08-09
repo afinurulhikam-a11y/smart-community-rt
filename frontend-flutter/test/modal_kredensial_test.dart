@@ -12,67 +12,55 @@ import 'package:smart_community/screens/admin/data_warga_screen.dart';
 /// ketika dekorasi yang sebenarnya diubah menjadi salah.
 List<Widget> kotakKredensial(BuildContext c) => [
   // Username Login — hanya-baca
-  SizedBox(
-    height: AppTheme.sasaranSentuh,
-    child: InputDecorator(
-      key: const Key('username'),
-      decoration: dekorKredensial(c),
-      child: Text(
-        '3201991000000012',
-        style: gayaIsiKredensial(c).copyWith(fontWeight: FontWeight.w600),
-      ),
+  InputDecorator(
+    key: const Key('username'),
+    decoration: dekorKredensial(c),
+    child: Text(
+      '3201991000000012',
+      style: gayaIsiKredensial(c).copyWith(fontWeight: FontWeight.w600),
     ),
   ),
   // Nomor HP / WhatsApp
-  SizedBox(
-    height: AppTheme.sasaranSentuh,
-    child: TextField(
-      key: const Key('no_hp'),
-      style: gayaIsiKredensial(c),
-      decoration: dekorKredensial(c, hint: 'Misal: 081234567890'),
-    ),
+  TextField(
+    key: const Key('no_hp'),
+    style: gayaIsiKredensial(c),
+    decoration: dekorKredensial(c, hint: 'Misal: 081234567890'),
   ),
   // Role / Peran Sistem
-  SizedBox(
-    height: AppTheme.sasaranSentuh,
-    child: InputDecorator(
-      key: const Key('role'),
-      decoration: dekorKredensial(c),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: 'warga',
-          isExpanded: true,
-          isDense: true,
-          style: gayaIsiKredensial(c),
-          onChanged: (_) {},
-          items: const [
-            DropdownMenuItem(value: 'warga', child: Text('Warga')),
-            DropdownMenuItem(value: 'admin', child: Text('Administrator')),
-          ],
-        ),
+  InputDecorator(
+    key: const Key('role'),
+    decoration: dekorKredensial(c),
+    child: DropdownButtonHideUnderline(
+      child: DropdownButton<String>(
+        value: 'warga',
+        isExpanded: true,
+        isDense: true,
+        style: gayaIsiKredensial(c),
+        onChanged: (_) {},
+        items: const [
+          DropdownMenuItem(value: 'warga', child: Text('Warga')),
+          DropdownMenuItem(value: 'admin', child: Text('Administrator')),
+        ],
       ),
     ),
   ),
   // Ubah / Reset Password
-  SizedBox(
-    height: AppTheme.sasaranSentuh,
-    child: TextField(
-      key: const Key('sandi'),
-      style: gayaIsiKredensial(c),
-      decoration: dekorKredensial(
-        c,
-        hint: 'Kosongkan jika tidak ingin mengubah',
-        suffixIcon: IconButton(
-          icon: const Icon(Icons.visibility_outlined, size: 18),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(
-            minWidth: 48,
-            maxWidth: 48,
-            minHeight: AppTheme.sasaranSentuh,
-            maxHeight: AppTheme.sasaranSentuh,
-          ),
-          onPressed: () {},
+  TextField(
+    key: const Key('sandi'),
+    style: gayaIsiKredensial(c),
+    decoration: dekorKredensial(
+      c,
+      hint: 'Kosongkan jika tidak ingin mengubah',
+      suffixIcon: IconButton(
+        icon: const Icon(Icons.visibility_outlined, size: 18),
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(
+          minWidth: 48,
+          maxWidth: 48,
+          minHeight: AppTheme.sasaranSentuh,
+          maxHeight: AppTheme.sasaranSentuh,
         ),
+        onPressed: () {},
       ),
     ),
   ),

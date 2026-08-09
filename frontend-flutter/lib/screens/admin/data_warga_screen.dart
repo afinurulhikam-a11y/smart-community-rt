@@ -1057,20 +1057,17 @@ aksi: Transform.translate(
                       ),
                     ),
                     const SizedBox(height: 6),
-                    SizedBox(
-                      height: AppTheme.sasaranSentuh,
-                      child: InputDecorator(
-                        key: const Key('username'),
-                        decoration: dekorKredensial(context),
-                        textAlignVertical: TextAlignVertical.center,
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            data['username']?.toString() ?? nik,
-                            style: gayaIsiKredensial(
-                              context,
-                            ).copyWith(fontWeight: FontWeight.w600),
-                          ),
+                    InputDecorator(
+                      key: const Key('username'),
+                      decoration: dekorKredensial(context),
+                      textAlignVertical: TextAlignVertical.center,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          data['username']?.toString() ?? nik,
+                          style: gayaIsiKredensial(
+                            context,
+                          ).copyWith(fontWeight: FontWeight.w600),
                         ),
                       ),
                     ),
@@ -1084,23 +1081,20 @@ aksi: Transform.translate(
                       ),
                     ),
                     const SizedBox(height: 6),
-                    SizedBox(
-                      height: AppTheme.sasaranSentuh,
-                      child: TextField(
-                        key: const Key('no_hp'),
-                        controller: noHpCtrl,
-                        enabled: bolehEditSemua,
-                        keyboardType: TextInputType.phone,
-                        textAlignVertical: TextAlignVertical.center,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(15),
-                        ],
-                        style: gayaIsiKredensial(context),
-                        decoration: dekorKredensial(
-                          context,
-                          hint: 'Misal: 081234567890',
-                        ),
+                    TextField(
+                      key: const Key('no_hp'),
+                      controller: noHpCtrl,
+                      enabled: bolehEditSemua,
+                      keyboardType: TextInputType.phone,
+                      textAlignVertical: TextAlignVertical.center,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(15),
+                      ],
+                      style: gayaIsiKredensial(context),
+                      decoration: dekorKredensial(
+                        context,
+                        hint: 'Misal: 081234567890',
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -1135,35 +1129,32 @@ aksi: Transform.translate(
                       ],
                     ),
                     const SizedBox(height: 6),
-                    SizedBox(
-                      height: AppTheme.sasaranSentuh,
-                      child: InputDecorator(
-                        key: const Key('role'),
-                        decoration: dekorKredensial(context),
-                        textAlignVertical: TextAlignVertical.center,
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: selectedRole,
-                              isExpanded: true,
-                              isDense: true,
-                              style: gayaIsiKredensial(context),
-                              dropdownColor: context.latarKartu,
-                              onChanged: bolehUbahRole
-                                  ? (v) {
-                                      if (v != null) setDialogState(() => selectedRole = v);
-                                    }
-                                  : null,
-                              items: [
-                                const DropdownMenuItem(value: 'warga', child: Text('Warga')),
-                                const DropdownMenuItem(value: 'ketua_rt', child: Text('Ketua RT')),
-                                const DropdownMenuItem(value: 'sekretaris', child: Text('Sekretaris')),
-                                const DropdownMenuItem(value: 'bendahara', child: Text('Bendahara')),
-                                if (userRoleCaller == 'admin')
-                                  const DropdownMenuItem(value: 'admin', child: Text('Administrator')),
-                              ],
-                            ),
+                    InputDecorator(
+                      key: const Key('role'),
+                      decoration: dekorKredensial(context),
+                      textAlignVertical: TextAlignVertical.center,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: selectedRole,
+                            isExpanded: true,
+                            isDense: true,
+                            style: gayaIsiKredensial(context),
+                            dropdownColor: context.latarKartu,
+                            onChanged: bolehUbahRole
+                                ? (v) {
+                                    if (v != null) setDialogState(() => selectedRole = v);
+                                  }
+                                : null,
+                            items: [
+                              const DropdownMenuItem(value: 'warga', child: Text('Warga')),
+                              const DropdownMenuItem(value: 'ketua_rt', child: Text('Ketua RT')),
+                              const DropdownMenuItem(value: 'sekretaris', child: Text('Sekretaris')),
+                              const DropdownMenuItem(value: 'bendahara', child: Text('Bendahara')),
+                              if (userRoleCaller == 'admin')
+                                const DropdownMenuItem(value: 'admin', child: Text('Administrator')),
+                            ],
                           ),
                         ),
                       ),
@@ -1178,44 +1169,35 @@ aksi: Transform.translate(
                       ),
                     ),
                     const SizedBox(height: 6),
-                    SizedBox(
-                      height: AppTheme.sasaranSentuh,
-                      child: TextField(
-                        key: const Key('sandi'),
-                        controller: passCtrl,
-                        enabled: bolehEditSemua,
-                        obscureText: !sandiTerlihat,
-                        textAlignVertical: TextAlignVertical.center,
-                        style: gayaIsiKredensial(context),
-                        decoration: dekorKredensial(
-                          context,
-                          hint: bolehEditSemua
-                              ? 'Kosongkan jika tidak ingin mengubah'
-                              : 'Hanya-baca',
-                          suffixIcon: bolehEditSemua
-                              ? IconButton(
-                                  icon: Icon(
-                                    sandiTerlihat
-                                        ? Icons.visibility_off_outlined
-                                        : Icons.visibility_outlined,
-                                    size: 18,
-                                  ),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(
-                                    minWidth: 48,
-                                    maxWidth: 48,
-                                    minHeight: AppTheme.sasaranSentuh,
-                                    maxHeight: AppTheme.sasaranSentuh,
-                                  ),
-                                  color: context.teksKedua,
-                                  tooltip: sandiTerlihat
-                                      ? 'Sembunyikan sandi'
-                                      : 'Tampilkan sandi',
-                                  onPressed: () =>
-                                      setDialogState(() => sandiTerlihat = !sandiTerlihat),
-                                )
-                              : null,
-                        ),
+                    TextField(
+                      key: const Key('sandi'),
+                      controller: passCtrl,
+                      enabled: bolehEditSemua,
+                      obscureText: !sandiTerlihat,
+                      textAlignVertical: TextAlignVertical.center,
+                      style: gayaIsiKredensial(context),
+                      decoration: dekorKredensial(
+                        context,
+                        hint: bolehEditSemua
+                            ? 'Kosongkan jika tidak ingin mengubah'
+                            : 'Hanya-baca',
+                        suffixIcon: bolehEditSemua
+                            ? IconButton(
+                                icon: Icon(
+                                  sandiTerlihat
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined,
+                                  size: 18,
+                                ),
+                                padding: EdgeInsets.zero,
+                                color: context.teksKedua,
+                                tooltip: sandiTerlihat
+                                    ? 'Sembunyikan sandi'
+                                    : 'Tampilkan sandi',
+                                onPressed: () =>
+                                    setDialogState(() => sandiTerlihat = !sandiTerlihat),
+                              )
+                            : null,
                       ),
                     ),
                   ],
