@@ -1692,7 +1692,7 @@ class _MainDashboardState extends State<MainDashboard> {
                 )
               else ...[
                 ...activeComplaints
-                    .take(3)
+                    .take(2)
                     .map(
                       (item) => Padding(
                         padding: const EdgeInsets.only(bottom: 8),
@@ -1842,47 +1842,71 @@ class _MainDashboardState extends State<MainDashboard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF3B82F6).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.mark_email_unread_rounded,
-                  color: Color(0xFF3B82F6),
-                  size: 18,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Permohonan Surat',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: context.teksUtama,
-                      ),
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: pendingLetters.isNotEmpty
+                          ? const Color(0xFF3B82F6).withValues(alpha: 0.1)
+                          : const Color(0xFF059669).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Surat warga yang perlu diproses',
+                    child: Icon(
+                      pendingLetters.isNotEmpty
+                          ? Icons.mark_email_unread_rounded
+                          : Icons.mark_email_read_rounded,
+                      color: pendingLetters.isNotEmpty ? const Color(0xFF3B82F6) : const Color(0xFF059669),
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Permohonan Surat',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: context.teksUtama,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Surat warga yang perlu diproses',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: context.teksTersier,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Status badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: pendingLetters.isNotEmpty
+                          ? const Color(0xFF3B82F6).withValues(alpha: 0.1)
+                          : const Color(0xFF059669).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      pendingLetters.isNotEmpty
+                          ? '⏳ ${letterProvider.pendingCount} Menunggu'
+                          : '✓ Selesai',
                       style: TextStyle(
                         fontSize: 11,
-                        color: context.teksTersier,
+                        fontWeight: FontWeight.w600,
+                        color: pendingLetters.isNotEmpty ? const Color(0xFF3B82F6) : const Color(0xFF059669),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
 
           const SizedBox(height: 16),
 
@@ -1932,7 +1956,7 @@ class _MainDashboardState extends State<MainDashboard> {
             )
           else ...[
             ...pendingLetters
-                .take(3)
+                .take(2)
                 .map(
                   (surat) => Padding(
                     padding: const EdgeInsets.only(bottom: 8),
@@ -2001,7 +2025,7 @@ class _MainDashboardState extends State<MainDashboard> {
                 foregroundColor: const Color(0xFF3B82F6),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              child: Text('Lihat Semua Permohonan (${pendingLetters.length})'),
+              child: Text('Lihat Semua Permohonan (${letterProvider.pendingCount})'),
             ),
           ),
         ],
