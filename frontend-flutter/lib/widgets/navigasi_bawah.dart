@@ -60,8 +60,6 @@ String judulMenu(int indeks, {required bool warga}) {
       return warga ? 'Pengajuan Surat' : 'Surat Menyurat';
     case 50:
       return 'Agenda & Kegiatan';
-    case 51:
-      return 'Jadwal & Absensi Ronda';
     case 60:
       return 'Status Darurat';
     case 61:
