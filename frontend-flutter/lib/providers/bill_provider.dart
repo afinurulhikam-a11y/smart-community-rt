@@ -156,6 +156,8 @@ class BillProvider extends ChangeNotifier {
     double? nominal,
     String? keterangan,
     String? jatuhTempo,
+    int? meteranLalu,
+    int? meteranSekarang,
   }) async {
     final response = await ApiService.post(
       ApiConstants.bills,
@@ -163,7 +165,12 @@ class BillProvider extends ChangeNotifier {
         'keluarga_id': keluargaId,
         'jenis_iuran_id': jenisIuranId,
         'bulan': bulan,
+        // Untuk iuran bermeteran, `nominal` diabaikan backend dan totalnya
+        // dihitung dari kedua angka ini — supaya rincian yang tampil selalu
+        // menjumlah ke totalnya sendiri.
         if (nominal != null) 'nominal': nominal,
+        if (meteranLalu != null) 'meteran_lalu': meteranLalu,
+        if (meteranSekarang != null) 'meteran_sekarang': meteranSekarang,
         if (keterangan != null && keterangan.isNotEmpty) 'keterangan': keterangan,
         if (jatuhTempo != null && jatuhTempo.isNotEmpty) 'jatuh_tempo': jatuhTempo,
       },
@@ -178,11 +185,15 @@ class BillProvider extends ChangeNotifier {
     double? nominal,
     String? keterangan,
     String? jatuhTempo,
+    int? meteranLalu,
+    int? meteranSekarang,
   }) async {
     final response = await ApiService.put(
       ApiConstants.bill(id),
       body: {
         if (nominal != null) 'nominal': nominal,
+        if (meteranLalu != null) 'meteran_lalu': meteranLalu,
+        if (meteranSekarang != null) 'meteran_sekarang': meteranSekarang,
         if (keterangan != null && keterangan.isNotEmpty) 'keterangan': keterangan,
         if (jatuhTempo != null && jatuhTempo.isNotEmpty) 'jatuh_tempo': jatuhTempo,
       },
