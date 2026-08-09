@@ -187,7 +187,7 @@ InputDecoration dekorKredensial(
     // (≈48 → ≈44px), mempertegas efek dari spacing antar field yang sudah
     // dirapatkan (16 → 10). Nilai bawah-tepian 8 membuat fokus ring tetap
     // terlihat jelas di bawah teks; nilai 6 membuat teks kena tepi kotak.
-    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
     border: tepi(context.garis),
     enabledBorder: tepi(context.garis),
     disabledBorder: tepi(context.garis),
@@ -1061,14 +1061,11 @@ aksi: Transform.translate(
                       key: const Key('username'),
                       decoration: dekorKredensial(context),
                       textAlignVertical: TextAlignVertical.center,
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          data['username']?.toString() ?? nik,
-                          style: gayaIsiKredensial(
-                            context,
-                          ).copyWith(fontWeight: FontWeight.w600),
-                        ),
+                      child: Text(
+                        data['username']?.toString() ?? nik,
+                        style: gayaIsiKredensial(
+                          context,
+                        ).copyWith(fontWeight: FontWeight.w600),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -1133,29 +1130,26 @@ aksi: Transform.translate(
                       key: const Key('role'),
                       decoration: dekorKredensial(context),
                       textAlignVertical: TextAlignVertical.center,
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: selectedRole,
-                            isExpanded: true,
-                            isDense: true,
-                            style: gayaIsiKredensial(context),
-                            dropdownColor: context.latarKartu,
-                            onChanged: bolehUbahRole
-                                ? (v) {
-                                    if (v != null) setDialogState(() => selectedRole = v);
-                                  }
-                                : null,
-                            items: [
-                              const DropdownMenuItem(value: 'warga', child: Text('Warga')),
-                              const DropdownMenuItem(value: 'ketua_rt', child: Text('Ketua RT')),
-                              const DropdownMenuItem(value: 'sekretaris', child: Text('Sekretaris')),
-                              const DropdownMenuItem(value: 'bendahara', child: Text('Bendahara')),
-                              if (userRoleCaller == 'admin')
-                                const DropdownMenuItem(value: 'admin', child: Text('Administrator')),
-                            ],
-                          ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: selectedRole,
+                          isExpanded: true,
+                          isDense: true,
+                          style: gayaIsiKredensial(context),
+                          dropdownColor: context.latarKartu,
+                          onChanged: bolehUbahRole
+                              ? (v) {
+                                  if (v != null) setDialogState(() => selectedRole = v);
+                                }
+                              : null,
+                          items: [
+                            const DropdownMenuItem(value: 'warga', child: Text('Warga')),
+                            const DropdownMenuItem(value: 'ketua_rt', child: Text('Ketua RT')),
+                            const DropdownMenuItem(value: 'sekretaris', child: Text('Sekretaris')),
+                            const DropdownMenuItem(value: 'bendahara', child: Text('Bendahara')),
+                            if (userRoleCaller == 'admin')
+                              const DropdownMenuItem(value: 'admin', child: Text('Administrator')),
+                          ],
                         ),
                       ),
                     ),
