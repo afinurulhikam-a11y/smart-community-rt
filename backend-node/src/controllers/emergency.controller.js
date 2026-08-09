@@ -6,22 +6,11 @@ async function triggerAlarm(req, res) {
   try {
     const { message, latitude, longitude, pin } = req.body;
 
-    // Verifikasi 2-Langkah: PIN Keamanan (dari environment variable)
-    //
-    // Tidak ada lagi nilai bawaan '1234'. Angka itu tertulis di kode sumber dan
-    // di .env.example, jadi ia melindungi tepat nol hal — sementara keberadaan
-    // nilai bawaan membuat lupa mengonfigurasi tidak menimbulkan gejala apa pun.
-    //
-    // Bila belum diisi, fiturnya MATI dan mengatakan alasannya. Gagal-tertutup:
-    // tanpa cabang ini, `pin !== undefined` selalu benar dan pesannya berbunyi
-    // "PIN tidak valid" — menyesatkan operator ke arah yang salah sepenuhnya.
-    const pinDarurat = process.env.EMERGENCY_PIN;
-    if (!pinDarurat || pinDarurat.trim() === '') {
-      return res.status(503).json({
-        success: false,
-        message: 'Fitur darurat belum dikonfigurasi. Setel EMERGENCY_PIN pada Environment Variables server.',
-      });
-    }
+    // Verifikasi 2-Langkah: PIN Keamanan (Default: 1234 bila tidak disetel)
+    const pinDarurat = (process.env.EMERGENCY_PIN && process.env.EMERGENCY_PIN.trim() !== '')
+      ? process.env.EMERGENCY_PIN.trim()
+      : '1234';
+
     if (!pin || pin.toString().trim() !== pinDarurat) {
       return res.status(403).json({
         success: false,
@@ -30,13 +19,14 @@ async function triggerAlarm(req, res) {
     }
 
     const userResult = await pool.query('SELECT id, nama, no_hp, alamat FROM users WHERE id = $1', [req.user.id]);
+    const validUserId = (userResult.rows && userResult.rows.length > 0) ? req.user.id : null;
     const user = (userResult.rows && userResult.rows.length > 0)
       ? userResult.rows[0]
-      : { id: req.user.id, nama: req.user?.nama || 'Admin RT', no_hp: req.user?.no_hp || '-', alamat: req.user?.alamat || '-' };
+      : { id: validUserId, nama: req.user?.nama || 'Admin RT', no_hp: req.user?.no_hp || '-', alamat: req.user?.alamat || '-' };
 
     const result = await pool.query(
       `INSERT INTO emergency_alerts (user_id, message, latitude, longitude) VALUES ($1, $2, $3, $4) RETURNING *`,
-      [req.user.id, message || 'DARURAT! Warga membutuhkan bantuan!', latitude || null, longitude || null]
+      [validUserId, message || 'DARURAT! Warga membutuhkan bantuan!', latitude || null, longitude || null]
     );
     const alert = result.rows[0];
     const sentCount = broadcast({
@@ -97,22 +87,11 @@ async function dismissAlarm(req, res) {
     const { id } = req.params;
     const { pin } = req.body;
 
-    // Verifikasi 2-Langkah: PIN Keamanan (dari environment variable)
-    //
-    // Tidak ada lagi nilai bawaan '1234'. Angka itu tertulis di kode sumber dan
-    // di .env.example, jadi ia melindungi tepat nol hal — sementara keberadaan
-    // nilai bawaan membuat lupa mengonfigurasi tidak menimbulkan gejala apa pun.
-    //
-    // Bila belum diisi, fiturnya MATI dan mengatakan alasannya. Gagal-tertutup:
-    // tanpa cabang ini, `pin !== undefined` selalu benar dan pesannya berbunyi
-    // "PIN tidak valid" — menyesatkan operator ke arah yang salah sepenuhnya.
-    const pinDarurat = process.env.EMERGENCY_PIN;
-    if (!pinDarurat || pinDarurat.trim() === '') {
-      return res.status(503).json({
-        success: false,
-        message: 'Fitur darurat belum dikonfigurasi. Setel EMERGENCY_PIN pada Environment Variables server.',
-      });
-    }
+    // Verifikasi 2-Langkah: PIN Keamanan (Default: 1234 bila tidak disetel)
+    const pinDarurat = (process.env.EMERGENCY_PIN && process.env.EMERGENCY_PIN.trim() !== '')
+      ? process.env.EMERGENCY_PIN.trim()
+      : '1234';
+
     if (!pin || pin.toString().trim() !== pinDarurat) {
       return res.status(403).json({
         success: false,
