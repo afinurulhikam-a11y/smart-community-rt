@@ -37,6 +37,7 @@
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
 const { pool } = require('./src/config/database');
+const { rincianTagihanAir } = require('./src/utils/tagihan-air');
 
 // ===================================================================
 // Penanda & tetapan
@@ -308,13 +309,39 @@ async function isiDemo(client) {
 
   // --- Jenis iuran --------------------------------------------------
   const jenis = await client.query(
-    `SELECT id, nama_iuran, nominal_default FROM jenis_iuran WHERE is_aktif = true ORDER BY id LIMIT 1`
+    `SELECT id, nama_iuran, nominal_default, tipe_hitung, tarif_per_m3, abondement, biaya_sampah
+     FROM jenis_iuran WHERE is_aktif = true ORDER BY id LIMIT 1`
   );
   if (jenis.rows.length === 0) {
     throw new Error('Tabel jenis_iuran kosong. Jalankan `node seed-master.js` lebih dulu.');
   }
   const jenisIuran = jenis.rows[0];
-  const nominal = Number(jenisIuran.nominal_default) || 50000;
+  const berbasisMeteran = jenisIuran.tipe_hitung === 'meteran';
+
+  // Kategori Kas RT dicari dengan cara yang PERSIS SAMA seperti catatKeKasRt().
+  //
+  // Versi sebelumnya memakai nama jenis iuran sebagai kategori dan tidak mengisi
+  // `kategori_id` sama sekali — sehingga baris demo berbeda bentuk dari baris
+  // yang dihasilkan pembayaran sungguhan, dan seluruh pemasukan iuran tidak
+  // terjangkau penyaring kategori di layar Kas RT. Data uji yang tidak
+  // mengikuti jalur kode sebenarnya menguji sesuatu yang tidak akan pernah
+  // dipakai warga.
+  const katIuran = await client.query(
+    `SELECT id, nama_kategori FROM kategori_kas
+     WHERE tipe = 'IN' AND nama_kategori ILIKE '%iuran%' AND is_aktif = true
+     ORDER BY id LIMIT 1`
+  );
+  const kategoriIuranId = katIuran.rows[0]?.id || null;
+  const kategoriIuranNama = katIuran.rows[0]?.nama_kategori || 'Iuran Warga';
+
+  // Angka meteran awal per rumah, lalu pemakaian bulanan yang berbeda-beda
+  // supaya tagihannya tidak seragam dan kartu ringkasan terlihat masuk akal.
+  const meteranAwal = [220, 148, 305, 96, 412, 187];
+  const pemakaian = [
+    [4, 2, 5, 3, 6, 2],
+    [3, 4, 2, 5, 3, 4],
+    [5, 3, 4, 2, 4, 3],
+  ];
 
   // --- Tagihan tiga bulan terakhir ----------------------------------
   //
@@ -330,16 +357,39 @@ async function isiDemo(client) {
   let jumlahTagihan = 0;
   let jumlahLunas = 0;
 
+  // Meteran berjalan per rumah lintas bulan, sehingga angka akhir satu bulan
+  // menjadi angka awal bulan berikutnya — sama seperti yang dilakukan
+  // generateBills lewat subkueri berkorelasinya.
+  const meteranBerjalan = [...meteranAwal];
+
   for (let m = 0; m < 3; m++) {
     const bulan = periode(2 - m);
     for (let i = 0; i < keluargaIds.length; i++) {
+      const mLalu = meteranBerjalan[i];
+      const mKini = berbasisMeteran ? mLalu + pemakaian[m][i] : null;
+      const air = berbasisMeteran
+        ? rincianTagihanAir({
+          meteranLalu: mLalu,
+          meteranSekarang: mKini,
+          tarifPerM3: jenisIuran.tarif_per_m3,
+          abondement: jenisIuran.abondement,
+          biayaSampah: jenisIuran.biaya_sampah,
+        })
+        : null;
+      const nominal = air ? air.total : (Number(jenisIuran.nominal_default) || 50000);
+      if (berbasisMeteran) meteranBerjalan[i] = mKini;
+
       const b = await client.query(
         `INSERT INTO bills (keluarga_id, jenis_iuran_id, jenis_tagihan, bulan, nominal,
-                            keterangan, status, created_by, jatuh_tempo)
-         VALUES ($1,$2,$3,$4,$5,$6,'unpaid',$7,$8) RETURNING id`,
+                            keterangan, status, created_by, jatuh_tempo,
+                            meteran_lalu, meteran_sekarang, tarif_per_m3, abondement, biaya_sampah)
+         VALUES ($1,$2,$3,$4,$5,$6,'unpaid',$7,$8,$9,$10,$11,$12,$13) RETURNING id`,
         [
           keluargaIds[i], jenisIuran.id, jenisIuran.nama_iuran, bulan, nominal,
           `${TANDA} Tagihan uji coba`, adminId, `${bulan}-10`,
+          air ? air.meteran_lalu : null, air ? air.meteran_sekarang : null,
+          air ? air.tarif_per_m3 : null, air ? air.abondement : null,
+          air ? air.biaya_sampah : null,
         ]
       );
       jumlahTagihan++;
@@ -359,10 +409,10 @@ async function isiDemo(client) {
       await client.query(`UPDATE bills SET status = 'lunas', user_id = $1 WHERE id = $2`, [wargaIds[i], billId]);
 
       await client.query(
-        `INSERT INTO finances (tipe, kategori, jumlah, deskripsi, tanggal, created_by, sumber, ref_id)
-         VALUES ('pemasukan', $1, $2, $3, $4, $5, 'iuran', $6)`,
+        `INSERT INTO finances (tipe, kategori, kategori_id, jumlah, deskripsi, tanggal, created_by, sumber, ref_id)
+         VALUES ('pemasukan', $1, $2, $3, $4, $5, $6, 'iuran', $7)`,
         [
-          jenisIuran.nama_iuran, nominal,
+          kategoriIuranNama, kategoriIuranId, nominal,
           `${TANDA} ${jenisIuran.nama_iuran} ${bulan} — ${KELUARGA[i].kepala}`,
           `${bulan}-0${(i % 8) + 1}`, adminId, bayar.rows[0].id,
         ]
