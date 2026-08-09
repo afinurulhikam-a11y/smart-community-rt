@@ -108,6 +108,13 @@ async function deleteComplaint(req, res) {
     const d = result.rows[0];
     await logActivity(req, TIPE.DELETE, `Menghapus pengaduan [${d.kode_tiket}] "${ringkas(d.judul)}" (status ${d.status}) — isi: "${ringkas(d.deskripsi, 100)}"`);
 
+    return res.status(200).json({ success: true, message: 'Pengaduan berhasil dihapus.', data: result.rows[0] });
+  } catch (err) {
+    console.error('DeleteComplaint Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
 async function getComplaintStats(req, res) {
   try {
     let whereClause = 'WHERE c.deleted_at IS NULL';
