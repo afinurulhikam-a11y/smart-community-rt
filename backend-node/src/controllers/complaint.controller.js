@@ -108,11 +108,45 @@ async function deleteComplaint(req, res) {
     const d = result.rows[0];
     await logActivity(req, TIPE.DELETE, `Menghapus pengaduan [${d.kode_tiket}] "${ringkas(d.judul)}" (status ${d.status}) — isi: "${ringkas(d.deskripsi, 100)}"`);
 
-    return res.status(200).json({ success: true, message: 'Pengaduan berhasil dihapus.', data: result.rows[0] });
+async function getComplaintStats(req, res) {
+  try {
+    let whereClause = 'WHERE c.deleted_at IS NULL';
+    const params = [];
+
+    if (req.user.role === 'warga') {
+      params.push(req.user.id);
+      whereClause += ` AND c.user_id = $${params.length}`;
+    }
+
+    const query = `
+      SELECT 
+        COUNT(*) FILTER (WHERE c.status IN ('Menunggu', 'pending', 'diajukan')) AS pending,
+        COUNT(*) FILTER (WHERE c.status = 'Diproses') AS diproses,
+        COUNT(*) FILTER (WHERE c.status IN ('Selesai', 'disetujui')) AS selesai,
+        COUNT(*) FILTER (WHERE c.status = 'Ditolak') AS ditolak,
+        COUNT(*) AS total
+      FROM complaints c
+      ${whereClause}
+    `;
+
+    const result = await pool.query(query, params);
+    const row = result.rows[0] || {};
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        pending: parseInt(row.pending || 0, 10),
+        diproses: parseInt(row.diproses || 0, 10),
+        selesai: parseInt(row.selesai || 0, 10),
+        ditolak: parseInt(row.ditolak || 0, 10),
+        total: parseInt(row.total || 0, 10),
+      }
+    });
   } catch (err) {
-    console.error('DeleteComplaint Error:', err.message);
+    console.error('GetComplaintStats Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
   }
 }
 
-module.exports = { getComplaints, createComplaint, updateComplaintStatus, deleteComplaint };
+module.exports = { getComplaints, getComplaintStats, createComplaint, updateComplaintStatus, deleteComplaint };
+

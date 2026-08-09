@@ -170,6 +170,7 @@ class ApiConstants {
 
   // Complaints (Pengaduan)
   static String get complaints => '$baseUrl/complaints';
+  static String get complaintStats => '$baseUrl/complaints/stats';
   static String complaintStatus(int id) => '$baseUrl/complaints/$id/status';
 
   // Agenda (Kegiatan)
