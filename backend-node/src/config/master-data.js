@@ -6,10 +6,31 @@
  * lewat layar masing-masing setelah terpasang; berkas ini hanya titik awal.
  */
 
+// Hanya SATU jenis iuran, dan ia berbasis meteran.
+//
+// Sebelumnya ada tiga iuran bernominal tetap — keamanan, kebersihan, dan sosial.
+// Ketiganya dihapus karena RT ini menagih lewat tagihan air, dan biaya sampah
+// sudah menjadi salah satu komponen di dalamnya. Menagihnya terpisah berarti
+// warga membayar kebersihan dua kali.
+//
+//     total = (terpakai m³ × tarif_per_m3) + abondement + biaya_sampah
+//
+// Angka bawaan ini mengikuti tagihan yang berjalan di RT: 4 m³ menghasilkan
+// Rp 67.000. Rumah yang tidak memakai air sama sekali tetap membayar Rp 55.000,
+// karena abondement dan sampah tidak bergantung pada pemakaian.
+//
+// Pengurus bisa mengubah ketiganya lewat layar master; nilai di sini hanya
+// titik awal saat memasang dari nol.
 const JENIS_IURAN = [
-  { nama: 'Iuran Wajib Bulanan (Keamanan & Kas RT)', nominal: 50000, periode: 'bulanan' },
-  { nama: 'Iuran Kebersihan & Pengangkutan Sampah', nominal: 25000, periode: 'bulanan' },
-  { nama: 'Iuran Sosial & Duka Cita', nominal: 10000, periode: 'bulanan' },
+  {
+    nama: 'Iuran Air Sumur Bor',
+    nominal: 0,
+    periode: 'bulanan',
+    tipe_hitung: 'meteran',
+    tarif_per_m3: 3000,
+    abondement: 25000,
+    biaya_sampah: 30000,
+  },
 ];
 
 /** `tipe` IN = pemasukan, OUT = pengeluaran. */

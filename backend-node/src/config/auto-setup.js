@@ -152,10 +152,15 @@ async function autoSetupCloud() {
 
     for (const j of JENIS_IURAN) {
       await pool.query(
-        `INSERT INTO jenis_iuran (nama_iuran, nominal_default, periode, is_aktif)
-         VALUES ($1, $2, $3, true)
+        `INSERT INTO jenis_iuran (nama_iuran, nominal_default, periode, is_aktif,
+                                  tipe_hitung, tarif_per_m3, abondement, biaya_sampah)
+         VALUES ($1, $2, $3, true, $4, $5, $6, $7)
          ON CONFLICT DO NOTHING`,
-        [j.nama, j.nominal, j.periode]
+        [
+          j.nama, j.nominal, j.periode,
+          j.tipe_hitung || 'tetap', j.tarif_per_m3 || null,
+          j.abondement || 0, j.biaya_sampah || 0,
+        ]
       );
     }
 
