@@ -866,7 +866,32 @@ async function deleteBill(req, res) {
       return res.status(409).json({ success: false, message: 'Tagihan lunas hanya dapat dihapus oleh Administrator.' });
     }
 
-    // Hapus catatan relasi pembayaran jika ada
+    // Baris Kas RT DULUAN, sebelum pembayarannya.
+    //
+    // `catatKeKasRt` membuat satu baris `finances` untuk setiap pembayaran,
+    // ditautkan lewat `finances.ref_id -> bill_payments.id`. Sebelum ini
+    // penghapusan berhenti di `bill_payments`, sehingga baris kasnya tertinggal
+    // menunjuk baris yang sudah tidak ada.
+    //
+    // Akibatnya nyata dan tidak terlihat: setiap tagihan lunas yang dihapus
+    // meninggalkan uangnya di buku kas. Saldo Kas RT melebih-lebihkan sebesar
+    // tagihan itu, laporan keuangan ikut salah, dan tidak ada gejala apa pun —
+    // barisnya tampak seperti pemasukan biasa. Terbukti saat menguji tagihan
+    // air: menghapus satu tagihan Rp 67.000 menyisakan Rp 67.000 di kas.
+    //
+    // Urutannya harus dari anak ke induk: `finances` menunjuk `bill_payments`,
+    // dan `bill_payments` menunjuk `bills` dengan RESTRICT.
+    //
+    // Disaring `sumber = 'iuran'` supaya hanya baris yang memang lahir dari
+    // pembayaran ini yang ikut — pemasukan manual tidak pernah punya `ref_id`.
+    const kasTerhapus = await client.query(
+      `DELETE FROM finances
+       WHERE sumber = 'iuran'
+         AND ref_id IN (SELECT id FROM bill_payments WHERE bill_id = $1)
+       RETURNING jumlah`,
+      [id]
+    );
+
     await client.query('DELETE FROM bill_payments WHERE bill_id = $1', [id]);
     await client.query('DELETE FROM payment_transaction_bills WHERE bill_id = $1', [id]);
     await client.query('DELETE FROM bills WHERE id = $1', [id]);
@@ -874,13 +899,28 @@ async function deleteBill(req, res) {
     await client.query('COMMIT');
 
     const dihapus = bill.rows[0];
+    const nilaiKas = kasTerhapus.rows.reduce((t, r) => t + Number(r.jumlah), 0);
+
+    // Uang yang ikut keluar dari Kas RT disebut TERPISAH di jejak audit.
+    //
+    // "Menghapus tagihan Rp 67.000" dan "menghapus tagihan Rp 67.000 sekaligus
+    // menarik Rp 67.000 dari kas" adalah dua peristiwa yang berbeda beratnya,
+    // dan hanya yang kedua yang menjelaskan kenapa saldo berubah hari itu.
     await logActivity(
       req,
       'DELETE',
       `Menghapus tagihan ${dihapus.jenis_tagihan} periode ${dihapus.bulan} ` +
-        `sebesar ${rupiah(dihapus.nominal)}`
+        `sebesar ${rupiah(dihapus.nominal)}` +
+        (kasTerhapus.rowCount > 0
+          ? ` — beserta ${kasTerhapus.rowCount} baris Kas RT senilai ${rupiah(nilaiKas)}`
+          : '')
     );
-    return res.status(200).json({ success: true, message: 'Tagihan berhasil dihapus.' });
+    return res.status(200).json({
+      success: true,
+      message: kasTerhapus.rowCount > 0
+        ? `Tagihan berhasil dihapus beserta ${rupiah(nilaiKas)} pemasukan Kas RT yang menyertainya.`
+        : 'Tagihan berhasil dihapus.',
+    });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('DeleteBill Error:', err.message);
