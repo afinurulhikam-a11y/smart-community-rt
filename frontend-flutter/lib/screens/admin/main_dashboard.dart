@@ -1799,6 +1799,20 @@ class _MainDashboardState extends State<MainDashboard> {
                   ),
                 ],
               ),
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: TextButton(
+                  onPressed: () {
+                    _pilihMenu(61);
+                  },
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size.fromHeight(40),
+                    foregroundColor: const Color(0xFFD97706),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: Text('Lihat Semua Pengaduan (${activeComplaints.length})'),
+                ),
+              ),
             ],
           ),
         ),
