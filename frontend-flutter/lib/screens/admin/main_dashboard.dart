@@ -77,6 +77,9 @@ class _MainDashboardState extends State<MainDashboard> {
   final Set<String> _dismissedPopupAlertIds = {};
   final Set<String> _dismissingAlertIds = {};
 
+  Timer? _autoRefreshTimer;
+  bool _isRefreshing = false;
+
   /// Dibaca dari tema, bukan disimpan sendiri.
   ///
   /// Dulu ini `bool _isDarkMode` milik layar ini saja, dengan dua akibat:
@@ -94,58 +97,104 @@ class _MainDashboardState extends State<MainDashboard> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      context.read<WebSocketService>().connect();
+      final wsService = context.read<WebSocketService>();
+      wsService.connect();
+      wsService.addListener(_onWebSocketUpdate);
       _loadData();
+      _startAutoRefresh();
     });
   }
 
   @override
   void dispose() {
+    _autoRefreshTimer?.cancel();
+    try {
+      context.read<WebSocketService>().removeListener(_onWebSocketUpdate);
+    } catch (_) {}
     super.dispose();
   }
 
-  void _loadData() {
-    final izin = context.read<PermissionProvider>();
-    final auth = context.read<AuthService>();
-    if (auth.userRole.isNotEmpty) {
-      izin.setRole(auth.userRole);
-    }
+  void _startAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    // Melakukan polling background otomatis setiap 12 detik agar data dashboard
+    // selalu terkini tanpa memerlukan refresh halaman manual.
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 12), (_) {
+      _loadDataAsync();
+    });
+  }
 
-    if (izin.bolehLihat('keuangan.iuran', userRole: auth.userRole)) {
-      context.read<BillProvider>().fetchBills();
-      context.read<BillProvider>().fetchStatsBulanIni();
-    }
-    if (izin.bolehLihat('keuangan.kas', userRole: auth.userRole)) {
-      context.read<FinanceProvider>().fetchTransactions();
-      // Summary dashboard SELALU seluruh masa: card SALDO KAS menampilkan
-      // "saldo kas RT", bukan angka yang ikut tersaring filter 'Non Iuran'
-      // atau bulan yang dipilih pengurus di layar Kas RT. fetchTransactions
-      // memanggil fetchSummary dengan _filterAktif; di sini dipanggil lagi
-      // secara eksplisit tanpa filter supaya card-nya independen.
-      context.read<FinanceProvider>().fetchSummary(bulan: null, sumber: null);
-      context.read<FinanceProvider>().fetchBulanan();
-    }
-    if (izin.bolehLihat('layanan.surat', userRole: auth.userRole)) {
-      context.read<LetterProvider>().fetchLetters();
-    }
-    if (izin.bolehLihat('aspirasi.darurat', userRole: auth.userRole)) {
-      context.read<EmergencyProvider>().fetchAlerts();
-    }
-    // Dipakai kartu "Pengaduan Aktif" pada dashboard warga.
-    if (izin.bolehLihat('aspirasi.pengaduan', userRole: auth.userRole)) {
-      context.read<ComplaintProvider>().fetchComplaints();
-    }
-    if (izin.bolehLihat('keuangan.bop', userRole: auth.userRole)) {
-      context.read<BopProvider>().fetchSummary();
-      context.read<BopProvider>().fetchTransactions();
-      context.read<BopProvider>().fetchBulanan();
-    }
-    if (izin.bolehLihat('kependudukan.statistik', userRole: auth.userRole) ||
-        izin.bolehLihat('kependudukan.warga', userRole: auth.userRole)) {
-      context.read<DemographicProvider>().fetchDemographics();
-    }
-    if (izin.bolehLihat('kegiatan.agenda', userRole: auth.userRole)) {
-      context.read<AgendaProvider>().fetchAgenda();
+  void _onWebSocketUpdate() {
+    if (!mounted) return;
+    // Saat menerima siaran real-time dari WebSocket (misal alarm darurat atau pesan data),
+    // data dashboard langsung diperbarui otomatis tanpa menantikan interval timer berikutnya.
+    _loadDataAsync();
+  }
+
+  void _loadData() {
+    _loadDataAsync();
+  }
+
+  Future<void> _loadDataAsync() async {
+    if (!mounted || _isRefreshing) return;
+    _isRefreshing = true;
+
+    try {
+      final izin = context.read<PermissionProvider>();
+      final auth = context.read<AuthService>();
+      final userRole = auth.userRole;
+
+      if (userRole.isNotEmpty) {
+        izin.setRole(userRole);
+      }
+
+      final futures = <Future>[];
+
+      if (izin.bolehLihat('keuangan.iuran', userRole: userRole)) {
+        final billP = context.read<BillProvider>();
+        futures.add(billP.fetchBills());
+        futures.add(billP.fetchStatsBulanIni());
+      }
+      if (izin.bolehLihat('keuangan.kas', userRole: userRole)) {
+        final finP = context.read<FinanceProvider>();
+        futures.add(finP.fetchTransactions());
+        futures.add(finP.fetchSummary(bulan: null, sumber: null));
+        futures.add(finP.fetchBulanan());
+      }
+      if (izin.bolehLihat('layanan.surat', userRole: userRole)) {
+        futures.add(context.read<LetterProvider>().fetchLetters());
+      }
+      if (izin.bolehLihat('aspirasi.darurat', userRole: userRole)) {
+        futures.add(context.read<EmergencyProvider>().fetchAlerts());
+      }
+      if (izin.bolehLihat('aspirasi.pengaduan', userRole: userRole)) {
+        final compP = context.read<ComplaintProvider>();
+        futures.add(compP.fetchComplaints());
+        futures.add(compP.fetchStats());
+      }
+      if (izin.bolehLihat('keuangan.bop', userRole: userRole)) {
+        final bopP = context.read<BopProvider>();
+        futures.add(bopP.fetchSummary());
+        futures.add(bopP.fetchTransactions());
+        futures.add(bopP.fetchBulanan());
+      }
+      if (izin.bolehLihat('kependudukan.statistik', userRole: userRole) ||
+          izin.bolehLihat('kependudukan.warga', userRole: userRole)) {
+        futures.add(context.read<DemographicProvider>().fetchDemographics());
+      }
+      if (izin.bolehLihat('kegiatan.agenda', userRole: userRole)) {
+        final agendaP = context.read<AgendaProvider>();
+        futures.add(agendaP.fetchAgenda());
+      }
+
+      if (futures.isNotEmpty) {
+        await Future.wait(futures);
+      }
+    } catch (e) {
+      debugPrint('Error _loadDataAsync: $e');
+    } finally {
+      if (mounted) {
+        _isRefreshing = false;
+      }
     }
   }
 
@@ -222,7 +271,7 @@ class _MainDashboardState extends State<MainDashboard> {
       default:
         // Beranda (0) dan layar tanpa daftar sendiri — Profil, Menu & Akses,
         // Reset Sistem — jatuh ke pemuatan dashboard.
-        _loadData();
+        await _loadDataAsync();
     }
   }
 
