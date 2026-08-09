@@ -44,6 +44,11 @@ const MENU_ITEMS = [
   { kode: 'layanan.surat', nama: 'Surat Menyurat', grup: 'Layanan Warga', menu_index: 44 },
 
   { kode: 'kegiatan.agenda', nama: 'Agenda & Kegiatan', grup: 'Kegiatan & Info', menu_index: 50 },
+  // Pengumuman tidak punya layar sendiri — ia tab keempat dari Agenda &
+  // Kegiatan (menu 50). `menu_index: null` = punya endpoint tetapi tidak
+  // tampil sebagai entri sidebar; izinnya tetap diatur terpisah supaya
+  // admin bisa membuka/menutupnya dari Menu & Akses.
+  { kode: 'kegiatan.pengumuman', nama: 'Pengumuman', grup: 'Kegiatan & Info', menu_index: null },
 
 
   { kode: 'aspirasi.darurat', nama: 'Status Darurat', grup: 'Aspirasi & Partisipasi', menu_index: 60 },
@@ -78,6 +83,7 @@ const DEFAULT_PERMISSIONS = {
     // Ketua menandatangani surat: boleh menyetujui, tidak menyusun.
     'layanan.surat': VU,
     'kegiatan.agenda': F,
+    'kegiatan.pengumuman': F,
 
     'aspirasi.darurat': F,
     'aspirasi.pengaduan': F,
@@ -101,6 +107,7 @@ const DEFAULT_PERMISSIONS = {
     'layanan.visitor': F,
     'layanan.surat': F,
     'kegiatan.agenda': F,
+    'kegiatan.pengumuman': F,
 
     'aspirasi.darurat': F,
     'aspirasi.pengaduan': F,
@@ -125,6 +132,7 @@ const DEFAULT_PERMISSIONS = {
     'layanan.visitor': N,
     'layanan.surat': N,
     'kegiatan.agenda': V,
+    'kegiatan.pengumuman': V,
 
     'aspirasi.darurat': V,
     'aspirasi.pengaduan': V,
@@ -149,6 +157,7 @@ const DEFAULT_PERMISSIONS = {
     'layanan.visitor': VCU,
     'layanan.surat': VC,
     'kegiatan.agenda': V,
+    'kegiatan.pengumuman': V,
 
     'aspirasi.darurat': VC,
     'aspirasi.pengaduan': VC,
