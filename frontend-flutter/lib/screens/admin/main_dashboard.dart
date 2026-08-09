@@ -1069,43 +1069,54 @@ class _MainDashboardState extends State<MainDashboard> {
           const SizedBox(height: 24),
         ],
 
-        // === PROGRESS IURAN + STATUS DARURAT ===
-        //
-        // Bertumpuk di ponsel, berdampingan di layar lebar. Dipaksa
-        // berdampingan lewat Row, tiap kartu hanya kebagian sekitar 148px di
-        // layar 360px — angka rupiah, bilah kemajuan, dan lencananya tidak muat
-        // dan terpotong.
+        // === BARIS 1: PROGRESS IURAN + PERMOHONAN SURAT ===
         if (pakaiKartu(context)) ...[
           if (izin.bolehLihat('keuangan.iuran')) _buildProgressIuranCard(bills),
-          if (izin.bolehLihat('keuangan.iuran') && izin.bolehLihat('aspirasi.darurat'))
+          if (izin.bolehLihat('keuangan.iuran') && izin.bolehLihat('layanan.surat'))
             const SizedBox(height: 16),
-          if (izin.bolehLihat('aspirasi.darurat')) _buildStatusDaruratCard(),
-        ] else
+          if (izin.bolehLihat('layanan.surat')) _buildSuratPendingCard(),
+        ] else ...[
           IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // --- Progress Penagihan Iuran Bulan Ini ---
                 if (izin.bolehLihat('keuangan.iuran'))
                   Expanded(child: _buildProgressIuranCard(bills)),
 
-                if (izin.bolehLihat('keuangan.iuran') && izin.bolehLihat('aspirasi.darurat'))
+                if (izin.bolehLihat('keuangan.iuran') && izin.bolehLihat('layanan.surat'))
                   const SizedBox(width: 16),
 
-                // --- Status Darurat & Pengaduan ---
-                if (izin.bolehLihat('aspirasi.darurat')) Expanded(child: _buildStatusDaruratCard()),
+                if (izin.bolehLihat('layanan.surat'))
+                  Expanded(child: _buildSuratPendingCard()),
               ],
             ),
           ),
+        ],
 
         const SizedBox(height: 24),
 
-        // === PERMOHONAN SURAT PENDING ===
-        // Panel ini mengarah ke layar Surat Menyurat. Bendahara tidak punya
-        // modul itu, jadi sebelumnya ia diberi tautan menuju 403.
-        if (izin.bolehLihat('layanan.surat')) ...[
-          _buildSuratPendingCard(),
-          const SizedBox(height: 24),
+        // === BARIS 2 (PALING BAWAH): STATUS DARURAT + PENGADUAN WARGA ===
+        if (pakaiKartu(context)) ...[
+          if (izin.bolehLihat('aspirasi.darurat')) _buildStatusDaruratCard(),
+          if (izin.bolehLihat('aspirasi.darurat') && izin.bolehLihat('aspirasi.pengaduan'))
+            const SizedBox(height: 16),
+          if (izin.bolehLihat('aspirasi.pengaduan')) _buildPengaduanCard(),
+        ] else ...[
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (izin.bolehLihat('aspirasi.darurat'))
+                  Expanded(child: _buildStatusDaruratCard()),
+
+                if (izin.bolehLihat('aspirasi.darurat') && izin.bolehLihat('aspirasi.pengaduan'))
+                  const SizedBox(width: 16),
+
+                if (izin.bolehLihat('aspirasi.pengaduan'))
+                  Expanded(child: _buildPengaduanCard()),
+              ],
+            ),
+          ),
         ],
       ],
     );
@@ -1356,7 +1367,7 @@ class _MainDashboardState extends State<MainDashboard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Status Darurat & Pengaduan',
+                          'Status Darurat',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
@@ -1365,7 +1376,7 @@ class _MainDashboardState extends State<MainDashboard> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Laporan darurat dan keluhan warga',
+                          'Laporan dan sinyal darurat warga',
                           style: TextStyle(
                             fontSize: 11,
                             color: context.teksTersier,
@@ -1518,6 +1529,255 @@ class _MainDashboardState extends State<MainDashboard> {
                     'Total',
                     '${emergency.alerts.length}',
                     context.teksKedua,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // === PENGADUAN WARGA ===
+  Widget _buildPengaduanCard() {
+    final complaintProvider = context.watch<ComplaintProvider>();
+    final complaints = complaintProvider.complaints;
+    final pendingCount = complaints.where((c) => (c['status'] ?? '').toString().toLowerCase() == 'pending').length;
+    final diprosesCount = complaints.where((c) => (c['status'] ?? '').toString().toLowerCase() == 'diproses').length;
+    final selesaiCount = complaints.where((c) => (c['status'] ?? '').toString().toLowerCase() == 'selesai').length;
+    final activeComplaints = complaints.where((c) {
+      final st = (c['status'] ?? '').toString().toLowerCase();
+      return st == 'pending' || st == 'diproses';
+    }).toList();
+    final hasActive = activeComplaints.isNotEmpty;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () {
+          _pilihMenu(61);
+        },
+        child: Container(
+          padding: EdgeInsets.all(paddingKartu(context)),
+          decoration: BoxDecoration(
+            color: context.latarKartu,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: hasActive
+                  ? const Color(0xFFD97706).withValues(alpha: 0.5)
+                  : context.garis,
+              width: hasActive ? 2 : 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: hasActive
+                          ? const Color(0xFFD97706).withValues(alpha: 0.1)
+                          : const Color(0xFF059669).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      hasActive ? Icons.rate_review_rounded : Icons.mark_chat_read_rounded,
+                      color: hasActive ? const Color(0xFFD97706) : const Color(0xFF059669),
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Pengaduan Warga',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: context.teksUtama,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Keluhan dan aspirasi warga',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: context.teksTersier,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Status badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: hasActive
+                          ? const Color(0xFFD97706).withValues(alpha: 0.1)
+                          : const Color(0xFF059669).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      hasActive ? '💬 ${activeComplaints.length} Aktif' : '✓ Terkendali',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: hasActive ? const Color(0xFFD97706) : const Color(0xFF059669),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              if (complaintProvider.isLoading)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(20.0),
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              else if (activeComplaints.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  decoration: BoxDecoration(
+                    color: _gelap
+                        ? const Color(0xFF059669).withValues(alpha: 0.05)
+                        : const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.mark_chat_read_rounded,
+                        size: 36,
+                        color: const Color(0xFF059669).withValues(alpha: 0.6),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Semua Laporan Ditangani',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: _gelap ? Colors.white70 : const Color(0xFF166534),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Tidak ada pengaduan aktif saat ini',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: _gelap ? Colors.white38 : const Color(0xFF4ADE80),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else ...[
+                ...activeComplaints
+                    .take(3)
+                    .map(
+                      (item) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: _gelap
+                                ? const Color(0xFFD97706).withValues(alpha: 0.05)
+                                : const Color(0xFFFFFBEB),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: const Color(0xFFD97706).withValues(alpha: 0.15),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.report_problem_rounded, size: 16, color: Color(0xFFD97706)),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      (item['judul'] ?? item['title'] ?? 'Pengaduan').toString(),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: context.teksUtama,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      (item['nama_pelapor'] ?? item['nama'] ?? 'Warga').toString(),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: context.teksKedua,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: (item['status'] ?? '').toString().toLowerCase() == 'pending'
+                                      ? const Color(0xFFD97706).withValues(alpha: 0.15)
+                                      : const Color(0xFF2563EB).withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  (item['status'] ?? 'pending').toString().toUpperCase(),
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: (item['status'] ?? '').toString().toLowerCase() == 'pending'
+                                        ? const Color(0xFFD97706)
+                                        : const Color(0xFF2563EB),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+              ],
+
+              const SizedBox(height: 12),
+
+              // Summary row
+              Row(
+                children: [
+                  _buildAlertSummaryChip(
+                    Icons.pending_actions_rounded,
+                    'Pending',
+                    '$pendingCount',
+                    const Color(0xFFD97706),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildAlertSummaryChip(
+                    Icons.sync_rounded,
+                    'Proses',
+                    '$diprosesCount',
+                    const Color(0xFF2563EB),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildAlertSummaryChip(
+                    Icons.check_circle_outline_rounded,
+                    'Selesai',
+                    '$selesaiCount',
+                    const Color(0xFF059669),
                   ),
                 ],
               ),
