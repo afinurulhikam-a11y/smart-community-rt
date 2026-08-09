@@ -1552,18 +1552,23 @@ class _MainDashboardState extends State<MainDashboard> {
   Widget _buildPengaduanCard() {
     final complaintProvider = context.watch<ComplaintProvider>();
     final complaints = complaintProvider.complaints;
-    final pendingCount = complaints.where((c) {
+    final stats = complaintProvider.stats;
+    final localPending = complaints.where((c) {
       final st = (c['status'] ?? '').toString().toLowerCase();
       return st == 'pending' || st == 'menunggu' || st == 'diajukan';
     }).length;
-    final diprosesCount = complaints.where((c) {
+    final localDiproses = complaints.where((c) {
       final st = (c['status'] ?? '').toString().toLowerCase();
       return st == 'diproses';
     }).length;
-    final selesaiCount = complaints.where((c) {
+    final localSelesai = complaints.where((c) {
       final st = (c['status'] ?? '').toString().toLowerCase();
       return st == 'selesai' || st == 'disetujui';
     }).length;
+
+    final pendingCount = (stats['pending'] ?? 0) > 0 ? stats['pending']! : localPending;
+    final diprosesCount = (stats['diproses'] ?? 0) > 0 ? stats['diproses']! : localDiproses;
+    final selesaiCount = (stats['selesai'] ?? 0) > 0 ? stats['selesai']! : localSelesai;
     final activeComplaints = complaints.where((c) {
       final st = (c['status'] ?? '').toString().toLowerCase();
       return st == 'pending' || st == 'menunggu' || st == 'diajukan' || st == 'diproses';

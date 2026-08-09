@@ -11,17 +11,42 @@ class ComplaintProvider extends ChangeNotifier {
   int _totalPages = 1;
   int _totalData = 0;
 
+  Map<String, int> _stats = {
+    'pending': 0,
+    'diproses': 0,
+    'selesai': 0,
+    'ditolak': 0,
+    'total': 0,
+  };
+
   List<Map<String, dynamic>> get complaints => _complaints;
+  Map<String, int> get stats => _stats;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   int get currentPage => _currentPage;
   int get totalPages => _totalPages;
   int get totalData => _totalData;
 
+  Future<void> fetchStats() async {
+    final response = await ApiService.get(ApiConstants.complaintStats);
+    if (response['success'] == true && response['data'] != null) {
+      final data = Map<String, dynamic>.from(response['data']);
+      _stats = {
+        'pending': (data['pending'] ?? 0) as int,
+        'diproses': (data['diproses'] ?? 0) as int,
+        'selesai': (data['selesai'] ?? 0) as int,
+        'ditolak': (data['ditolak'] ?? 0) as int,
+        'total': (data['total'] ?? 0) as int,
+      };
+      notifyListeners();
+    }
+  }
+
   Future<void> fetchComplaints({String? status, String? search, int page = 1}) async {
     _isLoading = true;
     _currentPage = page;
     notifyListeners();
+    fetchStats();
     final queryParams = <String, String>{};
     if (status != null) queryParams['status'] = status;
     if (search != null) queryParams['search'] = search;

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getComplaints, createComplaint, updateComplaintStatus, deleteComplaint } = require('../controllers/complaint.controller');
+const { getComplaints, getComplaintStats, createComplaint, updateComplaintStatus, deleteComplaint } = require('../controllers/complaint.controller');
 const { authMiddleware, roleGuard, requirePermission } = require('../middleware/auth.middleware');
 const { validate } = require('../middleware/validate.middleware');
 const Joi = require('joi');
@@ -18,6 +18,7 @@ const complaintUpdateSchema = Joi.object({
 
 router.use(authMiddleware);
 
+router.get('/stats', requirePermission('aspirasi.pengaduan', 'view'), getComplaintStats);
 router.get('/', requirePermission('aspirasi.pengaduan', 'view'), getComplaints);
 router.post('/', requirePermission('aspirasi.pengaduan', 'create'), validate(complaintCreateSchema), createComplaint);
 router.put('/:id/status', requirePermission('aspirasi.pengaduan', 'update'), validate(complaintUpdateSchema), updateComplaintStatus);
