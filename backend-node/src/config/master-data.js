@@ -21,9 +21,36 @@ const KATEGORI_KAS = [
   { nama: 'Biaya Kegiatan Lomba', tipe: 'OUT' },
 ];
 
+// Pemasukan BOP hanya punya SATU kategori, dan itu disengaja.
+//
+// Dulu ada "Bantuan Lain" di sini, dan itulah satu-satunya jalan uang non-BOP
+// bisa masuk ke buku ini. Akibatnya `sisa_pagu` menjadi angka yang maknanya
+// bisa diperdebatkan: `terpakai` menjumlah SELURUH pengeluaran tanpa melihat
+// asal uangnya, jadi membelanjakan sumbangan donatur ikut memotong jatah BOP
+// yang belum tersentuh. RT tampak sudah memakai anggarannya padahal belum.
+//
+// Kategori itu dibuang, bukan ditambal, karena tidak ada satu pun keadaan yang
+// benar-benar membutuhkannya:
+//
+//   - Sumbangan donatur bukan uang BOP. Ia tidak berpagu dan tidak
+//     dipertanggungjawabkan ke kelurahan. Tempatnya di Kas RT, yang sudah punya
+//     kategori "Dana Bantuan / Donasi" di KATEGORI_KAS di atas.
+//   - Dana tambahan dari kelurahan memang uang BOP — tetapi mencatatnya sebagai
+//     pemasukan biasa membuat kasnya bertambah tanpa pagunya ikut bertambah.
+//     Yang benar adalah alokasi termin berikutnya; `alokasi_bop` sudah punya
+//     kolom `termin` dan `sumber_dana` persis untuk itu.
+//
+// Dengan begitu pemasukan BOP dijamin selalu berasal dari pencairan alokasi,
+// sehingga setiap pengeluaran BOP memang membelanjakan uang jatah — dan
+// `terpakai` = seluruh pengeluaran menjadi benar tanpa syarat.
+//
+// Pemasangan yang sudah berjalan tetap menyimpan barisnya dengan
+// `is_aktif = false`, bukan dihapus, agar riwayatnya utuh dan bisa dihidupkan
+// lagi bila ternyata keliru. `auto-setup.js` dan `seed-master.js` sama-sama
+// memakai ON CONFLICT DO NOTHING di atas unique index `nama_kategori`, jadi
+// deploy berikutnya tidak akan menghidupkannya kembali.
 const KATEGORI_BOP = [
   { nama: 'Pencairan Dana BOP', tipe: 'IN' },
-  { nama: 'Bantuan Lain', tipe: 'IN' },
   { nama: 'Honor Pengurus RT', tipe: 'OUT' },
   { nama: 'ATK & Administrasi', tipe: 'OUT' },
   { nama: 'Kegiatan Warga', tipe: 'OUT' },

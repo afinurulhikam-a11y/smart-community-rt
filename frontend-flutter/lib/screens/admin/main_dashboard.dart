@@ -1046,9 +1046,18 @@ class _MainDashboardState extends State<MainDashboard> {
             ),
           if (izin.bolehLihat('keuangan.bop'))
             GradientStatCard(
-              label: 'SISA DANA BOP',
-              // Sisa pagu, bukan saldo kas: labelnya "sisa dana", dan yang
-              // ditanyakan pengurus adalah berapa jatah belanja yang tersisa.
+              // "PAGU", bukan "DANA". Angkanya adalah sisa jatah belanja
+              // (alokasi − terpakai), sedangkan kata "dana" terbaca sebagai
+              // uang yang ada di kas — dan itu angka yang berbeda.
+              //
+              // Keduanya kebetulan sama besar selama seluruh alokasi sudah
+              // cair penuh, jadi tidak ada apa pun di layar yang membantah
+              // salah baca itu. Bedanya baru muncul saat pencairan bertahap:
+              // pagu bisa menyisakan Rp 4 juta sementara kasnya sudah minus.
+              //
+              // Layar BOP menampilkan keduanya berdampingan sebagai "SISA
+              // PAGU" dan "SALDO KAS BOP"; nama di sini kini mengikutinya.
+              label: 'SISA PAGU BOP',
               value: _formatRupiah(context.watch<BopProvider>().summary?.sisaPagu ?? 0),
               subtitle: 'Bantuan Operasional Penyelenggaraan',
               icon: Icons.account_balance_wallet,
