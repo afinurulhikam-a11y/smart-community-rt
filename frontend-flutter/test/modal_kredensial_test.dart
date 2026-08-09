@@ -33,7 +33,7 @@ List<Widget> kotakKredensial(BuildContext c) => [
     decoration: dekorKredensial(
       c,
       suffixIcon: Icon(
-        Icons.arrow_drop_down,
+        Icons.keyboard_arrow_down_rounded,
         size: 18,
         color: c.teksKedua,
       ),
@@ -135,7 +135,7 @@ void main() {
 
     testWidgets('ikon panah role dan ikon mata sandi sejajar presisi di sisi kanan — mode $mode', (tester) async {
       await pasang(tester, gelap: gelap);
-      final pPanah = tester.getCenter(find.byIcon(Icons.arrow_drop_down));
+      final pPanah = tester.getCenter(find.byIcon(Icons.keyboard_arrow_down_rounded));
       final pMata = tester.getCenter(find.byIcon(Icons.visibility_outlined));
       expect(pPanah.dx, pMata.dx, reason: 'pusat horizontal ikon panah (${pPanah.dx}) dan ikon mata (${pMata.dx}) tidak sejajar');
     });

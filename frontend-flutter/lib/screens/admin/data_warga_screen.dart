@@ -1131,7 +1131,7 @@ aksi: Transform.translate(
                       decoration: dekorKredensial(
                         context,
                         suffixIcon: Icon(
-                          Icons.arrow_drop_down,
+                          Icons.keyboard_arrow_down_rounded,
                           size: 18,
                           color: context.teksKedua,
                         ),
