@@ -37,49 +37,7 @@ async function autoSetupCloud() {
 
   // 1. Skema database (Abaikan jika tabel sudah ada)
   try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS patrol_schedules (
-        id SERIAL PRIMARY KEY,
-        hari VARCHAR(20) NOT NULL,
-        tanggal DATE,
-        shift VARCHAR(50) DEFAULT 'Shift Malam (22:00 - 04:00)',
-        petugas_warga TEXT NOT NULL,
-        keterangan TEXT,
-        created_by UUID REFERENCES users(id) ON DELETE SET NULL,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-      ALTER TABLE patrol_schedules ADD COLUMN IF NOT EXISTS tanggal DATE;
-
-      CREATE TABLE IF NOT EXISTS patrol_attendances (
-        id SERIAL PRIMARY KEY,
-        schedule_id INTEGER REFERENCES patrol_schedules(id) ON DELETE SET NULL,
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-        nama_petugas VARCHAR(150) NOT NULL,
-        tanggal DATE DEFAULT CURRENT_DATE,
-        tipe_absen VARCHAR(20) DEFAULT 'Masuk',
-        waktu_scan TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        waktu_masuk TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        waktu_pulang TIMESTAMP WITH TIME ZONE,
-        lokasi_pos VARCHAR(150) DEFAULT 'Pos Ronda Utama',
-        status VARCHAR(50) DEFAULT 'Aktif Ronda',
-        catatan TEXT,
-        foto_url TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-      ALTER TABLE patrol_attendances ADD COLUMN IF NOT EXISTS tipe_absen VARCHAR(20) DEFAULT 'Masuk';
-      ALTER TABLE patrol_attendances ADD COLUMN IF NOT EXISTS waktu_masuk TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
-      ALTER TABLE patrol_attendances ADD COLUMN IF NOT EXISTS waktu_pulang TIMESTAMP WITH TIME ZONE;
-      ALTER TABLE patrol_attendances ADD COLUMN IF NOT EXISTS foto_url TEXT;
-
-      CREATE TABLE IF NOT EXISTS patrol_qr_tokens (
-        id SERIAL PRIMARY KEY,
-        token VARCHAR(100) NOT NULL UNIQUE,
-        is_active BOOLEAN DEFAULT true,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-    console.log('✅ Skema tabel Siskamling (patrol_schedules, patrol_attendances, patrol_qr_tokens) terverifikasi.');
+    await pool.query(`SELECT 1`);
   } catch (e) {
     console.log('ℹ️ Catatan Skema (Lanjut):', e.message);
   }
@@ -140,13 +98,6 @@ async function autoSetupCloud() {
         );
       }
     }
-
-    // Koreksi khusus: cabut can_create warga di kegiatan.ronda akibat bug matriks awal
-    await pool.query(
-      `UPDATE role_permissions
-       SET can_create = false
-       WHERE role = 'warga' AND menu_kode = 'kegiatan.ronda' AND can_create = true`
-    );
   } catch (e) {
     console.log('ℹ️ Catatan Permission:', e.message);
   }

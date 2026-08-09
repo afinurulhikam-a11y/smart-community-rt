@@ -213,10 +213,6 @@ async function hapusDemo(client) {
     [`DELETE FROM polling_options WHERE polling_id IN (SELECT id FROM polling WHERE deskripsi LIKE $1)`, [`%${TANDA}%`]],
     [`DELETE FROM polling WHERE deskripsi LIKE $1`, [`%${TANDA}%`]],
 
-    // siskamling: absensi → jadwal
-    [`DELETE FROM patrol_attendances WHERE catatan LIKE $1`, [`%${TANDA}%`]],
-    [`DELETE FROM patrol_schedules WHERE keterangan LIKE $1`, [`%${TANDA}%`]],
-
     // darurat
     [`DELETE FROM emergency_alerts WHERE message LIKE $1`, [`%${TANDA}%`]],
 
@@ -639,48 +635,6 @@ async function isiDemo(client) {
     );
   }
   ringkas.bantuan_sosial = bansos.length;
-
-  // --- Siskamling ---------------------------------------------------
-  const hariNama = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-  const jadwalIds = [];
-
-  for (let g = -4; g <= 4; g += 2) {
-    const tgl = tanggal(g);
-    const hari = hariNama[new Date(tgl + 'T00:00:00').getDay()];
-    const petugas = [
-      KELUARGA[(g + 4) % 6].kepala,
-      KELUARGA[(g + 5) % 6].kepala,
-    ].join(', ');
-
-    const j = await client.query(
-      `INSERT INTO patrol_schedules (hari, tanggal, shift, petugas_warga, keterangan, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
-      [hari, tgl, 'Shift Malam (20:00 - 04:00)', petugas, `${TANDA} Jadwal ronda uji coba`, adminId]
-    );
-    jadwalIds.push({ id: j.rows[0].id, tgl, geser: g });
-  }
-
-  // Absensi hanya untuk jadwal yang sudah lewat. Yang paling lama sudah
-  // selesai tugas, yang terakhir masih "Aktif Ronda" — dan indeks parsial
-  // patrol_absensi_aktif_uniq hanya mengizinkan SATU absensi terbuka per
-  // petugas per hari, jadi tanggalnya harus berbeda-beda.
-  let jumlahAbsen = 0;
-  for (const j of jadwalIds.filter((x) => x.geser < 0)) {
-    const selesai = j.geser <= -3;
-    await client.query(
-      `INSERT INTO patrol_attendances (schedule_id, user_id, nama_petugas, tanggal, tipe_absen,
-                                       waktu_masuk, waktu_pulang, lokasi_pos, status, catatan)
-       VALUES ($1,$2,$3,$4,'Masuk',$5,$6,'Pos Ronda Utama',$7,$8)`,
-      [
-        j.id, wargaIds[jumlahAbsen % wargaIds.length], KELUARGA[jumlahAbsen % 6].kepala, j.tgl,
-        `${j.tgl} 20:05:00`, selesai ? `${j.tgl} 23:58:00` : null,
-        selesai ? 'Selesai Tugas' : 'Aktif Ronda',
-        `${TANDA} Absensi ronda uji coba`,
-      ]
-    );
-    jumlahAbsen++;
-  }
-  ringkas.siskamling = `${jadwalIds.length} jadwal, ${jumlahAbsen} absensi`;
 
   // --- Riwayat darurat ----------------------------------------------
   // Keduanya sudah diselesaikan. Alarm AKTIF sengaja tidak dibuat: ia akan

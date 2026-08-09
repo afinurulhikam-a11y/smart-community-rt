@@ -207,10 +207,4 @@ class ApiConstants {
   static String get families => '$baseUrl/families';
   static String get warga => '$baseUrl/warga';
   static String get wargaKirimKredensialWa => '$baseUrl/warga/kirim-kredensial-wa';
-
-  // Siskamling (Jadwal Ronda & Absensi Pos Ronda)
-  static String get patrolSchedules => '$baseUrl/patrol/schedules';
-  static String get patrolAttendances => '$baseUrl/patrol/attendances';
-  static String get patrolQr => '$baseUrl/patrol/qr';
-  static String get patrolQrRegenerate => '$baseUrl/patrol/qr/regenerate';
 }

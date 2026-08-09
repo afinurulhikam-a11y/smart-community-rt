@@ -570,15 +570,6 @@ class WargaDashboardContent extends StatelessWidget {
         'bgColor': const Color(0xFFEDE9FE),
         'menu': 50,
       },
-      if (permissions.bolehLihat('kegiatan.ronda'))
-        {
-          'icon': Icons.shield_outlined,
-          'title': 'Jadwal Ronda',
-          'subtitle': 'Absen Siskamling',
-          'color': const Color(0xFF0F766E),
-          'bgColor': const Color(0xFFE0F2FE),
-          'menu': 51,
-        },
       {
         'icon': Icons.error_outline_rounded,
         'title': 'Pengaduan',
