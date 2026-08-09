@@ -1128,13 +1128,21 @@ aksi: Transform.translate(
                     const SizedBox(height: 6),
                     InputDecorator(
                       key: const Key('role'),
-                      decoration: dekorKredensial(context),
+                      decoration: dekorKredensial(
+                        context,
+                        suffixIcon: Icon(
+                          Icons.arrow_drop_down,
+                          size: 18,
+                          color: context.teksKedua,
+                        ),
+                      ),
                       textAlignVertical: TextAlignVertical.center,
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
                           value: selectedRole,
                           isExpanded: true,
                           isDense: true,
+                          icon: const SizedBox.shrink(),
                           style: gayaIsiKredensial(context),
                           dropdownColor: context.latarKartu,
                           onChanged: bolehUbahRole

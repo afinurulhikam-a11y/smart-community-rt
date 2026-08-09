@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:smart_community/core/theme/app_theme.dart';
+import 'package:smart_community/core/theme/warna_konteks.dart';
 import 'package:smart_community/screens/admin/data_warga_screen.dart';
 
 /// Keempat kotak isian dialog Akun & Kredensial, dibangun dengan
@@ -29,12 +30,20 @@ List<Widget> kotakKredensial(BuildContext c) => [
   // Role / Peran Sistem
   InputDecorator(
     key: const Key('role'),
-    decoration: dekorKredensial(c),
+    decoration: dekorKredensial(
+      c,
+      suffixIcon: Icon(
+        Icons.arrow_drop_down,
+        size: 18,
+        color: c.teksKedua,
+      ),
+    ),
     child: DropdownButtonHideUnderline(
       child: DropdownButton<String>(
         value: 'warga',
         isExpanded: true,
         isDense: true,
+        icon: const SizedBox.shrink(),
         style: gayaIsiKredensial(c),
         onChanged: (_) {},
         items: const [
@@ -127,6 +136,13 @@ void main() {
       final kanan = {for (final k in kunci) k: tester.getTopRight(find.byKey(Key(k))).dx};
       expect(kiri.values.toSet(), hasLength(1), reason: 'tepi kiri tidak lurus: $kiri');
       expect(kanan.values.toSet(), hasLength(1), reason: 'tepi kanan tidak lurus: $kanan');
+    });
+
+    testWidgets('ikon panah role dan ikon mata sandi sejajar presisi di sisi kanan — mode $mode', (tester) async {
+      await pasang(tester, gelap: gelap);
+      final pPanah = tester.getCenter(find.byIcon(Icons.arrow_drop_down));
+      final pMata = tester.getCenter(find.byIcon(Icons.visibility_outlined));
+      expect(pPanah.dx, pMata.dx, reason: 'pusat horizontal ikon panah (${pPanah.dx}) dan ikon mata (${pMata.dx}) tidak sejajar');
     });
   }
 
