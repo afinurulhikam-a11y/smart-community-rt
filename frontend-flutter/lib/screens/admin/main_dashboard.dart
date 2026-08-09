@@ -1569,11 +1569,12 @@ class _MainDashboardState extends State<MainDashboard> {
     final pendingCount = (stats['pending'] ?? 0) > 0 ? stats['pending']! : localPending;
     final diprosesCount = (stats['diproses'] ?? 0) > 0 ? stats['diproses']! : localDiproses;
     final selesaiCount = (stats['selesai'] ?? 0) > 0 ? stats['selesai']! : localSelesai;
+    final totalAktif = pendingCount + diprosesCount;
     final activeComplaints = complaints.where((c) {
       final st = (c['status'] ?? '').toString().toLowerCase();
       return st == 'pending' || st == 'menunggu' || st == 'diajukan' || st == 'diproses';
     }).toList();
-    final hasActive = activeComplaints.isNotEmpty;
+    final hasActive = totalAktif > 0 || activeComplaints.isNotEmpty;
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -1647,7 +1648,7 @@ class _MainDashboardState extends State<MainDashboard> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      hasActive ? '💬 ${activeComplaints.length} Aktif' : '✓ Terkendali',
+                      hasActive ? '💬 $totalAktif Aktif' : '✓ Terkendali',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
@@ -1815,7 +1816,7 @@ class _MainDashboardState extends State<MainDashboard> {
                     foregroundColor: const Color(0xFFD97706),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  child: Text('Lihat Semua Pengaduan (${activeComplaints.length})'),
+                  child: Text('Lihat Semua Pengaduan ($totalAktif)'),
                 ),
               ),
             ],
