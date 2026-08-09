@@ -4,9 +4,36 @@ const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit-table');
 const { generatePaymentPDF } = require('../utils/pdf-generator');
 const { logActivity, rupiah } = require('../services/log.service');
+const { rincianTagihanAir, pakaiMeteran } = require('../utils/tagihan-air');
 
 const STATUS_BELUM = 'unpaid';
 const STATUS_LUNAS = 'lunas';
+
+/**
+ * Angka meteran terakhir yang tercatat untuk satu KK pada satu jenis iuran.
+ *
+ * Dipakai untuk mengisi otomatis "meteran lalu" saat tagihan bulan berikutnya
+ * dibuat. Petugas cukup mencatat angka yang terbaca di meteran; angka
+ * pembandingnya diambil dari tagihan sebelumnya, bukan diketik ulang.
+ *
+ * Itu bukan kenyamanan semata. Mengetik ulang angka awal berarti satu peluang
+ * salah ketik per rumah per bulan, dan kesalahannya tidak terlihat — tagihannya
+ * tetap masuk akal, hanya jumlahnya salah. Mengambilnya dari baris sebelumnya
+ * juga menjamin tidak ada pemakaian yang terlewat di antara dua bulan.
+ *
+ * Diurutkan berdasarkan `bulan` yang berformat YYYY-MM, sehingga urutan teks
+ * sama dengan urutan waktu.
+ */
+async function meteranTerakhir(client, keluargaId, jenisIuranId, bulan) {
+  const r = await client.query(
+    `SELECT meteran_sekarang FROM bills
+     WHERE keluarga_id = $1 AND jenis_iuran_id = $2
+       AND bulan < $3 AND meteran_sekarang IS NOT NULL
+     ORDER BY bulan DESC LIMIT 1`,
+    [keluargaId, jenisIuranId, bulan]
+  );
+  return r.rows[0]?.meteran_sekarang ?? null;
+}
 
 /**
  * Tata letak kolom export. Excel dan PDF sama-sama membacanya, supaya keduanya
@@ -181,10 +208,12 @@ async function getBillStats(req, res) {
 async function updateBill(req, res) {
   try {
     const { id } = req.params;
-    const { nominal, keterangan, jatuh_tempo } = req.body;
+    const { nominal, keterangan, jatuh_tempo, meteran_lalu, meteran_sekarang } = req.body;
 
     const tagihan = await pool.query(
-      'SELECT id, status, jenis_tagihan, bulan, nominal FROM bills WHERE id = $1',
+      `SELECT id, status, jenis_tagihan, bulan, nominal,
+              meteran_lalu, meteran_sekarang, tarif_per_m3, abondement, biaya_sampah
+       FROM bills WHERE id = $1`,
       [id]
     );
     if (tagihan.rows.length === 0) {
@@ -197,10 +226,43 @@ async function updateBill(req, res) {
       });
     }
 
-    // Nominal boleh dikosongkan (kembali ke nilai lama), tapi kalau diisi
-    // harus angka positif.
-    let nominalFinal = tagihan.rows[0].nominal;
-    if (nominal !== undefined && nominal !== null && nominal !== '') {
+    const lama = tagihan.rows[0];
+    // Tagihan bermeteran dikenali dari tarifnya yang tersalin, bukan dari
+    // jenis iurannya sekarang. Kalau jenisnya kemudian diubah menjadi tetap,
+    // tagihan yang sudah terbit tetap harus dihitung dengan aturan yang berlaku
+    // saat ia dibuat.
+    const berbasisMeteran = lama.tarif_per_m3 !== null && lama.tarif_per_m3 !== undefined;
+
+    let nominalFinal = lama.nominal;
+    let air = null;
+
+    if (berbasisMeteran) {
+      const ambil = (baru, lamaNilai) =>
+        baru !== undefined && baru !== null && baru !== '' ? baru : lamaNilai;
+
+      const mLalu = ambil(meteran_lalu, lama.meteran_lalu);
+      const mKini = ambil(meteran_sekarang, lama.meteran_sekarang);
+
+      if (mKini !== null && mKini !== undefined && Number(mKini) < Number(mLalu ?? 0)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Meteran sekarang tidak boleh lebih kecil daripada meteran bulan lalu.',
+        });
+      }
+
+      // Nominal dari body diabaikan, sama seperti pada createBill: totalnya
+      // harus selalu bisa dihitung ulang dari rinciannya sendiri.
+      air = rincianTagihanAir({
+        meteranLalu: mLalu,
+        meteranSekarang: mKini,
+        tarifPerM3: lama.tarif_per_m3,
+        abondement: lama.abondement,
+        biayaSampah: lama.biaya_sampah,
+      });
+      nominalFinal = air.total;
+    } else if (nominal !== undefined && nominal !== null && nominal !== '') {
+      // Nominal boleh dikosongkan (kembali ke nilai lama), tapi kalau diisi
+      // harus angka positif.
       const n = Number(nominal);
       if (!(n > 0)) {
         return res.status(400).json({ success: false, message: 'Nominal harus lebih dari 0.' });
@@ -210,9 +272,14 @@ async function updateBill(req, res) {
 
     const result = await pool.query(
       `UPDATE bills
-       SET nominal = $1, keterangan = $2, jatuh_tempo = $3, updated_at = NOW()
+       SET nominal = $1, keterangan = $2, jatuh_tempo = $3, updated_at = NOW(),
+           meteran_lalu = COALESCE($5, meteran_lalu),
+           meteran_sekarang = COALESCE($6, meteran_sekarang)
        WHERE id = $4 RETURNING *`,
-      [nominalFinal, keterangan || null, jatuh_tempo || null, id]
+      [
+        nominalFinal, keterangan || null, jatuh_tempo || null, id,
+        air?.meteran_lalu ?? null, air?.meteran_sekarang ?? null,
+      ]
     );
 
     const ubah = result.rows[0];
@@ -237,7 +304,10 @@ async function ambilJenis(client, jenisIuranId) {
 
 async function createBill(req, res) {
   try {
-    const { keluarga_id, jenis_iuran_id, bulan, nominal, keterangan, jatuh_tempo } = req.body;
+    const {
+      keluarga_id, jenis_iuran_id, bulan, nominal, keterangan, jatuh_tempo,
+      meteran_lalu, meteran_sekarang,
+    } = req.body;
 
     if (!keluarga_id || !jenis_iuran_id || !bulan) {
       return res.status(400).json({ success: false, message: 'keluarga_id, jenis_iuran_id, dan bulan wajib diisi.' });
@@ -254,10 +324,48 @@ async function createBill(req, res) {
     const jenis = await ambilJenis(pool, jenis_iuran_id);
     if (!jenis) return res.status(404).json({ success: false, message: 'Jenis iuran tidak ditemukan.' });
 
-    // Nominal kosong → pakai nominal default milik jenis iuran.
-    const nominalFinal = nominal !== undefined && nominal !== null && nominal !== ''
-      ? nominal
-      : jenis.nominal_default;
+    // Dua cara sebuah tagihan mendapat nominalnya, dipilih oleh jenis iurannya
+    // sendiri — bukan oleh apa yang dikirim klien.
+    //
+    // Untuk jenis bermeteran, nominal dari body SENGAJA diabaikan. Kalau ia
+    // dihormati, pengurus bisa mengirim angka meteran sekaligus total yang
+    // tidak sesuai dengan angka itu, dan tagihannya akan menampilkan rincian
+    // yang tidak menjumlah ke totalnya sendiri. Rincian harus selalu bisa
+    // dihitung ulang dari bahan yang tersimpan bersamanya.
+    let nominalFinal;
+    let air = null;
+
+    if (pakaiMeteran(jenis)) {
+      // Angka awal diambil dari tagihan sebelumnya bila tidak dikirim, sehingga
+      // tidak ada pemakaian yang terlewat di antara dua bulan.
+      const lalu = meteran_lalu !== undefined && meteran_lalu !== null && meteran_lalu !== ''
+        ? meteran_lalu
+        : await meteranTerakhir(pool, keluarga_id, jenis_iuran_id, bulan);
+
+      if (
+        meteran_sekarang !== undefined && meteran_sekarang !== null && meteran_sekarang !== ''
+        && Number(meteran_sekarang) < Number(lalu ?? 0)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: 'Meteran sekarang tidak boleh lebih kecil daripada meteran bulan lalu.',
+        });
+      }
+
+      air = rincianTagihanAir({
+        meteranLalu: lalu,
+        meteranSekarang: meteran_sekarang,
+        tarifPerM3: jenis.tarif_per_m3,
+        abondement: jenis.abondement,
+        biayaSampah: jenis.biaya_sampah,
+      });
+      nominalFinal = air.total;
+    } else {
+      // Nominal kosong → pakai nominal default milik jenis iuran.
+      nominalFinal = nominal !== undefined && nominal !== null && nominal !== ''
+        ? nominal
+        : jenis.nominal_default;
+    }
 
     const duplikat = await pool.query(
       'SELECT id FROM bills WHERE keluarga_id = $1 AND jenis_iuran_id = $2 AND bulan = $3',
@@ -270,10 +378,23 @@ async function createBill(req, res) {
       });
     }
 
+    // Tarif, abondement, dan biaya sampah DISALIN ke tagihan, bukan dibaca
+    // ulang dari master saat ditampilkan. Kalau RT menaikkan tarif air, tagihan
+    // bulan-bulan sebelumnya tidak boleh ikut berubah — warga yang sudah
+    // membayar lunas akan mendadak terlihat kurang bayar. Alasannya sama dengan
+    // `payment_transaction_bills.nominal` yang juga disalin.
     const result = await pool.query(
-      `INSERT INTO bills (keluarga_id, jenis_iuran_id, jenis_tagihan, bulan, nominal, keterangan, jatuh_tempo, status, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [keluarga_id, jenis_iuran_id, jenis.nama_iuran, bulan, nominalFinal, keterangan || null, jatuh_tempo || null, STATUS_BELUM, req.user.id]
+      `INSERT INTO bills (keluarga_id, jenis_iuran_id, jenis_tagihan, bulan, nominal, keterangan, jatuh_tempo, status, created_by,
+                          meteran_lalu, meteran_sekarang, tarif_per_m3, abondement, biaya_sampah)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
+      [
+        keluarga_id, jenis_iuran_id, jenis.nama_iuran, bulan, nominalFinal,
+        keterangan || null, jatuh_tempo || null, STATUS_BELUM, req.user.id,
+        air?.meteran_lalu ?? null, air?.meteran_sekarang ?? null,
+        air ? air.tarif_per_m3 : null,
+        air ? air.abondement : null,
+        air ? air.biaya_sampah : null,
+      ]
     );
 
     const tagihanBaru = result.rows[0];
@@ -312,24 +433,66 @@ async function generateBills(req, res) {
     const jenis = await ambilJenis(client, jenis_iuran_id);
     if (!jenis) return res.status(404).json({ success: false, message: 'Jenis iuran tidak ditemukan.' });
 
-    const nominalFinal = nominal !== undefined && nominal !== null && nominal !== ''
-      ? nominal
-      : jenis.nominal_default;
-    if (!nominalFinal || Number(nominalFinal) <= 0) {
-      return res.status(400).json({ success: false, message: 'Nominal harus lebih dari 0. Isi nominal atau set nominal default pada jenis iuran.' });
+    const meteran = pakaiMeteran(jenis);
+
+    // Jenis bermeteran diterbitkan TANPA angka bacaan, dan itu memang alur
+    // penagihan air: tagihannya terbit lebih dulu, petugas berkeliling membaca
+    // meteran sesudahnya. Nominal awalnya adalah bagian tetapnya saja —
+    // abondement dan biaya sampah — yang memang sudah terutang tanpa memandang
+    // pemakaian. Angka airnya bertambah setelah bacaannya dimasukkan.
+    let nominalFinal;
+    if (meteran) {
+      if (!jenis.tarif_per_m3 || Number(jenis.tarif_per_m3) <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Tarif per m³ pada jenis iuran ini belum diisi. Lengkapi dulu di master Jenis Iuran.',
+        });
+      }
+      nominalFinal = Number(jenis.abondement || 0) + Number(jenis.biaya_sampah || 0);
+    } else {
+      nominalFinal = nominal !== undefined && nominal !== null && nominal !== ''
+        ? nominal
+        : jenis.nominal_default;
+      if (!nominalFinal || Number(nominalFinal) <= 0) {
+        return res.status(400).json({ success: false, message: 'Nominal harus lebih dari 0. Isi nominal atau set nominal default pada jenis iuran.' });
+      }
     }
 
     await client.query('BEGIN');
 
     const totalKk = await client.query('SELECT COUNT(*)::int AS c FROM keluarga');
+
+    // Angka meteran bulan lalu diambil per KK lewat subkueri berkorelasi,
+    // sehingga penerbitannya tetap SATU perintah untuk seluruh keluarga —
+    // bukan perulangan per rumah. Tiap KK mendapat angka awalnya sendiri, dan
+    // rumah yang belum pernah ditagih mendapat NULL.
     const dibuat = await client.query(
-      `INSERT INTO bills (keluarga_id, jenis_iuran_id, jenis_tagihan, bulan, nominal, keterangan, jatuh_tempo, status, created_by)
-       SELECT k.id, $1, $2, $3, $4, $5, $6, $7, $8
+      `INSERT INTO bills (keluarga_id, jenis_iuran_id, jenis_tagihan, bulan, nominal, keterangan, jatuh_tempo, status, created_by,
+                          meteran_lalu, tarif_per_m3, abondement, biaya_sampah)
+       SELECT k.id, $1, $2, $3, $4, $5, $6, $7, $8,
+              -- $1 dan $3 dipakai DUA KALI dalam perintah yang sama: sekali
+              -- sebagai nilai kolom, sekali di dalam subkueri ini. Tanpa cast
+              -- eksplisit, Postgres menyimpulkan dua tipe berbeda untuk
+              -- parameter yang sama dan menolak dengan "inconsistent types
+              -- deduced" — jebakan yang sudah tercatat di CLAUDE.md.
+              CASE WHEN $9::boolean THEN (
+                SELECT b.meteran_sekarang FROM bills b
+                WHERE b.keluarga_id = k.id AND b.jenis_iuran_id = $1::int
+                  AND b.bulan < $3::varchar AND b.meteran_sekarang IS NOT NULL
+                ORDER BY b.bulan DESC LIMIT 1
+              ) END,
+              CASE WHEN $9::boolean THEN $10::int END,
+              CASE WHEN $9::boolean THEN $11::int END,
+              CASE WHEN $9::boolean THEN $12::int END
        FROM keluarga k
        ON CONFLICT (keluarga_id, jenis_iuran_id, bulan) WHERE keluarga_id IS NOT NULL
        DO NOTHING
        RETURNING id`,
-      [jenis_iuran_id, jenis.nama_iuran, bulan, nominalFinal, keterangan || null, jatuh_tempo || null, STATUS_BELUM, req.user.id]
+      [
+        jenis_iuran_id, jenis.nama_iuran, bulan, nominalFinal, keterangan || null,
+        jatuh_tempo || null, STATUS_BELUM, req.user.id,
+        meteran, jenis.tarif_per_m3 || null, jenis.abondement || 0, jenis.biaya_sampah || 0,
+      ]
     );
 
     await client.query('COMMIT');

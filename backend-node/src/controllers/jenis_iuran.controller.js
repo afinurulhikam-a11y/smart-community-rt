@@ -1,5 +1,6 @@
 const { pool } = require('../config/database');
 const { logActivity, rupiah, bandingkan, TIPE } = require('../services/log.service');
+const { TIPE_TETAP, TIPE_METERAN } = require('../utils/tagihan-air');
 
 const PERIODE_VALID = ['bulanan', 'tahunan', 'sekali'];
 
@@ -26,12 +27,31 @@ async function getJenisIuran(req, res) {
 
 async function createJenisIuran(req, res) {
   try {
-    const { nama_iuran, nominal_default, periode, keterangan } = req.body;
+    const {
+      nama_iuran, nominal_default, periode, keterangan,
+      tipe_hitung, tarif_per_m3, abondement, biaya_sampah,
+    } = req.body;
     if (!nama_iuran || !nama_iuran.trim()) {
       return res.status(400).json({ success: false, message: 'Nama iuran wajib diisi.' });
     }
     if (periode && !PERIODE_VALID.includes(periode)) {
       return res.status(400).json({ success: false, message: `Periode harus salah satu dari: ${PERIODE_VALID.join(', ')}` });
+    }
+
+    const tipeHitung = tipe_hitung || TIPE_TETAP;
+    if (![TIPE_TETAP, TIPE_METERAN].includes(tipeHitung)) {
+      return res.status(400).json({
+        success: false,
+        message: `Tipe hitung harus salah satu dari: ${TIPE_TETAP}, ${TIPE_METERAN}`,
+      });
+    }
+    // Tanpa tarif, jenis bermeteran tidak bisa menghitung apa pun — tagihannya
+    // akan terbit sebesar biaya tetap saja dan diam-diam tidak menagih airnya.
+    if (tipeHitung === TIPE_METERAN && !(Number(tarif_per_m3) > 0)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tarif per m³ wajib diisi dan harus lebih dari 0 untuk iuran berbasis meteran.',
+      });
     }
 
     const kembar = await pool.query('SELECT id FROM jenis_iuran WHERE LOWER(TRIM(nama_iuran)) = LOWER(TRIM($1))', [nama_iuran]);
@@ -40,9 +60,14 @@ async function createJenisIuran(req, res) {
     }
 
     const result = await pool.query(
-      `INSERT INTO jenis_iuran (nama_iuran, nominal_default, periode, keterangan, is_aktif)
-       VALUES ($1, $2, $3, $4, true) RETURNING *`,
-      [nama_iuran.trim(), nominal_default || 0, periode || 'bulanan', keterangan || null]
+      `INSERT INTO jenis_iuran (nama_iuran, nominal_default, periode, keterangan, is_aktif,
+                                tipe_hitung, tarif_per_m3, abondement, biaya_sampah)
+       VALUES ($1, $2, $3, $4, true, $5, $6, $7, $8) RETURNING *`,
+      [
+        nama_iuran.trim(), nominal_default || 0, periode || 'bulanan', keterangan || null,
+        tipeHitung, tipeHitung === TIPE_METERAN ? (tarif_per_m3 || 0) : null,
+        abondement || 0, biaya_sampah || 0,
+      ]
     );
     const baru = result.rows[0];
     await logActivity(
@@ -61,7 +86,17 @@ async function createJenisIuran(req, res) {
 async function updateJenisIuran(req, res) {
   try {
     const { id } = req.params;
-    const { nama_iuran, nominal_default, periode, keterangan, is_aktif } = req.body;
+    const {
+      nama_iuran, nominal_default, periode, keterangan, is_aktif,
+      tipe_hitung, tarif_per_m3, abondement, biaya_sampah,
+    } = req.body;
+
+    if (tipe_hitung && ![TIPE_TETAP, TIPE_METERAN].includes(tipe_hitung)) {
+      return res.status(400).json({
+        success: false,
+        message: `Tipe hitung harus salah satu dari: ${TIPE_TETAP}, ${TIPE_METERAN}`,
+      });
+    }
 
     if (periode && !PERIODE_VALID.includes(periode)) {
       return res.status(400).json({ success: false, message: `Periode harus salah satu dari: ${PERIODE_VALID.join(', ')}` });
@@ -91,9 +126,17 @@ async function updateJenisIuran(req, res) {
          nominal_default = COALESCE($2, nominal_default),
          periode         = COALESCE($3, periode),
          keterangan      = COALESCE($4, keterangan),
-         is_aktif        = COALESCE($5, is_aktif)
+         is_aktif        = COALESCE($5, is_aktif),
+         tipe_hitung     = COALESCE($7, tipe_hitung),
+         tarif_per_m3    = COALESCE($8, tarif_per_m3),
+         abondement      = COALESCE($9, abondement),
+         biaya_sampah    = COALESCE($10, biaya_sampah)
        WHERE id = $6 RETURNING *`,
-      [nama_iuran?.trim() || null, nominal_default ?? null, periode || null, keterangan ?? null, is_aktif ?? null, id]
+      [
+        nama_iuran?.trim() || null, nominal_default ?? null, periode || null,
+        keterangan ?? null, is_aktif ?? null, id,
+        tipe_hitung || null, tarif_per_m3 ?? null, abondement ?? null, biaya_sampah ?? null,
+      ]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Jenis iuran tidak ditemukan.' });
