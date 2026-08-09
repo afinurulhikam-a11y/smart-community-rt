@@ -42,6 +42,21 @@ class BillModel {
   final DateTime? jatuhTempo;
   final DateTime createdAt;
 
+  // ── Tagihan berbasis meteran (iuran air sumur bor) ──────────────────
+  //
+  // Semuanya null pada tagihan bernominal tetap, dan [pakaiMeteran] adalah
+  // satu-satunya cara yang benar untuk membedakannya. Menebak dari nama
+  // iurannya akan patah begitu pengurus mengganti namanya di layar master.
+  //
+  // Tarif, abondement, dan biaya sampah datang dari TAGIHAN, bukan dari master
+  // jenis iuran — tagihan lama harus tetap menampilkan angka yang berlaku saat
+  // ia diterbitkan, walau tarifnya sudah dinaikkan sejak itu.
+  final int? meteranLalu;
+  final int? meteranSekarang;
+  final int? tarifPerM3;
+  final int? abondement;
+  final int? biayaSampah;
+
   // Terisi hanya bila tagihan sudah dibayar.
   final String? userId;
   final DateTime? paidAt;
@@ -64,6 +79,11 @@ class BillModel {
     this.keterangan,
     this.jatuhTempo,
     required this.createdAt,
+    this.meteranLalu,
+    this.meteranSekarang,
+    this.tarifPerM3,
+    this.abondement,
+    this.biayaSampah,
     this.userId,
     this.paidAt,
     this.metodeBayar,
@@ -91,12 +111,40 @@ class BillModel {
       keterangan: json['keterangan']?.toString(),
       jatuhTempo: _toDate(json['jatuh_tempo']),
       createdAt: _toDate(json['created_at']) ?? DateTime.now(),
+      meteranLalu: json['meteran_lalu'] == null ? null : _toInt(json['meteran_lalu']),
+      meteranSekarang: json['meteran_sekarang'] == null ? null : _toInt(json['meteran_sekarang']),
+      tarifPerM3: json['tarif_per_m3'] == null ? null : _toInt(json['tarif_per_m3']),
+      abondement: json['abondement'] == null ? null : _toInt(json['abondement']),
+      biayaSampah: json['biaya_sampah'] == null ? null : _toInt(json['biaya_sampah']),
       userId: json['user_id']?.toString(),
       paidAt: _toDate(json['paid_at']),
       metodeBayar: json['metode_bayar']?.toString(),
       invoiceNumber: json['invoice_number']?.toString(),
     );
   }
+
+  /// Tagihan ini ditagih berdasarkan meteran.
+  ///
+  /// Ditentukan dari tarif yang TERSALIN di tagihan, bukan dari jenis iurannya
+  /// sekarang: kalau jenisnya kelak diubah, tagihan yang sudah terbit tetap
+  /// harus dibaca dengan aturan yang berlaku saat ia dibuat.
+  bool get pakaiMeteran => tarifPerM3 != null;
+
+  /// Pemakaian air dalam m³, atau null bila petugas belum mencatat bacaannya.
+  ///
+  /// Dihitung, tidak disimpan — sama seperti di backend. Nilai turunan yang
+  /// ikut disimpan bisa berbeda dari bahan penyusunnya tanpa ada cara
+  /// mengetahui mana yang benar.
+  int? get terpakai => (meteranLalu == null || meteranSekarang == null)
+      ? null
+      : (meteranSekarang! - meteranLalu!).clamp(0, 1 << 30);
+
+  /// Biaya air saja, sebelum abondement dan sampah.
+  double get biayaAir => (terpakai ?? 0) * (tarifPerM3 ?? 0).toDouble();
+
+  /// Meterannya sudah dibaca petugas. Selama belum, tagihannya hanya memuat
+  /// bagian tetap dan angkanya masih akan bertambah.
+  bool get sudahDibaca => terpakai != null;
 
   bool get isLunas => status == 'lunas';
   String get statusLabel => isLunas ? 'Lunas' : 'Belum Bayar';

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../core/responsif.dart';
@@ -648,16 +649,24 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
               ),
             )
           else
-            Padding(
+            Builder(builder: (context) {
+              final adaMeteran = halamanIni.any((b) => b.pakaiMeteran);
+              return Padding(
               padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
               child: TabelResponsif(
                 tinggiBarisMaks: 70,
-                kolom: const [
+                // Kolom meteran hanya muncul bila halaman ini memang memuat
+                // tagihan bermeteran. Menampilkannya selalu berarti tiga kolom
+                // kosong untuk iuran bernominal tetap; menghilangkannya selalu
+                // berarti angka meteran tidak pernah terlihat. Yang menentukan
+                // adalah datanya sendiri.
+                kolom: [
                   'PILIH',
                   'NO',
                   'KEPALA KELUARGA',
                   'JENIS IURAN',
                   'PERIODE',
+                  if (adaMeteran) ...['METERAN LALU', 'METERAN KINI', 'TERPAKAI'],
                   'NOMINAL',
                   'STATUS',
                   'TGL BAYAR',
@@ -678,7 +687,11 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                 },
                 baris: List.generate(halamanIni.length, (i) {
                   final b = halamanIni[i];
-                  return _buildRow(b, ((provider.currentPage - 1) * provider.perPage) + i + 1);
+                  return _buildRow(
+                    b,
+                    ((provider.currentPage - 1) * provider.perPage) + i + 1,
+                    adaMeteran,
+                  );
                 }),
                 currentPage: provider.currentPage,
                 totalPages: provider.totalPages,
@@ -687,14 +700,15 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                 footerTerpusat: true,
                 onPageChanged: (page) => _loadData(page: page),
               ),
-            ),
+            );
+            }),
           // Hapus pagination lama, karena sudah ditangani oleh TabelResponsif
         ],
       ),
     );
   }
 
-  BarisTabel _buildRow(BillModel b, int nomor) {
+  BarisTabel _buildRow(BillModel b, int nomor, bool adaMeteran) {
     final terlambat = b.isTerlambat;
     return BarisTabel(
       sel: [
@@ -759,6 +773,40 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
         ),
         SelTabel.teks('JENIS IURAN', b.namaIuran),
         SelTabel.teks('PERIODE', b.bulan),
+        if (adaMeteran) ...[
+          SelTabel.teks('METERAN LALU', b.meteranLalu?.toString() ?? '—'),
+          // Belum dibaca ditandai jelas, bukan dibiarkan kosong: tagihan yang
+          // meterannya belum dicatat masih akan bertambah nilainya, dan itu
+          // beda maknanya dengan angka nol.
+          SelTabel(
+            'METERAN KINI',
+            b.sudahDibaca
+                ? Text(
+                    '${b.meteranSekarang}',
+                    style: const TextStyle(fontSize: 13),
+                  )
+                : Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      'BELUM DIBACA',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFD97706),
+                      ),
+                    ),
+                  ),
+          ),
+          SelTabel.teks(
+            'TERPAKAI',
+            b.sudahDibaca ? '${b.terpakai} m³' : '—',
+            gaya: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+        ],
         SelTabel.teks(
           'NOMINAL',
           _rupiah(b.nominal),
@@ -959,9 +1007,16 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
     _pesan(hasil['message']?.toString() ?? 'Selesai.', sukses: hasil['success'] == true);
   }
 
-  /// Ubah nominal, keterangan, dan jatuh tempo tagihan yang belum lunas.
+  /// Ubah tagihan yang belum lunas.
+  ///
+  /// Untuk tagihan bermeteran, yang diisi petugas adalah ANGKA BACAAN, bukan
+  /// nominalnya — totalnya dihitung backend dari selisih meteran. Kolom nominal
+  /// karena itu disembunyikan; membiarkannya berarti menawarkan dua sumber
+  /// kebenaran untuk satu angka, dan yang diketik tangan akan diabaikan diam-diam.
   void _editTagihan(BillModel b) {
     final nominalCtrl = TextEditingController(text: b.nominal.toStringAsFixed(0));
+    final meteranLaluCtrl = TextEditingController(text: b.meteranLalu?.toString() ?? '');
+    final meteranKiniCtrl = TextEditingController(text: b.meteranSekarang?.toString() ?? '');
     final keteranganCtrl = TextEditingController(text: b.keterangan ?? '');
     final jatuhTempoCtrl = TextEditingController(
       text: b.jatuhTempo == null ? '' : DateFormat('yyyy-MM-dd').format(b.jatuhTempo!),
@@ -991,7 +1046,8 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
 
     showDialog(
       context: context,
-      builder: (c) => AlertDialog(
+      builder: (c) => StatefulBuilder(
+        builder: (c, setDialog) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
         contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
@@ -1004,12 +1060,15 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                 color: const Color(0xFF1B7A6A).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.edit_outlined, color: Color(0xFF1B7A6A)),
+              child: Icon(
+                b.pakaiMeteran ? Icons.water_drop_outlined : Icons.edit_outlined,
+                color: const Color(0xFF1B7A6A),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Edit Tagihan',
+                b.pakaiMeteran ? 'Catat Meteran Air' : 'Edit Tagihan',
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 18,
@@ -1039,12 +1098,41 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                TextField(
-                  controller: nominalCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: dekor('Nominal (Rp)', Icons.attach_money),
-                ),
-                const SizedBox(height: 14),
+                if (b.pakaiMeteran) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: meteranLaluCtrl,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          decoration: dekor('Meteran Lalu', Icons.speed_outlined),
+                          onChanged: (_) => setDialog(() {}),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: meteranKiniCtrl,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          decoration: dekor('Meteran Kini', Icons.speed),
+                          onChanged: (_) => setDialog(() {}),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  _pratinjauAir(b, meteranLaluCtrl.text, meteranKiniCtrl.text),
+                  const SizedBox(height: 14),
+                ] else ...[
+                  TextField(
+                    controller: nominalCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: dekor('Nominal (Rp)', Icons.attach_money),
+                  ),
+                  const SizedBox(height: 14),
+                ],
                 TextField(
                   controller: keteranganCtrl,
                   maxLines: 2,
@@ -1086,15 +1174,39 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              final nominal = double.tryParse(nominalCtrl.text);
-              if (nominal == null || nominal <= 0) {
-                _pesan('Nominal harus berupa angka lebih dari 0.', sukses: false);
-                return;
+              int? mLalu;
+              int? mKini;
+
+              if (b.pakaiMeteran) {
+                mLalu = int.tryParse(meteranLaluCtrl.text.trim());
+                mKini = int.tryParse(meteranKiniCtrl.text.trim());
+                if (mLalu == null) {
+                  _pesan('Meteran bulan lalu wajib diisi.', sukses: false);
+                  return;
+                }
+                if (mKini != null && mKini < mLalu) {
+                  _pesan(
+                    'Meteran kini tidak boleh lebih kecil daripada meteran bulan lalu.',
+                    sukses: false,
+                  );
+                  return;
+                }
+              } else {
+                final nominal = double.tryParse(nominalCtrl.text);
+                if (nominal == null || nominal <= 0) {
+                  _pesan('Nominal harus berupa angka lebih dari 0.', sukses: false);
+                  return;
+                }
               }
+
               Navigator.pop(c);
               final hasil = await context.read<BillProvider>().updateBill(
                 b.id,
-                nominal: nominal,
+                // Nominal tidak dikirim untuk tagihan bermeteran: backend
+                // menghitungnya sendiri dan mengabaikan yang dikirim klien.
+                nominal: b.pakaiMeteran ? null : double.tryParse(nominalCtrl.text),
+                meteranLalu: mLalu,
+                meteranSekarang: mKini,
                 keterangan: keteranganCtrl.text.trim(),
                 jatuhTempo: jatuhTempo == null
                     ? null
@@ -1114,6 +1226,94 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
             ),
             child: const Text('Simpan', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
+        ],
+        ),
+      ),
+    );
+  }
+
+  /// Pratinjau rincian tagihan air, dihitung ulang saat angka meteran diketik.
+  ///
+  /// Rumusnya sama dengan yang dipakai backend. Menampilkannya di sini bukan
+  /// sekadar kenyamanan: petugas mengetik angka meteran di lapangan, dan
+  /// melihat totalnya langsung adalah satu-satunya cara ia menyadari salah
+  /// ketik — angka 2340 alih-alih 234 menghasilkan tagihan jutaan yang tidak
+  /// akan pernah terlihat janggal di dalam sebuah kolom isian.
+  Widget _pratinjauAir(BillModel b, String teksLalu, String teksKini) {
+    final lalu = int.tryParse(teksLalu.trim());
+    final kini = int.tryParse(teksKini.trim());
+    final tarif = b.tarifPerM3 ?? 0;
+    final abon = b.abondement ?? 0;
+    final sampah = b.biayaSampah ?? 0;
+
+    final belumLengkap = lalu == null || kini == null;
+    final mundur = !belumLengkap && kini < lalu;
+    final terpakai = belumLengkap || mundur ? 0 : kini - lalu;
+    final biayaAir = terpakai * tarif;
+    final total = biayaAir + abon + sampah;
+
+    Widget baris(String kiri, String kanan, {bool tebal = false}) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Flexible(
+            child: Text(
+              kiri,
+              style: TextStyle(
+                fontSize: 12,
+                color: tebal ? context.teksUtama : context.teksKedua,
+                fontWeight: tebal ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ),
+          Text(
+            kanan,
+            style: TextStyle(
+              fontSize: tebal ? 14 : 12,
+              color: tebal ? const Color(0xFF1B7A6A) : context.teksUtama,
+              fontWeight: tebal ? FontWeight.bold : FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: mundur ? const Color(0xFFFEE2E2) : context.latarLembut,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: mundur ? const Color(0xFFEF4444) : context.garis),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (mundur)
+            const Text(
+              'Meteran kini lebih kecil daripada bulan lalu',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFB91C1C),
+              ),
+            )
+          else if (belumLengkap)
+            Text(
+              'Isi kedua angka meteran untuk melihat totalnya',
+              style: TextStyle(fontSize: 12, color: context.teksTersier),
+            ),
+          if (!mundur) ...[
+            if (!belumLengkap) ...[
+              baris('Pemakaian', '$terpakai m³'),
+              baris('Air  ($terpakai × ${_rupiah(tarif.toDouble())})', _rupiah(biayaAir.toDouble())),
+            ],
+            baris('Abondement', _rupiah(abon.toDouble())),
+            baris('Sampah', _rupiah(sampah.toDouble())),
+            Divider(height: 14, color: context.garis),
+            baris('TOTAL', _rupiah(total.toDouble()), tebal: true),
+          ],
         ],
       ),
     );

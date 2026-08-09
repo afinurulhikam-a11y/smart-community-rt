@@ -309,6 +309,27 @@ class _BillListScreenState extends State<BillListScreen> with SingleTickerProvid
                       'Periode: ${bill.bulan}',
                       style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                     ),
+                    // Rincian pemakaian air. Warga berhak tahu angka mana yang
+                    // membuat tagihannya sebesar itu — tanpa ini ia hanya
+                    // melihat sebuah total yang tidak bisa dicocokkan dengan
+                    // meteran di rumahnya sendiri.
+                    if (bill.pakaiMeteran && bill.sudahDibaca)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          '${bill.meteranLalu} → ${bill.meteranSekarang} '
+                          '= ${bill.terpakai} m³ × ${_rp(bill.tarifPerM3)}',
+                          style: const TextStyle(fontSize: 11, color: AppTheme.textTertiary),
+                        ),
+                      )
+                    else if (bill.pakaiMeteran)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: Text(
+                          'Meteran belum dicatat petugas',
+                          style: TextStyle(fontSize: 11, color: Color(0xFFD97706)),
+                        ),
+                      ),
                   ],
                 ),
               ),
