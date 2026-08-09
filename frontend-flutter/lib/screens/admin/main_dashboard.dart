@@ -140,7 +140,8 @@ class _MainDashboardState extends State<MainDashboard> {
       context.read<BopProvider>().fetchTransactions();
       context.read<BopProvider>().fetchBulanan();
     }
-    if (izin.bolehLihat('kependudukan.statistik', userRole: auth.userRole) || izin.bolehLihat('kependudukan.warga', userRole: auth.userRole)) {
+    if (izin.bolehLihat('kependudukan.statistik', userRole: auth.userRole) ||
+        izin.bolehLihat('kependudukan.warga', userRole: auth.userRole)) {
       context.read<DemographicProvider>().fetchDemographics();
     }
     if (izin.bolehLihat('kegiatan.agenda', userRole: auth.userRole)) {
@@ -225,15 +226,23 @@ class _MainDashboardState extends State<MainDashboard> {
     }
   }
 
-  void _showEmergencyPopup(Map<String, dynamic>? wsAlarm, EmergencyModel? activeAlertObj) {
+  void _showEmergencyPopup(
+    Map<String, dynamic>? wsAlarm,
+    EmergencyModel? activeAlertObj,
+  ) {
     final alertId = wsAlarm?['alert_id']?.toString() ?? activeAlertObj?.id;
-    if (alertId != null && (_dismissedPopupAlertIds.contains(alertId) || _dismissingAlertIds.contains(alertId))) {
+    if (alertId != null &&
+        (_dismissedPopupAlertIds.contains(alertId) ||
+            _dismissingAlertIds.contains(alertId))) {
       return;
     }
     if (_isEmergencyDialogShowing) return;
     _isEmergencyDialogShowing = true;
 
-    final message = wsAlarm?['message'] ?? activeAlertObj?.message ?? 'Warga membutuhkan bantuan!';
+    final message =
+        wsAlarm?['message'] ??
+        activeAlertObj?.message ??
+        'Warga membutuhkan bantuan!';
     final sender = wsAlarm?['nama'] ?? activeAlertObj?.namaWarga ?? 'Seseorang';
     final phone = wsAlarm?['no_hp'] ?? activeAlertObj?.noHp ?? '-';
     final address = wsAlarm?['alamat'] ?? activeAlertObj?.alamat ?? '-';
@@ -255,7 +264,7 @@ class _MainDashboardState extends State<MainDashboard> {
                 color: Colors.red.shade900.withValues(alpha: 0.5),
                 blurRadius: 20,
                 spreadRadius: 5,
-              )
+              ),
             ],
           ),
           child: Column(
@@ -267,7 +276,11 @@ class _MainDashboardState extends State<MainDashboard> {
                   color: Colors.white.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 48),
+                child: const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.white,
+                  size: 48,
+                ),
               ),
               const SizedBox(height: 16),
               const Text(
@@ -292,12 +305,20 @@ class _MainDashboardState extends State<MainDashboard> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.person, size: 18, color: Color(0xFFDC2626)),
+                        const Icon(
+                          Icons.person,
+                          size: 18,
+                          color: Color(0xFFDC2626),
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Pelapor: $sender',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: context.teksUtama),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: context.teksUtama,
+                            ),
                           ),
                         ),
                       ],
@@ -305,27 +326,58 @@ class _MainDashboardState extends State<MainDashboard> {
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        const Icon(Icons.phone, size: 18, color: Color(0xFFDC2626)),
+                        const Icon(
+                          Icons.phone,
+                          size: 18,
+                          color: Color(0xFFDC2626),
+                        ),
                         const SizedBox(width: 8),
-                        Text('No HP: $phone', style: TextStyle(fontSize: 13, color: context.teksKedua)),
+                        Text(
+                          'No HP: $phone',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: context.teksKedua,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 6),
                     Row(
                       children: [
-                        const Icon(Icons.home, size: 18, color: Color(0xFFDC2626)),
+                        const Icon(
+                          Icons.home,
+                          size: 18,
+                          color: Color(0xFFDC2626),
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text('Alamat: $address', style: TextStyle(fontSize: 13, color: context.teksKedua)),
+                          child: Text(
+                            'Alamat: $address',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: context.teksKedua,
+                            ),
+                          ),
                         ),
                       ],
                     ),
                     const Divider(height: 16),
-                    Text('Pesan / Detail Kejadian:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: context.teksKedua)),
+                    Text(
+                      'Pesan / Detail Kejadian:',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: context.teksKedua,
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       message,
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: context.teksUtama),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: context.teksUtama,
+                      ),
                     ),
                   ],
                 ),
@@ -341,7 +393,9 @@ class _MainDashboardState extends State<MainDashboard> {
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () {
-                          if (alertId != null) _dismissedPopupAlertIds.add(alertId);
+                          if (alertId != null) {
+                            _dismissedPopupAlertIds.add(alertId);
+                          }
                           _isEmergencyDialogShowing = false;
                           Navigator.pop(ctx);
                         },
@@ -350,7 +404,10 @@ class _MainDashboardState extends State<MainDashboard> {
                           foregroundColor: const Color(0xFFDC2626),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
-                        child: const Text('Saya Mengerti', style: TextStyle(fontWeight: FontWeight.bold)),
+                        child: const Text(
+                          'Saya Mengerti',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
                     );
                   }
@@ -360,7 +417,9 @@ class _MainDashboardState extends State<MainDashboard> {
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () {
-                            if (alertId != null) _dismissedPopupAlertIds.add(alertId);
+                            if (alertId != null) {
+                              _dismissedPopupAlertIds.add(alertId);
+                            }
                             _isEmergencyDialogShowing = false;
                             Navigator.pop(ctx);
                           },
@@ -383,7 +442,10 @@ class _MainDashboardState extends State<MainDashboard> {
                             foregroundColor: const Color(0xFFDC2626),
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
-                          child: const Text('Selesaikan Alarm', style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: const Text(
+                            'Selesaikan Alarm',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ),
                     ],
@@ -407,7 +469,9 @@ class _MainDashboardState extends State<MainDashboard> {
       context: context,
       builder: (pinCtx) => StatefulBuilder(
         builder: (context, setModalState) => Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Container(
             constraints: const BoxConstraints(maxWidth: 420),
             padding: const EdgeInsets.all(24),
@@ -423,7 +487,11 @@ class _MainDashboardState extends State<MainDashboard> {
                         color: const Color(0xFFECFDF5),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.verified_user_outlined, color: Color(0xFF059669), size: 24),
+                      child: const Icon(
+                        Icons.verified_user_outlined,
+                        color: Color(0xFF059669),
+                        size: 24,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -432,12 +500,19 @@ class _MainDashboardState extends State<MainDashboard> {
                         children: [
                           Text(
                             'Verifikasi Keamanan 2-Langkah',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: context.teksUtama),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: context.teksUtama,
+                            ),
                           ),
                           SizedBox(height: 2),
                           Text(
                             'Konfirmasi Penutupan Alarm Darurat',
-                            style: TextStyle(fontSize: 12, color: context.teksKedua),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: context.teksKedua,
+                            ),
                           ),
                         ],
                       ),
@@ -447,7 +522,11 @@ class _MainDashboardState extends State<MainDashboard> {
                 const SizedBox(height: 16),
                 Text(
                   'Masukkan PIN Keamanan (Default: 1234):',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: context.teksKedua),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: context.teksKedua,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 TextField(
@@ -465,8 +544,13 @@ class _MainDashboardState extends State<MainDashboard> {
                     prefixIcon: const Icon(Icons.lock_outline, size: 18),
                     errorText: pinError,
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -477,7 +561,9 @@ class _MainDashboardState extends State<MainDashboard> {
                         onPressed: () => Navigator.pop(pinCtx),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                         child: const Text('Batal'),
                       ),
@@ -489,7 +575,9 @@ class _MainDashboardState extends State<MainDashboard> {
                           backgroundColor: const Color(0xFF059669),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                         onPressed: () async {
                           final pin = pinController.text.trim();
@@ -503,7 +591,10 @@ class _MainDashboardState extends State<MainDashboard> {
                           final messenger = ScaffoldMessenger.of(context);
                           final provider = context.read<EmergencyProvider>();
                           if (alertId != null) {
-                            final success = await provider.dismissAlarm(alertId, pin: pin);
+                            final success = await provider.dismissAlarm(
+                              alertId,
+                              pin: pin,
+                            );
                             if (mounted) {
                               if (success) {
                                 _dismissingAlertIds.add(alertId);
@@ -519,13 +610,18 @@ class _MainDashboardState extends State<MainDashboard> {
                                 );
                               } else {
                                 setModalState(() {
-                                  pinError = provider.errorMessage ?? 'PIN Keamanan salah! Penutupan dibatalkan.';
+                                  pinError =
+                                      provider.errorMessage ??
+                                      'PIN Keamanan salah! Penutupan dibatalkan.';
                                 });
                               }
                             }
                           }
                         },
-                        child: const Text('Verifikasi & Selesaikan', style: TextStyle(fontWeight: FontWeight.bold)),
+                        child: const Text(
+                          'Verifikasi & Selesaikan',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ),
                   ],
@@ -605,14 +701,25 @@ class _MainDashboardState extends State<MainDashboard> {
               final activeAlertObj = emergency.activeAlert;
               final hasActive = activeFromWs || activeAlertObj != null;
 
-              final alertId = activeAlertObj?.id ?? ws.lastAlarm?['alert_id']?.toString() ?? ws.lastAlarm?['id']?.toString();
-              final isDismissed = alertId != null && (_dismissedPopupAlertIds.contains(alertId) || _dismissingAlertIds.contains(alertId));
+              final alertId =
+                  activeAlertObj?.id ??
+                  ws.lastAlarm?['alert_id']?.toString() ??
+                  ws.lastAlarm?['id']?.toString();
+              final isDismissed =
+                  alertId != null &&
+                  (_dismissedPopupAlertIds.contains(alertId) ||
+                      _dismissingAlertIds.contains(alertId));
 
               if (hasActive && !isDismissed && !_isEmergencyDialogShowing) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (mounted && !_isEmergencyDialogShowing) {
-                    final currentAlertId = emergency.activeAlert?.id ?? ws.lastAlarm?['alert_id']?.toString() ?? ws.lastAlarm?['id']?.toString();
-                    if (currentAlertId != null && (_dismissedPopupAlertIds.contains(currentAlertId) || _dismissingAlertIds.contains(currentAlertId))) {
+                    final currentAlertId =
+                        emergency.activeAlert?.id ??
+                        ws.lastAlarm?['alert_id']?.toString() ??
+                        ws.lastAlarm?['id']?.toString();
+                    if (currentAlertId != null &&
+                        (_dismissedPopupAlertIds.contains(currentAlertId) ||
+                            _dismissingAlertIds.contains(currentAlertId))) {
                       return;
                     }
                     _showEmergencyPopup(ws.lastAlarm, activeAlertObj);
@@ -774,7 +881,9 @@ class _MainDashboardState extends State<MainDashboard> {
       actions: [
         IconButton(
           tooltip: _gelap ? 'Mode terang' : 'Mode gelap',
-          icon: Icon(_gelap ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
+          icon: Icon(
+            _gelap ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+          ),
           onPressed: _gantiTema,
         ),
         IconButton(
@@ -824,10 +933,7 @@ class _MainDashboardState extends State<MainDashboard> {
                   ),
                 ),
                 const SizedBox(height: 2),
-                RealTimeClockText(
-                  isMobile: sempit,
-                  isDarkMode: _gelap,
-                ),
+                RealTimeClockText(isMobile: sempit, isDarkMode: _gelap),
               ],
             ),
           ),
@@ -842,7 +948,9 @@ class _MainDashboardState extends State<MainDashboard> {
             tooltip: _gelap ? 'Mode terang' : 'Mode gelap',
             style: IconButton.styleFrom(
               backgroundColor: context.latarLembut,
-              shape: RoundedRectangleBorder(borderRadius: AppTheme.borderRadiusS),
+              shape: RoundedRectangleBorder(
+                borderRadius: AppTheme.borderRadiusS,
+              ),
             ),
             icon: Icon(
               _gelap ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
@@ -863,7 +971,8 @@ class _MainDashboardState extends State<MainDashboard> {
             onTap: () => _pilihMenu(81),
             borderRadius: BorderRadius.circular(24),
             child: Tooltip(
-              message: 'Buka Profil Saya (${_getRoleDisplayName(auth.userRole)})',
+              message:
+                  'Buka Profil Saya (${_getRoleDisplayName(auth.userRole)})',
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 child: Row(
@@ -872,7 +981,9 @@ class _MainDashboardState extends State<MainDashboard> {
                   children: [
                     if (!sempit) ...[
                       Text(
-                        auth.userName.isNotEmpty ? auth.userName : _getRoleDisplayName(auth.userRole),
+                        auth.userName.isNotEmpty
+                            ? auth.userName
+                            : _getRoleDisplayName(auth.userRole),
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 14,
@@ -938,9 +1049,13 @@ class _MainDashboardState extends State<MainDashboard> {
       // role — sidebar tidak perlu tahu — dan role yang menentukan layarnya:
       // warga melihat miliknya sendiri, pengurus mengelola milik seluruh RT.
       case 21:
-        return warga ? const BillListScreen() : IuranWargaScreen(onBack: _kembaliMenu);
+        return warga
+            ? const BillListScreen()
+            : IuranWargaScreen(onBack: _kembaliMenu);
       case 22:
-        return warga ? const FinanceReportScreen() : KasRtScreen(onBack: _kembaliMenu);
+        return warga
+            ? const FinanceReportScreen()
+            : KasRtScreen(onBack: _kembaliMenu);
 
       case 23:
         return BopScreen(onBack: _kembaliMenu);
@@ -949,9 +1064,13 @@ class _MainDashboardState extends State<MainDashboard> {
       case 32:
         return PeminjamanScreen(onBack: _kembaliMenu);
       case 43:
-        return warga ? const EVisitorScreen(isWarga: true) : EVisitorScreen(onBack: _kembaliMenu);
+        return warga
+            ? const EVisitorScreen(isWarga: true)
+            : EVisitorScreen(onBack: _kembaliMenu);
       case 44:
-        return warga ? const LetterRequestScreen() : SuratMenyuratScreen(onBack: _kembaliMenu);
+        return warga
+            ? const LetterRequestScreen()
+            : SuratMenyuratScreen(onBack: _kembaliMenu);
       case 50:
         return AgendaKegiatanScreen(onBack: _kembaliMenu);
       case 60:
@@ -1002,7 +1121,11 @@ class _MainDashboardState extends State<MainDashboard> {
             const SizedBox(height: 4),
             Row(
               children: [
-                Icon(Icons.grid_view_rounded, color: const Color(0xFF1B7A6A), size: 14),
+                Icon(
+                  Icons.grid_view_rounded,
+                  color: const Color(0xFF1B7A6A),
+                  size: 14,
+                ),
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
@@ -1058,7 +1181,9 @@ class _MainDashboardState extends State<MainDashboard> {
               // Layar BOP menampilkan keduanya berdampingan sebagai "SISA
               // PAGU" dan "SALDO KAS BOP"; nama di sini kini mengikutinya.
               label: 'SISA PAGU BOP',
-              value: _formatRupiah(context.watch<BopProvider>().summary?.sisaPagu ?? 0),
+              value: _formatRupiah(
+                context.watch<BopProvider>().summary?.sisaPagu ?? 0,
+              ),
               subtitle: 'Bantuan Operasional Penyelenggaraan',
               icon: Icons.account_balance_wallet,
               gradientColors: const [Color(0xFF0F766E), Color(0xFF14B8A6)],
@@ -1069,7 +1194,8 @@ class _MainDashboardState extends State<MainDashboard> {
         const SizedBox(height: 24),
 
         // === FINANCIAL CHART ===
-        if (izin.bolehLihat('keuangan.kas') || izin.bolehLihat('keuangan.bop')) ...[
+        if (izin.bolehLihat('keuangan.kas') ||
+            izin.bolehLihat('keuangan.bop')) ...[
           _buildFinancialChart(
             _chartDataSource == 'Kas RT'
                 ? finance.bulanan
@@ -1081,7 +1207,8 @@ class _MainDashboardState extends State<MainDashboard> {
         // === BARIS 1: PROGRESS IURAN + PERMOHONAN SURAT ===
         if (pakaiKartu(context)) ...[
           if (izin.bolehLihat('keuangan.iuran')) _buildProgressIuranCard(bills),
-          if (izin.bolehLihat('keuangan.iuran') && izin.bolehLihat('layanan.surat'))
+          if (izin.bolehLihat('keuangan.iuran') &&
+              izin.bolehLihat('layanan.surat'))
             const SizedBox(height: 16),
           if (izin.bolehLihat('layanan.surat')) _buildSuratPendingCard(),
         ] else ...[
@@ -1092,7 +1219,8 @@ class _MainDashboardState extends State<MainDashboard> {
                 if (izin.bolehLihat('keuangan.iuran'))
                   Expanded(child: _buildProgressIuranCard(bills)),
 
-                if (izin.bolehLihat('keuangan.iuran') && izin.bolehLihat('layanan.surat'))
+                if (izin.bolehLihat('keuangan.iuran') &&
+                    izin.bolehLihat('layanan.surat'))
                   const SizedBox(width: 16),
 
                 if (izin.bolehLihat('layanan.surat'))
@@ -1107,7 +1235,8 @@ class _MainDashboardState extends State<MainDashboard> {
         // === BARIS 2 (PALING BAWAH): STATUS DARURAT + PENGADUAN WARGA ===
         if (pakaiKartu(context)) ...[
           if (izin.bolehLihat('aspirasi.darurat')) _buildStatusDaruratCard(),
-          if (izin.bolehLihat('aspirasi.darurat') && izin.bolehLihat('aspirasi.pengaduan'))
+          if (izin.bolehLihat('aspirasi.darurat') &&
+              izin.bolehLihat('aspirasi.pengaduan'))
             const SizedBox(height: 16),
           if (izin.bolehLihat('aspirasi.pengaduan')) _buildPengaduanCard(),
         ] else ...[
@@ -1118,7 +1247,8 @@ class _MainDashboardState extends State<MainDashboard> {
                 if (izin.bolehLihat('aspirasi.darurat'))
                   Expanded(child: _buildStatusDaruratCard()),
 
-                if (izin.bolehLihat('aspirasi.darurat') && izin.bolehLihat('aspirasi.pengaduan'))
+                if (izin.bolehLihat('aspirasi.darurat') &&
+                    izin.bolehLihat('aspirasi.pengaduan'))
                   const SizedBox(width: 16),
 
                 if (izin.bolehLihat('aspirasi.pengaduan'))
@@ -1157,9 +1287,7 @@ class _MainDashboardState extends State<MainDashboard> {
           decoration: BoxDecoration(
             color: context.latarKartu,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: context.garis,
-            ),
+            border: Border.all(color: context.garis),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1300,7 +1428,12 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
-  Widget _buildProgressStatRow(IconData icon, Color color, String label, String value) {
+  Widget _buildProgressStatRow(
+    IconData icon,
+    Color color,
+    String label,
+    String value,
+  ) {
     return Row(
       children: [
         Icon(icon, size: 16, color: color),
@@ -1308,10 +1441,7 @@ class _MainDashboardState extends State<MainDashboard> {
         Expanded(
           child: Text(
             label,
-            style: TextStyle(
-              fontSize: 12,
-              color: context.teksKedua,
-            ),
+            style: TextStyle(fontSize: 12, color: context.teksKedua),
           ),
         ),
         Text(
@@ -1365,8 +1495,12 @@ class _MainDashboardState extends State<MainDashboard> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
-                      hasActive ? Icons.warning_amber_rounded : Icons.shield_rounded,
-                      color: hasActive ? const Color(0xFFEF4444) : const Color(0xFF059669),
+                      hasActive
+                          ? Icons.warning_amber_rounded
+                          : Icons.shield_rounded,
+                      color: hasActive
+                          ? const Color(0xFFEF4444)
+                          : const Color(0xFF059669),
                       size: 18,
                     ),
                   ),
@@ -1396,7 +1530,10 @@ class _MainDashboardState extends State<MainDashboard> {
                   ),
                   // Status badge
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: hasActive
                           ? const Color(0xFFEF4444).withValues(alpha: 0.1)
@@ -1408,7 +1545,9 @@ class _MainDashboardState extends State<MainDashboard> {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: hasActive ? const Color(0xFFEF4444) : const Color(0xFF059669),
+                        color: hasActive
+                            ? const Color(0xFFEF4444)
+                            : const Color(0xFF059669),
                       ),
                     ),
                   ),
@@ -1428,15 +1567,23 @@ class _MainDashboardState extends State<MainDashboard> {
                         child: Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEF4444).withValues(alpha: 0.05),
+                            color: const Color(
+                              0xFFEF4444,
+                            ).withValues(alpha: 0.05),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+                              color: const Color(
+                                0xFFEF4444,
+                              ).withValues(alpha: 0.15),
                             ),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.crisis_alert, size: 16, color: Color(0xFFEF4444)),
+                              const Icon(
+                                Icons.crisis_alert,
+                                size: 16,
+                                color: Color(0xFFEF4444),
+                              ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Column(
@@ -1498,7 +1645,9 @@ class _MainDashboardState extends State<MainDashboard> {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: _gelap ? Colors.white70 : const Color(0xFF166534),
+                          color: _gelap
+                              ? Colors.white70
+                              : const Color(0xFF166534),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -1506,7 +1655,9 @@ class _MainDashboardState extends State<MainDashboard> {
                         'Tidak ada laporan darurat aktif saat ini',
                         style: TextStyle(
                           fontSize: 11,
-                          color: _gelap ? Colors.white38 : const Color(0xFF4ADE80),
+                          color: _gelap
+                              ? Colors.white38
+                              : const Color(0xFF4ADE80),
                         ),
                       ),
                     ],
@@ -1566,13 +1717,22 @@ class _MainDashboardState extends State<MainDashboard> {
       return st == 'selesai' || st == 'disetujui';
     }).length;
 
-    final pendingCount = (stats['pending'] ?? 0) > 0 ? stats['pending']! : localPending;
-    final diprosesCount = (stats['diproses'] ?? 0) > 0 ? stats['diproses']! : localDiproses;
-    final selesaiCount = (stats['selesai'] ?? 0) > 0 ? stats['selesai']! : localSelesai;
+    final pendingCount = (stats['pending'] ?? 0) > 0
+        ? stats['pending']!
+        : localPending;
+    final diprosesCount = (stats['diproses'] ?? 0) > 0
+        ? stats['diproses']!
+        : localDiproses;
+    final selesaiCount = (stats['selesai'] ?? 0) > 0
+        ? stats['selesai']!
+        : localSelesai;
     final totalAktif = pendingCount + diprosesCount;
     final activeComplaints = complaints.where((c) {
       final st = (c['status'] ?? '').toString().toLowerCase();
-      return st == 'pending' || st == 'menunggu' || st == 'diajukan' || st == 'diproses';
+      return st == 'pending' ||
+          st == 'menunggu' ||
+          st == 'diajukan' ||
+          st == 'diproses';
     }).toList();
     final hasActive = totalAktif > 0 || activeComplaints.isNotEmpty;
 
@@ -1609,8 +1769,12 @@ class _MainDashboardState extends State<MainDashboard> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
-                      hasActive ? Icons.rate_review_rounded : Icons.mark_chat_read_rounded,
-                      color: hasActive ? const Color(0xFFD97706) : const Color(0xFF059669),
+                      hasActive
+                          ? Icons.rate_review_rounded
+                          : Icons.mark_chat_read_rounded,
+                      color: hasActive
+                          ? const Color(0xFFD97706)
+                          : const Color(0xFF059669),
                       size: 18,
                     ),
                   ),
@@ -1640,7 +1804,10 @@ class _MainDashboardState extends State<MainDashboard> {
                   ),
                   // Status badge
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: hasActive
                           ? const Color(0xFFD97706).withValues(alpha: 0.1)
@@ -1652,7 +1819,9 @@ class _MainDashboardState extends State<MainDashboard> {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: hasActive ? const Color(0xFFD97706) : const Color(0xFF059669),
+                        color: hasActive
+                            ? const Color(0xFFD97706)
+                            : const Color(0xFF059669),
                       ),
                     ),
                   ),
@@ -1691,7 +1860,9 @@ class _MainDashboardState extends State<MainDashboard> {
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: _gelap ? Colors.white70 : const Color(0xFF166534),
+                          color: _gelap
+                              ? Colors.white70
+                              : const Color(0xFF166534),
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -1699,7 +1870,9 @@ class _MainDashboardState extends State<MainDashboard> {
                         'Tidak ada pengaduan aktif saat ini',
                         style: TextStyle(
                           fontSize: 11,
-                          color: _gelap ? Colors.white38 : const Color(0xFF4ADE80),
+                          color: _gelap
+                              ? Colors.white38
+                              : const Color(0xFF4ADE80),
                         ),
                       ),
                     ],
@@ -1715,23 +1888,34 @@ class _MainDashboardState extends State<MainDashboard> {
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: _gelap
-                                ? const Color(0xFFD97706).withValues(alpha: 0.05)
+                                ? const Color(
+                                    0xFFD97706,
+                                  ).withValues(alpha: 0.05)
                                 : const Color(0xFFFFFBEB),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: const Color(0xFFD97706).withValues(alpha: 0.15),
+                              color: const Color(
+                                0xFFD97706,
+                              ).withValues(alpha: 0.15),
                             ),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.report_problem_rounded, size: 16, color: Color(0xFFD97706)),
+                              const Icon(
+                                Icons.report_problem_rounded,
+                                size: 16,
+                                color: Color(0xFFD97706),
+                              ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      (item['judul'] ?? item['title'] ?? 'Pengaduan').toString(),
+                                      (item['judul'] ??
+                                              item['title'] ??
+                                              'Pengaduan')
+                                          .toString(),
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
@@ -1741,7 +1925,11 @@ class _MainDashboardState extends State<MainDashboard> {
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                     Text(
-                                      (item['nama_pengirim'] ?? item['nama_pelapor'] ?? item['nama'] ?? 'Warga').toString(),
+                                      (item['nama_pengirim'] ??
+                                              item['nama_pelapor'] ??
+                                              item['nama'] ??
+                                              'Warga')
+                                          .toString(),
                                       style: TextStyle(
                                         fontSize: 11,
                                         color: context.teksKedua,
@@ -1753,19 +1941,44 @@ class _MainDashboardState extends State<MainDashboard> {
                                 ),
                               ),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: (item['status'] ?? '').toString().toLowerCase() == 'pending' || (item['status'] ?? '').toString().toLowerCase() == 'menunggu'
-                                      ? const Color(0xFFD97706).withValues(alpha: 0.15)
-                                      : const Color(0xFF2563EB).withValues(alpha: 0.15),
+                                  color:
+                                      (item['status'] ?? '')
+                                                  .toString()
+                                                  .toLowerCase() ==
+                                              'pending' ||
+                                          (item['status'] ?? '')
+                                                  .toString()
+                                                  .toLowerCase() ==
+                                              'menunggu'
+                                      ? const Color(
+                                          0xFFD97706,
+                                        ).withValues(alpha: 0.15)
+                                      : const Color(
+                                          0xFF2563EB,
+                                        ).withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
-                                  (item['status'] ?? 'MENUNGGU').toString().toUpperCase(),
+                                  (item['status'] ?? 'MENUNGGU')
+                                      .toString()
+                                      .toUpperCase(),
                                   style: TextStyle(
                                     fontSize: 9,
                                     fontWeight: FontWeight.bold,
-                                    color: (item['status'] ?? '').toString().toLowerCase() == 'pending' || (item['status'] ?? '').toString().toLowerCase() == 'menunggu'
+                                    color:
+                                        (item['status'] ?? '')
+                                                    .toString()
+                                                    .toLowerCase() ==
+                                                'pending' ||
+                                            (item['status'] ?? '')
+                                                    .toString()
+                                                    .toLowerCase() ==
+                                                'menunggu'
                                         ? const Color(0xFFD97706)
                                         : const Color(0xFF2563EB),
                                   ),
@@ -1814,7 +2027,9 @@ class _MainDashboardState extends State<MainDashboard> {
                   style: TextButton.styleFrom(
                     minimumSize: const Size.fromHeight(40),
                     foregroundColor: const Color(0xFFD97706),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                   child: Text('Lihat Semua Pengaduan ($totalAktif)'),
                 ),
@@ -1826,7 +2041,12 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
-  Widget _buildAlertSummaryChip(IconData icon, String label, String value, Color color) {
+  Widget _buildAlertSummaryChip(
+    IconData icon,
+    String label,
+    String value,
+    Color color,
+  ) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
@@ -1841,12 +2061,19 @@ class _MainDashboardState extends State<MainDashboard> {
             const SizedBox(width: 4),
             Text(
               '$value ',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
             ),
             Flexible(
               child: Text(
                 label,
-                style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.7)),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: color.withValues(alpha: 0.7),
+                ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -1871,71 +2098,78 @@ class _MainDashboardState extends State<MainDashboard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-              // Header
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: pendingLetters.isNotEmpty
-                          ? const Color(0xFF3B82F6).withValues(alpha: 0.1)
-                          : const Color(0xFF059669).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      pendingLetters.isNotEmpty
-                          ? Icons.mark_email_unread_rounded
-                          : Icons.mark_email_read_rounded,
-                      color: pendingLetters.isNotEmpty ? const Color(0xFF3B82F6) : const Color(0xFF059669),
-                      size: 18,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Permohonan Surat',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: context.teksUtama,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Surat warga yang perlu diproses',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: context.teksTersier,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Status badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: pendingLetters.isNotEmpty
-                          ? const Color(0xFF3B82F6).withValues(alpha: 0.1)
-                          : const Color(0xFF059669).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      pendingLetters.isNotEmpty
-                          ? '⏳ ${letterProvider.pendingCount} Menunggu'
-                          : '✓ Selesai',
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: pendingLetters.isNotEmpty
+                      ? const Color(0xFF3B82F6).withValues(alpha: 0.1)
+                      : const Color(0xFF059669).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  pendingLetters.isNotEmpty
+                      ? Icons.mark_email_unread_rounded
+                      : Icons.mark_email_read_rounded,
+                  color: pendingLetters.isNotEmpty
+                      ? const Color(0xFF3B82F6)
+                      : const Color(0xFF059669),
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Permohonan Surat',
                       style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: pendingLetters.isNotEmpty ? const Color(0xFF3B82F6) : const Color(0xFF059669),
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: context.teksUtama,
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    Text(
+                      'Surat warga yang perlu diproses',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: context.teksTersier,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              // Status badge
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: pendingLetters.isNotEmpty
+                      ? const Color(0xFF3B82F6).withValues(alpha: 0.1)
+                      : const Color(0xFF059669).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  pendingLetters.isNotEmpty
+                      ? '⏳ ${letterProvider.pendingCount} Menunggu'
+                      : '✓ Selesai',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: pendingLetters.isNotEmpty
+                        ? const Color(0xFF3B82F6)
+                        : const Color(0xFF059669),
+                  ),
+                ),
+              ),
+            ],
+          ),
 
           const SizedBox(height: 16),
 
@@ -1975,10 +2209,7 @@ class _MainDashboardState extends State<MainDashboard> {
                   const SizedBox(height: 4),
                   Text(
                     'Tidak ada permohonan surat baru',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: context.teksTersier,
-                    ),
+                    style: TextStyle(fontSize: 11, color: context.teksTersier),
                   ),
                 ],
               ),
@@ -1996,13 +2227,19 @@ class _MainDashboardState extends State<MainDashboard> {
                             ? const Color(0xFF3B82F6).withValues(alpha: 0.05)
                             : const Color(0xFFEFF6FF),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF3B82F6).withValues(alpha: 0.12)),
+                        border: Border.all(
+                          color: const Color(
+                            0xFF3B82F6,
+                          ).withValues(alpha: 0.12),
+                        ),
                       ),
                       child: Row(
                         children: [
                           CircleAvatar(
                             radius: 16,
-                            backgroundColor: const Color(0xFF3B82F6).withValues(alpha: 0.15),
+                            backgroundColor: const Color(
+                              0xFF3B82F6,
+                            ).withValues(alpha: 0.15),
                             child: Text(
                               (surat.namaPemohon ?? '?')[0].toUpperCase(),
                               style: const TextStyle(
@@ -2052,9 +2289,13 @@ class _MainDashboardState extends State<MainDashboard> {
               style: TextButton.styleFrom(
                 minimumSize: const Size.fromHeight(40),
                 foregroundColor: const Color(0xFF3B82F6),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
-              child: Text('Lihat Semua Permohonan (${letterProvider.pendingCount})'),
+              child: Text(
+                'Lihat Semua Permohonan (${letterProvider.pendingCount})',
+              ),
             ),
           ),
         ],
@@ -2157,14 +2398,21 @@ class _MainDashboardState extends State<MainDashboard> {
                     color: const Color(0xFF0D9488).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.bar_chart_rounded, color: const Color(0xFF0D9488), size: 20),
+                  child: Icon(
+                    Icons.bar_chart_rounded,
+                    color: const Color(0xFF0D9488),
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(child: _judulGrafik()),
               ],
             ),
             const SizedBox(height: 12),
-            Align(alignment: Alignment.centerLeft, child: _pemilihSumberGrafik()),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: _pemilihSumberGrafik(),
+            ),
           ] else
             Row(
               children: [
@@ -2174,7 +2422,11 @@ class _MainDashboardState extends State<MainDashboard> {
                     color: const Color(0xFF0D9488).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.bar_chart_rounded, color: const Color(0xFF0D9488), size: 20),
+                  child: Icon(
+                    Icons.bar_chart_rounded,
+                    color: const Color(0xFF0D9488),
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(child: _judulGrafik()),
@@ -2298,10 +2550,7 @@ class _MainDashboardState extends State<MainDashboard> {
         const SizedBox(height: 2),
         Text(
           'Perbandingan uang masuk dan keluar per bulan',
-          style: TextStyle(
-            fontSize: 12,
-            color: context.teksTersier,
-          ),
+          style: TextStyle(fontSize: 12, color: context.teksTersier),
         ),
       ],
     );
@@ -2318,15 +2567,9 @@ class _MainDashboardState extends State<MainDashboard> {
         child: DropdownButton<String>(
           value: _chartDataSource,
           isDense: true,
-          icon: Icon(
-            Icons.arrow_drop_down,
-            color: context.teksKedua,
-          ),
+          icon: Icon(Icons.arrow_drop_down, color: context.teksKedua),
           dropdownColor: context.latarKartu,
-          style: TextStyle(
-            fontSize: 13,
-            color: context.teksUtama,
-          ),
+          style: TextStyle(fontSize: 13, color: context.teksUtama),
           items: const [
             DropdownMenuItem(value: 'Kas RT', child: Text('Lihat: Kas RT')),
             DropdownMenuItem(value: 'Dana BOP', child: Text('Lihat: Dana BOP')),
@@ -2343,7 +2586,9 @@ class _MainDashboardState extends State<MainDashboard> {
 
   double _niceMaxValue(double value) {
     if (value <= 0) return 1000000;
-    final magnitude = math.pow(10, (math.log(value) / math.ln10).floor()).toDouble();
+    final magnitude = math
+        .pow(10, (math.log(value) / math.ln10).floor())
+        .toDouble();
     final residual = value / magnitude;
     double nice;
     if (residual <= 1.5) {
@@ -2369,7 +2614,10 @@ class _MainDashboardState extends State<MainDashboard> {
         Container(
           width: 12,
           height: 12,
-          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(8),
+          ),
         ),
         const SizedBox(width: 6),
         Text(
@@ -2384,14 +2632,19 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
-  Widget _buildResponsiveGrid(List<Widget> cards, {int defaultCrossAxisCount = 4}) {
+  Widget _buildResponsiveGrid(
+    List<Widget> cards, {
+    int defaultCrossAxisCount = 4,
+  }) {
     return LayoutBuilder(
       builder: (context, constraints) {
         int crossAxisCount = ResponsiveLayout.isMobile(context)
             ? 1
             : (ResponsiveLayout.isTablet(context) ? 2 : defaultCrossAxisCount);
         double spacing = 16.0;
-        double calculatedWidth = (constraints.maxWidth - (spacing * (crossAxisCount - 1))) / crossAxisCount;
+        double calculatedWidth =
+            (constraints.maxWidth - (spacing * (crossAxisCount - 1))) /
+            crossAxisCount;
         double width = math.max(0.0, calculatedWidth);
 
         return Wrap(
@@ -2409,7 +2662,11 @@ class _BarChartPainter extends CustomPainter {
   final double maxValue;
   final bool isDarkMode;
 
-  _BarChartPainter({required this.data, required this.maxValue, required this.isDarkMode});
+  _BarChartPainter({
+    required this.data,
+    required this.maxValue,
+    required this.isDarkMode,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -2548,10 +2805,28 @@ class _RealTimeClockTextState extends State<RealTimeClockText> {
 
   @override
   Widget build(BuildContext context) {
-    final dayNames = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+    final dayNames = [
+      'Senin',
+      'Selasa',
+      'Rabu',
+      'Kamis',
+      'Jumat',
+      'Sabtu',
+      'Minggu',
+    ];
     final monthNames = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember',
     ];
     final dayName = dayNames[_currentTime.weekday - 1];
     final dateStr =
@@ -2560,7 +2835,9 @@ class _RealTimeClockTextState extends State<RealTimeClockText> {
         '${_currentTime.hour.toString().padLeft(2, '0')}:${_currentTime.minute.toString().padLeft(2, '0')}:${_currentTime.second.toString().padLeft(2, '0')}';
 
     return Text(
-      widget.isMobile ? '${dateStr.split(', ').last}  •  $timeStr' : '$dateStr  •  $timeStr',
+      widget.isMobile
+          ? '${dateStr.split(', ').last}  •  $timeStr'
+          : '$dateStr  •  $timeStr',
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
