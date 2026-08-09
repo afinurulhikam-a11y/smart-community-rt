@@ -171,10 +171,10 @@ InputDecoration dekorKredensial(
     hintStyle: TextStyle(color: context.teksTersier, fontSize: 13),
     suffixIcon: suffixIcon,
     suffixIconConstraints: const BoxConstraints(
-      minWidth: 48,
-      maxWidth: 48,
-      minHeight: AppTheme.sasaranSentuh,
-      maxHeight: AppTheme.sasaranSentuh,
+      minWidth: 36,
+      maxWidth: 36,
+      minHeight: 20,
+      maxHeight: 20,
     ),
     constraints: const BoxConstraints(
       minHeight: AppTheme.sasaranSentuh,
@@ -1192,6 +1192,7 @@ aksi: Transform.translate(
                                   size: 18,
                                 ),
                                 padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 20, minHeight: 20),
                                 color: context.teksKedua,
                                 tooltip: sandiTerlihat
                                     ? 'Sembunyikan sandi'
