@@ -12,6 +12,7 @@ import '../../widgets/tombol_kembali.dart';
 import '../../providers/permission_provider.dart';
 import '../../core/theme/warna_konteks.dart';
 import '../../core/pesan.dart';
+import 'data_warga_screen.dart';
 
 /// Kode modul di tabel izin.
 ///
@@ -272,52 +273,62 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
                               ),
                             ),
                           ],
-                          aksi: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (_bolehSetujui &&
-                                  (status == 'diajukan' ||
-                                      status == 'diproses' ||
-                                      status == 'pending')) ...[
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.check_circle_outline,
-                                    color: Color(0xFF10B981),
+                          aksi: Transform.translate(
+                            offset: const Offset(geserAksiTabel, 0),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (_bolehSetujui &&
+                                    (status == 'diajukan' ||
+                                        status == 'diproses' ||
+                                        status == 'pending')) ...[
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.check_circle_outline,
+                                      size: 20,
+                                      color: Color(0xFF10B981),
+                                    ),
+                                    tooltip: 'Setujui',
+                                    style: gayaAksiTabel(const Color(0xFF10B981)),
+                                    onPressed: () =>
+                                        provider.updateLetterStatus(data.id, 'disetujui'),
                                   ),
-                                  tooltip: 'Setujui',
-                                  onPressed: () =>
-                                      provider.updateLetterStatus(data.id, 'disetujui'),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.cancel_outlined, color: Color(0xFFEF4444)),
-                                  tooltip: 'Tolak',
-                                  onPressed: () => provider.updateLetterStatus(
-                                    data.id,
-                                    'ditolak',
-                                    responseNote: 'Ditolak admin',
+                                  IconButton(
+                                    icon: const Icon(Icons.cancel_outlined, size: 20, color: Color(0xFFEF4444)),
+                                    tooltip: 'Tolak',
+                                    style: gayaAksiTabel(const Color(0xFFEF4444)),
+                                    onPressed: () => provider.updateLetterStatus(
+                                      data.id,
+                                      'ditolak',
+                                      responseNote: 'Ditolak admin',
+                                    ),
                                   ),
-                                ),
-                              ] else if (status != 'diajukan' &&
-                                  status != 'diproses' &&
-                                  status != 'pending') ...[
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.download_rounded,
-                                    color: Color(0xFF3B82F6),
+                                ] else if (status != 'diajukan' &&
+                                    status != 'diproses' &&
+                                    status != 'pending') ...[
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.download_rounded,
+                                      size: 20,
+                                      color: Color(0xFF3B82F6),
+                                    ),
+                                    tooltip: 'Download PDF',
+                                    style: gayaAksiTabel(const Color(0xFF3B82F6)),
+                                    onPressed: () => PdfService.downloadLetterPdf(data),
                                   ),
-                                  tooltip: 'Download PDF',
-                                  onPressed: () => PdfService.downloadLetterPdf(data),
+                                ],
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.remove_red_eye_outlined,
+                                    size: 20,
+                                    color: context.teksKedua,
+                                  ),
+                                  tooltip: 'Lihat Detail',
+                                  style: gayaAksiTabel(context.teksKedua),
+                                  onPressed: () => _showDetailSurat(data),
                                 ),
                               ],
-                              IconButton(
-                                icon: Icon(
-                                  Icons.remove_red_eye_outlined,
-                                  color: context.teksKedua,
-                                ),
-                                tooltip: 'Lihat Detail',
-                                onPressed: () => _showDetailSurat(data),
-                              ),
-                            ],
+                            ),
                           ),
                         );
                       }).toList(),

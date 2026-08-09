@@ -26,21 +26,13 @@ class PdfService {
                 child: pw.Column(
                   children: [
                     pw.Text(
-                      'PEMERINTAH KOTA MALANG',
-                      style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
-                    ),
-                    pw.Text(
-                      'KECAMATAN BLIMBING - KELURAHAN PURWANTORO',
-                      style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
-                    ),
-                    pw.Text(
-                      'RUKUN TETANGGA 05 / RUKUN WARGA 02',
-                      style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold),
+                      'SURAT KETERANGAN PENGANTAR',
+                      style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
                     ),
                     pw.SizedBox(height: 4),
                     pw.Text(
-                      'Jl. Purwantoro No. 05 Malang - Jawa Timur 65122',
-                      style: const pw.TextStyle(fontSize: 10),
+                      'Layanan Administrasi Lingkungan Warga',
+                      style: const pw.TextStyle(fontSize: 12),
                     ),
                   ],
                 ),
