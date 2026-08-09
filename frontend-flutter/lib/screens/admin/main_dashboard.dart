@@ -1552,12 +1552,21 @@ class _MainDashboardState extends State<MainDashboard> {
   Widget _buildPengaduanCard() {
     final complaintProvider = context.watch<ComplaintProvider>();
     final complaints = complaintProvider.complaints;
-    final pendingCount = complaints.where((c) => (c['status'] ?? '').toString().toLowerCase() == 'pending').length;
-    final diprosesCount = complaints.where((c) => (c['status'] ?? '').toString().toLowerCase() == 'diproses').length;
-    final selesaiCount = complaints.where((c) => (c['status'] ?? '').toString().toLowerCase() == 'selesai').length;
+    final pendingCount = complaints.where((c) {
+      final st = (c['status'] ?? '').toString().toLowerCase();
+      return st == 'pending' || st == 'menunggu' || st == 'diajukan';
+    }).length;
+    final diprosesCount = complaints.where((c) {
+      final st = (c['status'] ?? '').toString().toLowerCase();
+      return st == 'diproses';
+    }).length;
+    final selesaiCount = complaints.where((c) {
+      final st = (c['status'] ?? '').toString().toLowerCase();
+      return st == 'selesai' || st == 'disetujui';
+    }).length;
     final activeComplaints = complaints.where((c) {
       final st = (c['status'] ?? '').toString().toLowerCase();
-      return st == 'pending' || st == 'diproses';
+      return st == 'pending' || st == 'menunggu' || st == 'diajukan' || st == 'diproses';
     }).toList();
     final hasActive = activeComplaints.isNotEmpty;
 
@@ -1726,7 +1735,7 @@ class _MainDashboardState extends State<MainDashboard> {
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                     Text(
-                                      (item['nama_pelapor'] ?? item['nama'] ?? 'Warga').toString(),
+                                      (item['nama_pengirim'] ?? item['nama_pelapor'] ?? item['nama'] ?? 'Warga').toString(),
                                       style: TextStyle(
                                         fontSize: 11,
                                         color: context.teksKedua,
@@ -1740,17 +1749,17 @@ class _MainDashboardState extends State<MainDashboard> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: (item['status'] ?? '').toString().toLowerCase() == 'pending'
+                                  color: (item['status'] ?? '').toString().toLowerCase() == 'pending' || (item['status'] ?? '').toString().toLowerCase() == 'menunggu'
                                       ? const Color(0xFFD97706).withValues(alpha: 0.15)
                                       : const Color(0xFF2563EB).withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
-                                  (item['status'] ?? 'pending').toString().toUpperCase(),
+                                  (item['status'] ?? 'MENUNGGU').toString().toUpperCase(),
                                   style: TextStyle(
                                     fontSize: 9,
                                     fontWeight: FontWeight.bold,
-                                    color: (item['status'] ?? '').toString().toLowerCase() == 'pending'
+                                    color: (item['status'] ?? '').toString().toLowerCase() == 'pending' || (item['status'] ?? '').toString().toLowerCase() == 'menunggu'
                                         ? const Color(0xFFD97706)
                                         : const Color(0xFF2563EB),
                                   ),
