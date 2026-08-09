@@ -72,7 +72,23 @@ const RESET_GROUPS = [
     // Urutan anak → induk. bill_payments ber-RESTRICT terhadap bills, dan
     // kedua tabel pembayaran online ber-FK ke bills, jadi semuanya harus
     // habis lebih dulu.
+    //
+    // Baris Kas RT paling dulu, dan HANYA yang lahir dari pembayaran iuran.
+    //
+    // `catatKeKasRt` menautkannya lewat `finances.ref_id -> bill_payments.id`.
+    // Tanpa entri ini, mereset grup Iuran saja akan membuang pembayarannya
+    // tetapi meninggalkan uangnya di buku kas — saldo Kas RT tetap memuat
+    // pemasukan dari tagihan yang sudah tidak ada, dan tidak ada gejala apa pun
+    // karena barisnya tampak seperti pemasukan biasa.
+    //
+    // Penyaring `sumber = 'iuran'` itu yang menjaga grup ini tidak menyentuh
+    // pemasukan dan pengeluaran manual — itu wilayah grup Kas RT, bukan ini.
+    //
+    // `ikutan: true` karena baris ini mati akibat rantai FK-nya, bukan karena
+    // ia sasaran grup ini; pratinjau menampilkannya terpisah supaya tidak ada
+    // yang terhapus diam-diam.
     tabel: [
+      { tabel: 'finances', where: "sumber = 'iuran'", ikutan: true },
       { tabel: 'payment_transaction_bills' },
       { tabel: 'payment_transactions' },
       { tabel: 'bill_payments' },
