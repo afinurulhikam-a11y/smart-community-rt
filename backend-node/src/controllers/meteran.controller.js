@@ -20,6 +20,7 @@ const {
   STATUS_ANOMALI,
   TIPE_METERAN,
 } = require('../utils/tagihan-air');
+const { terbitkanTagihanPeriode } = require('../services/tagihan-air.service');
 
 /**
  * Kartu keluarga milik pemanggil.
@@ -53,6 +54,32 @@ async function meteranPeriodeSebelumnya(db, keluargaId, periode) {
   return r.rows[0]?.meteran_sekarang ?? null;
 }
 
+/** Langsung menerbitkan tagihan untuk akun tester Afi Nurul Hikam tanpa menunggu tanggal 25. */
+async function cobaTerbitkanTagihanTester(req, kkId, periode) {
+  const isTester = (req?.user?.nama || req?.user?.email || '').toString().toLowerCase().includes('afi nurul hikam');
+  if (!isTester) return;
+
+  const client = await pool.connect();
+  try {
+    const jenisRes = await client.query("SELECT id FROM jenis_iuran WHERE tipe_hitung = 'meteran' AND is_aktif = true ORDER BY id LIMIT 1");
+    if (jenisRes.rows.length === 0) return;
+
+    await client.query('BEGIN');
+    await terbitkanTagihanPeriode(client, {
+      jenisIuranId: jenisRes.rows[0].id,
+      bulan: periode,
+      createdBy: req.user.id,
+      keterangan: 'Tagihan Air (Pengujian)',
+    });
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('BypassTerbitkanTagihan Error:', err.message);
+  } finally {
+    client.release();
+  }
+}
+
 /**
  * GET /api/meteran/saya — keadaan periode berjalan milik warga.
  *
@@ -76,6 +103,10 @@ async function meteranSaya(req, res) {
       [kk.id, periode]
     );
     const sebelumnya = await meteranPeriodeSebelumnya(pool, kk.id, periode);
+
+    if (bacaan.rows[0]?.meteran_sekarang != null) {
+      await cobaTerbitkanTagihanTester(req, kk.id, periode);
+    }
 
     return res.status(200).json({
       success: true,
@@ -248,6 +279,8 @@ async function isiMeteran(req, res) {
       `Mengisi meteran air periode ${periode}: ${lalu} → ${kini}`
         + (anomali ? ' — DITANDAI ANOMALI' : ` (${kini - lalu} m³)`)
     );
+
+    await cobaTerbitkanTagihanTester(req, kk.id, periode);
 
     return res.status(200).json({
       success: true,
