@@ -163,6 +163,8 @@ class _DialogBacaanMeteranState extends State<DialogBacaanMeteran> {
           alasan: ctlAlasan.text.trim(),
           meteranLalu: int.tryParse(ctlLalu.text),
           meteranSekarang: int.tryParse(ctlKini.text),
+          keluargaId: m.keluargaId,
+          periode: m.periode,
         );
     if (!mounted) return;
 

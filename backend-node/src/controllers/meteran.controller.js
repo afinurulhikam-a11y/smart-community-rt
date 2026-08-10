@@ -273,39 +273,100 @@ async function isiMeteran(req, res) {
 async function daftarMeteran(req, res) {
   try {
     const { periode, status } = req.query;
-    const kondisi = [];
-    const params = [];
-    const p = () => `$${params.length}`;
+    const targetPeriode = periode || periodeDari();
 
     if (req.user.role === 'warga') {
-      params.push(req.user.id);
-      kondisi.push(`k.no_kk = (SELECT no_kk FROM users WHERE id = ${p()})`);
-    }
-    if (periode) {
-      params.push(periode);
-      kondisi.push(`pm.periode = ${p()}`);
-    }
-    if (status) {
-      params.push(status);
-      kondisi.push(`pm.status = ${p()}`);
+      const kk = await keluargaMilik(req.user.id);
+      if (!kk) {
+        return res.status(200).json({ success: true, count: 0, data: [] });
+      }
+      const kondisi = ['pm.keluarga_id = $1'];
+      const params = [kk.id];
+      if (periode) {
+        params.push(periode);
+        kondisi.push(`pm.periode = $${params.length}`);
+      }
+      if (status) {
+        params.push(status);
+        kondisi.push(`pm.status = $${params.length}`);
+      }
+      const where = `WHERE ${kondisi.join(' AND ')}`;
+      const hasil = await pool.query(
+        `SELECT pm.*, k.no_kk, k.kepala_keluarga, k.blok, k.alamat,
+                b.status AS status_tagihan, b.nominal
+         FROM pembacaan_meteran pm
+         JOIN keluarga k ON pm.keluarga_id = k.id
+         LEFT JOIN bills b ON pm.bill_id = b.id
+         ${where}
+         ORDER BY pm.periode DESC, k.kepala_keluarga ASC`,
+        params
+      );
+      return res.status(200).json({ success: true, count: hasil.rows.length, data: hasil.rows });
     }
 
-    const where = kondisi.length ? `WHERE ${kondisi.join(' AND ')}` : '';
-    const hasil = await pool.query(
-      `SELECT pm.*, k.no_kk, k.kepala_keluarga, k.blok, k.alamat,
-              b.status AS status_tagihan, b.nominal
-       FROM pembacaan_meteran pm
-       JOIN keluarga k ON pm.keluarga_id = k.id
-       LEFT JOIN bills b ON pm.bill_id = b.id
-       ${where}
-       ORDER BY pm.periode DESC, k.kepala_keluarga ASC`,
-      params
-    );
+    // Untuk Pengurus / Admin: tampilkan seluruh keluarga aktif untuk periode yang dipilih
+    // (termasuk yang belum mengisi meteran).
+    const params = [targetPeriode];
+    let queryKeluarga = `
+      SELECT k.id AS keluarga_id, k.no_kk, k.kepala_keluarga, k.blok, k.alamat,
+             pm.id, pm.periode, pm.meteran_lalu, pm.meteran_sekarang,
+             COALESCE(pm.status, 'menunggu') AS status,
+             pm.catatan, pm.diisi_oleh, pm.diisi_pada, pm.dikoreksi_oleh, pm.dikoreksi_pada, pm.bill_id,
+             COALESCE(b.status, b2.status) AS status_tagihan,
+             COALESCE(b.nominal, b2.nominal) AS nominal,
+             (
+               SELECT pm_prev.meteran_sekarang
+               FROM pembacaan_meteran pm_prev
+               WHERE pm_prev.keluarga_id = k.id AND pm_prev.status = 'terisi' AND pm_prev.periode < $1
+               ORDER BY pm_prev.periode DESC LIMIT 1
+             ) AS prev_meteran
+      FROM keluarga k
+      LEFT JOIN pembacaan_meteran pm ON pm.keluarga_id = k.id AND pm.periode = $1
+      LEFT JOIN bills b ON pm.bill_id = b.id
+      LEFT JOIN bills b2 ON b2.keluarga_id = k.id AND b2.bulan = $1 AND b2.jenis_iuran_id IN (SELECT id FROM jenis_iuran WHERE tipe_hitung = 'meteran_air')
+      WHERE k.deleted_at IS NULL
+    `;
+
+    if (status) {
+      if (status === 'menunggu') {
+        queryKeluarga += ` AND (pm.status = 'menunggu' OR pm.status IS NULL)`;
+      } else {
+        params.push(status);
+        queryKeluarga += ` AND pm.status = $${params.length}`;
+      }
+    }
+
+    queryKeluarga += ` ORDER BY k.kepala_keluarga ASC`;
+    const hasil = await pool.query(queryKeluarga, params);
+
+    const rows = hasil.rows.map((r) => {
+      const isNew = !r.id;
+      return {
+        id: r.id ? String(r.id) : `new_${r.keluarga_id}_${targetPeriode}`,
+        keluarga_id: r.keluarga_id,
+        periode: r.periode || targetPeriode,
+        meteran_lalu: r.meteran_lalu !== null && r.meteran_lalu !== undefined ? r.meteran_lalu : (r.prev_meteran !== null && r.prev_meteran !== undefined ? r.prev_meteran : null),
+        meteran_sekarang: r.meteran_sekarang,
+        status: r.status,
+        catatan: r.catatan || (isNew ? 'Belum diisi warga' : null),
+        diisi_oleh: r.diisi_oleh,
+        diisi_pada: r.diisi_pada,
+        dikoreksi_oleh: r.dikoreksi_oleh,
+        dikoreksi_pada: r.dikoreksi_pada,
+        bill_id: r.bill_id,
+        no_kk: r.no_kk,
+        kepala_keluarga: r.kepala_keluarga,
+        blok: r.blok,
+        alamat: r.alamat,
+        status_tagihan: r.status_tagihan,
+        nominal: r.nominal,
+      };
+    });
 
     return res.status(200).json({
       success: true,
-      count: hasil.rows.length,
-      data: hasil.rows,
+      count: rows.length,
+      data: rows,
     });
   } catch (err) {
     console.error('DaftarMeteran Error:', err.message);
@@ -326,7 +387,7 @@ async function daftarMeteran(req, res) {
 async function koreksiMeteran(req, res) {
   try {
     const { id } = req.params;
-    const { meteran_lalu, meteran_sekarang, alasan } = req.body;
+    const { meteran_lalu, meteran_sekarang, alasan, keluarga_id, periode } = req.body;
 
     if (!alasan || !alasan.trim()) {
       return res.status(400).json({
@@ -335,39 +396,109 @@ async function koreksiMeteran(req, res) {
       });
     }
 
-    const lamaRes = await pool.query(
-      `SELECT pm.*, k.kepala_keluarga
-       FROM pembacaan_meteran pm
-       JOIN keluarga k ON pm.keluarga_id = k.id
-       WHERE pm.id = $1`,
-      [id]
-    );
-    if (lamaRes.rows.length === 0) {
+    let targetKeluargaId = keluarga_id;
+    let targetPeriode = periode;
+    let existingId = id;
+
+    if (String(id).startsWith('new_')) {
+      const parts = String(id).split('_');
+      if (parts.length >= 3) {
+        targetKeluargaId = targetKeluargaId || parseInt(parts[1]);
+        targetPeriode = targetPeriode || parts[2];
+      }
+      existingId = null;
+    }
+
+    let lama = null;
+
+    if (existingId && existingId !== '0') {
+      const lamaRes = await pool.query(
+        `SELECT pm.*, k.kepala_keluarga
+         FROM pembacaan_meteran pm
+         JOIN keluarga k ON pm.keluarga_id = k.id
+         WHERE pm.id = $1`,
+        [existingId]
+      );
+      if (lamaRes.rows.length > 0) {
+        lama = lamaRes.rows[0];
+      }
+    }
+
+    if (!lama && targetKeluargaId && targetPeriode) {
+      const checkRes = await pool.query(
+        `SELECT pm.*, k.kepala_keluarga
+         FROM pembacaan_meteran pm
+         JOIN keluarga k ON pm.keluarga_id = k.id
+         WHERE pm.keluarga_id = $1 AND pm.periode = $2`,
+        [targetKeluargaId, targetPeriode]
+      );
+      if (checkRes.rows.length > 0) {
+        lama = checkRes.rows[0];
+      } else {
+        const kRes = await pool.query(`SELECT id, kepala_keluarga FROM keluarga WHERE id = $1`, [targetKeluargaId]);
+        if (kRes.rows.length === 0) {
+          return res.status(404).json({ success: false, message: 'Keluarga tidak ditemukan.' });
+        }
+        lama = {
+          id: null,
+          keluarga_id: targetKeluargaId,
+          periode: targetPeriode,
+          meteran_lalu: null,
+          meteran_sekarang: null,
+          status: 'menunggu',
+          kepala_keluarga: kRes.rows[0].kepala_keluarga,
+        };
+      }
+    }
+
+    if (!lama) {
       return res.status(404).json({ success: false, message: 'Bacaan meteran tidak ditemukan.' });
     }
-    const lama = lamaRes.rows[0];
 
     const ambil = (baru, lamaNilai) =>
       baru !== undefined && baru !== null && baru !== '' ? Number(baru) : lamaNilai;
 
-    const mLalu = ambil(meteran_lalu, lama.meteran_lalu);
+    let mLalu = ambil(meteran_lalu, lama.meteran_lalu);
+    if (mLalu === null) {
+      const prev = await meteranPeriodeSebelumnya(pool, lama.keluarga_id, lama.periode);
+      mLalu = prev !== null ? prev : 0;
+    }
     const mKini = ambil(meteran_sekarang, lama.meteran_sekarang);
 
     const anomali = mKini !== null && mLalu !== null && mKini < mLalu;
     const status = mKini === null ? lama.status : (anomali ? STATUS_ANOMALI : STATUS_TERISI);
 
-    const hasil = await pool.query(
-      `UPDATE pembacaan_meteran SET
-         meteran_lalu     = $1,
-         meteran_sekarang = $2,
-         status           = $3,
-         catatan          = $4,
-         dikoreksi_oleh   = $5,
-         dikoreksi_pada   = NOW(),
-         updated_at       = NOW()
-       WHERE id = $6 RETURNING *`,
-      [mLalu, mKini, status, alasan.trim(), req.user.id, id]
-    );
+    let hasil;
+    if (lama.id) {
+      hasil = await pool.query(
+        `UPDATE pembacaan_meteran SET
+           meteran_lalu     = $1,
+           meteran_sekarang = $2,
+           status           = $3,
+           catatan          = $4,
+           dikoreksi_oleh   = $5,
+           dikoreksi_pada   = NOW(),
+           updated_at       = NOW()
+         WHERE id = $6 RETURNING *`,
+        [mLalu, mKini, status, alasan.trim(), req.user.id, lama.id]
+      );
+    } else {
+      hasil = await pool.query(
+        `INSERT INTO pembacaan_meteran
+           (keluarga_id, periode, meteran_lalu, meteran_sekarang, status, catatan, diisi_oleh, diisi_pada, dikoreksi_oleh, dikoreksi_pada, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $7, NOW(), NOW())
+         ON CONFLICT (keluarga_id, periode) DO UPDATE SET
+           meteran_lalu     = EXCLUDED.meteran_lalu,
+           meteran_sekarang = EXCLUDED.meteran_sekarang,
+           status           = EXCLUDED.status,
+           catatan          = EXCLUDED.catatan,
+           dikoreksi_oleh   = EXCLUDED.dikoreksi_oleh,
+           dikoreksi_pada   = NOW(),
+           updated_at       = NOW()
+         RETURNING *`,
+        [lama.keluarga_id, lama.periode, mLalu, mKini, status, alasan.trim(), req.user.id]
+      );
+    }
 
     const baru = hasil.rows[0];
     const perubahan = bandingkan(lama, baru, {
@@ -388,9 +519,6 @@ async function koreksiMeteran(req, res) {
       success: true,
       message: 'Koreksi meteran tersimpan.',
       data: baru,
-      // Tagihan yang sudah terbit TIDAK ikut berubah dari sini. Nominalnya
-      // dikoreksi lewat PUT /bills/:id, yang punya penjaganya sendiri terhadap
-      // tagihan yang sudah lunas dan sudah masuk Kas RT.
       catatan: baru.bill_id
         ? 'Tagihan periode ini sudah terbit — nominalnya perlu dikoreksi terpisah lewat menu tagihan.'
         : null,
