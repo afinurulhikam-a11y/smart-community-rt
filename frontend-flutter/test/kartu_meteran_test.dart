@@ -101,7 +101,7 @@ class _MeteranTanpaJaringan extends MeteranProvider {
   Future<void> muatSaya({String? periode}) async {}
 
   @override
-  Future<void> muatDaftar({String? periode, String? status}) async {}
+  Future<void> muatDaftar({String? periode, String? status, String? search}) async {}
 }
 
 /// Provider disemai SEBELUM pumpWidget, lalu disematkan di atas widgetnya.
