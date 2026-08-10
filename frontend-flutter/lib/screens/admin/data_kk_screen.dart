@@ -680,12 +680,18 @@ class _DataKkScreenState extends State<DataKkScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                        color: jumlahAnggota == 0
+                            ? const Color(0xFFFEF3C7)
+                            : AppTheme.primaryColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        '$jumlahAnggota Orang',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryColor),
+                        jumlahAnggota == 0 ? '0 Orang (KK Kosong)' : '$jumlahAnggota Orang',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: jumlahAnggota == 0 ? const Color(0xFFD97706) : AppTheme.primaryColor,
+                        ),
                       ),
                     ),
                   ),
