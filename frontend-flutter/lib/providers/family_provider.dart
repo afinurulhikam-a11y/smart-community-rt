@@ -22,12 +22,12 @@ class FamilyProvider extends ChangeNotifier {
   int get totalPages => _totalPages;
   int get totalData => _totalData;
 
-  Future<void> fetchFamilies({String? search, int page = 1}) async {
+  Future<void> fetchFamilies({String? search, int page = 1, int limit = 10}) async {
     _isLoading = true;
     notifyListeners();
     final queryParams = <String, String>{
       'page': page.toString(),
-      'limit': '1000', // Dikembalikan ke 1000 karena UI menggunakannya sebagai Dropdown
+      'limit': limit.toString(),
     };
     if (search != null) queryParams['search'] = search;
     final response = await ApiService.get(
