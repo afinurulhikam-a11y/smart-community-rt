@@ -279,6 +279,20 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
       runSpacing: 12,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
+        if (_bolehTambah)
+          _filledBtn(
+            Icons.add_circle_outline,
+            'Tambah Iuran',
+            const Color(0xFF0F766E),
+            _showTambahIuranDialog,
+          ),
+        if (_bolehTambah)
+          _outlinedBtn(
+            Icons.autorenew_outlined,
+            'Generate Tagihan',
+            _hijau,
+            _showGenerateDialog,
+          ),
         _filledBtn(
           Icons.water_drop_outlined,
           'Bacaan Meteran',
