@@ -69,7 +69,12 @@ async function mulaiPembayaran(req, res) {
     // boleh membayarkan siapa pun (mis. membantu warga di balai RT).
     if (req.user.role === 'warga') {
       const milik = await client.query(
-        'SELECT no_kk FROM users WHERE id = $1',
+        `SELECT k.no_kk
+         FROM users u
+         LEFT JOIN anggota_keluarga ak ON ak.nik = u.nik
+         LEFT JOIN keluarga k ON k.id = ak.keluarga_id OR k.no_kk = u.no_kk
+         WHERE u.id = $1 AND k.deleted_at IS NULL
+         LIMIT 1`,
         [req.user.id]
       );
       const noKk = milik.rows[0]?.no_kk;

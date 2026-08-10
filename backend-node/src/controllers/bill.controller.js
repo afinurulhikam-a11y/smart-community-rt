@@ -123,7 +123,11 @@ function buildFilter(req, mulaiDari = 0) {
   // Warga hanya boleh melihat tagihan kartu keluarganya sendiri.
   if (req.user.role === 'warga') {
     params.push(req.user.id);
-    kondisi.push(`k.no_kk = (SELECT no_kk FROM users WHERE id = ${p()})`);
+    const pid = p();
+    kondisi.push(`(
+      k.no_kk = (SELECT no_kk FROM users WHERE id = ${pid})
+      OR k.id = (SELECT ak.keluarga_id FROM anggota_keluarga ak WHERE ak.nik = (SELECT nik FROM users WHERE id = ${pid}) LIMIT 1)
+    )`);
   } else if (keluarga_id) {
     params.push(keluarga_id);
     kondisi.push(`b.keluarga_id = ${p()}`);
