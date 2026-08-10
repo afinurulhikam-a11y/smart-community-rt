@@ -105,7 +105,7 @@ function pakaiMeteran(jenis) {
  * tanpa menunggu kalender. Uji yang menuntut orang menunggu tanggal 6 tidak
  * akan pernah dijalankan siapa pun.
  */
-const TANGGAL_TUTUP_METERAN = parseInt(process.env.BATAS_INPUT_METERAN, 10) || 5;
+const TANGGAL_TUTUP_METERAN = parseInt(process.env.BATAS_INPUT_METERAN, 10) || 31;
 
 /** Tanggal tagihan difinalisasi, oleh penjadwal maupun Generate Manual. */
 const TANGGAL_TERBIT_TAGIHAN = parseInt(process.env.TANGGAL_TERBIT_TAGIHAN, 10) || 25;
