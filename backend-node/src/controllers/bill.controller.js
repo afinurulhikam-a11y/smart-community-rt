@@ -1143,8 +1143,9 @@ async function downloadReceipt(req, res) {
     const { id } = req.params;
     const result = await pool.query(
       `SELECT bp.*, b.bulan, b.nominal, b.keluarga_id,
+              b.meteran_lalu, b.meteran_sekarang, b.tarif_per_m3, b.abondement, b.biaya_sampah, b.langganan_sampah,
               COALESCE(ji.nama_iuran, b.jenis_tagihan) AS jenis_tagihan,
-              k.kepala_keluarga AS nama_warga, k.alamat, k.no_kk
+              k.kepala_keluarga AS nama_warga, k.alamat, k.blok, k.no_kk, k.rt, k.rw
        FROM bill_payments bp
        JOIN bills b ON bp.bill_id = b.id
        JOIN keluarga k ON b.keluarga_id = k.id
