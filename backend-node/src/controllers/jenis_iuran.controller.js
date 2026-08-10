@@ -11,6 +11,10 @@ async function getJenisIuran(req, res) {
     const result = await pool.query(`
       SELECT ji.id, ji.nama_iuran, ji.nominal_default::numeric AS nominal_default,
              ji.periode, ji.is_aktif, ji.keterangan,
+             -- Aturan tarif ikut dikirim: layar master perlu menampilkannya,
+             -- dan klien perlu tahu jenis ini bermeteran atau bernominal tetap
+             -- untuk memutuskan formulir mana yang ditampilkan.
+             ji.tipe_hitung, ji.tarif_per_m3, ji.abondement, ji.biaya_sampah,
              COUNT(b.id)::int AS jumlah_tagihan
       FROM jenis_iuran ji
       LEFT JOIN bills b ON b.jenis_iuran_id = ji.id
