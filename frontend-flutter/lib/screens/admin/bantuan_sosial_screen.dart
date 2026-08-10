@@ -318,59 +318,72 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
           runSpacing: 12,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Container(
-              constraints: const BoxConstraints(minHeight: AppTheme.sasaranSentuh),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                border: Border.all(color: context.garis),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: _jenisBantuan,
-                  icon: Icon(Icons.keyboard_arrow_down, size: 16, color: context.teksKedua),
-                  style: TextStyle(fontSize: 13, color: context.teksUtama),
-                  items: [
-                    'Semua Jenis',
-                    'Sembako',
-                    'BLT',
-                    'Kesehatan',
-                    'PKH',
-                    'BPNT',
-                    'BST',
-                    'BLT Dana Desa',
-                    'PBI-JKN',
-                    'Lainnya',
-                  ].map((v) => DropdownMenuItem<String>(value: v, child: Text(v))).toList(),
-                  onChanged: (v) {
-                    setState(() => _jenisBantuan = v!);
-                    _loadData();
-                  },
+            SizedBox(
+              width: lebarKolomFilter(context, maksimal: 220),
+              height: AppTheme.sasaranSentuh,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: context.garis),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _jenisBantuan,
+                    isExpanded: true,
+                    icon: Icon(Icons.keyboard_arrow_down, size: 16, color: context.teksKedua),
+                    style: TextStyle(fontSize: 13, color: context.teksUtama),
+                    items: [
+                      'Semua Jenis',
+                      'Program Sembako (BPNT)',
+                      'PKH',
+                      'PBI-JK',
+                      'BLT Desa',
+                      'Bantuan Kesehatan',
+                      'Bantuan Pendidikan',
+                      'Bantuan Perumahan',
+                      'Bantuan Tunai/Lainnya',
+                      'Sembako',
+                      'BLT',
+                      'BPNT',
+                      'BST',
+                      'PBI-JKN',
+                      'Lainnya',
+                    ].map((v) => DropdownMenuItem<String>(value: v, child: Text(v, overflow: TextOverflow.ellipsis))).toList(),
+                    onChanged: (v) {
+                      setState(() => _jenisBantuan = v!);
+                      _loadData();
+                    },
+                  ),
                 ),
               ),
             ),
 
-            Container(
-              constraints: const BoxConstraints(minHeight: AppTheme.sasaranSentuh),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                border: Border.all(color: context.garis),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: _status,
-                  icon: Icon(Icons.keyboard_arrow_down, size: 16, color: context.teksKedua),
-                  style: TextStyle(fontSize: 13, color: context.teksUtama),
-                  items: [
-                    'Semua Status',
-                    'Aktif',
-                    'Selesai',
-                  ].map((v) => DropdownMenuItem<String>(value: v, child: Text(v))).toList(),
-                  onChanged: (v) {
-                    setState(() => _status = v!);
-                    _loadData();
-                  },
+            SizedBox(
+              width: lebarKolomFilter(context, maksimal: 160),
+              height: AppTheme.sasaranSentuh,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: context.garis),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _status,
+                    isExpanded: true,
+                    icon: Icon(Icons.keyboard_arrow_down, size: 16, color: context.teksKedua),
+                    style: TextStyle(fontSize: 13, color: context.teksUtama),
+                    items: [
+                      'Semua Status',
+                      'Aktif',
+                      'Selesai',
+                    ].map((v) => DropdownMenuItem<String>(value: v, child: Text(v, overflow: TextOverflow.ellipsis))).toList(),
+                    onChanged: (v) {
+                      setState(() => _status = v!);
+                      _loadData();
+                    },
+                  ),
                 ),
               ),
             ),
@@ -520,7 +533,9 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                           'Nama Warga',
                           'NIK',
                           'Jenis Bantuan',
+                          'Bentuk & Sumber',
                           'Tanggal / Periode',
+                          'Nilai Bantuan',
                           'Status',
                           'Keterangan',
                         ],
@@ -529,13 +544,21 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                           final b = entry.value;
                           final nomor =
                               ((provider.currentPage - 1) * provider.perPage) + index + 1;
+                          final nomVal = double.tryParse(b['nominal']?.toString() ?? '0') ?? 0;
+                          final nomStr = nomVal > 0
+                              ? 'Rp ${nomVal.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}'
+                              : '-';
+                          final bentukSumber = '${b['bentuk_bantuan'] ?? 'Tunai'} • ${b['sumber_bantuan'] ?? 'Pemerintah Pusat'}';
+
                           return BarisTabel(
                             sel: [
                               SelTabel.teks('No', '$nomor', sembunyiDiKartu: true),
                               SelTabel.teks('Nama Warga', b['nama_warga'] ?? '-', utama: true),
                               SelTabel.teks('NIK', b['nik_warga'] ?? '-'),
                               SelTabel.teks('Jenis Bantuan', b['jenis_bantuan'] ?? '-'),
+                              SelTabel.teks('Bentuk & Sumber', bentukSumber),
                               SelTabel.teks('Tanggal / Periode', formatPeriodeBansos(b)),
+                              SelTabel.teks('Nilai Bantuan', nomStr),
                               SelTabel(
                                 'Status',
                                 Container(
@@ -720,7 +743,9 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
     String? selectedUserId = isEdit
         ? data['user_id']
         : (provider.wargaList.isNotEmpty ? provider.wargaList.first['id'] : null);
-    String selectedJenis = isEdit ? (data['jenis_bantuan'] ?? 'Sembako') : 'Sembako';
+    String selectedJenis = isEdit ? (data['jenis_bantuan'] ?? 'Program Sembako (BPNT)') : 'Program Sembako (BPNT)';
+    String selectedBentuk = isEdit ? (data['bentuk_bantuan'] ?? 'Tunai') : 'Tunai';
+    String selectedSumber = isEdit ? (data['sumber_bantuan'] ?? 'Pemerintah Pusat') : 'Pemerintah Pusat';
     String status = isEdit ? (data['status'] ?? 'Aktif') : 'Aktif';
 
     String tipePeriode = 'satu_kali';
@@ -747,26 +772,53 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
       tanggalBantuan = DateTime.now();
     }
 
+    final skController = TextEditingController(text: isEdit ? (data['no_sk'] ?? '') : '');
     final nominalController = TextEditingController(
-      text: isEdit ? data['nominal']?.toString() : '',
+      text: isEdit ? (data['nominal'] != null ? data['nominal'].toString() : '') : '',
     );
-    final ketController = TextEditingController(text: isEdit ? data['keterangan'] ?? '' : '');
+    final ketController = TextEditingController(text: isEdit ? (data['keterangan'] ?? '') : '');
 
     final jenisBantuanList = [
-      'Sembako',
-      'BLT',
-      'Kesehatan',
+      'Program Sembako (BPNT)',
       'PKH',
-      'BPNT',
-      'BST',
-      'BLT Dana Desa',
-      'PBI-JKN',
+      'PBI-JK',
+      'BLT Desa',
+      'Bantuan Kesehatan',
+      'Bantuan Pendidikan',
+      'Bantuan Perumahan',
+      'Bantuan Tunai/Lainnya',
       'Lainnya',
     ];
+    if (!jenisBantuanList.contains(selectedJenis)) {
+      jenisBantuanList.insert(0, selectedJenis);
+    }
+
+    final bentukBantuanList = [
+      'Tunai',
+      'Non-tunai / barang',
+      'Layanan',
+      'Iuran / subsidi',
+    ];
+    if (!bentukBantuanList.contains(selectedBentuk)) {
+      bentukBantuanList.insert(0, selectedBentuk);
+    }
+
+    final sumberBantuanList = [
+      'Pemerintah Pusat',
+      'Pemerintah Provinsi',
+      'Pemerintah Kabupaten/Kota',
+      'Pemerintah Desa',
+      'RT/RW',
+      'Donatur',
+      'Lainnya',
+    ];
+    if (!sumberBantuanList.contains(selectedSumber)) {
+      sumberBantuanList.insert(0, selectedSumber);
+    }
 
     bool nominalNol() {
       final t = nominalController.text.trim();
-      final n = int.tryParse(t) ?? 0;
+      final n = double.tryParse(t) ?? 0;
       return n == 0;
     }
 
@@ -881,7 +933,7 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                 ],
               ),
               content: SizedBox(
-                width: lebarDialog(context, maksimal: 500),
+                width: lebarDialog(context, maksimal: 520),
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -902,6 +954,7 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                           onChanged: (v) => setDialogState(() => selectedUserId = v),
                         ),
                       if (!isEdit) const SizedBox(height: 16),
+
                       DropdownButtonFormField<String>(
                         decoration: buildDecor('Jenis Bantuan *', Icons.card_giftcard),
                         initialValue: selectedJenis,
@@ -911,6 +964,36 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                             .map((j) => DropdownMenuItem(value: j, child: Text(j)))
                             .toList(),
                         onChanged: (v) => setDialogState(() => selectedJenis = v!),
+                      ),
+                      const SizedBox(height: 16),
+
+                      DropdownButtonFormField<String>(
+                        decoration: buildDecor('Bentuk Bantuan *', Icons.category_outlined),
+                        initialValue: selectedBentuk,
+                        dropdownColor: context.latarKartu,
+                        borderRadius: BorderRadius.circular(12),
+                        items: bentukBantuanList
+                            .map((b) => DropdownMenuItem(value: b, child: Text(b)))
+                            .toList(),
+                        onChanged: (v) => setDialogState(() => selectedBentuk = v!),
+                      ),
+                      const SizedBox(height: 16),
+
+                      DropdownButtonFormField<String>(
+                        decoration: buildDecor('Sumber Bantuan *', Icons.account_balance_outlined),
+                        initialValue: selectedSumber,
+                        dropdownColor: context.latarKartu,
+                        borderRadius: BorderRadius.circular(12),
+                        items: sumberBantuanList
+                            .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                            .toList(),
+                        onChanged: (v) => setDialogState(() => selectedSumber = v!),
+                      ),
+                      const SizedBox(height: 16),
+
+                      TextField(
+                        controller: skController,
+                        decoration: buildDecor('Nomor SK / Referensi (Opsional)', Icons.badge_outlined),
                       ),
                       const SizedBox(height: 16),
 
@@ -974,12 +1057,18 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
 
                       TextField(
                         controller: nominalController,
-                        decoration: buildDecor('Nominal *', Icons.monetization_on_outlined),
+                        decoration: buildDecor(
+                          selectedBentuk == 'Tunai'
+                              ? 'Nilai Bantuan (Nominal Rp) *'
+                              : 'Nilai Bantuan (Opsional Rp)',
+                          Icons.monetization_on_outlined,
+                        ),
                         keyboardType: TextInputType.number,
                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                         onChanged: (_) => setDialogState(() {}),
                       ),
                       const SizedBox(height: 16),
+
                       if (isEdit) ...[
                         DropdownButtonFormField<String>(
                           decoration: buildDecor('Status', Icons.check_circle_outline),
@@ -994,11 +1083,12 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                         ),
                         const SizedBox(height: 16),
                       ],
+
                       TextField(
                         controller: ketController,
                         decoration: buildDecor(
-                          nominalNol()
-                              ? 'Keterangan (Wajib)'
+                          (selectedBentuk == 'Tunai' && nominalNol())
+                              ? 'Keterangan (Wajib bila nominal Tunai 0)'
                               : 'Keterangan (Opsional)',
                           Icons.notes,
                         ),
@@ -1040,13 +1130,19 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                       }
                     }
 
-                    final nominal = double.tryParse(nominalController.text.trim());
-                    if (nominal == null || nominal < 0) {
-                      pesanGagal(context, 'Nominal wajib diisi dan tidak boleh negatif');
-                      return;
-                    }
-                    if (nominal == 0 && ketController.text.trim().isEmpty) {
-                      pesanGagal(context, 'Keterangan wajib diisi bila nominal 0');
+                    final nominalText = nominalController.text.trim();
+                    final nominal = nominalText.isNotEmpty ? double.tryParse(nominalText) : 0.0;
+                    if (selectedBentuk == 'Tunai') {
+                      if (nominalText.isEmpty || nominal == null || nominal < 0) {
+                        pesanGagal(context, 'Nominal wajib diisi untuk bantuan Tunai');
+                        return;
+                      }
+                      if (nominal == 0 && ketController.text.trim().isEmpty) {
+                        pesanGagal(context, 'Keterangan wajib diisi bila nominal Tunai 0');
+                        return;
+                      }
+                    } else if (nominal != null && nominal < 0) {
+                      pesanGagal(context, 'Nominal tidak boleh negatif');
                       return;
                     }
 
@@ -1059,12 +1155,15 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                     final payload = {
                       if (isEdit) 'user_id': data['user_id'] else 'user_id': selectedUserId,
                       'jenis_bantuan': selectedJenis,
+                      'bentuk_bantuan': selectedBentuk,
+                      'sumber_bantuan': selectedSumber,
+                      'no_sk': skController.text.trim(),
                       'tanggal_bantuan': tBantuanStr,
                       'tanggal_mulai': tMulaiStr,
                       'tanggal_selesai': tSelesaiStr,
                       'tahun': refDt.year,
-                      'nominal': nominal,
-                      'keterangan': ketController.text,
+                      'nominal': nominal ?? 0.0,
+                      'keterangan': ketController.text.trim(),
                       if (isEdit) 'status': status,
                     };
 
@@ -1075,12 +1174,15 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                       success = await provider.createBantuanSosial(
                         userId: selectedUserId!,
                         jenisBantuan: selectedJenis,
+                        bentukBantuan: selectedBentuk,
+                        sumberBantuan: selectedSumber,
+                        noSk: skController.text.trim(),
                         tanggalBantuan: tBantuanStr,
                         tanggalMulai: tMulaiStr,
                         tanggalSelesai: tSelesaiStr,
                         tahun: refDt.year,
-                        nominal: nominal,
-                        keterangan: ketController.text,
+                        nominal: nominal ?? 0.0,
+                        keterangan: ketController.text.trim(),
                       );
                     }
 
@@ -1101,7 +1203,7 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                   ),
                   child: Text(
                     isEdit ? 'Simpan Perubahan' : 'Simpan & Tambahkan',
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
               ],

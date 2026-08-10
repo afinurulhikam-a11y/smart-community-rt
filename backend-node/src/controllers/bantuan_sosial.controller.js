@@ -189,8 +189,20 @@ async function getBantuanSosialStats(req, res) {
 
 async function createBantuanSosial(req, res) {
   try {
-    const { user_id, jenis_bantuan, tanggal_bantuan, tanggal_mulai, tanggal_selesai, tahun, nominal, keterangan } = req.body;
-    
+    const {
+      user_id,
+      jenis_bantuan,
+      bentuk_bantuan,
+      sumber_bantuan,
+      no_sk,
+      tanggal_bantuan,
+      tanggal_mulai,
+      tanggal_selesai,
+      tahun,
+      nominal,
+      keterangan,
+    } = req.body;
+
     if (!user_id || !jenis_bantuan) {
       return res.status(400).json({ success: false, message: 'user_id dan jenis_bantuan wajib diisi.' });
     }
@@ -202,6 +214,9 @@ async function createBantuanSosial(req, res) {
     const tBantuan = tanggal_bantuan ? String(tanggal_bantuan).trim() : null;
     const tMulai = tanggal_mulai ? String(tanggal_mulai).trim() : null;
     const tSelesai = tanggal_selesai ? String(tanggal_selesai).trim() : null;
+    const bBantuan = bentuk_bantuan ? String(bentuk_bantuan).trim() : 'Tunai';
+    const sBantuan = sumber_bantuan ? String(sumber_bantuan).trim() : 'Pemerintah Pusat';
+    const skFinal = no_sk ? String(no_sk).trim() : null;
 
     if (!tBantuan && !tMulai && !tahun) {
       return res.status(400).json({ success: false, message: 'Tanggal bantuan atau tanggal mulai wajib diisi.' });
@@ -211,13 +226,20 @@ async function createBantuanSosial(req, res) {
       return res.status(400).json({ success: false, message: 'Tanggal selesai tidak boleh lebih awal dari tanggal mulai.' });
     }
 
-    const nominalAngka = Number(nominal);
-    if (nominal === undefined || nominal === null || nominal === '' || !Number.isFinite(nominalAngka) || nominalAngka < 0) {
-      return res.status(400).json({ success: false, message: 'Nominal wajib diisi dan tidak boleh negatif.' });
+    let nominalAngka = 0;
+    if (nominal !== undefined && nominal !== null && nominal !== '') {
+      const n = Number(nominal);
+      if (!Number.isFinite(n) || n < 0) {
+        return res.status(400).json({ success: false, message: 'Nominal wajib diisi dan tidak boleh negatif.' });
+      }
+      nominalAngka = n;
+    } else if (bBantuan === 'Tunai') {
+      return res.status(400).json({ success: false, message: 'Nominal wajib diisi untuk bantuan Tunai.' });
     }
+
     const ketFinal = (keterangan || '').toString().trim();
-    if (nominalAngka === 0 && ketFinal === '') {
-      return res.status(400).json({ success: false, message: 'Keterangan wajib diisi bila nominal 0.' });
+    if (nominalAngka === 0 && bBantuan === 'Tunai' && ketFinal === '') {
+      return res.status(400).json({ success: false, message: 'Keterangan wajib diisi bila nominal Tunai 0.' });
     }
 
     const userCheck = await pool.query('SELECT id FROM users WHERE id = $1', [user_id]);
@@ -249,9 +271,9 @@ async function createBantuanSosial(req, res) {
     }
 
     const result = await pool.query(
-      `INSERT INTO bantuan_sosial (user_id, jenis_bantuan, tanggal_bantuan, tanggal_mulai, tanggal_selesai, tahun, nominal, keterangan, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [user_id, jenis_bantuan, tBantuan, tMulai, tSelesai, tahunHitung, nominalAngka, ketFinal || null, req.user.id]
+      `INSERT INTO bantuan_sosial (user_id, jenis_bantuan, bentuk_bantuan, sumber_bantuan, no_sk, tanggal_bantuan, tanggal_mulai, tanggal_selesai, tahun, nominal, keterangan, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+      [user_id, jenis_bantuan, bBantuan, sBantuan, skFinal, tBantuan, tMulai, tSelesai, tahunHitung, nominalAngka, ketFinal || null, req.user.id]
     );
 
     const rowBaru = result.rows[0];
@@ -261,7 +283,7 @@ async function createBantuanSosial(req, res) {
       req,
       TIPE.CREATE,
       `Menetapkan penerima bantuan sosial: ${penerima.rows[0]?.nama || user_id} — ` +
-        `${jenis_bantuan} (${descPeriode}), ${rupiah(nominalAngka)}`
+        `${jenis_bantuan} (${descPeriode}), ${bBantuan === 'Tunai' ? rupiah(nominalAngka) : bBantuan}`
     );
 
     return res.status(201).json({ success: true, message: 'Penerima bantuan berhasil ditambahkan.', data: rowBaru });
@@ -279,27 +301,39 @@ async function updateBantuanSosial(req, res) {
       return res.status(400).json({ success: false, message: 'ID Bantuan Sosial tidak valid.' });
     }
 
-    const { jenis_bantuan, tanggal_bantuan, tanggal_mulai, tanggal_selesai, tahun, nominal, status, keterangan } = req.body;
+    const {
+      jenis_bantuan,
+      bentuk_bantuan,
+      sumber_bantuan,
+      no_sk,
+      tanggal_bantuan,
+      tanggal_mulai,
+      tanggal_selesai,
+      tahun,
+      nominal,
+      status,
+      keterangan,
+    } = req.body;
 
-    let nominalBaru = null;
+    const oldData = await pool.query('SELECT * FROM bantuan_sosial WHERE id = $1', [numId]);
+    if (oldData.rows.length === 0) return res.status(404).json({ success: false, message: 'Data bantuan tidak ditemukan.' });
+
+    const old = oldData.rows[0];
+
+    const bBantuan = bentuk_bantuan !== undefined ? (bentuk_bantuan ? String(bentuk_bantuan).trim() : 'Tunai') : old.bentuk_bantuan;
+    const sBantuan = sumber_bantuan !== undefined ? (sumber_bantuan ? String(sumber_bantuan).trim() : 'Pemerintah Pusat') : old.sumber_bantuan;
+    const skFinal = no_sk !== undefined ? (no_sk ? String(no_sk).trim() : null) : old.no_sk;
+
+    let nominalBaru = old.nominal ? Number(old.nominal) : 0;
     if (nominal !== undefined && nominal !== null && nominal !== '') {
       const n = Number(nominal);
       if (!Number.isFinite(n) || n < 0) {
         return res.status(400).json({ success: false, message: 'Nominal harus berupa angka tidak negatif.' });
       }
       nominalBaru = n;
+    } else if (bBantuan === 'Tunai' && (nominal === '' || nominal === null)) {
+      return res.status(400).json({ success: false, message: 'Nominal wajib diisi untuk bantuan Tunai.' });
     }
-    if (nominalBaru === 0) {
-      const ketFinal = (keterangan || '').toString().trim();
-      if (ketFinal === '') {
-        return res.status(400).json({ success: false, message: 'Keterangan wajib diisi bila nominal 0.' });
-      }
-    }
-
-    const oldData = await pool.query('SELECT * FROM bantuan_sosial WHERE id = $1', [numId]);
-    if (oldData.rows.length === 0) return res.status(404).json({ success: false, message: 'Data bantuan tidak ditemukan.' });
-
-    const old = oldData.rows[0];
 
     const oldTBantuanStr = toDateOnlyStr(old.tanggal_bantuan);
     const oldTMulaiStr = toDateOnlyStr(old.tanggal_mulai);
@@ -324,24 +358,30 @@ async function updateBantuanSosial(req, res) {
     const result = await pool.query(
       `UPDATE bantuan_sosial SET
         jenis_bantuan = COALESCE($1, jenis_bantuan),
-        tanggal_bantuan = $2::date,
-        tanggal_mulai = $3::date,
-        tanggal_selesai = $4::date,
-        tahun = COALESCE($5, tahun),
-        nominal = COALESCE($6, nominal),
-        status = COALESCE($7, status),
-        keterangan = COALESCE($8, keterangan),
+        bentuk_bantuan = COALESCE($2, bentuk_bantuan),
+        sumber_bantuan = COALESCE($3, sumber_bantuan),
+        no_sk = $4,
+        tanggal_bantuan = $5::date,
+        tanggal_mulai = $6::date,
+        tanggal_selesai = $7::date,
+        tahun = COALESCE($8, tahun),
+        nominal = $9,
+        status = COALESCE($10, status),
+        keterangan = COALESCE($11, keterangan),
         updated_at = NOW()
-       WHERE id = $9 RETURNING *`,
-      [jenis_bantuan, tBantuan, tMulai, tSelesai, tahunHitung, nominal, status, keterangan, numId]
+       WHERE id = $12 RETURNING *`,
+      [jenis_bantuan, bBantuan, sBantuan, skFinal, tBantuan, tMulai, tSelesai, tahunHitung, nominalBaru, status, keterangan, numId]
     );
 
     const changes = [];
     if (jenis_bantuan && old.jenis_bantuan !== jenis_bantuan) changes.push('Jenis Bantuan');
+    if (bBantuan && old.bentuk_bantuan !== bBantuan) changes.push('Bentuk Bantuan');
+    if (sBantuan && old.sumber_bantuan !== sBantuan) changes.push('Sumber Bantuan');
+    if (skFinal !== old.no_sk) changes.push('No. SK');
     if (tBantuan !== oldTBantuanStr) changes.push('Tanggal Bantuan');
     if (tMulai !== oldTMulaiStr) changes.push('Tanggal Mulai');
     if (tSelesai !== oldTSelesaiStr) changes.push('Tanggal Selesai');
-    if (nominal !== undefined && Number(old.nominal) !== Number(nominal)) changes.push('Nominal');
+    if (nominal !== undefined && Number(old.nominal) !== Number(nominalBaru)) changes.push('Nominal');
     if (keterangan !== undefined && old.keterangan !== keterangan) changes.push('Keterangan');
     if (status && old.status !== status) changes.push('Status');
 
@@ -358,6 +398,9 @@ async function updateBantuanSosial(req, res) {
       );
       const rincian = bandingkan(old, result.rows[0], {
         jenis_bantuan: 'jenis',
+        bentuk_bantuan: 'bentuk',
+        sumber_bantuan: 'sumber',
+        no_sk: 'No. SK',
         tanggal_bantuan: 'tanggal bantuan',
         tanggal_mulai: 'tanggal mulai',
         tanggal_selesai: 'tanggal selesai',
@@ -464,22 +507,25 @@ async function exportBantuanSosial(req, res) {
       doc.fontSize(16).text('Laporan Data Bantuan Sosial', { align: 'center' }).moveDown();
 
       const table = {
-        headers: ['No', 'Nama Warga', 'NIK', 'Jenis Bantuan', 'Tanggal / Periode', 'Status', 'Nominal', 'Keterangan'],
+        headers: ['No', 'Nama Warga', 'NIK', 'Jenis Bantuan', 'Bentuk', 'Sumber', 'No. SK', 'Tanggal / Periode', 'Status', 'Nominal', 'Keterangan'],
         rows: data.map((d, i) => [
           (i + 1).toString(),
           d.nama_warga || '-',
           d.nik_warga || '-',
           d.jenis_bantuan || '-',
+          d.bentuk_bantuan || 'Tunai',
+          d.sumber_bantuan || 'Pemerintah Pusat',
+          d.no_sk || '-',
           formatPeriodeBansos(d),
           d.status || '-',
-          d.nominal ? `Rp ${parseInt(d.nominal).toLocaleString('id-ID')}` : '-',
+          d.nominal && Number(d.nominal) > 0 ? `Rp ${parseInt(d.nominal, 10).toLocaleString('id-ID')}` : '-',
           d.keterangan || '-'
         ])
       };
 
       await doc.table(table, {
-        prepareHeader: () => doc.font('Helvetica-Bold').fontSize(9),
-        prepareRow: () => doc.font('Helvetica').fontSize(9)
+        prepareHeader: () => doc.font('Helvetica-Bold').fontSize(8),
+        prepareRow: () => doc.font('Helvetica').fontSize(8)
       });
       doc.end();
     } else {
@@ -490,7 +536,10 @@ async function exportBantuanSosial(req, res) {
         { header: 'No', key: 'no', width: 5 },
         { header: 'Nama Warga', key: 'nama', width: 25 },
         { header: 'NIK', key: 'nik', width: 20 },
-        { header: 'Jenis Bantuan', key: 'jenis', width: 20 },
+        { header: 'Jenis Bantuan', key: 'jenis', width: 25 },
+        { header: 'Bentuk Bantuan', key: 'bentuk', width: 18 },
+        { header: 'Sumber Bantuan', key: 'sumber', width: 22 },
+        { header: 'No. SK / Ref', key: 'no_sk', width: 20 },
         { header: 'Tanggal / Periode', key: 'periode', width: 25 },
         { header: 'Status', key: 'status', width: 15 },
         { header: 'Nominal', key: 'nominal', width: 15 },
@@ -503,6 +552,9 @@ async function exportBantuanSosial(req, res) {
           nama: d.nama_warga,
           nik: d.nik_warga,
           jenis: d.jenis_bantuan,
+          bentuk: d.bentuk_bantuan || 'Tunai',
+          sumber: d.sumber_bantuan || 'Pemerintah Pusat',
+          no_sk: d.no_sk || '-',
           periode: formatPeriodeBansos(d),
           status: d.status,
           nominal: d.nominal,
