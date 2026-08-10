@@ -671,19 +671,22 @@ async function isiDemo(client) {
 
   // --- Bantuan sosial -----------------------------------------------
   const bansos = [
-    { warga: 4, jenis: 'PKH', nominal: 750000, status: 'Aktif', tanggal_mulai: `${TAHUN}-01-15`, tanggal_selesai: `${TAHUN}-12-31` },
-    { warga: 5, jenis: 'BLT Dana Desa', nominal: 300000, status: 'Aktif', tanggal_bantuan: `${TAHUN}-06-10` },
-    { warga: 3, jenis: 'BPNT', nominal: 200000, status: 'Aktif', tanggal_bantuan: `${TAHUN}-07-01` },
-    { warga: 2, jenis: 'PKH', nominal: 750000, status: 'Selesai', tanggal_mulai: `${TAHUN - 1}-01-01`, tanggal_selesai: `${TAHUN - 1}-12-31` },
+    { warga: 4, jenis: 'PKH', bentuk: 'Tunai', sumber: 'Pemerintah Pusat', sk: 'SK-PKH/2026/001', nominal: 750000, status: 'Aktif', tanggal_mulai: `${TAHUN}-01-15`, tanggal_selesai: `${TAHUN}-12-31` },
+    { warga: 5, jenis: 'BLT Desa', bentuk: 'Tunai', sumber: 'Pemerintah Desa', sk: 'SK-BLT/2026/042', nominal: 300000, status: 'Aktif', tanggal_bantuan: `${TAHUN}-06-10` },
+    { warga: 3, jenis: 'Program Sembako (BPNT)', bentuk: 'Non-tunai / barang', sumber: 'Pemerintah Pusat', sk: 'SK-BPNT/2026/108', nominal: 200000, status: 'Aktif', tanggal_bantuan: `${TAHUN}-07-01` },
+    { warga: 2, jenis: 'PKH', bentuk: 'Tunai', sumber: 'Pemerintah Pusat', sk: 'SK-PKH/2025/089', nominal: 750000, status: 'Selesai', tanggal_mulai: `${TAHUN - 1}-01-01`, tanggal_selesai: `${TAHUN - 1}-12-31` },
   ];
 
   for (const b of bansos) {
     await client.query(
-      `INSERT INTO bantuan_sosial (user_id, jenis_bantuan, tanggal_bantuan, tanggal_mulai, tanggal_selesai, tahun, nominal, status, keterangan, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      `INSERT INTO bantuan_sosial (user_id, jenis_bantuan, bentuk_bantuan, sumber_bantuan, no_sk, tanggal_bantuan, tanggal_mulai, tanggal_selesai, tahun, nominal, status, keterangan, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
       [
         wargaIds[b.warga],
         b.jenis,
+        b.bentuk,
+        b.sumber,
+        b.sk,
         b.tanggal_bantuan || null,
         b.tanggal_mulai || null,
         b.tanggal_selesai || null,

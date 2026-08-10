@@ -87,6 +87,9 @@ class BantuanSosialProvider extends ChangeNotifier {
   Future<bool> createBantuanSosial({
     required String userId,
     required String jenisBantuan,
+    String? bentukBantuan,
+    String? sumberBantuan,
+    String? noSk,
     String? tanggalBantuan,
     String? tanggalMulai,
     String? tanggalSelesai,
@@ -99,6 +102,9 @@ class BantuanSosialProvider extends ChangeNotifier {
     final body = <String, dynamic>{
       'user_id': userId,
       'jenis_bantuan': jenisBantuan,
+      if (bentukBantuan != null) 'bentuk_bantuan': bentukBantuan,
+      if (sumberBantuan != null) 'sumber_bantuan': sumberBantuan,
+      if (noSk != null && noSk.isNotEmpty) 'no_sk': noSk,
       if (tanggalBantuan != null) 'tanggal_bantuan': tanggalBantuan,
       if (tanggalMulai != null) 'tanggal_mulai': tanggalMulai,
       if (tanggalSelesai != null) 'tanggal_selesai': tanggalSelesai,
