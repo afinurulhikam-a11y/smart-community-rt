@@ -91,8 +91,18 @@ async function createFamily(req, res) {
   try {
     const { no_kk, kepala_keluarga, alamat, rt, rw, kelurahan, kecamatan, anggota } = req.body;
     if (!no_kk || !kepala_keluarga || !alamat || !rt || !rw) return res.status(400).json({ success: false, message: 'No KK, kepala keluarga, alamat, RT, dan RW wajib diisi.' });
-    const existing = await pool.query('SELECT id FROM keluarga WHERE no_kk = $1', [no_kk]);
-    if (existing.rows.length > 0) return res.status(409).json({ success: false, message: 'No KK sudah terdaftar.' });
+    const existing = await pool.query('SELECT id FROM keluarga WHERE no_kk = $1 AND deleted_at IS NULL', [no_kk]);
+    if (existing.rows.length > 0) return res.status(409).json({ success: false, message: 'Nomor KK sudah terdaftar.' });
+    const existingNama = await pool.query(
+      'SELECT id, no_kk, kepala_keluarga FROM keluarga WHERE LOWER(TRIM(kepala_keluarga)) = LOWER(TRIM($1)) AND deleted_at IS NULL',
+      [kepala_keluarga]
+    );
+    if (existingNama.rows.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: `Kartu Keluarga atas nama '${existingNama.rows[0].kepala_keluarga}' sudah terdaftar (No KK: ${existingNama.rows[0].no_kk}). Periksa kembali untuk mencegah duplikasi.`,
+      });
+    }
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
