@@ -287,6 +287,14 @@ class BillProvider extends ChangeNotifier {
     await launchUrl(uri, webOnlyWindowName: '_self');
   }
 
+  /// Unduh kuitansi PDF resmi untuk satu tagihan yang sudah lunas.
+  Future<void> downloadReceipt(String billId) async {
+    final token = ApiService.token;
+    if (token == null) return;
+    final uri = Uri.parse('${ApiConstants.baseUrl}/bills/$billId/receipt?token=$token');
+    await launchUrl(uri, webOnlyWindowName: '_self');
+  }
+
   /// Kirim penagihan WhatsApp lewat gateway backend (Fonnte). Dipakai untuk
   /// pengiriman massal (`billIds` kosong → seluruh tunggakan sesuai filter)
   /// maupun per keluarga / per tagihan (berikan daftar `bill_ids`).

@@ -7,6 +7,7 @@ import 'payment_screen.dart';
 import '../../core/theme/warna_konteks.dart';
 import '../../core/format.dart';
 import '../../core/pesan.dart';
+import '../../core/responsif.dart';
 import '../../widgets/kartu_meteran_warga.dart';
 
 const Color _hijau = Color(0xFF1B7A6A);
@@ -179,6 +180,133 @@ class _BillListScreenState extends State<BillListScreen> with SingleTickerProvid
     );
   }
 
+  void _showDetailLunasDialog(BuildContext context, dynamic bill) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.receipt_long_rounded, color: _hijau),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Rincian Kuitansi',
+                style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: lebarDialog(ctx, maksimal: 440),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.successColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_rounded, color: AppTheme.successColor, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Tagihan Lunas • ${bill.invoiceNumber ?? '-'}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.successColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              _barisRincian(ctx, 'Periode Tagihan', bill.bulan as String),
+              if (bill.pakaiMeteran && bill.sudahDibaca) ...[
+                _barisRincian(ctx, 'Meteran Lalu', '${bill.meteranLalu}'),
+                _barisRincian(ctx, 'Meteran Sekarang', '${bill.meteranSekarang}'),
+                _barisRincian(ctx, 'Pemakaian', '${bill.terpakai} m³'),
+                _barisRincian(
+                  ctx,
+                  'Biaya Air',
+                  '${_rp(bill.biayaAir)} (${bill.terpakai} m³ × ${_rp(bill.tarifPerM3)})',
+                ),
+                _barisRincian(ctx, 'Abondement', _rp(bill.abondement ?? 0)),
+                _barisRincian(
+                  ctx,
+                  'Biaya Sampah',
+                  bill.biayaSampah != null && bill.biayaSampah! > 0
+                      ? _rp(bill.biayaSampah)
+                      : '-',
+                ),
+              ],
+              const Divider(height: 24),
+              _barisRincian(ctx, 'Total Pembayaran', _rp(bill.nominal as double), tebal: true),
+              _barisRincian(ctx, 'Metode Bayar', bill.metodeBayar as String? ?? 'Online / Midtrans'),
+              if (bill.paidAt != null)
+                _barisRincian(ctx, 'Tanggal Lunas', tanggalPanjang(bill.paidAt as DateTime)),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Tutup'),
+          ),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+            label: const Text('Unduh Kuitansi PDF'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _hijau,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<BillProvider>().downloadReceipt(bill.id as String);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _barisRincian(BuildContext context, String label, String nilai, {bool tebal = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                color: tebal ? context.teksUtama : context.teksKedua,
+                fontWeight: tebal ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ),
+          Text(
+            nilai,
+            textAlign: TextAlign.end,
+            style: TextStyle(
+              fontSize: 13,
+              color: tebal ? _hijau : context.teksUtama,
+              fontWeight: tebal ? FontWeight.bold : FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final billProvider = context.watch<BillProvider>();
@@ -281,7 +409,7 @@ class _BillListScreenState extends State<BillListScreen> with SingleTickerProvid
                   _terpilih.add(bill.id as String);
                 }
               })
-            : null,
+            : () => _showDetailLunasDialog(context, bill),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(
@@ -309,15 +437,12 @@ class _BillListScreenState extends State<BillListScreen> with SingleTickerProvid
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(bill.namaIuran, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    Text(bill.namaIuran as String, style: const TextStyle(fontWeight: FontWeight.w600)),
                     Text(
                       'Periode: ${bill.bulan}',
                       style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                     ),
-                    // Rincian pemakaian air. Warga berhak tahu angka mana yang
-                    // membuat tagihannya sebesar itu — tanpa ini ia hanya
-                    // melihat sebuah total yang tidak bisa dicocokkan dengan
-                    // meteran di rumahnya sendiri.
+                    // Rincian pemakaian air & kuitansi.
                     if (bill.pakaiMeteran && bill.sudahDibaca)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
@@ -335,6 +460,14 @@ class _BillListScreenState extends State<BillListScreen> with SingleTickerProvid
                           style: TextStyle(fontSize: 11, color: Color(0xFFD97706)),
                         ),
                       ),
+                    if (!bisaDipilih && bill.invoiceNumber != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          'Metode: ${bill.metodeBayar ?? 'Online'} · ${bill.invoiceNumber}',
+                          style: TextStyle(fontSize: 10, color: context.teksKedua),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -342,7 +475,7 @@ class _BillListScreenState extends State<BillListScreen> with SingleTickerProvid
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    _rp(bill.nominal),
+                    _rp(bill.nominal as double),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   Container(
@@ -352,7 +485,7 @@ class _BillListScreenState extends State<BillListScreen> with SingleTickerProvid
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      bill.statusLabel,
+                      bill.statusLabel as String,
                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: warna),
                     ),
                   ),
