@@ -29,3 +29,6 @@ desktop.ini
 CLAUDE.md
 PANDUAN-SIDANG.md
 *.xlsx
+
+# Temporary cron / test artifacts
+.cron-tmp-*.json

@@ -7,6 +7,7 @@ const { logActivity, rupiah, bandingkan } = require('../services/log.service');
 const {
   rincianTagihanAir, pakaiMeteran, bolehIsiMeteran, TANGGAL_TUTUP_METERAN,
   bolehTerbitkanTagihan, TANGGAL_TERBIT_TAGIHAN, TIPE_METERAN, periodeDari,
+  STATUS_TERISI, STATUS_ANOMALI,
 } = require('../utils/tagihan-air');
 const { terbitkanTagihanPeriode } = require('../services/tagihan-air.service');
 
@@ -116,6 +117,9 @@ function buildFilter(req, mulaiDari = 0) {
   const params = [];
   const p = () => `$${mulaiDari + params.length}`;
 
+  // Keluarga yang sudah di-soft-delete tidak dihitung dalam daftar & statistik.
+  kondisi.push('k.deleted_at IS NULL');
+
   // Warga hanya boleh melihat tagihan kartu keluarganya sendiri.
   if (req.user.role === 'warga') {
     params.push(req.user.id);
@@ -215,7 +219,7 @@ async function updateBill(req, res) {
     const { nominal, keterangan, jatuh_tempo, meteran_lalu, meteran_sekarang, alasan } = req.body;
 
     const tagihan = await pool.query(
-      `SELECT id, status, jenis_tagihan, bulan, nominal,
+      `SELECT id, status, jenis_tagihan, bulan, nominal, keluarga_id,
               meteran_lalu, meteran_sekarang, tarif_per_m3, abondement, biaya_sampah
        FROM bills WHERE id = $1`,
       [id]
@@ -305,6 +309,42 @@ async function updateBill(req, res) {
         air?.meteran_lalu ?? null, air?.meteran_sekarang ?? null,
       ]
     );
+
+    // Sinkronisasi ke 1 baris kanonikal pembacaan_meteran bila angka meterannya berubah.
+    if (berbasisMeteran && air) {
+      const meteranBerubah =
+        String(air.meteran_lalu ?? '') !== String(lama.meteran_lalu ?? '')
+        || String(air.meteran_sekarang ?? '') !== String(lama.meteran_sekarang ?? '');
+
+      if (meteranBerubah) {
+        const pmRes = await pool.query(
+          `SELECT id, status FROM pembacaan_meteran
+           WHERE bill_id = $1 OR (keluarga_id = $2 AND periode = $3)
+           ORDER BY CASE WHEN bill_id = $1 THEN 0 ELSE 1 END LIMIT 1`,
+          [id, lama.keluarga_id, lama.bulan]
+        );
+
+        if (pmRes.rows.length > 0) {
+          const pmLama = pmRes.rows[0];
+          const mLalu = air.meteran_lalu;
+          const mKini = air.meteran_sekarang;
+          const anomali = mKini !== null && mLalu !== null && Number(mKini) < Number(mLalu);
+          const statusBaru = mKini === null ? pmLama.status : (anomali ? STATUS_ANOMALI : STATUS_TERISI);
+
+          await pool.query(
+            `UPDATE pembacaan_meteran
+             SET meteran_lalu = $1,
+                 meteran_sekarang = $2,
+                 status = $3,
+                 dikoreksi_oleh = $4,
+                 dikoreksi_pada = NOW(),
+                 updated_at = NOW()
+             WHERE id = $5`,
+            [mLalu, mKini, statusBaru, req.user.id, pmLama.id]
+          );
+        }
+      }
+    }
 
     const ubah = result.rows[0];
     // Alasannya masuk ke jejak audit. Tanpa itu, baris log hanya mengatakan
@@ -813,6 +853,15 @@ async function payBill(req, res) {
       return res.status(403).json({ success: false, message: 'Anda hanya bisa membayar tagihan keluarga sendiri.' });
     }
     if (bill.status === STATUS_LUNAS) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, message: 'Tagihan ini sudah lunas.' });
+    }
+
+    const bayarSudahAda = await client.query(
+      'SELECT id FROM bill_payments WHERE bill_id = $1 LIMIT 1',
+      [id]
+    );
+    if (bayarSudahAda.rows.length > 0) {
       await client.query('ROLLBACK');
       return res.status(400).json({ success: false, message: 'Tagihan ini sudah lunas.' });
     }

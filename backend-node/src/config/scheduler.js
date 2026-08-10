@@ -61,94 +61,95 @@ async function terbitkanBilaWaktunya({ paksa = false, tanggal = new Date() } = {
     return { dijalankan: false, alasan: `belum tanggal ${TANGGAL_TERBIT_TAGIHAN}` };
   }
 
-  const periode = periodeDari(tanggal);
-
-  // Hanya jenis iuran bermeteran yang diterbitkan otomatis. Iuran bernominal
-  // tetap — bila kelak ada lagi — tetap diterbitkan manual, karena nominalnya
-  // adalah keputusan pengurus, bukan hasil pengukuran.
-  const jenisRes = await pool.query(
-    `SELECT id, nama_iuran FROM jenis_iuran
-     WHERE is_aktif = true AND tipe_hitung = 'meteran'
-     ORDER BY id`
-  );
-  if (jenisRes.rows.length === 0) {
-    return { dijalankan: false, alasan: 'tidak ada jenis iuran bermeteran yang aktif' };
-  }
-
-  const ringkas = [];
-
-  for (const jenis of jenisRes.rows) {
-    // Lewati bila seluruh KK sudah punya tagihan periode ini. Pemeriksaan ini
-    // hanya menghemat pekerjaan — yang benar-benar mencegah penggandaan adalah
-    // `bills_kk_jenis_bulan_uniq` di dalam service.
-    const kurang = await pool.query(
-      `SELECT COUNT(*)::int AS n
-       FROM keluarga k
-       WHERE k.deleted_at IS NULL
-         AND NOT EXISTS (
-           SELECT 1 FROM bills b
-           WHERE b.keluarga_id = k.id AND b.jenis_iuran_id = $1 AND b.bulan = $2
-         )`,
-      [jenis.id, periode]
-    );
-    if (kurang.rows[0].n === 0) {
-      ringkas.push({ jenis: jenis.nama_iuran, dibuat: 0, lengkap: true });
-      continue;
+  const client = await pool.connect();
+  try {
+    const lockRes = await client.query('SELECT pg_try_advisory_lock(889911) AS acquired');
+    if (!lockRes.rows[0]?.acquired) {
+      return { dijalankan: false, alasan: 'proses penjadwal sedang berjalan di instance lain' };
     }
 
-    const client = await pool.connect();
     try {
-      await client.query('BEGIN');
-      const hasil = await terbitkanTagihanPeriode(client, {
-        jenisIuranId: jenis.id,
-        bulan: periode,
-        // Tanpa pengguna: `bills.created_by` sengaja NULL supaya baris yang
-        // diterbitkan sistem bisa dibedakan dari yang diterbitkan pengurus.
-        createdBy: null,
-        keterangan: null,
-        jatuhTempo: null,
-      });
+      const periode = periodeDari(tanggal);
 
-      if (!hasil.ok) {
-        await client.query('ROLLBACK');
-        ringkas.push({ jenis: jenis.nama_iuran, gagal: hasil.alasan });
-        continue;
+      // Hanya jenis iuran bermeteran yang diterbitkan otomatis. Iuran bernominal
+      // tetap — bila kelak ada lagi — tetap diterbitkan manual, karena nominalnya
+      // adalah keputusan pengurus, bukan hasil pengukuran.
+      const jenisRes = await client.query(
+        `SELECT id, nama_iuran FROM jenis_iuran
+         WHERE is_aktif = true AND tipe_hitung = 'meteran'
+         ORDER BY id`
+      );
+      if (jenisRes.rows.length === 0) {
+        return { dijalankan: false, alasan: 'tidak ada jenis iuran bermeteran yang aktif' };
       }
 
-      await client.query('COMMIT');
-      ringkas.push({
-        jenis: jenis.nama_iuran,
-        dibuat: hasil.dibuat,
-        dilewati: hasil.dilewati,
-        rincian: hasil.rincian,
-      });
+      const ringkas = [];
 
-      if (hasil.dibuat > 0) {
-        // Dicatat lewat logSistem, bukan logActivity — tidak ada pengguna yang
-        // menekan apa pun. Jalur yang sama dipakai webhook Midtrans.
-        //
-        // TIPE.CREATE, bukan tipe baru: `_daftarTipe` di log_aktivitas_screen
-        // harus tetap identik dengan TIPE, dan tipe yang hanya ada di satu sisi
-        // akan tercatat tetapi tidak pernah bisa dicari.
-        await logSistem(
-          TIPE.CREATE,
-          `Penjadwal menerbitkan tagihan ${jenis.nama_iuran} periode ${periode}: `
-            + `${hasil.dibuat} dibuat, ${hasil.dilewati} dilewati — `
-            + `${hasil.rincian.terisi} dengan bacaan meteran, `
-            + `${hasil.rincian.tanpa_bacaan} tanpa bacaan, `
-            + `${hasil.rincian.anomali} anomali`,
-          { pelaku: 'Penjadwal Sistem' }
+      for (const jenis of jenisRes.rows) {
+        // Lewati bila seluruh KK sudah punya tagihan periode ini.
+        const kurang = await client.query(
+          `SELECT COUNT(*)::int AS n
+           FROM keluarga k
+           WHERE k.deleted_at IS NULL
+             AND NOT EXISTS (
+               SELECT 1 FROM bills b
+               WHERE b.keluarga_id = k.id AND b.jenis_iuran_id = $1 AND b.bulan = $2
+             )`,
+          [jenis.id, periode]
         );
-      }
-    } catch (e) {
-      await client.query('ROLLBACK');
-      ringkas.push({ jenis: jenis.nama_iuran, gagal: e.message });
-    } finally {
-      client.release();
-    }
-  }
+        if (kurang.rows[0].n === 0) {
+          ringkas.push({ jenis: jenis.nama_iuran, dibuat: 0, lengkap: true });
+          continue;
+        }
 
-  return { dijalankan: true, periode, ringkas };
+        try {
+          await client.query('BEGIN');
+          const hasil = await terbitkanTagihanPeriode(client, {
+            jenisIuranId: jenis.id,
+            bulan: periode,
+            createdBy: null,
+            keterangan: null,
+            jatuhTempo: null,
+          });
+
+          if (!hasil.ok) {
+            await client.query('ROLLBACK');
+            ringkas.push({ jenis: jenis.nama_iuran, gagal: hasil.alasan });
+            continue;
+          }
+
+          await client.query('COMMIT');
+          ringkas.push({
+            jenis: jenis.nama_iuran,
+            dibuat: hasil.dibuat,
+            dilewati: hasil.dilewati,
+            rincian: hasil.rincian,
+          });
+
+          if (hasil.dibuat > 0) {
+            await logSistem(
+              TIPE.CREATE,
+              `Penjadwal menerbitkan tagihan ${jenis.nama_iuran} periode ${periode}: `
+                + `${hasil.dibuat} dibuat, ${hasil.dilewati} dilewati — `
+                + `${hasil.rincian.terisi} dengan bacaan meteran, `
+                + `${hasil.rincian.tanpa_bacaan} tanpa bacaan, `
+                + `${hasil.rincian.anomali} anomali`,
+              { pelaku: 'Penjadwal Sistem' }
+            );
+          }
+        } catch (e) {
+          await client.query('ROLLBACK').catch(() => {});
+          ringkas.push({ jenis: jenis.nama_iuran, gagal: e.message });
+        }
+      }
+
+      return { dijalankan: true, periode, ringkas };
+    } finally {
+      await client.query('SELECT pg_advisory_unlock(889911)').catch(() => {});
+    }
+  } finally {
+    client.release();
+  }
 }
 
 let tugas = null;
