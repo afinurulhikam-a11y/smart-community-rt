@@ -3,6 +3,17 @@ const { logActivity, rupiah, bandingkan, TIPE } = require('../services/log.servi
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit-table');
 
+const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+function isUUID(val) {
+  return typeof val === 'string' && UUID_REGEX.test(val.trim());
+}
+
+function toDateOnlyStr(val) {
+  if (!val) return null;
+  if (val instanceof Date) return val.toISOString().split('T')[0];
+  return String(val).split('T')[0].trim();
+}
+
 function formatTanggalIndo(val) {
   if (!val) return '-';
   if (val instanceof Date) {
@@ -96,8 +107,8 @@ function buildDateFilter(tahun, start, end, params) {
 async function getBantuanSosial(req, res) {
   try {
     const { tahun, tanggal_mulai, tanggal_selesai, jenis_bantuan, status, search } = req.query;
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 10;
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(Math.max(1, parseInt(req.query.limit, 10) || 10), 100);
     const offset = (page - 1) * limit;
 
     let where = 'WHERE 1=1';
@@ -184,6 +195,10 @@ async function createBantuanSosial(req, res) {
       return res.status(400).json({ success: false, message: 'user_id dan jenis_bantuan wajib diisi.' });
     }
 
+    if (!isUUID(user_id)) {
+      return res.status(400).json({ success: false, message: 'ID Warga tidak valid.' });
+    }
+
     const tBantuan = tanggal_bantuan ? String(tanggal_bantuan).trim() : null;
     const tMulai = tanggal_mulai ? String(tanggal_mulai).trim() : null;
     const tSelesai = tanggal_selesai ? String(tanggal_selesai).trim() : null;
@@ -259,6 +274,11 @@ async function createBantuanSosial(req, res) {
 async function updateBantuanSosial(req, res) {
   try {
     const { id } = req.params;
+    const numId = parseInt(id, 10);
+    if (isNaN(numId) || numId <= 0) {
+      return res.status(400).json({ success: false, message: 'ID Bantuan Sosial tidak valid.' });
+    }
+
     const { jenis_bantuan, tanggal_bantuan, tanggal_mulai, tanggal_selesai, tahun, nominal, status, keterangan } = req.body;
 
     let nominalBaru = null;
@@ -276,14 +296,18 @@ async function updateBantuanSosial(req, res) {
       }
     }
 
-    const oldData = await pool.query('SELECT * FROM bantuan_sosial WHERE id = $1', [id]);
+    const oldData = await pool.query('SELECT * FROM bantuan_sosial WHERE id = $1', [numId]);
     if (oldData.rows.length === 0) return res.status(404).json({ success: false, message: 'Data bantuan tidak ditemukan.' });
 
     const old = oldData.rows[0];
 
-    const tBantuan = tanggal_bantuan !== undefined ? (tanggal_bantuan ? String(tanggal_bantuan).trim() : null) : old.tanggal_bantuan;
-    const tMulai = tanggal_mulai !== undefined ? (tanggal_mulai ? String(tanggal_mulai).trim() : null) : old.tanggal_mulai;
-    const tSelesai = tanggal_selesai !== undefined ? (tanggal_selesai ? String(tanggal_selesai).trim() : null) : old.tanggal_selesai;
+    const oldTBantuanStr = toDateOnlyStr(old.tanggal_bantuan);
+    const oldTMulaiStr = toDateOnlyStr(old.tanggal_mulai);
+    const oldTSelesaiStr = toDateOnlyStr(old.tanggal_selesai);
+
+    const tBantuan = tanggal_bantuan !== undefined ? (tanggal_bantuan ? String(tanggal_bantuan).trim() : null) : oldTBantuanStr;
+    const tMulai = tanggal_mulai !== undefined ? (tanggal_mulai ? String(tanggal_mulai).trim() : null) : oldTMulaiStr;
+    const tSelesai = tanggal_selesai !== undefined ? (tanggal_selesai ? String(tanggal_selesai).trim() : null) : oldTSelesaiStr;
 
     if (tMulai && tSelesai && tSelesai < tMulai) {
       return res.status(400).json({ success: false, message: 'Tanggal selesai tidak boleh lebih awal dari tanggal mulai.' });
@@ -309,14 +333,14 @@ async function updateBantuanSosial(req, res) {
         keterangan = COALESCE($8, keterangan),
         updated_at = NOW()
        WHERE id = $9 RETURNING *`,
-      [jenis_bantuan, tBantuan, tMulai, tSelesai, tahunHitung, nominal, status, keterangan, id]
+      [jenis_bantuan, tBantuan, tMulai, tSelesai, tahunHitung, nominal, status, keterangan, numId]
     );
 
     const changes = [];
     if (jenis_bantuan && old.jenis_bantuan !== jenis_bantuan) changes.push('Jenis Bantuan');
-    if (tBantuan !== old.tanggal_bantuan) changes.push('Tanggal Bantuan');
-    if (tMulai !== old.tanggal_mulai) changes.push('Tanggal Mulai');
-    if (tSelesai !== old.tanggal_selesai) changes.push('Tanggal Selesai');
+    if (tBantuan !== oldTBantuanStr) changes.push('Tanggal Bantuan');
+    if (tMulai !== oldTMulaiStr) changes.push('Tanggal Mulai');
+    if (tSelesai !== oldTSelesaiStr) changes.push('Tanggal Selesai');
     if (nominal !== undefined && Number(old.nominal) !== Number(nominal)) changes.push('Nominal');
     if (keterangan !== undefined && old.keterangan !== keterangan) changes.push('Keterangan');
     if (status && old.status !== status) changes.push('Status');
@@ -325,12 +349,12 @@ async function updateBantuanSosial(req, res) {
       const ket_log = `Mengubah: ${changes.join(', ')}`;
       await pool.query(
         'INSERT INTO bantuan_sosial_log (bantuan_sosial_id, changed_by, old_status, new_status, keterangan_log) VALUES ($1, $2, $3, $4, $5)',
-        [id, req.user.id, old.status, status || old.status, ket_log]
+        [numId, req.user.id, old.status, status || old.status, ket_log]
       );
 
       const penerima = await pool.query(
         'SELECT u.nama FROM bantuan_sosial bs JOIN users u ON bs.user_id = u.id WHERE bs.id = $1',
-        [id]
+        [numId]
       );
       const rincian = bandingkan(old, result.rows[0], {
         jenis_bantuan: 'jenis',
@@ -343,7 +367,7 @@ async function updateBantuanSosial(req, res) {
       await logActivity(
         req,
         TIPE.UPDATE,
-        `Mengubah bantuan sosial ${penerima.rows[0]?.nama || id} — ${rincian || ket_log}`
+        `Mengubah bantuan sosial ${penerima.rows[0]?.nama || numId} — ${rincian || ket_log}`
       );
     }
 
@@ -357,6 +381,11 @@ async function updateBantuanSosial(req, res) {
 async function getBantuanSosialHistory(req, res) {
   try {
     const { id } = req.params;
+    const numId = parseInt(id, 10);
+    if (isNaN(numId) || numId <= 0) {
+      return res.status(400).json({ success: false, message: 'ID Bantuan Sosial tidak valid.' });
+    }
+
     const result = await pool.query(
       `SELECT log.*, u.nama AS changed_by_name 
        FROM bantuan_sosial_log log 
@@ -366,7 +395,7 @@ async function getBantuanSosialHistory(req, res) {
     ? 'AND EXISTS (SELECT 1 FROM bantuan_sosial bs WHERE bs.id = log.bantuan_sosial_id AND bs.user_id = $2)'
     : ''}
        ORDER BY log.created_at DESC`,
-      req.user.role === 'warga' ? [id, req.user.id] : [id]
+      req.user.role === 'warga' ? [numId, req.user.id] : [numId]
     );
     return res.status(200).json({ success: true, data: result.rows });
   } catch (err) {
@@ -378,12 +407,17 @@ async function getBantuanSosialHistory(req, res) {
 async function deleteBantuanSosial(req, res) {
   try {
     const { id } = req.params;
+    const numId = parseInt(id, 10);
+    if (isNaN(numId) || numId <= 0) {
+      return res.status(400).json({ success: false, message: 'ID Bantuan Sosial tidak valid.' });
+    }
+
     const sebelum = await pool.query(
       'SELECT bs.*, u.nama FROM bantuan_sosial bs JOIN users u ON bs.user_id = u.id WHERE bs.id = $1',
-      [id]
+      [numId]
     );
 
-    const result = await pool.query('DELETE FROM bantuan_sosial WHERE id = $1 RETURNING id', [id]);
+    const result = await pool.query('DELETE FROM bantuan_sosial WHERE id = $1 RETURNING id', [numId]);
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Data bantuan tidak ditemukan.' });
 
     const b = sebelum.rows[0] || {};

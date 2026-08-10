@@ -717,7 +717,9 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
     final provider = context.read<BantuanSosialProvider>();
     final isEdit = data != null;
 
-    String? selectedUserId = isEdit ? data['user_id'] : null;
+    String? selectedUserId = isEdit
+        ? data['user_id']
+        : (provider.wargaList.isNotEmpty ? provider.wargaList.first['id'] : null);
     String selectedJenis = isEdit ? (data['jenis_bantuan'] ?? 'Sembako') : 'Sembako';
     String status = isEdit ? (data['status'] ?? 'Aktif') : 'Aktif';
 
