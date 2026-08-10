@@ -57,10 +57,6 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
   int? _jenisIuranId;
   String _bulan = 'Semua Bulan';
   String _tahun = DateTime.now().year.toString();
-
-  /// Id tagihan yang dicentang. Dipakai tombol Bayar Massal.
-  final Set<String> _terpilih = {};
-
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -96,9 +92,6 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
       search: _searchQuery.isEmpty ? null : _searchQuery,
       page: page,
     );
-    setState(() {
-      _terpilih.clear();
-    });
   }
 
   String _rupiah(double amount) => rupiah(amount);
@@ -281,18 +274,32 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
   // -------------------------------------------------------- action buttons
 
   Widget _buildActionButtons() {
-    final adaPilihan = _terpilih.isNotEmpty;
     return Wrap(
       spacing: 12,
       runSpacing: 12,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        // Export tetap tersedia untuk role lihat-saja: menyalin angka yang
-        // memang boleh dibaca bukan perubahan data. Sekretaris justru butuh
-        // ini untuk menyusun laporan.
-        // Tersedia untuk peran lihat-saja juga. Antara tanggal 1 dan 25 tabel
-        // tagihan periode berjalan masih kosong sementara bacaannya sudah
-        // masuk — tanpa panel ini, selama tiga minggu itu tidak ada satu pun
-        // layar yang menunjukkan siapa sudah melapor.
+        if (_bolehTambah)
+          _filledBtn(
+            Icons.add_circle_outline,
+            'Tambah Iuran',
+            const Color(0xFF0F766E),
+            _showTambahIuranDialog,
+          ),
+        if (_bolehTambah)
+          _outlinedBtn(
+            Icons.autorenew_outlined,
+            'Generate Tagihan',
+            _hijau,
+            _showGenerateDialog,
+          ),
+        if (_bolehUbah)
+          _outlinedBtn(
+            Icons.category_outlined,
+            'Jenis Iuran',
+            _hijau,
+            _showJenisIuranDialog,
+          ),
         _outlinedBtn(
           Icons.water_drop_outlined,
           'Bacaan Meteran',
@@ -302,17 +309,6 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
             builder: (_) => const DialogBacaanMeteran(),
           ),
         ),
-        if (_bolehUbah)
-          _outlinedBtn(Icons.category_outlined, 'Jenis Iuran', _hijau, _showJenisIuranDialog),
-        if (_bolehUbah)
-          _outlinedBtn(
-            Icons.payments_outlined,
-            adaPilihan ? 'Bayar Massal (${_terpilih.length})' : 'Bayar Massal',
-            _hijau,
-            adaPilihan ? _bayarMassal : null,
-          ),
-        if (_bolehTambah)
-          _outlinedBtn(Icons.autorenew_outlined, 'Generate Tagihan', _hijau, _showGenerateDialog),
         if (_bolehUbah)
           _outlinedBtn(
             Icons.chat_outlined,
@@ -332,13 +328,6 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
           const Color(0xFFEF4444),
           () => context.read<BillProvider>().downloadExport(format: 'pdf'),
         ),
-        if (_bolehTambah)
-          _filledBtn(
-            Icons.add_circle_outline,
-            'Tambah Iuran',
-            const Color(0xFF0F766E),
-            _showTambahIuranDialog,
-          ),
       ],
     );
   }
@@ -523,11 +512,6 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
     List<BillModel> halamanIni,
     int totalHalaman,
   ) {
-    final idHalamanIni = halamanIni.map((b) => b.id).toSet();
-    final belumLunasHalamanIni = halamanIni.where((b) => !b.isLunas).map((b) => b.id).toSet();
-    final semuaTercentang =
-        belumLunasHalamanIni.isNotEmpty && belumLunasHalamanIni.every(_terpilih.contains);
-
     return Container(
       decoration: BoxDecoration(
         color: context.latarKartu,
@@ -549,10 +533,8 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.list_alt, color: Color(0xFF10B981), size: 20),
-                      SizedBox(width: 8),
-                      // Flexible + ellipsis: di layar 320px judul ini bersama
-                      // ikonnya melampaui lebar kartu.
+                      const Icon(Icons.list_alt, color: Color(0xFF10B981), size: 20),
+                      const SizedBox(width: 8),
                       Flexible(
                         child: Text(
                           'Semua Data Iuran',
@@ -577,14 +559,6 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
           const Divider(height: 1),
           Padding(
             padding: EdgeInsets.all(paddingKartu(context)),
-            // Kolom pencarian diletakkan sendiri di tengah, dengan label
-            // "Pencarian" di kiri kolomnya, supaya mata tidak perlu menyusuri
-            // baris untuk mencari tempat mengetik.
-            //
-            // Tidak memakai lebarKolomFilter di sini: nilainya double.infinity
-            // pada mobile, yang tidak aman di dalam Row (overflow). Kuncinya
-            // ConstrainedBox berlebar maksimum + Expanded, jadi lebar selalu
-            // berhingga dan bidang teks menyerap sisa ruang.
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 460),
@@ -643,17 +617,17 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
             )
           else if (semua.isEmpty)
             Padding(
-              padding: EdgeInsets.symmetric(vertical: 40),
+              padding: const EdgeInsets.symmetric(vertical: 40),
               child: Center(
                 child: Column(
                   children: [
                     Icon(Icons.receipt_long_outlined, size: 40, color: context.garis),
-                    SizedBox(height: 12),
+                    const SizedBox(height: 12),
                     Text(
                       'Belum ada data iuran',
                       style: TextStyle(color: context.teksTersier, fontSize: 13),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
                       'Gunakan tombol "Generate Tagihan" untuk membuat tagihan satu periode.',
                       style: TextStyle(color: context.garis, fontSize: 11),
@@ -666,57 +640,36 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
             Builder(builder: (context) {
               final adaMeteran = halamanIni.any((b) => b.pakaiMeteran);
               return Padding(
-              padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
-              child: TabelResponsif(
-                tinggiBarisMaks: 70,
-                // Kolom meteran hanya muncul bila halaman ini memang memuat
-                // tagihan bermeteran. Menampilkannya selalu berarti tiga kolom
-                // kosong untuk iuran bernominal tetap; menghilangkannya selalu
-                // berarti angka meteran tidak pernah terlihat. Yang menentukan
-                // adalah datanya sendiri.
-                kolom: [
-                  'PILIH',
-                  'NO',
-                  'KEPALA KELUARGA',
-                  'JENIS IURAN',
-                  'PERIODE',
-                  if (adaMeteran) ...['METERAN LALU', 'METERAN KINI', 'TERPAKAI'],
-                  'NOMINAL',
-                  'STATUS',
-                  'TGL BAYAR',
-                ],
-                judulKolom: {
-                  0: Checkbox(
-                    value: semuaTercentang,
-                    onChanged: belumLunasHalamanIni.isEmpty
-                        ? null
-                        : (v) => setState(() {
-                            if (v == true) {
-                              _terpilih.addAll(belumLunasHalamanIni);
-                            } else {
-                              _terpilih.removeWhere(idHalamanIni.contains);
-                            }
-                          }),
-                  ),
-                },
-                baris: List.generate(halamanIni.length, (i) {
-                  final b = halamanIni[i];
-                  return _buildRow(
-                    b,
-                    ((provider.currentPage - 1) * provider.perPage) + i + 1,
-                    adaMeteran,
-                  );
-                }),
-                currentPage: provider.currentPage,
-                totalPages: provider.totalPages,
-                totalData: provider.totalData,
-                perPage: provider.perPage,
-                footerTerpusat: true,
-                onPageChanged: (page) => _loadData(page: page),
-              ),
-            );
+                padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
+                child: TabelResponsif(
+                  tinggiBarisMaks: 70,
+                  kolom: [
+                    'NO',
+                    'KEPALA KELUARGA',
+                    'JENIS IURAN',
+                    'PERIODE',
+                    if (adaMeteran) ...['METERAN LALU', 'METERAN KINI', 'TERPAKAI'],
+                    'NOMINAL',
+                    'STATUS',
+                    'TGL BAYAR',
+                  ],
+                  baris: List.generate(halamanIni.length, (i) {
+                    final b = halamanIni[i];
+                    return _buildRow(
+                      b,
+                      ((provider.currentPage - 1) * provider.perPage) + i + 1,
+                      adaMeteran,
+                    );
+                  }),
+                  currentPage: provider.currentPage,
+                  totalPages: provider.totalPages,
+                  totalData: provider.totalData,
+                  perPage: provider.perPage,
+                  footerTerpusat: true,
+                  onPageChanged: (page) => _loadData(page: page),
+                ),
+              );
             }),
-          // Hapus pagination lama, karena sudah ditangani oleh TabelResponsif
         ],
       ),
     );
@@ -726,22 +679,6 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
     final terlambat = b.isTerlambat;
     return BarisTabel(
       sel: [
-        SelTabel(
-          'PILIH',
-          Checkbox(
-            value: _terpilih.contains(b.id),
-            // Tagihan lunas tidak bisa dipilih untuk dibayar lagi.
-            onChanged: b.isLunas
-                ? null
-                : (v) => setState(() {
-                    if (v == true) {
-                      _terpilih.add(b.id);
-                    } else {
-                      _terpilih.remove(b.id);
-                    }
-                  }),
-          ),
-        ),
         SelTabel.teks('NO', '$nomor', sembunyiDiKartu: true),
         SelTabel(
           'KEPALA KELUARGA',
@@ -957,44 +894,6 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
     );
   }
 
-  Future<void> _bayarMassal() async {
-    final jumlah = _terpilih.length;
-    final total = context
-        .read<BillProvider>()
-        .bills
-        .where((b) => _terpilih.contains(b.id))
-        .fold<double>(0, (s, b) => s + b.nominal);
-
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Bayar Massal'),
-        content: Text('Tandai $jumlah tagihan senilai ${_rupiah(total)} sebagai LUNAS?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Batal')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(c, true),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF059669)),
-            child: const Text('Bayar Semua', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
-
-    final hasil = await context.read<BillProvider>().payBillsBulk(_terpilih.toList());
-
-    // `mounted` diperiksa LAGI setelah await ini, bukan hanya setelah dialog.
-    // payBillsBulk bisa memakan ~21 detik pada jaringan buruk (ApiService
-    // mengulang dua kali dengan batas 10 detik), dan berpindah layar selama
-    // rentang itu membuat setState di bawah dipanggil pada State yang sudah
-    // dilepas — pengecualian yang muncul justru pada alur pembayaran.
-    if (!mounted) return;
-
-    setState(_terpilih.clear);
-    _pesan(hasil['message']?.toString() ?? 'Selesai.', sukses: hasil['success'] == true);
-  }
 
   Future<void> _hapusTagihan(BillModel b) async {
     final ok = await showDialog<bool>(
