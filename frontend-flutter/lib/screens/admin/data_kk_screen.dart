@@ -497,45 +497,54 @@ class _DataKkScreenState extends State<DataKkScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header Bar
-          Row(
-            children: [
-              if (widget.onBack != null) ...[
-                TombolKembali(onPressed: widget.onBack),
-                const SizedBox(width: 10),
+          SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (widget.onBack != null) ...[
+                      TombolKembali(onPressed: widget.onBack),
+                      const SizedBox(width: 10),
+                    ],
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.house_rounded, color: AppTheme.primaryColor, size: 20),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Kependudukan / Data KK',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: context.teksKedua,
+                      ),
+                    ),
+                  ],
+                ),
+                if (isBolehUbah)
+                  ElevatedButton.icon(
+                    onPressed: () => _bukaFormTambah(context),
+                    icon: const Icon(Icons.add_home_rounded, size: 18),
+                    label: const Text('Tambah KK'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusM)),
+                    ),
+                  ),
               ],
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.house_rounded, color: AppTheme.primaryColor, size: 20),
-              ),
-              const SizedBox(width: 10),
-              Flexible(
-                child: Text(
-                  'Kependudukan / Data KK',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: context.teksKedua,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              if (isBolehUbah)
-                ElevatedButton.icon(
-                  onPressed: () => _bukaFormTambah(context),
-                  icon: const Icon(Icons.add_home_rounded, size: 18),
-                  label: const Text('Tambah KK'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusM)),
-                  ),
-                ),
-            ],
+            ),
           ),
           const SizedBox(height: AppTheme.spasiL),
 
