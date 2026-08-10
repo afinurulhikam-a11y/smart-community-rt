@@ -57,8 +57,7 @@ const INDEKS_V21 = [
   ['idx_visitors_tipe', 'visitors (tipe_keperluan)'],
   ['idx_visitors_tanggal', 'visitors ((jam_masuk::date))'],
   ['idx_visitors_pembuat', 'visitors (created_by)'],
-  ['idx_patrol_absensi_user_tgl', 'patrol_attendances (user_id, tanggal)'],
-  ['idx_patrol_absensi_tanggal', 'patrol_attendances (tanggal DESC)'],
+  // Dua indeks patrol_attendances dihapus bersama modul ronda (dd9104a).
   ['idx_complaints_user', 'complaints (user_id)'],
   ['idx_complaints_status', 'complaints (status)'],
   ['idx_letters_user', 'letters (user_id)'],
@@ -141,49 +140,23 @@ async function jalankan() {
     }
 
     // -----------------------------------------------------------------
-    // 2. Tabel Siskamling
+    // 2. Tabel Siskamling — DIHAPUS, dan tidak boleh dikembalikan
     // -----------------------------------------------------------------
     //
-    // Ketiganya dibuat `auto-setup.js` saat server menyala, bukan oleh
-    // schema.sql. Dibuat juga di sini supaya database yang belum pernah
-    // menjalankan servernya tetap lengkap.
-    console.log('\n── Memeriksa tabel Siskamling ──────────────────────');
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS patrol_schedules (
-        id SERIAL PRIMARY KEY,
-        hari VARCHAR(20) NOT NULL,
-        tanggal DATE,
-        shift VARCHAR(50) DEFAULT 'Shift Malam (22:00 - 04:00)',
-        petugas_warga TEXT NOT NULL,
-        keterangan TEXT,
-        created_by UUID REFERENCES users(id) ON DELETE SET NULL,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-      CREATE TABLE IF NOT EXISTS patrol_attendances (
-        id SERIAL PRIMARY KEY,
-        schedule_id INTEGER REFERENCES patrol_schedules(id) ON DELETE SET NULL,
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-        nama_petugas VARCHAR(150) NOT NULL,
-        tanggal DATE DEFAULT CURRENT_DATE,
-        tipe_absen VARCHAR(20) DEFAULT 'Masuk',
-        waktu_scan TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        waktu_masuk TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        waktu_pulang TIMESTAMP WITH TIME ZONE,
-        lokasi_pos VARCHAR(150) DEFAULT 'Pos Ronda Utama',
-        status VARCHAR(50) DEFAULT 'Aktif Ronda',
-        catatan TEXT,
-        foto_url TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-      CREATE TABLE IF NOT EXISTS patrol_qr_tokens (
-        id SERIAL PRIMARY KEY,
-        token VARCHAR(100) NOT NULL UNIQUE,
-        is_active BOOLEAN DEFAULT true,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-    console.log('  ✔️  patrol_schedules / patrol_attendances / patrol_qr_tokens siap');
+    // Di sini dulu ada `CREATE TABLE IF NOT EXISTS` untuk `patrol_schedules`,
+    // `patrol_attendances`, dan `patrol_qr_tokens`. Modul ronda dihapus total
+    // pada commit `dd9104a` — tabelnya di-DROP, izin dan menu `kegiatan.ronda`
+    // dibersihkan — jadi blok ini adalah jalur KEBANGKITAN: menjalankan migrasi
+    // ini sekali saja akan menghidupkan kembali ketiga tabel yang sudah
+    // sengaja dijatuhkan, tanpa satu pun kode yang memakainya.
+    //
+    // Blok ini juga sudah tidak bisa berjalan: bagian di bawah membaca
+    // `patrol_attendances`, yang kini tidak ada, sehingga migrasi berhenti di
+    // tengah. Jadi masalahnya bukan sekadar risiko — berkas ini memang sudah
+    // rusak terhadap skema hari ini.
+    //
+    // Skema ketiga tabel tetap terbaca di riwayat git bila suatu saat
+    // dibutuhkan lagi.
 
     // -----------------------------------------------------------------
     // 3. Jaring pengaman konkurensi (v21)
@@ -206,19 +179,9 @@ async function jalankan() {
       console.log('  ✔️  bill_payments: satu pembayaran per tagihan');
     }
 
-    const absenGanda = await client.query(`
-      SELECT user_id, tanggal, COUNT(*)::int AS jumlah FROM patrol_attendances
-      WHERE waktu_pulang IS NULL GROUP BY user_id, tanggal HAVING COUNT(*) > 1
-    `);
-    if (absenGanda.rows.length > 0) {
-      console.log(`  ⚠️  ${absenGanda.rows.length} petugas punya lebih dari satu absensi aktif — dilewati.`);
-    } else {
-      await client.query(`
-        CREATE UNIQUE INDEX IF NOT EXISTS patrol_absensi_aktif_uniq
-          ON patrol_attendances (user_id, tanggal) WHERE waktu_pulang IS NULL
-      `);
-      console.log('  ✔️  patrol_attendances: satu absensi aktif per petugas per hari');
-    }
+    // `patrol_absensi_aktif_uniq` dulu dipasang di sini. Ikut hilang bersama
+    // modul ronda — indeks pada tabel yang sudah tidak ada hanya membuat
+    // migrasi ini gagal.
 
     for (const [nama, definisi] of INDEKS_V21) {
       await client.query(`CREATE INDEX IF NOT EXISTS ${nama} ON ${definisi}`);

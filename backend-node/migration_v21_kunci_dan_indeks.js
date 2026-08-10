@@ -19,11 +19,14 @@
  * Bagian 2: indeks
  * ===================================================================
  *
- * `visitors` dan `patrol_attendances` sama sekali tidak punya indeks selain
- * primary key, padahal keduanya tumbuh paling cepat — satu baris per tamu per
- * hari, satu baris per petugas per malam — dan keduanya disaring pada setiap
+ * `visitors` sama sekali tidak punya indeks selain primary key, padahal ia
+ * tumbuh paling cepat — satu baris per tamu per hari — dan disaring pada setiap
  * pemakaian. Tidak terasa pada puluhan baris; menjadi sumber lambat yang
  * dominan setelah setahun.
+ *
+ * (`patrol_attendances` dulu disebut di sini dengan alasan yang sama. Modul
+ * ronda dihapus total pada commit `dd9104a`; bagiannya ikut dibuang dari berkas
+ * ini, karena kueri ke tabel yang tidak ada menghentikan seluruh migrasi.)
  *
  * Idempoten: aman dijalankan berulang.
  */
@@ -78,24 +81,10 @@ async function jalankan() {
     // lalu dicoba lagi — bisa menghasilkan dua baris "Aktif Ronda" sekaligus.
     // Indeks parsial ini hanya membatasi yang BELUM pulang, sehingga absensi
     // hari-hari sebelumnya tetap bisa berdampingan.
-    const absenGanda = await client.query(`
-      SELECT user_id, tanggal, COUNT(*)::int AS jumlah
-      FROM patrol_attendances
-      WHERE waktu_pulang IS NULL
-      GROUP BY user_id, tanggal
-      HAVING COUNT(*) > 1
-    `);
-
-    if (absenGanda.rows.length > 0) {
-      console.log(`  ⚠️  ${absenGanda.rows.length} petugas punya lebih dari satu absensi aktif — constraint dilewati.`);
-    } else {
-      await client.query(`
-        CREATE UNIQUE INDEX IF NOT EXISTS patrol_absensi_aktif_uniq
-          ON patrol_attendances (user_id, tanggal)
-          WHERE waktu_pulang IS NULL
-      `);
-      console.log('  ✅ patrol_attendances: satu absensi aktif per petugas per hari');
-    }
+    // Di sini dulu dipasang `patrol_absensi_aktif_uniq` pada
+    // `patrol_attendances`. Modul ronda dihapus total pada commit `dd9104a`,
+    // tabelnya ikut di-DROP, dan kueri ini menjadi penyebab migrasi berhenti
+    // di tengah — bukan sekadar baris mati.
 
     // -----------------------------------------------------------------
     // 3. Indeks kolom panas
@@ -112,10 +101,7 @@ async function jalankan() {
       ['idx_visitors_tanggal', 'visitors ((jam_masuk::date))'],
       ['idx_visitors_pembuat', 'visitors (created_by)'],
 
-      // patrol_attendances: nol indeks sebelumnya, dan dibaca pada SETIAP
-      // percobaan absen masuk maupun pulang.
-      ['idx_patrol_absensi_user_tgl', 'patrol_attendances (user_id, tanggal)'],
-      ['idx_patrol_absensi_tanggal', 'patrol_attendances (tanggal DESC)'],
+      // Dua indeks patrol_attendances dihapus bersama modul ronda (dd9104a).
 
       // Penyempitan baris untuk warga di masing-masing modul.
       ['idx_complaints_user', 'complaints (user_id)'],
