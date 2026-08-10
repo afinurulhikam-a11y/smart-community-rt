@@ -22,6 +22,7 @@ const { periksaSaatStartup } = require('./config/midtrans');
 const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/user.routes');
 const billRoutes = require('./routes/bill.routes');
+const meteranRoutes = require('./routes/meteran.routes');
 const jenisIuranRoutes = require('./routes/jenis_iuran.routes');
 const kategoriKasRoutes = require('./routes/kategori_kas.routes');
 const kategoriBopRoutes = require('./routes/kategori_bop.routes');
@@ -158,6 +159,10 @@ app.use('/api/users/credentials', limiterKetat);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/bills', billRoutes);
+// Bacaan meteran air. Berkas terpisah dari tagihan karena siklus hidupnya
+// berbeda — bacaan lahir tgl 1, tagihan tgl 25 — tetapi berbagi izin
+// keuangan.iuran, mengikuti preseden alokasi_bop terhadap keuangan.bop.
+app.use('/api/meteran', meteranRoutes);
 app.use('/api/jenis-iuran', jenisIuranRoutes);
 app.use('/api/kategori-kas', kategoriKasRoutes);
 app.use('/api/kategori-bop', kategoriBopRoutes);
@@ -274,6 +279,12 @@ server.listen(PORT, () => {
   periksaSaatStartup();
   const { autoSetupCloud } = require('./config/auto-setup');
   autoSetupCloud();
+
+  // Penjadwal penerbitan tagihan air. Memeriksa harian, bukan menembak sekali
+  // tanggal 25 — kalau proses sedang mati pada detik itu, tagihan bulan itu
+  // tidak akan pernah terbit dan tidak ada gejala apa pun yang memberi tahu.
+  const { mulaiPenjadwal } = require('./config/scheduler');
+  mulaiPenjadwal();
 });
 
 // ========================

@@ -12,6 +12,7 @@ const {
   deleteBill,
   exportBills,
   downloadReceipt,
+  ubahLangganganSampah,
 } = require('../controllers/bill.controller');
 const { authMiddleware, requirePermission } = require('../middleware/auth.middleware');
 
@@ -21,6 +22,14 @@ router.use(authMiddleware);
 router.get('/stats', requirePermission('keuangan.iuran', 'view'), getBillStats);
 router.get('/export', requirePermission('keuangan.iuran', 'view'), exportBills);
 router.get('/', requirePermission('keuangan.iuran', 'view'), getBills);
+
+// Layanan sampah milik warga sendiri, dijaga `view` — sama alasannya dengan
+// POST /polling/:id/vote dan POST /payments/iuran: `update` di modul ini berarti
+// mengoreksi tagihan warga LAIN. Kepemilikannya ditegakkan di controller lewat
+// `no_kk`, bukan oleh tabel izin.
+//
+// Didaftarkan di antara rute statis, sebelum '/:id', agar tidak tertelan pola itu.
+router.put('/langganan-sampah', requirePermission('keuangan.iuran', 'view'), ubahLangganganSampah);
 
 router.post('/', requirePermission('keuangan.iuran', 'create'), createBill);
 router.post('/generate', requirePermission('keuangan.iuran', 'create'), generateBills);

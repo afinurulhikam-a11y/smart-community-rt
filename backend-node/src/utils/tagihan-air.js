@@ -92,10 +92,73 @@ function pakaiMeteran(jenis) {
   return jenis?.tipe_hitung === TIPE_METERAN;
 }
 
+// ── Aturan tanggal ───────────────────────────────────────────────────
+//
+// Dua tanggal membentuk satu periode, dan keduanya ditulis di sini supaya tidak
+// tersebar sebagai angka telanjang di beberapa controller.
+
+/**
+ * Batas terakhir warga mengisi meteran dan mengubah langganan sampah.
+ *
+ * Bisa disetel lewat env karena RT lain bisa memakai tanggal yang berbeda —
+ * dan karena aturan tanggal yang tertanam mati tidak bisa diuji lewat HTTP
+ * tanpa menunggu kalender. Uji yang menuntut orang menunggu tanggal 6 tidak
+ * akan pernah dijalankan siapa pun.
+ */
+const TANGGAL_TUTUP_METERAN = parseInt(process.env.BATAS_INPUT_METERAN, 10) || 5;
+
+/** Tanggal tagihan difinalisasi, oleh penjadwal maupun Generate Manual. */
+const TANGGAL_TERBIT_TAGIHAN = parseInt(process.env.TANGGAL_TERBIT_TAGIHAN, 10) || 25;
+
+/** Status bacaan meteran — sama persis dengan CHECK di database. */
+const STATUS_MENUNGGU = 'menunggu';
+const STATUS_TERISI = 'terisi';
+const STATUS_ANOMALI = 'anomali';
+
+/** Periode `YYYY-MM` dari sebuah tanggal. */
+function periodeDari(tanggal = new Date()) {
+  const d = tanggal instanceof Date ? tanggal : new Date(tanggal);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** Periode sebelum `periode`, tetap dalam format `YYYY-MM`. */
+function periodeSebelum(periode) {
+  const [th, bl] = periode.split('-').map(Number);
+  const d = new Date(th, bl - 2, 1);
+  return periodeDari(d);
+}
+
+/**
+ * Apakah warga masih boleh mengisi meteran periode berjalan.
+ *
+ * Menerima `tanggal` sebagai parameter, bukan membaca jam sistem di dalamnya —
+ * itu yang membuat aturan ini bisa diuji tanpa menunggu kalender. Pengujian
+ * yang harus menunggu tanggal 6 tidak akan pernah dijalankan siapa pun.
+ */
+function bolehIsiMeteran(tanggal = new Date()) {
+  const d = tanggal instanceof Date ? tanggal : new Date(tanggal);
+  return d.getDate() <= TANGGAL_TUTUP_METERAN;
+}
+
+/** Apakah tagihan periode berjalan sudah boleh difinalisasi. */
+function bolehTerbitkanTagihan(tanggal = new Date()) {
+  const d = tanggal instanceof Date ? tanggal : new Date(tanggal);
+  return d.getDate() >= TANGGAL_TERBIT_TAGIHAN;
+}
+
 module.exports = {
   TIPE_TETAP,
   TIPE_METERAN,
+  TANGGAL_TUTUP_METERAN,
+  TANGGAL_TERBIT_TAGIHAN,
+  STATUS_MENUNGGU,
+  STATUS_TERISI,
+  STATUS_ANOMALI,
   hitungTerpakai,
   rincianTagihanAir,
   pakaiMeteran,
+  periodeDari,
+  periodeSebelum,
+  bolehIsiMeteran,
+  bolehTerbitkanTagihan,
 };

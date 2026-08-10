@@ -3,8 +3,11 @@ const { v4: uuidv4 } = require('uuid');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit-table');
 const { generatePaymentPDF } = require('../utils/pdf-generator');
-const { logActivity, rupiah } = require('../services/log.service');
-const { rincianTagihanAir, pakaiMeteran } = require('../utils/tagihan-air');
+const { logActivity, rupiah, bandingkan } = require('../services/log.service');
+const {
+  rincianTagihanAir, pakaiMeteran, bolehIsiMeteran, TANGGAL_TUTUP_METERAN,
+} = require('../utils/tagihan-air');
+const { terbitkanTagihanPeriode } = require('../services/tagihan-air.service');
 
 const STATUS_BELUM = 'unpaid';
 const STATUS_LUNAS = 'lunas';
@@ -208,7 +211,7 @@ async function getBillStats(req, res) {
 async function updateBill(req, res) {
   try {
     const { id } = req.params;
-    const { nominal, keterangan, jatuh_tempo, meteran_lalu, meteran_sekarang } = req.body;
+    const { nominal, keterangan, jatuh_tempo, meteran_lalu, meteran_sekarang, alasan } = req.body;
 
     const tagihan = await pool.query(
       `SELECT id, status, jenis_tagihan, bulan, nominal,
@@ -250,6 +253,26 @@ async function updateBill(req, res) {
         });
       }
 
+      // Alasan WAJIB, tetapi HANYA bila angka meterannya benar-benar berubah.
+      //
+      // Mengubah meteran mengubah berapa yang harus dibayar warga, dan baris
+      // yang sudah dikoreksi tidak menyimpan jejak apa pun tentang kenapa —
+      // tanpa alasan, jejak auditnya cuma mencatat bahwa sesuatu berubah.
+      //
+      // Menuntutnya pada SETIAP penyuntingan akan mematahkan pengubahan
+      // keterangan atau jatuh tempo yang tidak menyentuh uang sama sekali,
+      // termasuk dari klien yang sudah beredar.
+      const meteranBerubah =
+        String(mLalu ?? '') !== String(lama.meteran_lalu ?? '')
+        || String(mKini ?? '') !== String(lama.meteran_sekarang ?? '');
+
+      if (meteranBerubah && !(alasan && alasan.trim())) {
+        return res.status(400).json({
+          success: false,
+          message: 'Alasan koreksi wajib diisi saat mengubah angka meteran.',
+        });
+      }
+
       // Nominal dari body diabaikan, sama seperti pada createBill: totalnya
       // harus selalu bisa dihitung ulang dari rinciannya sendiri.
       air = rincianTagihanAir({
@@ -283,11 +306,20 @@ async function updateBill(req, res) {
     );
 
     const ubah = result.rows[0];
+    // Alasannya masuk ke jejak audit. Tanpa itu, baris log hanya mengatakan
+    // nominalnya berubah — bukan kenapa, dan bukan dari angka berapa.
+    const jejakMeteran = bandingkan(lama, ubah, {
+      meteran_lalu: 'Meteran lalu',
+      meteran_sekarang: 'Meteran sekarang',
+    });
+
     await logActivity(
       req,
       'UPDATE',
       `Mengubah tagihan ${ubah.jenis_tagihan} periode ${ubah.bulan} menjadi ` +
-        `sebesar ${rupiah(ubah.nominal)}`
+        `sebesar ${rupiah(ubah.nominal)}` +
+        (jejakMeteran ? ` — ${jejakMeteran}` : '') +
+        (alasan && alasan.trim() ? ` — alasan: ${alasan.trim()}` : '')
     );
     return res.status(200).json({ success: true, message: 'Tagihan berhasil diubah.', data: ubah });
   } catch (err) {
@@ -430,106 +462,78 @@ async function generateBills(req, res) {
       return res.status(400).json({ success: false, message: 'Format periode harus YYYY-MM (contoh: 2026-07).' });
     }
 
-    const jenis = await ambilJenis(client, jenis_iuran_id);
-    if (!jenis) return res.status(404).json({ success: false, message: 'Jenis iuran tidak ditemukan.' });
-
-    const meteran = pakaiMeteran(jenis);
-
-    // Jenis bermeteran diterbitkan TANPA angka bacaan, dan itu memang alur
-    // penagihan air: tagihannya terbit lebih dulu, petugas berkeliling membaca
-    // meteran sesudahnya. Nominal awalnya adalah bagian tetapnya saja —
-    // abondement dan biaya sampah — yang memang sudah terutang tanpa memandang
-    // pemakaian. Angka airnya bertambah setelah bacaannya dimasukkan.
-    let nominalFinal;
-    if (meteran) {
-      if (!jenis.tarif_per_m3 || Number(jenis.tarif_per_m3) <= 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'Tarif per m³ pada jenis iuran ini belum diisi. Lengkapi dulu di master Jenis Iuran.',
-        });
-      }
-      nominalFinal = Number(jenis.abondement || 0) + Number(jenis.biaya_sampah || 0);
-    } else {
-      nominalFinal = nominal !== undefined && nominal !== null && nominal !== ''
-        ? nominal
-        : jenis.nominal_default;
-      if (!nominalFinal || Number(nominalFinal) <= 0) {
-        return res.status(400).json({ success: false, message: 'Nominal harus lebih dari 0. Isi nominal atau set nominal default pada jenis iuran.' });
-      }
-    }
-
     await client.query('BEGIN');
 
-    const totalKk = await client.query('SELECT COUNT(*)::int AS c FROM keluarga');
+    // Seluruh logika penerbitan ada di service, dan HANYA di sana. Scheduler
+    // memanggil fungsi yang sama persis, sehingga keduanya tidak mungkin
+    // berbeda perilaku — perbedaan semacam itu baru ketahuan lewat tagihan yang
+    // salah di tangan warga.
+    //
+    // Idempotensinya milik `bills_kk_jenis_bulan_uniq` di database, bukan
+    // pemeriksaan di sini: Generate Manual sesudah scheduler menghasilkan nol
+    // baris baru, dan dua permintaan bersamaan pun tetap satu tagihan.
+    const hasil = await terbitkanTagihanPeriode(client, {
+      jenisIuranId: jenis_iuran_id,
+      bulan,
+      createdBy: req.user.id,
+      keterangan: keterangan || null,
+      jatuhTempo: jatuh_tempo || null,
+      nominalManual: nominal,
+    });
 
-    // Angka meteran bulan lalu diambil per KK lewat subkueri berkorelasi,
-    // sehingga penerbitannya tetap SATU perintah untuk seluruh keluarga —
-    // bukan perulangan per rumah. Tiap KK mendapat angka awalnya sendiri, dan
-    // rumah yang belum pernah ditagih mendapat NULL.
-    const dibuat = await client.query(
-      `INSERT INTO bills (keluarga_id, jenis_iuran_id, jenis_tagihan, bulan, nominal, keterangan, jatuh_tempo, status, created_by,
-                          meteran_lalu, tarif_per_m3, abondement, biaya_sampah)
-       SELECT k.id, $1, $2, $3, $4, $5, $6, $7, $8,
-              -- $1 dan $3 dipakai DUA KALI dalam perintah yang sama: sekali
-              -- sebagai nilai kolom, sekali di dalam subkueri ini. Tanpa cast
-              -- eksplisit, Postgres menyimpulkan dua tipe berbeda untuk
-              -- parameter yang sama dan menolak dengan "inconsistent types
-              -- deduced" — jebakan yang sudah tercatat di CLAUDE.md.
-              CASE WHEN $9::boolean THEN (
-                SELECT b.meteran_sekarang FROM bills b
-                WHERE b.keluarga_id = k.id AND b.jenis_iuran_id = $1::int
-                  AND b.bulan < $3::varchar AND b.meteran_sekarang IS NOT NULL
-                ORDER BY b.bulan DESC LIMIT 1
-              ) END,
-              CASE WHEN $9::boolean THEN $10::int END,
-              CASE WHEN $9::boolean THEN $11::int END,
-              CASE WHEN $9::boolean THEN $12::int END
-       FROM keluarga k
-       ON CONFLICT (keluarga_id, jenis_iuran_id, bulan) WHERE keluarga_id IS NOT NULL
-       DO NOTHING
-       RETURNING id`,
-      [
-        jenis_iuran_id, jenis.nama_iuran, bulan, nominalFinal, keterangan || null,
-        jatuh_tempo || null, STATUS_BELUM, req.user.id,
-        meteran, jenis.tarif_per_m3 || null, jenis.abondement || 0, jenis.biaya_sampah || 0,
-      ]
-    );
+    if (!hasil.ok) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, message: hasil.alasan });
+    }
 
     await client.query('COMMIT');
 
-    const jumlahDibuat = dibuat.rows.length;
-    const jumlahDilewati = totalKk.rows[0].c - jumlahDibuat;
+    const { jenis, dibuat, dilewati, berbasisMeteran, rincian } = hasil;
+
+    // Rincian bacaan ikut dilaporkan supaya pengurus tahu berapa rumah yang
+    // ditagih tanpa angka meteran — tanpa ini, tagihan sebesar bagian tetap
+    // tampak sama saja dengan tagihan yang meterannya kebetulan nol.
+    const catatanBacaan = berbasisMeteran
+      ? ` — ${rincian.terisi} dengan bacaan, ${rincian.tanpa_bacaan} tanpa bacaan, ${rincian.anomali} anomali`
+      : '';
 
     await logActivity(
       req,
       'CREATE',
       `Menerbitkan tagihan ${jenis.nama_iuran} periode ${bulan}: ` +
-        `${jumlahDibuat} dibuat, ${jumlahDilewati} dilewati`
+        `${dibuat} dibuat, ${dilewati} dilewati${catatanBacaan}`
     );
 
     // Panggil WhatsApp Service secara otomatis untuk memberitahu warga (Async)
     const { sendBillWA } = require('../services/whatsapp.service');
     (async () => {
-      if (jumlahDibuat > 0) {
+      if (dibuat > 0) {
         const wargaList = await pool.query(
-          `SELECT u.nama, u.no_hp FROM users u JOIN keluarga k ON u.no_kk = k.no_kk WHERE u.no_hp IS NOT NULL AND u.no_hp <> ''`
+          `SELECT u.nama, u.no_hp, b.nominal
+             FROM users u
+             JOIN keluarga k ON u.no_kk = k.no_kk
+             JOIN bills b ON b.keluarga_id = k.id AND b.bulan = $1 AND b.jenis_iuran_id = $2
+            WHERE u.no_hp IS NOT NULL AND u.no_hp <> ''`,
+          [bulan, jenis_iuran_id]
         );
         for (const w of wargaList.rows) {
           await sendBillWA({
             userNama: w.nama,
             noHp: w.no_hp,
             namaIuran: jenis.nama_iuran,
-            nominal: nominalFinal,
+            // Nominal per rumah, bukan satu angka untuk semua: sejak tagihan
+            // berbasis meteran, tiap rumah membayar jumlah yang berbeda.
+            nominal: w.nominal,
             bulan: bulan,
           });
         }
       }
-    })().catch((e) => console.log('ℹ️ Catatan WA Tagihan:', e.message));
+    })().catch((e) => console.log('\u2139\ufe0f Catatan WA Tagihan:', e.message));
 
     return res.status(201).json({
       success: true,
-      message: `Tagihan ${jenis.nama_iuran} periode ${bulan}: ${jumlahDibuat} dibuat, ${jumlahDilewati} dilewati (sudah ada).`,
-      data: { dibuat: jumlahDibuat, dilewati: jumlahDilewati, total_kk: totalKk.rows[0].c },
+      message: `Tagihan ${jenis.nama_iuran} periode ${bulan}: ${dibuat} dibuat, ${dilewati} dilewati (sudah ada).${catatanBacaan}`,
+      data: { dibuat, dilewati, berbasis_meteran: berbasisMeteran, rincian },
     });
 
   } catch (err) {
@@ -1036,7 +1040,81 @@ async function downloadReceipt(req, res) {
   }
 }
 
+/**
+ * PUT /api/bills/langganan-sampah — warga menyalakan/mematikan layanan sampah.
+ *
+ * Ada di modul tagihan, bukan kependudukan, karena warga punya
+ * `kependudukan.warga: N` — nol akses ke sana. Datanya memang di `keluarga`,
+ * tetapi kewenangannya milik modul iuran, dan hanya modul ini yang peduli.
+ *
+ * Batasnya SAMA dengan batas input meteran, tanggal 5. Tanpa itu ada celah
+ * yang mudah dipakai: matikan langganan tanggal 24, tagihan terbit tanggal 25
+ * tanpa biaya sampah, nyalakan lagi tanggal 26 dan sampahnya tetap diangkut.
+ * Menyamakan tanggalnya juga berarti warga hanya perlu mengingat satu tanggal.
+ *
+ * Pilihannya tidak mengubah tagihan yang sudah terbit — nilainya sudah
+ * tersnapshot di `bills.langganan_sampah` dan `bills.biaya_sampah`.
+ */
+async function ubahLangganganSampah(req, res) {
+  try {
+    const { langganan_sampah } = req.body;
+    if (typeof langganan_sampah !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        message: 'langganan_sampah wajib berupa true atau false.',
+      });
+    }
+
+    if (!bolehIsiMeteran()) {
+      return res.status(403).json({
+        success: false,
+        message: `Pilihan layanan sampah hanya bisa diubah sampai tanggal ${TANGGAL_TUTUP_METERAN}. `
+          + 'Perubahan berlaku untuk periode berikutnya.',
+      });
+    }
+
+    const kk = await pool.query(
+      `SELECT k.id, k.kepala_keluarga, k.langganan_sampah
+       FROM keluarga k JOIN users u ON u.no_kk = k.no_kk
+       WHERE u.id = $1 AND k.deleted_at IS NULL LIMIT 1`,
+      [req.user.id]
+    );
+    if (kk.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Akun ini belum tertaut ke kartu keluarga mana pun.',
+      });
+    }
+
+    const sebelum = kk.rows[0];
+    const hasil = await pool.query(
+      'UPDATE keluarga SET langganan_sampah = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+      [langganan_sampah, sebelum.id]
+    );
+
+    await logActivity(
+      req,
+      'UPDATE',
+      `Mengubah layanan sampah ${sebelum.kepala_keluarga}: `
+        + `${sebelum.langganan_sampah ? 'berlangganan' : 'tidak berlangganan'} → `
+        + `${langganan_sampah ? 'berlangganan' : 'tidak berlangganan'}`
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: langganan_sampah
+        ? 'Layanan sampah diaktifkan. Biayanya masuk pada tagihan berikutnya.'
+        : 'Layanan sampah dinonaktifkan. Tagihan berikutnya tanpa biaya sampah.',
+      data: { langganan_sampah: hasil.rows[0].langganan_sampah },
+    });
+  } catch (err) {
+    console.error('UbahLangganganSampah Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
 module.exports = {
+  ubahLangganganSampah,
   getBills,
   getBillStats,
   createBill,
