@@ -51,6 +51,7 @@ pindahkan migrasi itu ke folder ini.
 | `migration_v20_log_lepas_fk_user.js` | melepas FK `activity_logs.user_id`, yang membuat v19 mustahil dipenuhi |
 | `migration-soft-delete.js` | `deleted_at` pada `users`, `keluarga`, `inventory` |
 | `migration-soft-delete-tahap3.js` | `deleted_at` pada `complaints`, `letters`, `agenda`, `finances` |
+| `migration_v25_iuran_air.js` | tabel `pembacaan_meteran`, plus `keluarga.blok`, `keluarga.langganan_sampah`, `bills.langganan_sampah` |
 | `fix-db.js` | pembentukan awal tabel inti — digantikan `schema.sql` |
 
 **Kedua skrip soft-delete itu adalah alasan konvensi penamaan ini ada.** Namanya tidak mengikuti pola `migration_vN_*`, jadi keduanya luput saat `schema.sql` ditangkap ulang — dan selama berbulan-bulan `schema.sql` tidak punya kolom `deleted_at` sementara delapan controller menyaring dengan `WHERE deleted_at IS NULL`. Efeknya tidak terlihat di mesin yang sudah pernah menjalankannya, tetapi **setiap instalasi baru langsung mati**: panggilan pertama ke `/api/families`, `/api/complaints`, `/api/letters`, `/api/inventory`, `/api/finances`, atau `/api/users` gagal dengan `column "deleted_at" does not exist`.
@@ -63,3 +64,9 @@ Kolomnya kini ada di `schema.sql`, jadi instalasi baru tidak perlu menjalankan k
 - **v20: tabel hanya-tambah tidak bisa memikul `ON DELETE SET NULL`.** Aksi itu diwujudkan sebagai `UPDATE`, yang ditolak trigger v19. Akibatnya tidak ada akun yang pernah muncul di jejak audit yang bisa dihapus — selamanya. Itu efek samping, bukan keputusan.
 
 Keduanya tetap perlu dijalankan pada database yang **sudah ada sebelum** kedua perubahan itu masuk ke `schema.sql` — misalnya database produksi di Railway.
+
+**v25 disimpan karena mencatat satu hal yang tidak terbaca dari hasil akhirnya: apa yang SENGAJA tidak dijaganya.**
+
+`pembacaan_meteran` tidak punya CHECK bahwa meteran harus maju, padahal `bills` punya (`bills_meteran_maju`). Perbedaan itu disengaja, bukan kelalaian. Bacaan yang mundur **harus bisa tersimpan** supaya pengurus tahu ada yang perlu diperiksa — menolaknya berarti warga yang salah ketik tidak punya cara melapor dan angkanya hilang tanpa jejak. Yang dijaga adalah uangnya: angka tidak wajar dihentikan di perbatasan menuju `bills`, bukan di pintu masuk pelaporan. Membaca `schema.sql` saja, ketiadaan CHECK itu terlihat seperti yang terlupa.
+
+Sudah tercermin di `schema.sql`, jadi instalasi baru tidak perlu menjalankannya. Ia tetap perlu dijalankan pada database yang lebih tua — Railway sudah dijalankan pada 10 Agustus 2026, bersama v24 sebelumnya.

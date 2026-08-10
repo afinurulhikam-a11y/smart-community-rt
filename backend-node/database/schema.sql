@@ -2,31 +2,6 @@
 -- Smart Community RT — Skema Database
 -- =============================================================================
 --
--- Berkas ini adalah SATU-SATUNYA sumber struktur database, ditangkap langsung
--- dari database yang benar-benar berjalan. Ia menggantikan rantai 16 langkah
--- migrasi yang dulu harus dijalankan berurutan, beserta schema.sql lama yang
--- menggambarkan desain berbeda dari yang dipakai controller.
---
--- Pemasangan dari nol:
---
---     node init-db.js       # buat database + muat berkas ini
---     node seed-master.js   # isi menu, hak akses, dan tabel master
---
--- Berkas migrasi lama disimpan di database/migrations-lama/ sebagai riwayat.
--- JANGAN dijalankan lagi — seluruh hasilnya sudah tercermin di sini.
---
--- Menambah perubahan skema: ubah database lewat migrasi baru, lalu tangkap
--- ulang berkas ini dengan
---
---     pg_dump -U postgres -d smart_community_rt --schema-only \
---             --no-owner --no-privileges --no-comments
---
--- (buang baris \restrict dan \unrestrict — keduanya meta-command psql yang
--- tidak dikenali driver node-postgres).
--- =============================================================================
-
---
---
 -- PostgreSQL database dump
 --
 
@@ -51,6 +26,22 @@ SET row_security = off;
 --
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
+
+
+--
+-- Name: tolak_ubah_activity_logs(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.tolak_ubah_activity_logs() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+      BEGIN
+        RAISE EXCEPTION
+          'activity_logs bersifat hanya-tambah: % ditolak. Jejak audit tidak boleh diubah atau dihapus.',
+          TG_OP
+          USING ERRCODE = 'insufficient_privilege';
+      END;
+      $$;
 
 
 SET default_tablespace = '';
@@ -90,7 +81,8 @@ CREATE TABLE public.agenda (
     notulen_url character varying(500),
     created_by uuid,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    deleted_at timestamp without time zone
 );
 
 
@@ -337,7 +329,14 @@ CREATE TABLE public.bills (
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     keluarga_id integer,
     jenis_iuran_id integer,
-    jatuh_tempo date
+    jatuh_tempo date,
+    meteran_lalu integer,
+    meteran_sekarang integer,
+    tarif_per_m3 integer,
+    abondement integer,
+    biaya_sampah integer,
+    langganan_sampah boolean,
+    CONSTRAINT bills_meteran_maju CHECK (((meteran_lalu IS NULL) OR (meteran_sekarang IS NULL) OR (meteran_sekarang >= meteran_lalu)))
 );
 
 
@@ -415,7 +414,8 @@ CREATE TABLE public.complaints (
     response text,
     responded_by uuid,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    deleted_at timestamp without time zone
 );
 
 
@@ -451,8 +451,8 @@ CREATE TABLE public.emergency_alerts (
     longitude numeric,
     status character varying(20) DEFAULT 'active'::character varying,
     dismissed_by uuid,
-    dismissed_at timestamp without time zone,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    dismissed_at timestamp without time zone
 );
 
 
@@ -472,7 +472,8 @@ CREATE TABLE public.finances (
     kategori_id integer,
     sumber character varying(20) DEFAULT 'manual'::character varying,
     ref_id uuid,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    deleted_at timestamp without time zone
 );
 
 
@@ -492,7 +493,8 @@ CREATE TABLE public.inventory (
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     nilai_barang numeric DEFAULT 0,
-    tanggal_perolehan date
+    tanggal_perolehan date,
+    deleted_at timestamp without time zone
 );
 
 
@@ -526,7 +528,12 @@ CREATE TABLE public.jenis_iuran (
     nominal_default numeric DEFAULT 0,
     periode character varying(20) DEFAULT 'bulanan'::character varying,
     is_aktif boolean DEFAULT true,
-    keterangan text
+    keterangan text,
+    tipe_hitung character varying(20) DEFAULT 'tetap'::character varying NOT NULL,
+    tarif_per_m3 integer,
+    abondement integer DEFAULT 0 NOT NULL,
+    biaya_sampah integer DEFAULT 0 NOT NULL,
+    CONSTRAINT jenis_iuran_tipe_hitung_sah CHECK (((tipe_hitung)::text = ANY ((ARRAY['tetap'::character varying, 'meteran'::character varying])::text[])))
 );
 
 
@@ -633,7 +640,10 @@ CREATE TABLE public.keluarga (
     kecamatan character varying(100),
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    status_rumah character varying(50) DEFAULT 'Milik Sendiri'::character varying
+    status_rumah character varying(50) DEFAULT 'Milik Sendiri'::character varying,
+    deleted_at timestamp without time zone,
+    blok character varying(20),
+    langganan_sampah boolean DEFAULT true NOT NULL
 );
 
 
@@ -671,7 +681,8 @@ CREATE TABLE public.letters (
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     response_note text,
-    tanggal_respon timestamp without time zone
+    tanggal_respon timestamp without time zone,
+    deleted_at timestamp without time zone
 );
 
 
@@ -741,6 +752,29 @@ CREATE TABLE public.payment_transactions (
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     settled_at timestamp without time zone
+);
+
+
+--
+-- Name: pembacaan_meteran; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pembacaan_meteran (
+    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
+    keluarga_id integer NOT NULL,
+    periode character varying(7) NOT NULL,
+    meteran_lalu integer,
+    meteran_sekarang integer,
+    status character varying(20) DEFAULT 'menunggu'::character varying NOT NULL,
+    catatan text,
+    diisi_oleh uuid,
+    diisi_pada timestamp without time zone,
+    dikoreksi_oleh uuid,
+    dikoreksi_pada timestamp without time zone,
+    bill_id uuid,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT pembacaan_meteran_status_sah CHECK (((status)::text = ANY ((ARRAY['menunggu'::character varying, 'terisi'::character varying, 'anomali'::character varying])::text[])))
 );
 
 
@@ -972,7 +1006,9 @@ CREATE TABLE public.users (
     no_rt character varying(3) DEFAULT '001'::character varying,
     role character varying(50) DEFAULT 'warga'::character varying,
     nik character varying(16),
-    must_change_password boolean DEFAULT false
+    deleted_at timestamp without time zone,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    must_change_password boolean DEFAULT false NOT NULL
 );
 
 
@@ -1422,6 +1458,22 @@ ALTER TABLE ONLY public.payment_transactions
 
 
 --
+-- Name: pembacaan_meteran pembacaan_meteran_kk_periode_uniq; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pembacaan_meteran
+    ADD CONSTRAINT pembacaan_meteran_kk_periode_uniq UNIQUE (keluarga_id, periode);
+
+
+--
+-- Name: pembacaan_meteran pembacaan_meteran_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pembacaan_meteran
+    ADD CONSTRAINT pembacaan_meteran_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: polling_options polling_options_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1526,6 +1578,13 @@ ALTER TABLE ONLY public.visitors
 
 
 --
+-- Name: bill_payments_satu_per_tagihan; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX bill_payments_satu_per_tagihan ON public.bill_payments USING btree (bill_id);
+
+
+--
 -- Name: bills_bulan_status_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1568,6 +1627,41 @@ CREATE INDEX finances_tanggal_idx ON public.finances USING btree (tanggal DESC);
 
 
 --
+-- Name: idx_activity_logs_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_activity_logs_created_at ON public.activity_logs USING btree (created_at DESC);
+
+
+--
+-- Name: idx_activity_logs_tipe; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_activity_logs_tipe ON public.activity_logs USING btree (tipe);
+
+
+--
+-- Name: idx_activity_logs_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_activity_logs_user ON public.activity_logs USING btree (user_id, created_at DESC);
+
+
+--
+-- Name: idx_agenda_aktif; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_agenda_aktif ON public.agenda USING btree (id) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: idx_anggota_keluarga_kk; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_anggota_keluarga_kk ON public.anggota_keluarga USING btree (keluarga_id);
+
+
+--
 -- Name: idx_bantuan_sosial_jenis; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1596,10 +1690,136 @@ CREATE INDEX idx_bantuan_sosial_user_id ON public.bantuan_sosial USING btree (us
 
 
 --
+-- Name: idx_bill_payments_bill; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bill_payments_bill ON public.bill_payments USING btree (bill_id);
+
+
+--
+-- Name: idx_borrowings_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_borrowings_user ON public.borrowings USING btree (user_id);
+
+
+--
+-- Name: idx_complaints_aktif; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_complaints_aktif ON public.complaints USING btree (id) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: idx_complaints_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_complaints_status ON public.complaints USING btree (status);
+
+
+--
+-- Name: idx_complaints_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_complaints_user ON public.complaints USING btree (user_id);
+
+
+--
+-- Name: idx_finances_aktif; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_finances_aktif ON public.finances USING btree (id) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: idx_inventory_aktif; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_inventory_aktif ON public.inventory USING btree (id) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: idx_keluarga_aktif; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_keluarga_aktif ON public.keluarga USING btree (id) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: idx_letters_aktif; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_letters_aktif ON public.letters USING btree (id) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: idx_letters_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_letters_status ON public.letters USING btree (status);
+
+
+--
+-- Name: idx_letters_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_letters_user ON public.letters USING btree (user_id);
+
+
+--
+-- Name: idx_payment_trx_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_payment_trx_user ON public.payment_transactions USING btree (user_id);
+
+
+--
+-- Name: idx_polling_options_polling; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_polling_options_polling ON public.polling_options USING btree (polling_id);
+
+
+--
+-- Name: idx_users_aktif; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_users_aktif ON public.users USING btree (id) WHERE (deleted_at IS NULL);
+
+
+--
 -- Name: idx_users_nik; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_users_nik ON public.users USING btree (nik);
+
+
+--
+-- Name: idx_visitors_pembuat; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_visitors_pembuat ON public.visitors USING btree (created_by);
+
+
+--
+-- Name: idx_visitors_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_visitors_status ON public.visitors USING btree (status);
+
+
+--
+-- Name: idx_visitors_tanggal; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_visitors_tanggal ON public.visitors USING btree (((jam_masuk)::date));
+
+
+--
+-- Name: idx_visitors_tipe; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_visitors_tipe ON public.visitors USING btree (tipe_keperluan);
 
 
 --
@@ -1617,6 +1837,13 @@ CREATE INDEX payment_transactions_status_idx ON public.payment_transactions USIN
 
 
 --
+-- Name: pembacaan_meteran_periode_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX pembacaan_meteran_periode_idx ON public.pembacaan_meteran USING btree (periode, status);
+
+
+--
 -- Name: reset_logs_waktu; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1631,17 +1858,17 @@ CREATE INDEX role_permissions_lookup ON public.role_permissions USING btree (rol
 
 
 --
--- activity_logs.user_id SENGAJA TIDAK punya foreign key ke users. (migrasi v20)
+-- Name: activity_logs trg_activity_logs_append_only; Type: TRIGGER; Schema: public; Owner: -
 --
--- Dulu ada, dengan ON DELETE SET NULL — dan itu meniadakan sifat hanya-tambah
--- di bawah: `SET NULL` diwujudkan sebagai UPDATE, yang ditolak trigger. Selama
--- FK itu ada, tidak ada akun yang pernah muncul di jejak audit yang bisa
--- dihapus, selamanya. Jangan dikembalikan.
+
+CREATE TRIGGER trg_activity_logs_append_only BEFORE DELETE OR UPDATE ON public.activity_logs FOR EACH ROW EXECUTE FUNCTION public.tolak_ubah_activity_logs();
+
+
 --
--- FK-nya tidak memberi apa pun: activity_logs menyimpan salinannya sendiri di
--- user_nama dan user_role saat baris dibuat, dan getActivityLogs tidak pernah
--- JOIN ke users.
+-- Name: activity_logs trg_activity_logs_no_truncate; Type: TRIGGER; Schema: public; Owner: -
 --
+
+CREATE TRIGGER trg_activity_logs_no_truncate BEFORE TRUNCATE ON public.activity_logs FOR EACH STATEMENT EXECUTE FUNCTION public.tolak_ubah_activity_logs();
 
 
 --
@@ -1901,6 +2128,38 @@ ALTER TABLE ONLY public.payment_transactions
 
 
 --
+-- Name: pembacaan_meteran pembacaan_meteran_bill_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pembacaan_meteran
+    ADD CONSTRAINT pembacaan_meteran_bill_id_fkey FOREIGN KEY (bill_id) REFERENCES public.bills(id) ON DELETE SET NULL;
+
+
+--
+-- Name: pembacaan_meteran pembacaan_meteran_diisi_oleh_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pembacaan_meteran
+    ADD CONSTRAINT pembacaan_meteran_diisi_oleh_fkey FOREIGN KEY (diisi_oleh) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: pembacaan_meteran pembacaan_meteran_dikoreksi_oleh_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pembacaan_meteran
+    ADD CONSTRAINT pembacaan_meteran_dikoreksi_oleh_fkey FOREIGN KEY (dikoreksi_oleh) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: pembacaan_meteran pembacaan_meteran_keluarga_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pembacaan_meteran
+    ADD CONSTRAINT pembacaan_meteran_keluarga_id_fkey FOREIGN KEY (keluarga_id) REFERENCES public.keluarga(id) ON DELETE CASCADE;
+
+
+--
 -- Name: polling polling_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1965,192 +2224,7 @@ ALTER TABLE ONLY public.visitors
 
 
 --
--- Name: patrol_schedules; Type: TABLE; Schema: public; Owner: -
---
-
-
-
---
 -- PostgreSQL database dump complete
 --
 
 
-
-
---
--- ===================================================================
--- JEJAK AUDIT BERSIFAT HANYA-TAMBAH  (migrasi v19)
--- ===================================================================
---
--- Bagian ini bukan hasil pg_dump; ditulis tangan supaya instalasi baru lewat
--- init-db.js langsung terlindungi. Tanpa ini, database yang baru dibuat punya
--- activity_logs yang bisa dihapus siapa pun — termasuk administrator yang
--- justru paling perlu diawasi.
---
--- TRUNCATE butuh trigger-nya SENDIRI. `BEFORE DELETE FOR EACH ROW` tidak pernah
--- menyala saat TRUNCATE: perintah itu membuang seluruh tabel tanpa menyentuh
--- barisnya satu per satu. Trigger baris saja memberi rasa aman yang palsu —
--- DELETE ditolak sementara `TRUNCATE activity_logs` tetap menghapus semuanya.
--- Itu pernah terjadi di sistem ini: jumlah log turun dari 67 ke 10 baris
--- SETELAH trigger baris terpasang.
---
--- Ini bukan perlindungan terhadap pemegang SUPERUSER, yang masih bisa membuang
--- trigger-nya. Yang dijaga adalah penyalahgunaan lewat aplikasi.
---
-
-CREATE OR REPLACE FUNCTION public.tolak_ubah_activity_logs()
-RETURNS TRIGGER AS $$
-BEGIN
-  RAISE EXCEPTION
-    'activity_logs bersifat hanya-tambah: % ditolak. Jejak audit tidak boleh diubah atau dihapus.',
-    TG_OP USING ERRCODE = 'insufficient_privilege';
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trg_activity_logs_append_only ON public.activity_logs;
-CREATE TRIGGER trg_activity_logs_append_only
-  BEFORE UPDATE OR DELETE ON public.activity_logs
-  FOR EACH ROW EXECUTE FUNCTION public.tolak_ubah_activity_logs();
-
-DROP TRIGGER IF EXISTS trg_activity_logs_no_truncate ON public.activity_logs;
-CREATE TRIGGER trg_activity_logs_no_truncate
-  BEFORE TRUNCATE ON public.activity_logs
-  FOR EACH STATEMENT EXECUTE FUNCTION public.tolak_ubah_activity_logs();
-
---
--- Indeks: tabelnya sama sekali tidak punya indeks sebelumnya, sehingga setiap
--- kueri memindai seluruh tabel lalu mengurutkannya. Tidak terasa pada puluhan
--- baris; sangat terasa begitu jejaknya tidak pernah dihapus lagi — yang justru
--- menjadi tujuan seluruh rancangan ini.
---
-
-CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON public.activity_logs USING btree (created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_activity_logs_tipe       ON public.activity_logs USING btree (tipe);
-CREATE INDEX IF NOT EXISTS idx_activity_logs_user       ON public.activity_logs USING btree (user_id, created_at DESC);
-
-
---
--- ===================================================================
--- SOFT DELETE  (migration-soft-delete.js + migration-soft-delete-tahap3.js)
--- ===================================================================
---
--- Ditulis tangan, bukan hasil pg_dump — sama seperti blok jejak audit di atas.
---
--- Kedua skrip aslinya berada di luar konvensi `migration_vN_*.js`, sehingga
--- schema.sql tidak pernah ditangkap ulang setelah dijalankan. Akibatnya berat
--- dan tidak kelihatan: mengikuti panduan setup persis (`node init-db.js` lalu
--- `node seed-master.js`) menghasilkan database TANPA kolom ini, sementara
--- delapan controller menyaring dengan `WHERE ... deleted_at IS NULL`. Panggilan
--- pertama ke /api/families, /api/complaints, /api/letters, /api/inventory,
--- /api/finances, atau /api/users langsung gagal dengan
--- `column "deleted_at" does not exist` — aplikasi mati sejak menit pertama di
--- setiap instalasi baru, termasuk deploy baru di Railway.
---
--- ALTER, bukan disisipkan ke CREATE TABLE di atas: bentuk ini idempoten, tetap
--- benar bila suatu saat schema.sql ditangkap ulang dengan pg_dump, dan
--- menjelaskan dirinya sendiri kepada pembaca berikutnya.
---
-
-ALTER TABLE public.users      ADD COLUMN IF NOT EXISTS deleted_at timestamp without time zone;
-ALTER TABLE public.keluarga   ADD COLUMN IF NOT EXISTS deleted_at timestamp without time zone;
-ALTER TABLE public.inventory  ADD COLUMN IF NOT EXISTS deleted_at timestamp without time zone;
-ALTER TABLE public.complaints ADD COLUMN IF NOT EXISTS deleted_at timestamp without time zone;
-ALTER TABLE public.letters    ADD COLUMN IF NOT EXISTS deleted_at timestamp without time zone;
-ALTER TABLE public.agenda     ADD COLUMN IF NOT EXISTS deleted_at timestamp without time zone;
-ALTER TABLE public.finances   ADD COLUMN IF NOT EXISTS deleted_at timestamp without time zone;
-
---
--- Indeks PARSIAL. Setiap daftar menyaring `deleted_at IS NULL`, dan baris yang
--- terhapus adalah minoritas kecil yang tidak pernah dibaca — jadi indeks penuh
--- hanya membuang ruang untuk baris yang justru ingin dilewati.
---
-
-CREATE INDEX IF NOT EXISTS idx_users_aktif      ON public.users      USING btree (id) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_keluarga_aktif   ON public.keluarga   USING btree (id) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_inventory_aktif  ON public.inventory  USING btree (id) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_complaints_aktif ON public.complaints USING btree (id) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_letters_aktif    ON public.letters    USING btree (id) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_agenda_aktif     ON public.agenda     USING btree (id) WHERE deleted_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_finances_aktif   ON public.finances   USING btree (id) WHERE deleted_at IS NULL;
-
-
---
--- ===================================================================
--- JARING PENGAMAN KONKURENSI & INDEKS KOLOM PANAS  (migrasi v21)
--- ===================================================================
---
--- Ditulis tangan, bukan hasil pg_dump.
---
--- Kode aplikasinya sudah diperbaiki — payBill mengunci barisnya dengan
--- FOR UPDATE dan memeriksa ulang status di dalam transaksi. Constraint di
--- bawah ini BUKAN penggantinya, melainkan lapisan yang tetap berlaku bila
--- perbaikan itu kelak tidak sengaja terhapus, atau bila jalur baru ditulis
--- tanpa mengingat aturannya.
---
--- Pola "periksa dulu lalu tulis" tidak pernah aman sendirian: dua permintaan
--- bisa sama-sama lolos pemeriksaan sebelum salah satunya sempat menulis.
--- Yang benar-benar mengakhiri perlombaan itu hanya database.
---
-
--- Satu pembayaran per tagihan. Sisi Midtrans sudah lama dijaga
--- payment_bill_pending_uniq; sisi tunai justru yang tidak.
-CREATE UNIQUE INDEX IF NOT EXISTS bill_payments_satu_per_tagihan
-  ON public.bill_payments (bill_id);
-
--- Satu absensi ronda yang BELUM pulang per petugas per hari. Parsial, supaya
--- absensi hari-hari sebelumnya tetap bisa berdampingan.
-
-
---
--- Indeks kolom panas. `visitors` dan `patrol_attendances` sebelumnya tidak
--- punya indeks sama sekali selain primary key, padahal keduanya tumbuh paling
--- cepat dan disaring pada setiap pemakaian.
---
--- Perhatikan idx_visitors_tanggal: penyaringnya memakai `jam_masuk::DATE`,
--- jadi indeksnya harus atas ekspresi yang sama. Indeks biasa pada `jam_masuk`
--- tidak akan pernah terpakai oleh kueri itu.
---
-
-CREATE INDEX IF NOT EXISTS idx_bill_payments_bill       ON public.bill_payments (bill_id);
-CREATE INDEX IF NOT EXISTS idx_visitors_status          ON public.visitors (status);
-CREATE INDEX IF NOT EXISTS idx_visitors_tipe            ON public.visitors (tipe_keperluan);
-CREATE INDEX IF NOT EXISTS idx_visitors_tanggal         ON public.visitors ((jam_masuk::date));
-CREATE INDEX IF NOT EXISTS idx_visitors_pembuat         ON public.visitors (created_by);
-
-
-CREATE INDEX IF NOT EXISTS idx_complaints_user          ON public.complaints (user_id);
-CREATE INDEX IF NOT EXISTS idx_complaints_status        ON public.complaints (status);
-CREATE INDEX IF NOT EXISTS idx_letters_user             ON public.letters (user_id);
-CREATE INDEX IF NOT EXISTS idx_letters_status           ON public.letters (status);
-CREATE INDEX IF NOT EXISTS idx_borrowings_user          ON public.borrowings (user_id);
-CREATE INDEX IF NOT EXISTS idx_payment_trx_user         ON public.payment_transactions (user_id);
-CREATE INDEX IF NOT EXISTS idx_anggota_keluarga_kk      ON public.anggota_keluarga (keluarga_id);
-CREATE INDEX IF NOT EXISTS idx_polling_options_polling  ON public.polling_options (polling_id);
-
-
---
--- ===================================================================
--- users.updated_at  (migrasi v23)
--- ===================================================================
---
--- Ditulis tangan, bukan hasil pg_dump.
---
--- `users` satu-satunya dari lima belas tabel yang ditulisi `updated_at` oleh
--- kode tetapi tidak punya kolomnya. Akibatnya SETIAP perubahan akun gagal
--- dengan `column "updated_at" of relation "users" does not exist`:
---
---   PUT /users/:id/role        -> 500
---   PUT /users/:id/status      -> 500
---   PUT /users/credentials     -> 500
---
--- Artinya mengubah peran, menonaktifkan akun, dan mengatur ulang sandi
--- ketiganya mustahil lewat aplikasi. Yang menyembunyikannya: controller-nya
--- menangkap galat itu dan membalas pesan umum "Gagal memperbarui kredensial",
--- sehingga penyebabnya hanya terbaca di log server.
---
--- Kolomnya ditambahkan, bukan penulisannya yang dihapus: empat belas tabel
--- lain sudah memilikinya, dan pada sistem yang seluruh nilainya bertumpu pada
--- pengawasan, "kapan akun ini terakhir diubah" justru pertanyaan yang wajar.
---
-
-ALTER TABLE public.users ADD COLUMN IF NOT EXISTS updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP;
