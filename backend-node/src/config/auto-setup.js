@@ -60,6 +60,22 @@ async function autoSetupCloud() {
     console.log('ℹ️ Catatan Skema users.must_change_password (Lanjut):', e.message);
   }
 
+  // 1c. Skema & Kolom Bantuan Sosial (v26 & v27)
+  try {
+    await pool.query(`
+      ALTER TABLE bantuan_sosial ADD COLUMN IF NOT EXISTS bentuk_bantuan VARCHAR(50) DEFAULT 'Tunai';
+      ALTER TABLE bantuan_sosial ADD COLUMN IF NOT EXISTS sumber_bantuan VARCHAR(100) DEFAULT 'Pemerintah Pusat';
+      ALTER TABLE bantuan_sosial ADD COLUMN IF NOT EXISTS no_sk VARCHAR(100);
+      ALTER TABLE bantuan_sosial ADD COLUMN IF NOT EXISTS tanggal_bantuan DATE;
+      ALTER TABLE bantuan_sosial ADD COLUMN IF NOT EXISTS tanggal_mulai DATE;
+      ALTER TABLE bantuan_sosial ADD COLUMN IF NOT EXISTS tanggal_selesai DATE;
+      ALTER TABLE bantuan_sosial ALTER COLUMN tahun DROP NOT NULL;
+    `);
+    console.log('✅ bantuan_sosial skema & kolom terverifikasi.');
+  } catch (e) {
+    console.log('ℹ️ Catatan Skema bantuan_sosial (Lanjut):', e.message);
+  }
+
   // 2. Menu items
   try {
     for (let i = 0; i < MENU_ITEMS.length; i++) {
