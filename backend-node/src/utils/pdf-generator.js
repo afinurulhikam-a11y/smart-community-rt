@@ -119,7 +119,7 @@ function generatePaymentPDF(payment, outputStream) {
   const terpakai = (meteranLalu != null && meteranKini != null) ? Math.max(0, meteranKini - meteranLalu) : 0;
   const biayaAir = terpakai * tarifM3;
   const abondement = payment.abondement || 0;
-  const biayaSampah = (payment.langganan_sampah !== false && payment.biaya_sampah) ? payment.biaya_sampah : 0;
+  const biayaSampah = (payment.langganan_sampah === true && payment.biaya_sampah) ? payment.biaya_sampah : 0;
 
   const items = [];
   if (meteranLalu != null || meteranKini != null || tarifM3 > 0) {

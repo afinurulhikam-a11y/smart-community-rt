@@ -172,7 +172,7 @@ class MeteranSaya {
       noKk: pelanggan['no_kk']?.toString(),
       blok: pelanggan['blok']?.toString(),
       alamat: pelanggan['alamat']?.toString(),
-      langgananSampah: pelanggan['langganan_sampah'] != false,
+      langgananSampah: pelanggan['langganan_sampah'] == true,
       periode: json['periode']?.toString() ?? '',
       periodePertama: json['periode_pertama'] == true,
       meteranLalu: MeteranModel._int(json['meteran_lalu']),

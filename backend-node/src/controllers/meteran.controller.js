@@ -116,7 +116,7 @@ async function meteranSaya(req, res) {
           no_kk: kk.no_kk,
           blok: kk.blok,
           alamat: kk.alamat,
-          langganan_sampah: kk.langganan_sampah !== false,
+          langganan_sampah: kk.langganan_sampah === true,
         },
         periode,
         // Periode pertama dikenali dari tidak adanya bacaan sebelumnya — bukan

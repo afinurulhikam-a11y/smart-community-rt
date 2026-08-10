@@ -649,7 +649,7 @@ CREATE TABLE public.keluarga (
     status_rumah character varying(50) DEFAULT 'Milik Sendiri'::character varying,
     deleted_at timestamp without time zone,
     blok character varying(20),
-    langganan_sampah boolean DEFAULT true NOT NULL
+    langganan_sampah boolean DEFAULT false NOT NULL
 );
 
 
