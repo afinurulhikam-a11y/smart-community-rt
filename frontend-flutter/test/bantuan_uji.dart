@@ -21,6 +21,7 @@ import 'package:smart_community/providers/family_provider.dart';
 import 'package:smart_community/providers/finance_provider.dart';
 import 'package:smart_community/providers/inventory_provider.dart';
 import 'package:smart_community/providers/jenis_iuran_provider.dart';
+import 'package:smart_community/providers/meteran_provider.dart';
 import 'package:smart_community/providers/kategori_bop_provider.dart';
 import 'package:smart_community/providers/kategori_kas_provider.dart';
 import 'package:smart_community/providers/letter_provider.dart';
@@ -66,6 +67,7 @@ List<SingleChildWidget> semuaProvider() => [
   ChangeNotifierProvider<WebSocketService>(create: (_) => WsTanpaSambung()),
   ChangeNotifierProvider(create: (_) => BillProvider()),
   ChangeNotifierProvider(create: (_) => JenisIuranProvider()),
+  ChangeNotifierProvider(create: (_) => MeteranProvider()),
   ChangeNotifierProvider(create: (_) => KategoriKasProvider()),
   ChangeNotifierProvider(create: (_) => KategoriBopProvider()),
   ChangeNotifierProvider(create: (_) => AlokasiBopProvider()),

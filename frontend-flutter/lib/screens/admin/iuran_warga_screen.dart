@@ -10,6 +10,7 @@ import '../../models/bill_model.dart';
 import '../../models/jenis_iuran_model.dart';
 import '../../providers/permission_provider.dart';
 import '../../widgets/banner_lihat_saja.dart';
+import '../../widgets/dialog_bacaan_meteran.dart';
 import '../../widgets/tabel_responsif.dart';
 import '../../widgets/tombol_kembali.dart';
 import '../../core/theme/app_theme.dart';
@@ -288,6 +289,19 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
         // Export tetap tersedia untuk role lihat-saja: menyalin angka yang
         // memang boleh dibaca bukan perubahan data. Sekretaris justru butuh
         // ini untuk menyusun laporan.
+        // Tersedia untuk peran lihat-saja juga. Antara tanggal 1 dan 25 tabel
+        // tagihan periode berjalan masih kosong sementara bacaannya sudah
+        // masuk — tanpa panel ini, selama tiga minggu itu tidak ada satu pun
+        // layar yang menunjukkan siapa sudah melapor.
+        _outlinedBtn(
+          Icons.water_drop_outlined,
+          'Bacaan Meteran',
+          const Color(0xFF0EA5E9),
+          () => showDialog(
+            context: context,
+            builder: (_) => const DialogBacaanMeteran(),
+          ),
+        ),
         if (_bolehUbah)
           _outlinedBtn(Icons.category_outlined, 'Jenis Iuran', _hijau, _showJenisIuranDialog),
         if (_bolehUbah)
@@ -1760,80 +1774,179 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
       text: (existing?.nominalDefault ?? 0).toStringAsFixed(0),
     );
     final ketCtrl = TextEditingController(text: existing?.keterangan ?? '');
+    final tarifCtrl = TextEditingController(
+      text: (existing?.tarifPerM3 ?? 0).toStringAsFixed(0),
+    );
+    final abonCtrl = TextEditingController(
+      text: (existing?.abondement ?? 0).toStringAsFixed(0),
+    );
+    final sampahCtrl = TextEditingController(
+      text: (existing?.biayaSampah ?? 0).toStringAsFixed(0),
+    );
     String periode = existing?.periode ?? 'bulanan';
+    String tipeHitung = existing?.tipeHitung ?? 'tetap';
 
     showDialog(
       context: context,
       builder: (c) => StatefulBuilder(
-        builder: (c2, setLocal) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(existing == null ? 'Tambah Jenis Iuran' : 'Ubah Jenis Iuran'),
-          content: SizedBox(
-            width: lebarDialog(context, maksimal: 400),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: namaCtrl,
-                  decoration: const InputDecoration(labelText: 'Nama Iuran *'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: nominalCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Nominal Default (Rp)'),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: periode,
-                  decoration: const InputDecoration(labelText: 'Periode'),
-                  items: const [
-                    DropdownMenuItem(value: 'bulanan', child: Text('Bulanan')),
-                    DropdownMenuItem(value: 'tahunan', child: Text('Tahunan')),
-                    DropdownMenuItem(value: 'sekali', child: Text('Sekali Bayar')),
+        builder: (c2, setLocal) {
+          final bermeteran = tipeHitung == 'meteran';
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Text(existing == null ? 'Tambah Jenis Iuran' : 'Ubah Jenis Iuran'),
+            content: SizedBox(
+              width: lebarDialog(context, maksimal: 400),
+              // Formulir bermeteran menambah tiga field. Tanpa scroll, isinya
+              // terpotong di layar ponsel — dan yang terpotong adalah tombol
+              // Simpan.
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: namaCtrl,
+                      decoration: const InputDecoration(labelText: 'Nama Iuran *'),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: tipeHitung,
+                      decoration: const InputDecoration(
+                        labelText: 'Cara Hitung',
+                        helperText: 'Meteran: nominal dihitung dari pemakaian air',
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'tetap', child: Text('Nominal Tetap')),
+                        DropdownMenuItem(value: 'meteran', child: Text('Meteran Air')),
+                      ],
+                      onChanged: (v) => setLocal(() => tipeHitung = v!),
+                    ),
+                    const SizedBox(height: 12),
+                    if (bermeteran) ...[
+                      // Tarif di sini adalah tarif untuk tagihan YANG AKAN
+                      // DATANG. Ketiga angkanya disalin ke tiap tagihan saat
+                      // terbit, jadi menaikkannya tidak pernah mengubah tagihan
+                      // yang sudah ada — warga yang sudah lunas tidak mendadak
+                      // terlihat kurang bayar.
+                      TextField(
+                        controller: tarifCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Tarif per m³ (Rp) *',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: abonCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Abondement (Rp)',
+                          helperText: 'Ditagih walau pemakaian nol',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: sampahCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Biaya Sampah (Rp)',
+                          helperText: 'Hanya untuk rumah yang berlangganan',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: _hijau.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'Tagihan = pemakaian × tarif + abondement'
+                          '${(double.tryParse(sampahCtrl.text) ?? 0) > 0 ? ' + sampah' : ''}'
+                          '\nTarif baru hanya berlaku untuk tagihan berikutnya.',
+                          style: TextStyle(fontSize: 11, color: c2.teksKedua),
+                        ),
+                      ),
+                    ] else
+                      TextField(
+                        controller: nominalCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Nominal Default (Rp)',
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: periode,
+                      decoration: const InputDecoration(labelText: 'Periode'),
+                      items: const [
+                        DropdownMenuItem(value: 'bulanan', child: Text('Bulanan')),
+                        DropdownMenuItem(value: 'tahunan', child: Text('Tahunan')),
+                        DropdownMenuItem(value: 'sekali', child: Text('Sekali Bayar')),
+                      ],
+                      onChanged: (v) => setLocal(() => periode = v!),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: ketCtrl,
+                      decoration: const InputDecoration(labelText: 'Keterangan (opsional)'),
+                    ),
                   ],
-                  onChanged: (v) => setLocal(() => periode = v!),
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: ketCtrl,
-                  decoration: const InputDecoration(labelText: 'Keterangan (opsional)'),
-                ),
-              ],
+              ),
             ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(c), child: const Text('Batal')),
-            ElevatedButton(
-              onPressed: () async {
-                if (namaCtrl.text.trim().isEmpty) {
-                  _pesan('Nama iuran wajib diisi.', sukses: false);
-                  return;
-                }
-                Navigator.pop(c);
-                final prov = context.read<JenisIuranProvider>();
-                final nominal = double.tryParse(nominalCtrl.text) ?? 0;
-                final r = existing == null
-                    ? await prov.create(
-                        namaIuran: namaCtrl.text.trim(),
-                        nominalDefault: nominal,
-                        periode: periode,
-                        keterangan: ketCtrl.text.trim(),
-                      )
-                    : await prov.update(
-                        existing.id,
-                        namaIuran: namaCtrl.text.trim(),
-                        nominalDefault: nominal,
-                        periode: periode,
-                        keterangan: ketCtrl.text.trim(),
-                      );
-                _pesan(r['message']?.toString() ?? 'Selesai.', sukses: r['success'] == true);
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: _hijau),
-              child: const Text('Simpan', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(c), child: const Text('Batal')),
+              ElevatedButton(
+                onPressed: () async {
+                  if (namaCtrl.text.trim().isEmpty) {
+                    _pesan('Nama iuran wajib diisi.', sukses: false);
+                    return;
+                  }
+                  final tarif = double.tryParse(tarifCtrl.text) ?? 0;
+                  // Dijaga di sini juga, bukan hanya di backend: jenis
+                  // bermeteran tanpa tarif menerbitkan tagihan sebesar
+                  // abondement saja untuk seluruh RT, dan tidak ada yang
+                  // terlihat salah sampai ada yang membandingkannya.
+                  if (bermeteran && tarif <= 0) {
+                    _pesan('Tarif per m³ wajib diisi untuk jenis bermeteran.', sukses: false);
+                    return;
+                  }
+                  Navigator.pop(c);
+                  final prov = context.read<JenisIuranProvider>();
+                  final nominal = double.tryParse(nominalCtrl.text) ?? 0;
+                  final abon = double.tryParse(abonCtrl.text) ?? 0;
+                  final sampah = double.tryParse(sampahCtrl.text) ?? 0;
+                  final r = existing == null
+                      ? await prov.create(
+                          namaIuran: namaCtrl.text.trim(),
+                          nominalDefault: nominal,
+                          periode: periode,
+                          keterangan: ketCtrl.text.trim(),
+                          tipeHitung: tipeHitung,
+                          tarifPerM3: bermeteran ? tarif : null,
+                          abondement: bermeteran ? abon : null,
+                          biayaSampah: bermeteran ? sampah : null,
+                        )
+                      : await prov.update(
+                          existing.id,
+                          namaIuran: namaCtrl.text.trim(),
+                          nominalDefault: nominal,
+                          periode: periode,
+                          keterangan: ketCtrl.text.trim(),
+                          tipeHitung: tipeHitung,
+                          tarifPerM3: bermeteran ? tarif : null,
+                          abondement: bermeteran ? abon : null,
+                          biayaSampah: bermeteran ? sampah : null,
+                        );
+                  _pesan(r['message']?.toString() ?? 'Selesai.', sukses: r['success'] == true);
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: _hijau),
+                child: const Text('Simpan', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

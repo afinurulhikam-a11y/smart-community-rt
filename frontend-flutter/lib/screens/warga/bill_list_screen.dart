@@ -7,6 +7,7 @@ import 'payment_screen.dart';
 import '../../core/theme/warna_konteks.dart';
 import '../../core/format.dart';
 import '../../core/pesan.dart';
+import '../../widgets/kartu_meteran_warga.dart';
 
 const Color _hijau = Color(0xFF1B7A6A);
 
@@ -186,6 +187,10 @@ class _BillListScreenState extends State<BillListScreen> with SingleTickerProvid
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Di ATAS tab, bukan di dalamnya. Tanggal 1–5 belum ada satu pun
+        // tagihan periode berjalan, jadi kartu meteran yang hidup di dalam
+        // daftar tagihan akan hilang persis pada hari ia paling dibutuhkan.
+        const KartuMeteranWarga(),
         Container(
           decoration: BoxDecoration(
             color: context.latarLembut,

@@ -87,11 +87,19 @@ const RESET_GROUPS = [
     // `ikutan: true` karena baris ini mati akibat rantai FK-nya, bukan karena
     // ia sasaran grup ini; pratinjau menampilkannya terpisah supaya tidak ada
     // yang terhapus diam-diam.
+    //
+    // `pembacaan_meteran` ikut, dan itu bukan kelengkapan belaka. FK-nya ke
+    // `bills` adalah ON DELETE SET NULL, jadi menghapus tagihan saja
+    // meninggalkan bacaannya hidup dengan `bill_id` kosong. Akibatnya dua:
+    // rantai `meteran_lalu` periode berikutnya berlanjut dari angka yang
+    // tagihannya sudah tidak ada, dan warga bisa mengubah lagi bacaan periode
+    // lampau — karena yang mengunci bacaan justru `bill_id IS NOT NULL`.
     tabel: [
       { tabel: 'finances', where: "sumber = 'iuran'", ikutan: true },
       { tabel: 'payment_transaction_bills' },
       { tabel: 'payment_transactions' },
       { tabel: 'bill_payments' },
+      { tabel: 'pembacaan_meteran' },
       { tabel: 'bills' },
     ],
   },
@@ -249,6 +257,7 @@ const URUTAN_TOTAL = [
   { tabel: 'payment_transaction_bills' },
   { tabel: 'payment_transactions' },
   { tabel: 'bill_payments' },
+  { tabel: 'pembacaan_meteran' },
   { tabel: 'bills' },
   { tabel: 'bantuan_sosial_log' },
   { tabel: 'bantuan_sosial' },
