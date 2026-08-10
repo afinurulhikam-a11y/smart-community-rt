@@ -15,6 +15,23 @@ import '../../core/theme/warna_konteks.dart';
 import '../../core/pesan.dart';
 import 'data_warga_screen.dart';
 
+/// Format string YYYY-MM-DD atau ISO String menjadi DateTime lokal tanpa geser zona waktu.
+DateTime? parseDateString(dynamic val) {
+  if (val == null) return null;
+  final str = val.toString().split('T')[0].trim();
+  if (str.isEmpty) return null;
+  final parts = str.split('-');
+  if (parts.length == 3) {
+    final y = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    final d = int.tryParse(parts[2]);
+    if (y != null && m != null && d != null) {
+      return DateTime(y, m, d);
+    }
+  }
+  return DateTime.tryParse(str);
+}
+
 /// Format string YYYY-MM-DD atau ISO String menjadi format tanggal Indonesia (mis. 15 Agustus 2026).
 String formatTanggalIndo(String? dateStr) {
   if (dateStr == null || dateStr.isEmpty) return '-';
@@ -712,12 +729,12 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
     if (isEdit) {
       if (data['tanggal_bantuan'] != null) {
         tipePeriode = 'satu_kali';
-        tanggalBantuan = DateTime.tryParse(data['tanggal_bantuan'].toString().split('T')[0]);
+        tanggalBantuan = parseDateString(data['tanggal_bantuan']);
       } else if (data['tanggal_mulai'] != null) {
         tipePeriode = 'periode';
-        tanggalMulai = DateTime.tryParse(data['tanggal_mulai'].toString().split('T')[0]);
+        tanggalMulai = parseDateString(data['tanggal_mulai']);
         if (data['tanggal_selesai'] != null) {
-          tanggalSelesai = DateTime.tryParse(data['tanggal_selesai'].toString().split('T')[0]);
+          tanggalSelesai = parseDateString(data['tanggal_selesai']);
         }
       } else {
         tipePeriode = 'satu_kali';
@@ -795,12 +812,12 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                   : (optional ? 'Pilih Tanggal Selesai (Opsional)' : 'Pilih Tanggal *');
               return InkWell(
                 onTap: () async {
+                  final initial = value ?? DateTime.now();
                   final picked = await showDatePicker(
                     context: context,
-                    initialDate: value ?? DateTime.now(),
+                    initialDate: initial,
                     firstDate: DateTime(2000),
                     lastDate: DateTime(2100),
-                    locale: const Locale('id', 'ID'),
                   );
                   if (picked != null) {
                     onChanged(picked);
