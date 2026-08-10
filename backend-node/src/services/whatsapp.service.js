@@ -163,29 +163,16 @@ Terima kasih.
   }
 }
 
-/** Notifikasi WhatsApp untuk Penugasan Jadwal Siskamling / Ronda */
-async function sendPatrolScheduleWA({ noHp, userNama, hari, tanggal, shift, petugasLengkap, keterangan }) {
-  const tglFormatted = tanggal ? ` (${tanggal})` : '';
-  const pesan = 
-`🌙 *JADWAL SISKAMLING / RONDA NIGHT* 🌙
-
-Yth. Bpk/Ibu *${userNama || 'Petugas Ronda'}*,
-
-Anda telah dijadwalkan untuk bertugas menjaga keamanan lingkungan RT pada:
-📅 *Hari/Tanggal*: ${hari}${tglFormatted}
-⏰ *Shift Jam*: ${shift || 'Shift Malam (22:00 - 04:00)'}
-👥 *Tim Petugas*: ${petugasLengkap || '-'}
-${keterangan ? `📝 *Keterangan*: ${keterangan}\n` : ''}
-📍 *Pos Ronda*: Pos Ronda Utama RT
-📌 *Petunjuk*: Mohon hadir tepat waktu dan melakukan *Absen Masuk (Check-in)* dengan memindai Kode QR di Pos Ronda.
-
-Terima kasih atas dedikasi Bpk/Ibu dalam menjaga keamanan bersama!
-— *Pengurus / Admin RT*`;
-
-  if (noHp) {
-    await sendWA({ target: noHp, message: pesan });
-  }
-}
+// `sendPatrolScheduleWA` dulu ada di sini — pesan penugasan jadwal ronda.
+// Ikut hilang bersama modul ronda (commit `dd9104a`). Ia bertahan setelah
+// modulnya dibongkar karena tidak menyentuh database sama sekali: ia hanya
+// merangkai teks, jadi tidak ada tabel hilang yang membuatnya gagal dan tidak
+// ada gejala apa pun yang menunjukkan ia sudah tak berpemanggil.
+//
+// Justru itu masalahnya. Fungsi yang diekspor tetapi tidak pernah dipanggil
+// terbaca seperti fitur yang masih hidup, dan yang membaca berkas ini akan
+// menyimpulkan penjadwalan ronda masih ada di sistem. Teksnya tetap terbaca di
+// riwayat git bila modulnya suatu saat dihidupkan lagi.
 
 module.exports = {
   sendWA,
@@ -193,5 +180,4 @@ module.exports = {
   sendEmergencyWA,
   sendBillWA,
   sendLetterApprovedWA,
-  sendPatrolScheduleWA,
 };
