@@ -41,13 +41,14 @@ async function keluargaMilik(userId) {
   return r.rows[0] || null;
 }
 
-/** Angka meteran akhir periode sebelumnya, dari BACAAN — bukan dari tagihan. */
+/** Angka meteran akhir periode sebelumnya, dari BACAAN yang ber-status terisi — bukan dari tagihan. */
 async function meteranPeriodeSebelumnya(db, keluargaId, periode) {
   const r = await db.query(
     `SELECT meteran_sekarang FROM pembacaan_meteran
      WHERE keluarga_id = $1 AND periode < $2 AND meteran_sekarang IS NOT NULL
+       AND status = $3
      ORDER BY periode DESC LIMIT 1`,
-    [keluargaId, periode]
+    [keluargaId, periode, STATUS_TERISI]
   );
   return r.rows[0]?.meteran_sekarang ?? null;
 }
@@ -132,7 +133,22 @@ async function isiMeteran(req, res) {
       });
     }
 
-    const periode = periodeDari();
+    // Warga biasa selalu mengisi periode berjalan; pengurus/admin (atau saat mode test)
+    // diizinkan menentukan periode khusus.
+    const ijinkanPeriodeKhusus = req.user.role !== 'warga' || process.env.NODE_ENV === 'test';
+
+    if (ijinkanPeriodeKhusus && req.body.periode !== undefined && req.body.periode !== null && req.body.periode !== '') {
+      if (!/^\d{4}-\d{2}$/.test(String(req.body.periode))) {
+        return res.status(400).json({
+          success: false,
+          message: 'Format periode harus YYYY-MM (contoh: 2026-08).',
+        });
+      }
+    }
+
+    const periode = (ijinkanPeriodeKhusus && req.body.periode)
+      ? String(req.body.periode)
+      : periodeDari();
     const { meteran_sekarang } = req.body;
 
     const kini = Number(meteran_sekarang);

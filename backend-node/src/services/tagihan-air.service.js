@@ -66,6 +66,9 @@ async function terbitkanTagihanPeriode(client, opsi) {
   if (!jenis) {
     return { ok: false, alasan: 'Jenis iuran tidak ditemukan.' };
   }
+  if (jenis.is_aktif === false) {
+    return { ok: false, alasan: 'Jenis iuran ini sudah dinonaktifkan.' };
+  }
 
   const totalKk = (await client.query('SELECT COUNT(*)::int AS c FROM keluarga WHERE deleted_at IS NULL')).rows[0].c;
 
