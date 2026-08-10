@@ -33,7 +33,7 @@ async function keluargaMilik(userId) {
   const r = await pool.query(
     `SELECT k.id, k.no_kk, k.kepala_keluarga, k.alamat, k.blok, k.langganan_sampah
      FROM keluarga k
-     JOIN users u ON u.no_kk = k.no_kk
+     JOIN users u ON (u.no_kk = k.no_kk OR (u.nik IS NOT NULL AND u.nik IN (SELECT ak.nik FROM anggota_keluarga ak WHERE ak.keluarga_id = k.id)))
      WHERE u.id = $1 AND k.deleted_at IS NULL
      LIMIT 1`,
     [userId]
