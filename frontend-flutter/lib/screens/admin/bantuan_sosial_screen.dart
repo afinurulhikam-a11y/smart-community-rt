@@ -15,6 +15,49 @@ import '../../core/theme/warna_konteks.dart';
 import '../../core/pesan.dart';
 import 'data_warga_screen.dart';
 
+/// Format string YYYY-MM-DD atau ISO String menjadi format tanggal Indonesia (mis. 15 Agustus 2026).
+String formatTanggalIndo(String? dateStr) {
+  if (dateStr == null || dateStr.isEmpty) return '-';
+  final cleanStr = dateStr.split('T')[0];
+  final parts = cleanStr.split('-');
+  if (parts.length == 3) {
+    final y = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    final d = int.tryParse(parts[2]);
+    if (y != null && m != null && d != null && m >= 1 && m <= 12) {
+      const bulan = [
+        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+      ];
+      return '$d ${bulan[m - 1]} $y';
+    }
+  }
+  return cleanStr;
+}
+
+/// Helper untuk menampilkan teks tanggal/periode bantuan sosial secara lengkap.
+String formatPeriodeBansos(Map<String, dynamic> b) {
+  final tBantuan = b['tanggal_bantuan']?.toString();
+  final tMulai = b['tanggal_mulai']?.toString();
+  final tSelesai = b['tanggal_selesai']?.toString();
+  final tahun = b['tahun'];
+
+  if (tBantuan != null && tBantuan.isNotEmpty) {
+    return formatTanggalIndo(tBantuan);
+  }
+  if (tMulai != null && tMulai.isNotEmpty) {
+    final mulai = formatTanggalIndo(tMulai);
+    if (tSelesai != null && tSelesai.isNotEmpty) {
+      return '$mulai s.d. ${formatTanggalIndo(tSelesai)}';
+    }
+    return '$mulai s.d. Selesai';
+  }
+  if (tahun != null) {
+    return tahun.toString();
+  }
+  return '-';
+}
+
 /// Kode modul di tabel izin. Bendahara hanya punya `view` di sini.
 const String _kodeIzin = 'kependudukan.bansos';
 
@@ -35,10 +78,8 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
   String _jenisBantuan = 'Semua Jenis';
   String _status = 'Semua Status';
   String _searchQuery = '';
-  // Controller pencarian — dibutuhkan agar tombol Reset bisa mengosongkan
-  // teks di kolom pencarian, bukan hanya mengosongkan state pendeteksinya.
-  final TextEditingController _searchController = TextEditingController();
 
+  final TextEditingController _searchController = TextEditingController();
   final List<String> _tahunList = ['Semua', '2026', '2025', '2024', '2023', '2022', '2021', '2020'];
 
   @override
@@ -55,7 +96,6 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
     super.dispose();
   }
 
-  /// Kembalikan seluruh filter & pencarian ke kondisi awal, lalu muat ulang.
   void _resetSemuaFilter() {
     setState(() {
       _selectedTahun = 'Semua';
@@ -182,9 +222,6 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
         Consumer<BantuanSosialProvider>(
           builder: (context, provider, _) {
             final stats = provider.stats;
-            // Empat kartu dipaksa sejajar oleh Row menyisakan sekitar 75px per
-            // kartu di ponsel — ikon dan angkanya tidak muat dan meluber.
-            // Jumlah kolomnya kini mengikuti lebar, sama seperti Kas RT.
             return LayoutBuilder(
               builder: (context, c) {
                 final kolom = c.maxWidth > 900 ? 4 : (c.maxWidth > 500 ? 2 : 1);
@@ -320,8 +357,7 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                 ),
               ),
             ),
-            // Bukan Expanded: induknya kini Wrap, dan Expanded hanya sah di
-            // dalam Flex. Lebarnya diatur lebarKolomFilter — penuh di ponsel.
+
             SizedBox(
               width: lebarKolomFilter(context, maksimal: 260),
               height: AppTheme.sasaranSentuh,
@@ -349,9 +385,6 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
             SizedBox(
               height: AppTheme.sasaranSentuh,
               child: OutlinedButton.icon(
-                // Reset seluruh filter (tahun, jenis, status, pencarian) ke
-                // nilai awal lalu muat ulang — sama dengan tombol Reset di
-                // layar Data Warga.
                 onPressed: _resetSemuaFilter,
                 icon: Icon(Icons.refresh, size: 16, color: context.teksKedua),
                 label: Text(
@@ -402,8 +435,8 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                         children: [
                           Wrap(
                             children: [
-                              Icon(Icons.list_alt, color: Color(0xFF10B981), size: 18),
-                              SizedBox(width: 8),
+                              const Icon(Icons.list_alt, color: Color(0xFF10B981), size: 18),
+                              const SizedBox(width: 8),
                               Text(
                                 'Data Penerima Bantuan',
                                 style: TextStyle(
@@ -415,8 +448,6 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                             ],
                           ),
                           Text(
-                            // Total SELURUH data dari backend, bukan jumlah
-                            // baris pada halaman pagination saat ini.
                             '${provider.totalData} data',
                             style: TextStyle(fontSize: 12, color: context.teksKedua),
                           ),
@@ -472,15 +503,13 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                           'Nama Warga',
                           'NIK',
                           'Jenis Bantuan',
-                          'Tahun',
+                          'Tanggal / Periode',
                           'Status',
                           'Keterangan',
                         ],
                         baris: provider.bantuanList.asMap().entries.map((entry) {
                           final index = entry.key;
                           final b = entry.value;
-                          // Nomor urut mengikuti halaman, bukan posisi dalam
-                          // array halaman ini — menyamai Data Warga / Kas RT.
                           final nomor =
                               ((provider.currentPage - 1) * provider.perPage) + index + 1;
                           return BarisTabel(
@@ -489,7 +518,7 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                               SelTabel.teks('Nama Warga', b['nama_warga'] ?? '-', utama: true),
                               SelTabel.teks('NIK', b['nik_warga'] ?? '-'),
                               SelTabel.teks('Jenis Bantuan', b['jenis_bantuan'] ?? '-'),
-                              SelTabel.teks('Tahun', b['tahun']?.toString() ?? '-'),
+                              SelTabel.teks('Tanggal / Periode', formatPeriodeBansos(b)),
                               SelTabel(
                                 'Status',
                                 Container(
@@ -531,44 +560,44 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                                       icon: const Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 20),
                                       style: gayaAksiTabel(const Color(0xFFEF4444)),
                                       onPressed: () async {
-                                      final conf = await showDialog<bool>(
-                                        context: context,
-                                        builder: (c) => AlertDialog(
-                                          title: const Text('Hapus'),
-                                          content: const Text('Yakin hapus data ini?'),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () => Navigator.pop(c, false),
-                                              child: const Text('Batal'),
-                                            ),
-                                            TextButton(
-                                              onPressed: () => Navigator.pop(c, true),
-                                              child: const Text(
-                                                'Hapus',
-                                                style: TextStyle(color: Colors.red),
+                                        final conf = await showDialog<bool>(
+                                          context: context,
+                                          builder: (c) => AlertDialog(
+                                            title: const Text('Hapus'),
+                                            content: const Text('Yakin hapus data ini?'),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(c, false),
+                                                child: const Text('Batal'),
                                               ),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                      if (conf == true && mounted) {
-                                        final ok = await provider.deleteBantuanSosial(b['id']);
-                                        if (!context.mounted) return;
-                                        if (ok) {
-                                          pesanSukses(context, 'Data berhasil dihapus');
-                                        } else {
-                                          pesanGagal(
-                                            context,
-                                            provider.errorMessage ?? 'Gagal menghapus data',
-                                          );
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(c, true),
+                                                child: const Text(
+                                                  'Hapus',
+                                                  style: TextStyle(color: Colors.red),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                        if (conf == true && mounted) {
+                                          final ok = await provider.deleteBantuanSosial(b['id']);
+                                          if (!context.mounted) return;
+                                          if (ok) {
+                                            pesanSukses(context, 'Data berhasil dihapus');
+                                          } else {
+                                            pesanGagal(
+                                              context,
+                                              provider.errorMessage ?? 'Gagal menghapus data',
+                                            );
+                                          }
                                         }
-                                      }
-                                    },
-                                  ),
-                              ],
+                                      },
+                                    ),
+                                ],
+                              ),
                             ),
-                          ),
-                        );
+                          );
                         }).toList(),
                         currentPage: provider.currentPage,
                         totalPages: provider.totalPages,
@@ -674,9 +703,31 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
     String? selectedUserId = isEdit ? data['user_id'] : null;
     String selectedJenis = isEdit ? (data['jenis_bantuan'] ?? 'Sembako') : 'Sembako';
     String status = isEdit ? (data['status'] ?? 'Aktif') : 'Aktif';
-    final tahunController = TextEditingController(
-      text: isEdit ? data['tahun']?.toString() : DateTime.now().year.toString(),
-    );
+
+    String tipePeriode = 'satu_kali';
+    DateTime? tanggalBantuan;
+    DateTime? tanggalMulai;
+    DateTime? tanggalSelesai;
+
+    if (isEdit) {
+      if (data['tanggal_bantuan'] != null) {
+        tipePeriode = 'satu_kali';
+        tanggalBantuan = DateTime.tryParse(data['tanggal_bantuan'].toString().split('T')[0]);
+      } else if (data['tanggal_mulai'] != null) {
+        tipePeriode = 'periode';
+        tanggalMulai = DateTime.tryParse(data['tanggal_mulai'].toString().split('T')[0]);
+        if (data['tanggal_selesai'] != null) {
+          tanggalSelesai = DateTime.tryParse(data['tanggal_selesai'].toString().split('T')[0]);
+        }
+      } else {
+        tipePeriode = 'satu_kali';
+        tanggalBantuan = DateTime.now();
+      }
+    } else {
+      tipePeriode = 'satu_kali';
+      tanggalBantuan = DateTime.now();
+    }
+
     final nominalController = TextEditingController(
       text: isEdit ? data['nominal']?.toString() : '',
     );
@@ -694,13 +745,15 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
       'Lainnya',
     ];
 
-    // Nominal 0 (bantuan barang tanpa nilai uang) mewajibkan keterangan;
-    // nominal lebih dari 0 membuat keterangan opsional. Dibaca tiap dialog
-    // rebuild sehingga label dan validasi mengikutinya.
     bool nominalNol() {
       final t = nominalController.text.trim();
       final n = int.tryParse(t) ?? 0;
       return n == 0;
+    }
+
+    String? toDateString(DateTime? dt) {
+      if (dt == null) return null;
+      return '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
     }
 
     showDialog(
@@ -708,7 +761,6 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            // Aesthetic input decoration helper
             InputDecoration buildDecor(String label, IconData icon) {
               return InputDecoration(
                 labelText: label,
@@ -728,6 +780,52 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(color: Color(0xFF1B7A6A), width: 1.5),
+                ),
+              );
+            }
+
+            Widget buildDateField({
+              required String label,
+              required DateTime? value,
+              required ValueChanged<DateTime?> onChanged,
+              bool optional = false,
+            }) {
+              final textValue = value != null
+                  ? formatTanggalIndo(toDateString(value))
+                  : (optional ? 'Pilih Tanggal Selesai (Opsional)' : 'Pilih Tanggal *');
+              return InkWell(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: value ?? DateTime.now(),
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2100),
+                    locale: const Locale('id', 'ID'),
+                  );
+                  if (picked != null) {
+                    onChanged(picked);
+                  }
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: InputDecorator(
+                  decoration: buildDecor(label, Icons.calendar_today_outlined),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        textValue,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: value != null ? context.teksUtama : context.teksTersier,
+                        ),
+                      ),
+                      if (optional && value != null)
+                        InkWell(
+                          onTap: () => onChanged(null),
+                          child: Icon(Icons.clear, size: 18, color: context.teksKedua),
+                        ),
+                    ],
+                  ),
                 ),
               );
             }
@@ -779,11 +877,6 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                           items: provider.wargaList.map((w) {
                             return DropdownMenuItem<String>(
                               value: w['id'],
-                              // Eksklusif nama saja. Sebelumnya ada ' (${w['nik'] ?? '-'})';
-                              // endpoint /users tidak pernah mengirim nik, jadi itu selalu
-                              // dirender sebagai '(-)' yang tidak memuat NIK dan tidak
-                              // dipakai dalam logika apa pun — sisa tampilan yang
-                              // menyesatkan.
                               child: Text('${w['nama']}'),
                             );
                           }).toList(),
@@ -801,24 +894,70 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                         onChanged: (v) => setDialogState(() => selectedJenis = v!),
                       ),
                       const SizedBox(height: 16),
-                      TextField(
-                        controller: tahunController,
-                        decoration: buildDecor('Tahun *', Icons.calendar_month_outlined),
-                        keyboardType: TextInputType.number,
+
+                      // Tipe Periode Toggle (Satu Kali vs Berperiode)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ChoiceChip(
+                              label: const Text('Satu Kali (1 Tanggal)'),
+                              selected: tipePeriode == 'satu_kali',
+                              onSelected: (sel) {
+                                if (sel) {
+                                  setDialogState(() {
+                                    tipePeriode = 'satu_kali';
+                                    tanggalBantuan ??= DateTime.now();
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ChoiceChip(
+                              label: const Text('Berperiode (Mulai-Selesai)'),
+                              selected: tipePeriode == 'periode',
+                              onSelected: (sel) {
+                                if (sel) {
+                                  setDialogState(() {
+                                    tipePeriode = 'periode';
+                                    tanggalMulai ??= DateTime.now();
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 16),
+
+                      if (tipePeriode == 'satu_kali') ...[
+                        buildDateField(
+                          label: 'Tanggal Bantuan *',
+                          value: tanggalBantuan,
+                          onChanged: (val) => setDialogState(() => tanggalBantuan = val),
+                        ),
+                      ] else ...[
+                        buildDateField(
+                          label: 'Tanggal Mulai *',
+                          value: tanggalMulai,
+                          onChanged: (val) => setDialogState(() => tanggalMulai = val),
+                        ),
+                        const SizedBox(height: 16),
+                        buildDateField(
+                          label: 'Tanggal Selesai (Opsional)',
+                          value: tanggalSelesai,
+                          optional: true,
+                          onChanged: (val) => setDialogState(() => tanggalSelesai = val),
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+
                       TextField(
                         controller: nominalController,
                         decoration: buildDecor('Nominal *', Icons.monetization_on_outlined),
                         keyboardType: TextInputType.number,
-                        // keyboardType hanya menyarankan papan tombol angka; ia
-                        // tidak menyaring apa pun. Tanpa formatter ini, huruf
-                        // yang terketik lolos ke controller lalu ditolak sebagai
-                        // "wajib diisi" — padahal kolomnya jelas terisi.
                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                        // Rebuild label Keterangan mengikuti nilai nominal:
-                        // nominal 0 → "Keterangan (Wajib)", lebih dari 0 →
-                        // opsional.
                         onChanged: (_) => setDialogState(() {}),
                       ),
                       const SizedBox(height: 16),
@@ -866,14 +1005,22 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                       pesanGagal(context, 'Pilih warga terlebih dahulu');
                       return;
                     }
-                    if (tahunController.text.isEmpty) {
-                      pesanGagal(context, 'Tahun wajib diisi');
+
+                    if (tipePeriode == 'satu_kali' && tanggalBantuan == null) {
+                      pesanGagal(context, 'Tanggal bantuan wajib diisi');
                       return;
                     }
-                    // Nominal boleh bernilai 0 (bantuan barang), tetapi bila 0
-                    // maka keterangan WAJIB diisi. Nominal lebih dari 0 membuat
-                    // keterangan opsional. Aturan yang sama ditegakkan di
-                    // backend, jadi ini lapisan pertama — bukan satu-satunya.
+                    if (tipePeriode == 'periode') {
+                      if (tanggalMulai == null) {
+                        pesanGagal(context, 'Tanggal mulai wajib diisi');
+                        return;
+                      }
+                      if (tanggalSelesai != null && tanggalSelesai!.isBefore(tanggalMulai!)) {
+                        pesanGagal(context, 'Tanggal selesai tidak boleh lebih awal dari tanggal mulai');
+                        return;
+                      }
+                    }
+
                     final nominal = double.tryParse(nominalController.text.trim());
                     if (nominal == null || nominal < 0) {
                       pesanGagal(context, 'Nominal wajib diisi dan tidak boleh negatif');
@@ -884,10 +1031,19 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                       return;
                     }
 
+                    final tBantuanStr = tipePeriode == 'satu_kali' ? toDateString(tanggalBantuan) : null;
+                    final tMulaiStr = tipePeriode == 'periode' ? toDateString(tanggalMulai) : null;
+                    final tSelesaiStr = tipePeriode == 'periode' ? toDateString(tanggalSelesai) : null;
+
+                    final refDt = tanggalBantuan ?? tanggalMulai ?? DateTime.now();
+
                     final payload = {
                       if (isEdit) 'user_id': data['user_id'] else 'user_id': selectedUserId,
                       'jenis_bantuan': selectedJenis,
-                      'tahun': int.tryParse(tahunController.text) ?? DateTime.now().year,
+                      'tanggal_bantuan': tBantuanStr,
+                      'tanggal_mulai': tMulaiStr,
+                      'tanggal_selesai': tSelesaiStr,
+                      'tahun': refDt.year,
                       'nominal': nominal,
                       'keterangan': ketController.text,
                       if (isEdit) 'status': status,
@@ -900,7 +1056,10 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                       success = await provider.createBantuanSosial(
                         userId: selectedUserId!,
                         jenisBantuan: selectedJenis,
-                        tahun: int.tryParse(tahunController.text) ?? DateTime.now().year,
+                        tanggalBantuan: tBantuanStr,
+                        tanggalMulai: tMulaiStr,
+                        tanggalSelesai: tSelesaiStr,
+                        tahun: refDt.year,
                         nominal: nominal,
                         keterangan: ketController.text,
                       );

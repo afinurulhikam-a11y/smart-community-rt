@@ -6,7 +6,7 @@ const { generatePaymentPDF } = require('../utils/pdf-generator');
 const { logActivity, rupiah, bandingkan } = require('../services/log.service');
 const {
   rincianTagihanAir, pakaiMeteran, bolehIsiMeteran, TANGGAL_TUTUP_METERAN,
-  bolehTerbitkanTagihan, TANGGAL_TERBIT_TAGIHAN, TIPE_METERAN,
+  bolehTerbitkanTagihan, TANGGAL_TERBIT_TAGIHAN, TIPE_METERAN, periodeDari,
 } = require('../utils/tagihan-air');
 const { terbitkanTagihanPeriode } = require('../services/tagihan-air.service');
 
@@ -480,7 +480,22 @@ async function generateBills(req, res) {
     // `paksa: true` melewati penjaga INI SAJA. Ia tidak menyentuh validasi
     // masukan di atas, tidak menyentuh pemeriksaan tarif di dalam service, dan
     // tidak menyentuh idempotensi database — semuanya tetap berlaku penuh.
-    if (!paksa && !bolehTerbitkanTagihan()) {
+    //
+    // Penjaga ini hanya berlaku untuk periode BERJALAN atau yang belum lewat.
+    // Untuk periode lampau, tanggal hari ini bukan alasan yang sah: jendela
+    // pelaporannya sudah lama tutup, jadi "12 KK belum melapor" bukan
+    // peringatan melainkan pernyataan yang keliru — ia menggambarkan periode
+    // itu seolah masih aktif. Backfill dan koreksi periode lampau adalah
+    // pekerjaan wajar pengurus dan tidak boleh menuntut `paksa` hanya karena
+    // kalender kebetulan menunjuk tanggal 10.
+    //
+    // Yang TIDAK berubah untuk periode lampau: jalur finalisasinya tetap
+    // `terbitkanTagihanPeriode()` yang sama, meteran tetap tidak pernah
+    // dikarang, bacaan yang ada tetap dipakai, validasi bisnis tetap jalan,
+    // dan idempotensinya tetap milik `bills_kk_jenis_bulan_uniq`.
+    const periodeLampau = bulan < periodeDari();
+
+    if (!paksa && !periodeLampau && !bolehTerbitkanTagihan()) {
       // Hanya berlaku untuk jenis bermeteran. Jenis bernominal tetap tidak
       // punya "bacaan periode ini" sama sekali, sehingga penjaga ini akan
       // selalu menyala dan membuatnya mustahil diterbitkan sebelum tanggal 25.

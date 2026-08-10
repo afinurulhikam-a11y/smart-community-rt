@@ -28,6 +28,8 @@ class BantuanSosialProvider extends ChangeNotifier {
 
   Future<void> fetchBantuanSosial({
     String? tahun,
+    String? tanggalMulai,
+    String? tanggalSelesai,
     String? jenisBantuan,
     String? status,
     String? search,
@@ -41,6 +43,8 @@ class BantuanSosialProvider extends ChangeNotifier {
       'limit': '10',
     };
     if (tahun != null) queryParams['tahun'] = tahun;
+    if (tanggalMulai != null) queryParams['tanggal_mulai'] = tanggalMulai;
+    if (tanggalSelesai != null) queryParams['tanggal_selesai'] = tanggalSelesai;
     if (jenisBantuan != null) queryParams['jenis_bantuan'] = jenisBantuan;
     if (status != null) queryParams['status'] = status;
     if (search != null) queryParams['search'] = search;
@@ -83,21 +87,28 @@ class BantuanSosialProvider extends ChangeNotifier {
   Future<bool> createBantuanSosial({
     required String userId,
     required String jenisBantuan,
-    required int tahun,
+    String? tanggalBantuan,
+    String? tanggalMulai,
+    String? tanggalSelesai,
+    int? tahun,
     double? nominal,
     String? keterangan,
   }) async {
     _isLoading = true;
     notifyListeners();
+    final body = <String, dynamic>{
+      'user_id': userId,
+      'jenis_bantuan': jenisBantuan,
+      if (tanggalBantuan != null) 'tanggal_bantuan': tanggalBantuan,
+      if (tanggalMulai != null) 'tanggal_mulai': tanggalMulai,
+      if (tanggalSelesai != null) 'tanggal_selesai': tanggalSelesai,
+      if (tahun != null) 'tahun': tahun,
+      if (nominal != null) 'nominal': nominal,
+      if (keterangan != null) 'keterangan': keterangan,
+    };
     final response = await ApiService.post(
       ApiConstants.bantuanSosial,
-      body: {
-        'user_id': userId,
-        'jenis_bantuan': jenisBantuan,
-        'tahun': tahun,
-        if (nominal != null) 'nominal': nominal,
-        if (keterangan != null) 'keterangan': keterangan,
-      },
+      body: body,
     );
     _isLoading = false;
     if (response['success'] == true) {
@@ -118,6 +129,7 @@ class BantuanSosialProvider extends ChangeNotifier {
       await fetchStats();
       return true;
     }
+    _errorMessage = response['message'] as String?;
     return false;
   }
 
@@ -140,13 +152,6 @@ class BantuanSosialProvider extends ChangeNotifier {
     return [];
   }
 
-  /// Kosongkan seluruh state saat pengguna keluar.
-  ///
-  /// Provider di aplikasi ini dibuat sekali di MultiProvider akar dan hidup
-  /// selama proses berjalan. Tanpa ini, data pengguna sebelumnya masih ada
-  /// di memori saat orang lain masuk — dan sempat terlihat di layar sampai
-  /// pengambilan data yang baru selesai. Pada perangkat bersama yang dipakai
-  /// pengurus bergantian, itu kebocoran yang nyata, bukan sekadar kosmetik.
   void bersihkan() {
     _bantuanList = [];
     _stats = {'total_penerima': 0, 'aktif': 0, 'selesai': 0, 'jenis_aktif': 0};
@@ -159,5 +164,4 @@ class BantuanSosialProvider extends ChangeNotifier {
     _perPage = 10;
     notifyListeners();
   }
-
 }
