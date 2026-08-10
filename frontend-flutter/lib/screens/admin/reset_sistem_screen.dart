@@ -224,7 +224,7 @@ class _ResetSistemScreenState extends State<ResetSistemScreen> {
                 ),
                 const SizedBox(height: 8),
                 _butir('Akun Admin, Ketua RT, Sekretaris, dan Bendahara', warnaAksen),
-                _butir('Master Jenis Iuran, Kategori Kas, dan Kategori BOP', warnaAksen),
+                _butir('Master Iuran, Kategori Kas, dan Kategori BOP', warnaAksen),
                 _butir('Daftar menu dan hak akses per role', warnaAksen),
                 _butir('Struktur pengurus RT dan master pendidikan/pekerjaan', warnaAksen),
                 _butir('Riwayat reset itu sendiri, agar jejaknya tidak hilang', warnaAksen),

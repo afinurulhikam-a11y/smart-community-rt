@@ -290,7 +290,7 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
         if (_bolehUbah)
           _outlinedBtn(
             Icons.category_outlined,
-            'Jenis Iuran',
+            'Master Iuran',
             _hijau,
             _showJenisIuranDialog,
           ),
@@ -380,7 +380,7 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
             },
           ),
           _dropdownFilter<int?>(
-            'Jenis Iuran',
+            'Master Iuran',
             _jenisIuranId,
             [
               const DropdownMenuItem<int?>(value: null, child: Text('Semua Jenis')),
@@ -631,7 +631,7 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                   kolom: [
                     'NO',
                     'KEPALA KELUARGA',
-                    'JENIS IURAN',
+                    'MASTER IURAN',
                     'PERIODE',
                     if (adaMeteran) ...['METERAN LALU', 'METERAN KINI', 'TERPAKAI'],
                     'NOMINAL',
@@ -707,7 +707,7 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
           ),
           utama: true,
         ),
-        SelTabel.teks('JENIS IURAN', b.namaIuran),
+        SelTabel.teks('MASTER IURAN', b.namaIuran),
         SelTabel.teks('PERIODE', b.bulan),
         if (adaMeteran) ...[
           SelTabel.teks('METERAN LALU', b.meteranLalu?.toString() ?? '—'),
@@ -1346,10 +1346,10 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
               spacing: 12,
               runSpacing: 12,
               children: [
-                const Text('Kelola Jenis Iuran'),
+                const Text('Kelola Master Iuran'),
                 IconButton(
                   icon: const Icon(Icons.add_circle, color: _hijau),
-                  tooltip: 'Tambah jenis iuran',
+                  tooltip: 'Tambah Master Iuran',
                   onPressed: () => _showFormJenis(null),
                 ),
               ],
@@ -1361,7 +1361,7 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
             child: prov.isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : prov.list.isEmpty
-                ? const Center(child: Text('Belum ada jenis iuran.'))
+                ? const Center(child: Text('Belum ada Master Iuran.'))
                 : ListView.separated(
                     itemCount: prov.list.length,
                     separatorBuilder: (_, __) => const Divider(height: 1),
@@ -1374,43 +1374,44 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                             Flexible(
                               child: Text(
                                 j.namaIuran,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: j.isAktif ? null : context.teksKedua,
-                                ),
+                                style: const TextStyle(fontWeight: FontWeight.bold),
                               ),
                             ),
-                            if (!j.isAktif)
-                              Padding(
-                                padding: EdgeInsets.only(left: 8),
+                            if (!j.isAktif) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade200,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
                                 child: Text(
-                                  'nonaktif',
-                                  style: TextStyle(fontSize: 10, color: context.teksKedua),
+                                  'Non-aktif',
+                                  style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
                                 ),
                               ),
+                            ],
                           ],
                         ),
                         subtitle: Text(
-                          '${_rupiah(j.nominalDefault)} · ${j.periodeLabel} · '
-                          '${j.jumlahTagihan} tagihan',
-                          style: const TextStyle(fontSize: 11),
+                          j.tipeHitung == 'meteran'
+                              ? 'Nominal: Rp ${_rupiah(j.nominalDefault)} · Abondement: Rp ${_rupiah(j.abondement)} · Sampah: Rp ${_rupiah(j.biayaSampah)}'
+                              : 'Nominal: Rp ${_rupiah(j.nominalDefault)} · ${j.periodeLabel}',
+                          style: TextStyle(fontSize: 12, color: context.teksKedua),
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
                               icon: const Icon(Icons.edit_outlined, size: 18),
-                              tooltip: 'Ubah',
                               onPressed: () => _showFormJenis(j),
                             ),
                             IconButton(
                               icon: Icon(
-                                j.isAktif ? Icons.toggle_on : Icons.toggle_off,
-                                size: 22,
-                                color: j.isAktif ? const Color(0xFF10B981) : context.teksKedua,
+                                j.isAktif ? Icons.block_outlined : Icons.check_circle_outline,
+                                size: 18,
+                                color: j.isAktif ? Colors.red : Colors.green,
                               ),
-                              tooltip: j.isAktif ? 'Nonaktifkan' : 'Aktifkan',
                               onPressed: () async {
                                 final r = await prov.update(j.id, isAktif: !j.isAktif);
                                 _pesan(
@@ -1479,7 +1480,7 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
           final bermeteran = tipeHitung == 'meteran';
           return AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: Text(existing == null ? 'Tambah Jenis Iuran' : 'Ubah Jenis Iuran'),
+            title: Text(existing == null ? 'Tambah Master Iuran' : 'Ubah Master Iuran'),
             content: SizedBox(
               width: lebarDialog(context, maksimal: 400),
               // Formulir bermeteran menambah tiga field. Tanpa scroll, isinya
