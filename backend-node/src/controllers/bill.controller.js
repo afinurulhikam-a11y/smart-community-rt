@@ -30,11 +30,11 @@ const STATUS_LUNAS = 'lunas';
  */
 async function meteranTerakhir(client, keluargaId, jenisIuranId, bulan) {
   const r = await client.query(
-    `SELECT meteran_sekarang FROM bills
-     WHERE keluarga_id = $1 AND jenis_iuran_id = $2
-       AND bulan < $3 AND meteran_sekarang IS NOT NULL
-     ORDER BY bulan DESC LIMIT 1`,
-    [keluargaId, jenisIuranId, bulan]
+    `SELECT meteran_sekarang FROM pembacaan_meteran
+     WHERE keluarga_id = $1 AND periode < $2 AND meteran_sekarang IS NOT NULL
+       AND status = 'terisi'
+     ORDER BY periode DESC LIMIT 1`,
+    [keluargaId, bulan]
   );
   return r.rows[0]?.meteran_sekarang ?? null;
 }
@@ -349,13 +349,18 @@ async function createBill(req, res) {
       return res.status(400).json({ success: false, message: 'Format periode harus YYYY-MM (contoh: 2026-07).' });
     }
 
-    const kk = await pool.query('SELECT id, kepala_keluarga FROM keluarga WHERE id = $1', [keluarga_id]);
+    const kk = await pool.query('SELECT id, kepala_keluarga, langganan_sampah FROM keluarga WHERE id = $1', [keluarga_id]);
     if (kk.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Kartu keluarga tidak ditemukan.' });
     }
 
     const jenis = await ambilJenis(pool, jenis_iuran_id);
     if (!jenis) return res.status(404).json({ success: false, message: 'Jenis iuran tidak ditemukan.' });
+    if (jenis.is_aktif === false) {
+      return res.status(400).json({ success: false, message: 'Jenis iuran ini sudah dinonaktifkan.' });
+    }
+
+    const berlangganan = kk.rows[0].langganan_sampah !== false;
 
     // Dua cara sebuah tagihan mendapat nominalnya, dipilih oleh jenis iurannya
     // sendiri — bukan oleh apa yang dikirim klien.
@@ -390,7 +395,7 @@ async function createBill(req, res) {
         meteranSekarang: meteran_sekarang,
         tarifPerM3: jenis.tarif_per_m3,
         abondement: jenis.abondement,
-        biayaSampah: jenis.biaya_sampah,
+        biayaSampah: berlangganan ? jenis.biaya_sampah : 0,
       });
       nominalFinal = air.total;
     } else {

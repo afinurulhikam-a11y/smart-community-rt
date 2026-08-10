@@ -137,13 +137,15 @@ function periodeSebelum(periode) {
  */
 function bolehIsiMeteran(tanggal = new Date()) {
   const d = tanggal instanceof Date ? tanggal : new Date(tanggal);
-  return d.getDate() <= TANGGAL_TUTUP_METERAN;
+  const batas = parseInt(process.env.BATAS_INPUT_METERAN, 10) || TANGGAL_TUTUP_METERAN;
+  return d.getDate() <= batas;
 }
 
 /** Apakah tagihan periode berjalan sudah boleh difinalisasi. */
 function bolehTerbitkanTagihan(tanggal = new Date()) {
   const d = tanggal instanceof Date ? tanggal : new Date(tanggal);
-  return d.getDate() >= TANGGAL_TERBIT_TAGIHAN;
+  const batas = parseInt(process.env.TANGGAL_TERBIT_TAGIHAN, 10) || TANGGAL_TERBIT_TAGIHAN;
+  return d.getDate() >= batas;
 }
 
 module.exports = {
