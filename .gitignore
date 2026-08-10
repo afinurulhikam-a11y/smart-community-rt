@@ -32,3 +32,8 @@ PANDUAN-SIDANG.md
 
 # Temporary cron / test artifacts
 .cron-tmp-*.json
+
+# Cache build Gradle. Sudah diabaikan git lewat frontend-flutter/android/.gitignore,
+# tetapi indexer codebase-memory-mcp hanya membaca .gitignore AKAR — tanpa baris ini
+# tiga berkas cache (.gradle/**/​*.properties) ikut masuk ke graf kode.
+.gradle/

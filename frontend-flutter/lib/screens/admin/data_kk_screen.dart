@@ -131,10 +131,11 @@ class _DataKkScreenState extends State<DataKkScreen> {
                     TextFormField(
                       controller: ctlAlamat,
                       decoration: const InputDecoration(
-                        labelText: 'Alamat / Blok & Nomor Rumah',
+                        labelText: 'Alamat / Blok & Nomor Rumah *',
                         hintText: 'Contoh: Jl. Kapten Yusuf Blok A No. 12',
                         prefixIcon: Icon(Icons.location_on_rounded),
                       ),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Alamat wajib diisi.' : null,
                     ),
                     const SizedBox(height: AppTheme.spasiM),
                     Row(
@@ -142,14 +143,16 @@ class _DataKkScreenState extends State<DataKkScreen> {
                         Expanded(
                           child: TextFormField(
                             controller: ctlRt,
-                            decoration: const InputDecoration(labelText: 'RT'),
+                            decoration: const InputDecoration(labelText: 'RT *'),
+                            validator: (v) => (v == null || v.trim().isEmpty) ? 'RT wajib diisi.' : null,
                           ),
                         ),
                         const SizedBox(width: AppTheme.spasiM),
                         Expanded(
                           child: TextFormField(
                             controller: ctlRw,
-                            decoration: const InputDecoration(labelText: 'RW'),
+                            decoration: const InputDecoration(labelText: 'RW *'),
+                            validator: (v) => (v == null || v.trim().isEmpty) ? 'RW wajib diisi.' : null,
                           ),
                         ),
                       ],
@@ -189,7 +192,7 @@ class _DataKkScreenState extends State<DataKkScreen> {
                 final success = await context.read<FamilyProvider>().createFamily(
                       noKk: ctlNoKk.text.trim(),
                       kepalaKeluarga: ctlKepala.text.trim(),
-                      alamat: ctlAlamat.text.trim().isEmpty ? '-' : ctlAlamat.text.trim(),
+                      alamat: ctlAlamat.text.trim(),
                       rt: ctlRt.text.trim(),
                       rw: ctlRw.text.trim(),
                       kelurahan: ctlKelurahan.text.trim(),
@@ -247,9 +250,10 @@ class _DataKkScreenState extends State<DataKkScreen> {
                     TextFormField(
                       controller: ctlAlamat,
                       decoration: const InputDecoration(
-                        labelText: 'Alamat / Blok & Nomor Rumah',
+                        labelText: 'Alamat / Blok & Nomor Rumah *',
                         prefixIcon: Icon(Icons.location_on_rounded),
                       ),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Alamat wajib diisi.' : null,
                     ),
                     const SizedBox(height: AppTheme.spasiM),
                     Row(
@@ -257,14 +261,16 @@ class _DataKkScreenState extends State<DataKkScreen> {
                         Expanded(
                           child: TextFormField(
                             controller: ctlRt,
-                            decoration: const InputDecoration(labelText: 'RT'),
+                            decoration: const InputDecoration(labelText: 'RT *'),
+                            validator: (v) => (v == null || v.trim().isEmpty) ? 'RT wajib diisi.' : null,
                           ),
                         ),
                         const SizedBox(width: AppTheme.spasiM),
                         Expanded(
                           child: TextFormField(
                             controller: ctlRw,
-                            decoration: const InputDecoration(labelText: 'RW'),
+                            decoration: const InputDecoration(labelText: 'RW *'),
+                            validator: (v) => (v == null || v.trim().isEmpty) ? 'RW wajib diisi.' : null,
                           ),
                         ),
                       ],

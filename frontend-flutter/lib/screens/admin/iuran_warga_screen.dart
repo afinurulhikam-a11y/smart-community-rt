@@ -279,28 +279,7 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
       runSpacing: 12,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        if (_bolehTambah)
-          _filledBtn(
-            Icons.add_circle_outline,
-            'Tambah Iuran',
-            const Color(0xFF0F766E),
-            _showTambahIuranDialog,
-          ),
-        if (_bolehTambah)
-          _outlinedBtn(
-            Icons.autorenew_outlined,
-            'Generate Tagihan',
-            _hijau,
-            _showGenerateDialog,
-          ),
-        if (_bolehUbah)
-          _outlinedBtn(
-            Icons.category_outlined,
-            'Jenis Iuran',
-            _hijau,
-            _showJenisIuranDialog,
-          ),
-        _outlinedBtn(
+        _filledBtn(
           Icons.water_drop_outlined,
           'Bacaan Meteran',
           const Color(0xFF0EA5E9),
@@ -309,6 +288,13 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
             builder: (_) => const DialogBacaanMeteran(),
           ),
         ),
+        if (_bolehUbah)
+          _outlinedBtn(
+            Icons.category_outlined,
+            'Jenis Iuran',
+            _hijau,
+            _showJenisIuranDialog,
+          ),
         if (_bolehUbah)
           _outlinedBtn(
             Icons.chat_outlined,
