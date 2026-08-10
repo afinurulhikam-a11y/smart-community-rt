@@ -6,6 +6,7 @@ const { generatePaymentPDF } = require('../utils/pdf-generator');
 const { logActivity, rupiah, bandingkan } = require('../services/log.service');
 const {
   rincianTagihanAir, pakaiMeteran, bolehIsiMeteran, TANGGAL_TUTUP_METERAN,
+  bolehTerbitkanTagihan, TANGGAL_TERBIT_TAGIHAN, TIPE_METERAN,
 } = require('../utils/tagihan-air');
 const { terbitkanTagihanPeriode } = require('../services/tagihan-air.service');
 
@@ -453,13 +454,69 @@ async function createBill(req, res) {
 async function generateBills(req, res) {
   const client = await pool.connect();
   try {
-    const { jenis_iuran_id, bulan, nominal, keterangan, jatuh_tempo } = req.body;
+    const { jenis_iuran_id, bulan, nominal, keterangan, jatuh_tempo, paksa } = req.body;
 
     if (!jenis_iuran_id || !bulan) {
       return res.status(400).json({ success: false, message: 'jenis_iuran_id dan bulan wajib diisi.' });
     }
     if (!/^\d{4}-\d{2}$/.test(bulan)) {
       return res.status(400).json({ success: false, message: 'Format periode harus YYYY-MM (contoh: 2026-07).' });
+    }
+
+    // ── Penjaga waktu + kelengkapan bacaan ──────────────────────────
+    //
+    // Menekan Generate sebelum tanggal terbit menagih setiap rumah yang belum
+    // melapor sebesar BAGIAN TETAP saja, dengan kolom meterannya kosong. Itu
+    // sendiri sudah perilaku yang benar tanggal 25 — yang membuatnya berbahaya
+    // lebih awal adalah idempotensinya: `bills_kk_jenis_bulan_uniq` membuat
+    // Generate kedua menghasilkan NOL perubahan, jadi menekan tombolnya lagi
+    // setelah warga melapor TIDAK memperbaiki apa pun. Tagihannya harus
+    // dikoreksi satu per satu, atau dihapus lalu diterbitkan ulang.
+    //
+    // Karena itu penjaganya di sini, bukan di service: service dipakai juga
+    // oleh penjadwal, yang memang hanya berjalan pada/sesudah tanggal terbit
+    // dan tidak boleh dibebani pemeriksaan yang sudah pasti terpenuhi.
+    //
+    // `paksa: true` melewati penjaga INI SAJA. Ia tidak menyentuh validasi
+    // masukan di atas, tidak menyentuh pemeriksaan tarif di dalam service, dan
+    // tidak menyentuh idempotensi database — semuanya tetap berlaku penuh.
+    if (!paksa && !bolehTerbitkanTagihan()) {
+      // Hanya berlaku untuk jenis bermeteran. Jenis bernominal tetap tidak
+      // punya "bacaan periode ini" sama sekali, sehingga penjaga ini akan
+      // selalu menyala dan membuatnya mustahil diterbitkan sebelum tanggal 25.
+      const jenisRes = await client.query(
+        'SELECT tipe_hitung FROM jenis_iuran WHERE id = $1', [jenis_iuran_id]
+      );
+      if (jenisRes.rows[0]?.tipe_hitung === TIPE_METERAN) {
+        const belum = await client.query(
+          `SELECT COUNT(*)::int AS n
+           FROM keluarga k
+           WHERE k.deleted_at IS NULL
+             AND NOT EXISTS (
+               SELECT 1 FROM pembacaan_meteran pm
+               WHERE pm.keluarga_id = k.id
+                 AND pm.periode = $1
+                 AND pm.meteran_sekarang IS NOT NULL
+             )`,
+          [bulan]
+        );
+        const jumlahBelum = belum.rows[0].n;
+        if (jumlahBelum > 0) {
+          // Tanpa release di sini: `finally` di bawah sudah melakukannya, dan
+          // memanggilnya dua kali melempar "Release called on client which has
+          // already been released to the pool". Kedua early-return validasi di
+          // atas bersandar pada `finally` yang sama.
+          return res.status(409).json({
+            success: false,
+            message: `${jumlahBelum} kartu keluarga belum mengisi meteran periode ${bulan}. `
+              + `Tagihan terbit otomatis tanggal ${TANGGAL_TERBIT_TAGIHAN}. `
+              + 'Menerbitkan sekarang membuat mereka ditagih tanpa pemakaian air, '
+              + 'dan menekan Generate lagi nanti TIDAK akan memperbaikinya.',
+            belum_melapor: jumlahBelum,
+            tanggal_terbit: TANGGAL_TERBIT_TAGIHAN,
+          });
+        }
+      }
     }
 
     await client.query('BEGIN');
