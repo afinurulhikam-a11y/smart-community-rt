@@ -46,6 +46,8 @@ class _DialogBacaanMeteranState extends State<DialogBacaanMeteran> {
 
   late String _periode = periodeSekarang();
   String? _status;
+  final _searchCtrl = TextEditingController();
+  String? _searchQuery;
 
   bool get _bolehUbah => context.watch<PermissionProvider>().bolehUbah(_kodeIzin);
 
@@ -55,9 +57,15 @@ class _DialogBacaanMeteranState extends State<DialogBacaanMeteran> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _muat());
   }
 
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
   void _muat() {
     if (!mounted) return;
-    context.read<MeteranProvider>().muatDaftar(periode: _periode, status: _status);
+    context.read<MeteranProvider>().muatDaftar(periode: _periode, status: _status, search: _searchQuery);
   }
 
   Future<void> _gantiPeriode(int langkah) async {
@@ -199,6 +207,51 @@ class _DialogBacaanMeteranState extends State<DialogBacaanMeteran> {
             _pemilihPeriode(context),
             const SizedBox(height: AppTheme.spasiS),
             _penyaringStatus(context),
+            const SizedBox(height: AppTheme.spasiS),
+            TextField(
+              controller: _searchCtrl,
+              onSubmitted: (v) {
+                setState(() => _searchQuery = v.trim().isEmpty ? null : v.trim());
+                _muat();
+              },
+              decoration: InputDecoration(
+                hintText: 'Cari nama, no KK, alamat, atau blok...',
+                hintStyle: TextStyle(fontSize: 12, color: context.teksTersier),
+                prefixIcon: Icon(Icons.search, size: 18, color: context.teksKedua),
+                suffixIcon: _searchCtrl.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 16),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          setState(() => _searchQuery = null);
+                          _muat();
+                        },
+                      )
+                    : IconButton(
+                        icon: const Icon(Icons.arrow_forward, size: 16),
+                        onPressed: () {
+                          setState(() => _searchQuery = _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim());
+                          _muat();
+                        },
+                      ),
+                filled: true,
+                fillColor: context.latarLembut,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                  borderSide: BorderSide(color: context.garis),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                  borderSide: BorderSide(color: context.garis),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                  borderSide: const BorderSide(color: Color(0xFF1B7A6A), width: 1.5),
+                ),
+              ),
+            ),
             const SizedBox(height: AppTheme.spasiS),
             _ringkasan(context, prov.list),
             const Divider(height: AppTheme.spasiXl),

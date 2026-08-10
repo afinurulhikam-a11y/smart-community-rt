@@ -305,7 +305,7 @@ async function isiMeteran(req, res) {
  */
 async function daftarMeteran(req, res) {
   try {
-    const { periode, status } = req.query;
+    const { periode, status, search } = req.query;
     const targetPeriode = periode || periodeDari();
 
     if (req.user.role === 'warga') {
@@ -322,6 +322,10 @@ async function daftarMeteran(req, res) {
       if (status) {
         params.push(status);
         kondisi.push(`pm.status = $${params.length}`);
+      }
+      if (search && search.trim() !== '') {
+        params.push(`%${search.trim()}%`);
+        kondisi.push(`(k.kepala_keluarga ILIKE $${params.length} OR k.no_kk ILIKE $${params.length} OR k.alamat ILIKE $${params.length} OR k.blok ILIKE $${params.length})`);
       }
       const where = `WHERE ${kondisi.join(' AND ')}`;
       const hasil = await pool.query(
@@ -367,6 +371,11 @@ async function daftarMeteran(req, res) {
         params.push(status);
         queryKeluarga += ` AND pm.status = $${params.length}`;
       }
+    }
+
+    if (search && search.trim() !== '') {
+      params.push(`%${search.trim()}%`);
+      queryKeluarga += ` AND (k.kepala_keluarga ILIKE $${params.length} OR k.no_kk ILIKE $${params.length} OR k.alamat ILIKE $${params.length} OR k.blok ILIKE $${params.length})`;
     }
 
     queryKeluarga += ` ORDER BY k.kepala_keluarga ASC`;

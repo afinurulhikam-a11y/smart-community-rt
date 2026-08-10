@@ -71,13 +71,14 @@ class MeteranProvider extends ChangeNotifier {
   }
 
   /// GET /meteran — daftar bacaan. Pengurus: semua rumah; warga: miliknya.
-  Future<void> muatDaftar({String? periode, String? status}) async {
+  Future<void> muatDaftar({String? periode, String? status, String? search}) async {
     _isLoading = true;
     notifyListeners();
 
     final params = <String>[
       if (periode != null && periode.isNotEmpty) 'periode=$periode',
       if (status != null && status.isNotEmpty) 'status=$status',
+      if (search != null && search.isNotEmpty) 'search=${Uri.encodeComponent(search)}',
     ];
     final url = params.isEmpty
         ? ApiConstants.meteran
