@@ -40,7 +40,7 @@ class _SidebarMenuState extends State<SidebarMenu> {
 
   void _autoExpandActiveGroup() {
     final group = widget.selectedIndex ~/ 10;
-    if (group > 0) {
+    if (group > 0 && widget.selectedIndex != 60) {
       _expandedGroups.add(group);
     }
   }
@@ -117,9 +117,12 @@ class _SidebarMenuState extends State<SidebarMenu> {
             // Menu Items
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
                 children: [
+                  // 1. Dashboard
                   _buildMenuItem(index: 0, icon: Icons.dashboard_rounded, label: 'Dashboard'),
+
+                  // 2. Kependudukan
                   if (_lihatSalahSatu(const [
                     'kependudukan.warga',
                     'kependudukan.bansos',
@@ -153,6 +156,8 @@ class _SidebarMenuState extends State<SidebarMenu> {
                         ),
                     ],
                   ],
+
+                  // 3. Keuangan
                   if (_lihatSalahSatu(const [
                     'keuangan.iuran',
                     'keuangan.kas',
@@ -191,31 +196,8 @@ class _SidebarMenuState extends State<SidebarMenu> {
                         ),
                     ],
                   ],
-                  // Inventaris berdiri sendiri, tidak lagi menumpang gerbang
-                  // Keuangan — dulu sekretaris kehilangan menu ini karenanya.
-                  if (_lihatSalahSatu(const ['inventaris.barang', 'inventaris.peminjaman'])) ...[
-                    _buildExpandableMenuItem(
-                      groupIndex: 3,
-                      icon: Icons.inventory_2_rounded,
-                      label: 'Inventaris',
-                    ),
-                    if (_expandedGroups.contains(3)) ...[
-                      if (_lihat('inventaris.barang'))
-                        _buildSubMenuItem(
-                          index: 31,
-                          icon: Icons.grid_view_rounded,
-                          label: 'Data Barang',
-                          isViewOnly: _hanyaLihat('inventaris.barang'),
-                        ),
-                      if (_lihat('inventaris.peminjaman'))
-                        _buildSubMenuItem(
-                          index: 32,
-                          icon: Icons.swap_horiz_rounded,
-                          label: isWarga ? 'Pinjam Barang' : 'Peminjaman',
-                          isViewOnly: _hanyaLihat('inventaris.peminjaman'),
-                        ),
-                    ],
-                  ],
+
+                  // 4. Layanan Warga
                   if (_lihatSalahSatu(const ['layanan.visitor', 'layanan.surat'])) ...[
                     _buildExpandableMenuItem(
                       groupIndex: 4,
@@ -239,6 +221,8 @@ class _SidebarMenuState extends State<SidebarMenu> {
                         ),
                     ],
                   ],
+
+                  // 5. Kegiatan & Info
                   if (_lihat('kegiatan.agenda')) ...[
                     _buildExpandableMenuItem(
                       groupIndex: 5,
@@ -253,11 +237,11 @@ class _SidebarMenuState extends State<SidebarMenu> {
                           label: 'Agenda & Kegiatan',
                           isViewOnly: _hanyaLihat('kegiatan.agenda'),
                         ),
-
                     ],
                   ],
+
+                  // 6. Aspirasi & Partisipasi
                   if (_lihatSalahSatu(const [
-                    'aspirasi.darurat',
                     'aspirasi.pengaduan',
                     'aspirasi.polling',
                   ])) ...[
@@ -267,13 +251,6 @@ class _SidebarMenuState extends State<SidebarMenu> {
                       label: 'Aspirasi & Partisipasi',
                     ),
                     if (_expandedGroups.contains(6)) ...[
-                      if (_lihat('aspirasi.darurat'))
-                        _buildSubMenuItem(
-                          index: 60,
-                          icon: Icons.crisis_alert,
-                          label: 'Status Darurat',
-                          isViewOnly: _hanyaLihat('aspirasi.darurat'),
-                        ),
                       if (_lihat('aspirasi.pengaduan'))
                         _buildSubMenuItem(
                           index: 61,
@@ -286,17 +263,45 @@ class _SidebarMenuState extends State<SidebarMenu> {
                           index: 62,
                           icon: Icons.bar_chart_rounded,
                           label: 'Polling Warga',
-                          // Warga memang hanya punya `view`, tetapi ikut memilih
-                          // dijaga `view` juga — jadi lencana "lihat saja" akan
-                          // menyesatkan. Pada modul ini `create` berarti membuat
-                          // polling, bukan menyuarakannya.
                           isViewOnly: !isWarga && _hanyaLihat('aspirasi.polling'),
                         ),
                     ],
                   ],
 
-                  // Profil Saya tersedia untuk SEMUA role tanpa izin apa pun —
-                  // setiap orang selalu boleh membuka profilnya sendiri.
+                  // 7. Status Darurat (Menu utama yang berdiri sendiri)
+                  if (_lihat('aspirasi.darurat'))
+                    _buildMenuItem(
+                      index: 60,
+                      icon: Icons.crisis_alert,
+                      label: 'Status Darurat',
+                    ),
+
+                  // 8. Inventaris
+                  if (_lihatSalahSatu(const ['inventaris.barang', 'inventaris.peminjaman'])) ...[
+                    _buildExpandableMenuItem(
+                      groupIndex: 3,
+                      icon: Icons.inventory_2_rounded,
+                      label: 'Inventaris',
+                    ),
+                    if (_expandedGroups.contains(3)) ...[
+                      if (_lihat('inventaris.barang'))
+                        _buildSubMenuItem(
+                          index: 31,
+                          icon: Icons.grid_view_rounded,
+                          label: 'Data Barang',
+                          isViewOnly: _hanyaLihat('inventaris.barang'),
+                        ),
+                      if (_lihat('inventaris.peminjaman'))
+                        _buildSubMenuItem(
+                          index: 32,
+                          icon: Icons.swap_horiz_rounded,
+                          label: isWarga ? 'Pinjam Barang' : 'Peminjaman',
+                          isViewOnly: _hanyaLihat('inventaris.peminjaman'),
+                        ),
+                    ],
+                  ],
+
+                  // 9. Pengaturan
                   ...[
                     _buildExpandableMenuItem(
                       groupIndex: 8,
@@ -309,7 +314,6 @@ class _SidebarMenuState extends State<SidebarMenu> {
                         icon: Icons.account_circle_rounded,
                         label: 'Profil Saya',
                       ),
-
                       if (_lihat('pengaturan.log'))
                         _buildSubMenuItem(
                           index: 84,
@@ -317,8 +321,6 @@ class _SidebarMenuState extends State<SidebarMenu> {
                           label: 'Log Aktivitas',
                           isViewOnly: _hanyaLihat('pengaturan.log'),
                         ),
-                      // Dua menu sistem: backend menolaknya untuk selain admin,
-                      // apa pun isi tabel izin.
                       if (isAdmin)
                         _buildSubMenuItem(
                           index: 85,
@@ -420,8 +422,9 @@ class _SidebarMenuState extends State<SidebarMenu> {
   }) {
     final isExpanded = _expandedGroups.contains(groupIndex);
     final isGroupSelected =
-        widget.selectedIndex == groupIndex ||
-        (widget.selectedIndex > groupIndex * 10 && widget.selectedIndex < (groupIndex + 1) * 10);
+        widget.selectedIndex != 60 &&
+        (widget.selectedIndex == groupIndex ||
+            (widget.selectedIndex > groupIndex * 10 && widget.selectedIndex < (groupIndex + 1) * 10));
     final isHighlighted = isExpanded || isGroupSelected;
 
     return Container(
