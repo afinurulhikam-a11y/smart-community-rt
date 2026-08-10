@@ -120,6 +120,18 @@ class ApiConstants {
   // `paySimulasiLunas` dihapus — endpoint-nya sudah tidak ada di backend.
   // Lihat komentar di payment.routes.js untuk alasannya.
 
+  // Bacaan meteran air — berkas rute terpisah, tetapi berbagi izin
+  // `keuangan.iuran` dengan modul induknya. Preseden yang sama dipakai
+  // alokasi_bop terhadap keuangan.bop.
+  //
+  // Bacaan meteran BUKAN tagihan: ia lahir tanggal 1 saat warga mengisi,
+  // sedangkan tagihannya baru lahir tanggal 25. Karena itu endpoint-nya
+  // terpisah, bukan menumpang `/bills`.
+  static String get meteran => '$baseUrl/meteran';
+  static String get meteranSaya => '$baseUrl/meteran/saya';
+  static String meteranKoreksi(String id) => '$baseUrl/meteran/$id/koreksi';
+  static String get langgananSampah => '$baseUrl/bills/langganan-sampah';
+
   // Master Jenis Iuran
   static String get jenisIuran => '$baseUrl/jenis-iuran';
   static String jenisIuranById(int id) => '$baseUrl/jenis-iuran/$id';

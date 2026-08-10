@@ -34,11 +34,20 @@ class JenisIuranProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Jenis yang ditagih dari meteran air. Dipakai layar untuk memilih formulir
+  /// mana yang ditampilkan — tarif per m³ atau nominal pasti.
+  List<JenisIuranModel> get bermeteran =>
+      _list.where((e) => e.isAktif && e.pakaiMeteran).toList();
+
   Future<Map<String, dynamic>> create({
     required String namaIuran,
     required double nominalDefault,
     required String periode,
     String? keterangan,
+    String? tipeHitung,
+    double? tarifPerM3,
+    double? abondement,
+    double? biayaSampah,
   }) async {
     final response = await ApiService.post(
       ApiConstants.jenisIuran,
@@ -47,12 +56,22 @@ class JenisIuranProvider extends ChangeNotifier {
         'nominal_default': nominalDefault,
         'periode': periode,
         if (keterangan != null && keterangan.isNotEmpty) 'keterangan': keterangan,
+        if (tipeHitung != null) 'tipe_hitung': tipeHitung,
+        if (tarifPerM3 != null) 'tarif_per_m3': tarifPerM3,
+        if (abondement != null) 'abondement': abondement,
+        if (biayaSampah != null) 'biaya_sampah': biayaSampah,
       },
     );
     if (response['success'] == true) await fetchJenisIuran();
     return response;
   }
 
+  /// Menaikkan tarif di sini **tidak** mengubah tagihan yang sudah terbit.
+  ///
+  /// Tarif, abondement, dan biaya sampah disalin ke tiap tagihan saat
+  /// diterbitkan. Kalau tagihan membacanya balik dari master, seluruh riwayat
+  /// akan menulis ulang dirinya setiap kali tarif naik — warga yang sudah lunas
+  /// mendadak terlihat kurang bayar.
   Future<Map<String, dynamic>> update(
     int id, {
     String? namaIuran,
@@ -60,6 +79,10 @@ class JenisIuranProvider extends ChangeNotifier {
     String? periode,
     String? keterangan,
     bool? isAktif,
+    String? tipeHitung,
+    double? tarifPerM3,
+    double? abondement,
+    double? biayaSampah,
   }) async {
     final response = await ApiService.put(
       ApiConstants.jenisIuranById(id),
@@ -69,6 +92,10 @@ class JenisIuranProvider extends ChangeNotifier {
         if (periode != null) 'periode': periode,
         if (keterangan != null) 'keterangan': keterangan,
         if (isAktif != null) 'is_aktif': isAktif,
+        if (tipeHitung != null) 'tipe_hitung': tipeHitung,
+        if (tarifPerM3 != null) 'tarif_per_m3': tarifPerM3,
+        if (abondement != null) 'abondement': abondement,
+        if (biayaSampah != null) 'biaya_sampah': biayaSampah,
       },
     );
     if (response['success'] == true) await fetchJenisIuran();

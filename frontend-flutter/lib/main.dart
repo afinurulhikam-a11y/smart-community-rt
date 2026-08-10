@@ -11,6 +11,7 @@ import 'core/pesan.dart';
 // Providers
 import 'providers/bill_provider.dart';
 import 'providers/jenis_iuran_provider.dart';
+import 'providers/meteran_provider.dart';
 import 'providers/kategori_kas_provider.dart';
 import 'providers/permission_provider.dart';
 import 'providers/kategori_bop_provider.dart';
@@ -73,6 +74,7 @@ class SmartCommunityApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => WebSocketService()),
         ChangeNotifierProvider(create: (_) => BillProvider()),
         ChangeNotifierProvider(create: (_) => JenisIuranProvider()),
+        ChangeNotifierProvider(create: (_) => MeteranProvider()),
         ChangeNotifierProvider(create: (_) => KategoriKasProvider()),
         ChangeNotifierProvider(create: (_) => KategoriBopProvider()),
         ChangeNotifierProvider(create: (_) => AlokasiBopProvider()),
@@ -470,6 +472,7 @@ void bersihkanSemuaProvider(BuildContext context) {
     context.read<KategoriKasProvider>().bersihkan();
     context.read<LetterProvider>().bersihkan();
     context.read<LogProvider>().bersihkan();
+    context.read<MeteranProvider>().bersihkan();
     context.read<PaymentProvider>().bersihkan();
     context.read<PollingProvider>().bersihkan();
     context.read<ResetProvider>().bersihkan();
