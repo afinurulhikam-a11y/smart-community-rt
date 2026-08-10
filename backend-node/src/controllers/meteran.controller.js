@@ -18,6 +18,7 @@ const {
   TANGGAL_TUTUP_METERAN,
   STATUS_TERISI,
   STATUS_ANOMALI,
+  TIPE_METERAN,
 } = require('../utils/tagihan-air');
 
 /**
@@ -139,6 +140,34 @@ async function isiMeteran(req, res) {
       return res.status(400).json({
         success: false,
         message: 'Meteran sekarang wajib diisi berupa bilangan bulat.',
+      });
+    }
+
+    // Tagihan periode ini sudah terbit? Maka meterannya tidak boleh diisi lagi.
+    //
+    // Pemeriksaannya ke `bills`, BUKAN hanya ke `pembacaan_meteran.bill_id`.
+    // Klausa `WHERE pembacaan_meteran.bill_id IS NULL` pada upsert di bawah
+    // hanya menjaga cabang DO UPDATE — ia tidak pernah tersentuh oleh baris
+    // yang BARU. Jadi urutan "tagihan terbit lebih dulu, warga mengisi
+    // menyusul" lolos sepenuhnya: INSERT-nya berhasil, warga dijawab "Meteran
+    // berhasil disimpan", `bill_id` bacaan itu NULL, dan karena `terkunci`
+    // dihitung dari `bill_id` maka kartunya pun tidak memberi peringatan apa
+    // pun. Bacaannya tersimpan dan tidak akan pernah dipakai.
+    //
+    // Diukur pada data demo: tagihan terbit 227→232 senilai Rp 70.000, warga
+    // kemudian melapor 260 (33 m³, seharusnya Rp 154.000). Selisih Rp 84.000
+    // hilang tanpa satu pun gejala di kedua sisi.
+    const sudahTerbit = await pool.query(
+      `SELECT b.id FROM bills b
+       JOIN jenis_iuran ji ON ji.id = b.jenis_iuran_id
+       WHERE b.keluarga_id = $1 AND b.bulan = $2 AND ji.tipe_hitung = $3
+       LIMIT 1`,
+      [kk.id, periode, TIPE_METERAN]
+    );
+    if (sudahTerbit.rows.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: 'Tagihan periode ini sudah diterbitkan. Hubungi pengurus RT untuk koreksi.',
       });
     }
 
