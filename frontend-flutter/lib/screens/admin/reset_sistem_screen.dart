@@ -545,6 +545,7 @@ class _DialogKonfirmasiState extends State<_DialogKonfirmasi> {
   @override
   Widget build(BuildContext context) {
     final p = widget.pratinjau;
+    final isDark = context.gelap;
 
     return AlertDialog(
       backgroundColor: context.latarKartu,
@@ -586,8 +587,9 @@ class _DialogKonfirmasiState extends State<_DialogKonfirmasi> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFEF2F2),
+                  color: isDark ? const Color(0xFF450A0A).withValues(alpha: 0.4) : const Color(0xFFFEF2F2),
                   borderRadius: BorderRadius.circular(8),
+                  border: isDark ? Border.all(color: AppTheme.dangerColor.withValues(alpha: 0.4)) : null,
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -597,7 +599,7 @@ class _DialogKonfirmasiState extends State<_DialogKonfirmasi> {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
-                        color: context.teksUtama,
+                        color: isDark ? const Color(0xFFFCA5A5) : const Color(0xFF7F1D1D),
                       ),
                     ),
                     Text(
