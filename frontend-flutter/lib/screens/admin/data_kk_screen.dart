@@ -13,6 +13,16 @@ import '../../core/pesan.dart';
 
 const String _kodeIzin = 'kependudukan.warga';
 const double _ukuranHoverAksi = 30;
+const double _geserAksiTabel = -(kMinInteractiveDimension - _ukuranHoverAksi) / 2;
+
+ButtonStyle _gayaAksiTabel(Color warnaIkon) => IconButton.styleFrom(
+  alignment: Alignment.center,
+  minimumSize: const Size(_ukuranHoverAksi, _ukuranHoverAksi),
+  maximumSize: const Size(_ukuranHoverAksi, _ukuranHoverAksi),
+  padding: EdgeInsets.zero,
+  shape: const CircleBorder(),
+  hoverColor: warnaIkon.withValues(alpha: 0.12),
+);
 
 class DataKkScreen extends StatefulWidget {
   final VoidCallback? onBack;
@@ -490,27 +500,28 @@ class _DataKkScreenState extends State<DataKkScreen> {
             children: [
               if (widget.onBack != null) ...[
                 TombolKembali(onPressed: widget.onBack),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
               ],
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Data Kartu Keluarga (KK)',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: context.teksUtama,
-                          ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Kependudukan / Data KK',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: context.teksKedua),
-                    ),
-                  ],
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.house_rounded, color: AppTheme.primaryColor, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  'Kependudukan / Data KK',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: context.teksKedua,
+                  ),
                 ),
               ),
+              const Spacer(),
               if (isBolehUbah)
                 ElevatedButton.icon(
                   onPressed: () => _bukaFormTambah(context),
@@ -704,55 +715,40 @@ class _DataKkScreenState extends State<DataKkScreen> {
                     ),
                   ),
                 ],
-                aksi: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Tooltip(
-                      message: 'Lihat Detail & Anggota KK',
-                      child: SizedBox(
-                        width: _ukuranHoverAksi,
-                        height: _ukuranHoverAksi,
-                        child: IconButton(
-                          padding: EdgeInsets.zero,
-                          icon: const Icon(Icons.visibility_outlined, size: 18),
-                          color: AppTheme.primaryColor,
-                          onPressed: () => _bukaDetailKk(context, id, noKk),
-                        ),
+                aksi: Transform.translate(
+                  offset: const Offset(_geserAksiTabel, 0),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Lihat Detail & Anggota KK',
+                        icon: const Icon(Icons.visibility_outlined, size: 18),
+                        color: AppTheme.primaryColor,
+                        style: _gayaAksiTabel(AppTheme.primaryColor),
+                        onPressed: () => _bukaDetailKk(context, id, noKk),
                       ),
-                    ),
-                    if (isBolehUbah) ...[
-                      const SizedBox(width: 4),
-                      Tooltip(
-                        message: 'Edit KK',
-                        child: SizedBox(
-                          width: _ukuranHoverAksi,
-                          height: _ukuranHoverAksi,
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            icon: const Icon(Icons.edit_outlined, size: 18),
-                            color: Colors.blue[600],
-                            onPressed: () => _bukaFormEdit(context, item),
-                          ),
+                      if (isBolehUbah) ...[
+                        const SizedBox(width: 4),
+                        IconButton(
+                          tooltip: 'Edit KK',
+                          icon: const Icon(Icons.edit_outlined, size: 18),
+                          color: Colors.blue[600],
+                          style: _gayaAksiTabel(Colors.blue[600]!),
+                          onPressed: () => _bukaFormEdit(context, item),
                         ),
-                      ),
+                      ],
+                      if (isAdmin) ...[
+                        const SizedBox(width: 4),
+                        IconButton(
+                          tooltip: 'Hapus KK',
+                          icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                          color: Colors.red[600],
+                          style: _gayaAksiTabel(Colors.red[600]!),
+                          onPressed: () => _hapusKk(context, id, noKk),
+                        ),
+                      ],
                     ],
-                    if (isAdmin) ...[
-                      const SizedBox(width: 4),
-                      Tooltip(
-                        message: 'Hapus KK',
-                        child: SizedBox(
-                          width: _ukuranHoverAksi,
-                          height: _ukuranHoverAksi,
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                            color: Colors.red[600],
-                            onPressed: () => _hapusKk(context, id, noKk),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
               );
             }).toList(),
