@@ -141,6 +141,13 @@ class _SidebarMenuState extends State<SidebarMenu> {
                           label: 'Data Warga',
                           isViewOnly: _hanyaLihat('kependudukan.warga'),
                         ),
+                      if (_lihat('kependudukan.warga'))
+                        _buildSubMenuItem(
+                          index: 15,
+                          icon: Icons.house_outlined,
+                          label: 'Data KK',
+                          isViewOnly: _hanyaLihat('kependudukan.warga'),
+                        ),
                       if (_lihat('kependudukan.bansos'))
                         _buildSubMenuItem(
                           index: 13,

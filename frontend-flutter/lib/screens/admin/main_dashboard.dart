@@ -35,6 +35,7 @@ import '../../widgets/gradient_stat_card.dart';
 import '../../widgets/responsive_layout.dart';
 import '../../widgets/banner_offline.dart';
 import 'data_warga_screen.dart';
+import 'data_kk_screen.dart';
 import 'bantuan_sosial_screen.dart';
 import 'statistik_kependudukan_screen.dart';
 import 'iuran_warga_screen.dart';
@@ -1093,6 +1094,8 @@ class _MainDashboardState extends State<MainDashboard> {
         return BantuanSosialScreen(onBack: _kembaliMenu);
       case 14:
         return StatistikKependudukanScreen(onBack: _kembaliMenu);
+      case 15:
+        return DataKkScreen(onBack: _kembaliMenu);
 
       // Tiga modul di bawah punya dua wajah. Indeks menunya sama untuk semua
       // role — sidebar tidak perlu tahu — dan role yang menentukan layarnya:
