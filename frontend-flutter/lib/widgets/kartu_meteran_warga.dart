@@ -307,6 +307,12 @@ class _KartuMeteranWargaState extends State<KartuMeteranWarga> {
           _barisInfo(context, 'Meteran sekarang', '${bacaan.meteranSekarang}'),
           _barisInfo(context, 'Pemakaian', '${bacaan.terpakai ?? 0} m³'),
           if (_tarif != null)
+            _barisInfo(
+              context,
+              'Tarif air',
+              '${rupiah(_tarif!.tarifPerM3 > 0 ? _tarif!.tarifPerM3 : _tarif!.nominalDefault)} / m³',
+            ),
+          if (_tarif != null)
             _barisInfo(context, 'Abondement', rupiah(_tarif!.abondement)),
           if (_tarif != null && k.langgananSampah)
             _barisInfo(context, 'Layanan sampah', rupiah(_tarif!.biayaSampah)),
@@ -315,7 +321,7 @@ class _KartuMeteranWargaState extends State<KartuMeteranWarga> {
               context,
               k.terkunci ? 'Tagihan' : 'Perkiraan tagihan',
               rupiah(
-                (bacaan.terpakai ?? 0) * _tarif!.tarifPerM3 +
+                (bacaan.terpakai ?? 0) * (_tarif!.tarifPerM3 > 0 ? _tarif!.tarifPerM3 : _tarif!.nominalDefault) +
                     _tarif!.abondement +
                     (k.langgananSampah ? _tarif!.biayaSampah : 0),
               ),
