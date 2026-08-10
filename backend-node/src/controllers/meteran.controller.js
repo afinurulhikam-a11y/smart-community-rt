@@ -94,7 +94,7 @@ async function meteranSaya(req, res) {
         periode_pertama: sebelumnya === null,
         meteran_lalu: bacaan.rows[0]?.meteran_lalu ?? sebelumnya,
         bacaan: bacaan.rows[0] || null,
-        boleh_isi: bolehIsiMeteran(),
+        boleh_isi: bolehIsiMeteran(new Date(), req.user),
         batas_tanggal: TANGGAL_TUTUP_METERAN,
       },
     });
@@ -125,7 +125,7 @@ async function isiMeteran(req, res) {
       });
     }
 
-    if (!bolehIsiMeteran()) {
+    if (!bolehIsiMeteran(new Date(), req.user)) {
       return res.status(403).json({
         success: false,
         message: `Batas input meteran adalah tanggal ${TANGGAL_TUTUP_METERAN}. `

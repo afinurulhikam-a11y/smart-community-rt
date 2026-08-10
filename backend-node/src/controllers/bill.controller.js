@@ -1195,7 +1195,7 @@ async function ubahLangganganSampah(req, res) {
       });
     }
 
-    if (!bolehIsiMeteran()) {
+    if (!bolehIsiMeteran(new Date(), req.user)) {
       return res.status(403).json({
         success: false,
         message: `Pilihan layanan sampah hanya bisa diubah sampai tanggal ${TANGGAL_TUTUP_METERAN}. `
