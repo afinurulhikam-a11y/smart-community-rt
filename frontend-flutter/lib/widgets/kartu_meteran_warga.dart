@@ -307,6 +307,8 @@ class _KartuMeteranWargaState extends State<KartuMeteranWarga> {
           _barisInfo(context, 'Meteran sekarang', '${bacaan.meteranSekarang}'),
           _barisInfo(context, 'Pemakaian', '${bacaan.terpakai ?? 0} m³'),
           if (_tarif != null)
+            _barisInfo(context, 'Abondement', rupiah(_tarif!.abondement)),
+          if (_tarif != null)
             _barisInfo(
               context,
               k.terkunci ? 'Tagihan' : 'Perkiraan tagihan',
