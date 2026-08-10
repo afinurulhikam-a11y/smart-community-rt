@@ -90,7 +90,7 @@ async function getFamilyDetail(req, res) {
 async function createFamily(req, res) {
   try {
     const { no_kk, kepala_keluarga, alamat, rt, rw, kelurahan, kecamatan, anggota } = req.body;
-    if (!no_kk || !kepala_keluarga) return res.status(400).json({ success: false, message: 'No KK dan kepala keluarga wajib diisi.' });
+    if (!no_kk || !kepala_keluarga || !alamat || !rt || !rw) return res.status(400).json({ success: false, message: 'No KK, kepala keluarga, alamat, RT, dan RW wajib diisi.' });
     const existing = await pool.query('SELECT id FROM keluarga WHERE no_kk = $1', [no_kk]);
     if (existing.rows.length > 0) return res.status(409).json({ success: false, message: 'No KK sudah terdaftar.' });
     const client = await pool.connect();
