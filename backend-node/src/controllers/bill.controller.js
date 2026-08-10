@@ -404,7 +404,7 @@ async function createBill(req, res) {
       return res.status(400).json({ success: false, message: 'Jenis iuran ini sudah dinonaktifkan.' });
     }
 
-    const berlangganan = kk.rows[0].langganan_sampah !== false;
+    const berlangganan = kk.rows[0].langganan_sampah === true;
 
     // Dua cara sebuah tagihan mendapat nominalnya, dipilih oleh jenis iurannya
     // sendiri — bukan oleh apa yang dikirim klien.

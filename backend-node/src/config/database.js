@@ -44,6 +44,7 @@ async function testConnection() {
   try {
     const res = await pool.query('SELECT NOW()');
     console.log('✅ Terhubung ke PostgreSQL —', res.rows[0].now);
+    await pool.query('ALTER TABLE keluarga ALTER COLUMN langganan_sampah SET DEFAULT false').catch(() => {});
   } catch (err) {
     console.error('❌ Gagal terhubung ke PostgreSQL:', err.message);
   }

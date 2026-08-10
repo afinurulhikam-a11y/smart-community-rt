@@ -380,7 +380,7 @@ class _DataKkScreenState extends State<DataKkScreen> {
                       _barisDetail(
                         ctx,
                         'Langganan Sampah',
-                        detail['langganan_sampah'] != false ? 'Berlangganan (Ya)' : 'Tidak',
+                        detail['langganan_sampah'] == true ? 'Berlangganan (Ya)' : 'Tidak',
                       ),
                     ],
                   ),

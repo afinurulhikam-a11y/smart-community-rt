@@ -132,7 +132,7 @@ async function terbitkanTagihanPeriode(client, opsi) {
     else if (r.status_bacaan === 'anomali') rincian.anomali++;
     else rincian.tanpa_bacaan++;
 
-    const berlangganan = r.langganan_sampah !== false;
+    const berlangganan = r.langganan_sampah === true;
 
     const air = rincianTagihanAir({
       meteranLalu: r.meteran_lalu,
