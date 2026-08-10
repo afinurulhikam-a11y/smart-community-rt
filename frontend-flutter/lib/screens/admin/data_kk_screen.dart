@@ -54,6 +54,7 @@ class _DataKkScreenState extends State<DataKkScreen> {
     context.read<FamilyProvider>().fetchFamilies(
           search: _ctlCari.text.trim().isEmpty ? null : _ctlCari.text.trim(),
           page: _halaman,
+          limit: 10,
         );
   }
 
@@ -603,12 +604,12 @@ class _DataKkScreenState extends State<DataKkScreen> {
               'ALAMAT & BLOK',
               'ANGGOTA',
               'STATUS RUMAH',
-              'SAMPAH',
             ],
             labelAksi: 'AKSI',
             currentPage: prov.currentPage,
             totalPages: prov.totalPages,
             totalData: prov.totalData,
+            perPage: 10,
             onPageChanged: (h) {
               setState(() => _halaman = h);
               _muatData();
@@ -622,12 +623,11 @@ class _DataKkScreenState extends State<DataKkScreen> {
               final alamat = item['alamat']?.toString() ?? '-';
               final jumlahAnggota = item['jumlah_anggota'] ?? 0;
               final statusRumah = item['status_rumah']?.toString() ?? 'Milik Sendiri';
-              final sampah = item['langganan_sampah'] != false;
               final terkonfirmasi = item['kepala_terkonfirmasi'] == true;
 
               return BarisTabel(
                 sel: [
-                  SelTabel.teks('NO', '${((prov.currentPage - 1) * 25) + idx + 1}', sembunyiDiKartu: true),
+                  SelTabel.teks('NO', '${((prov.currentPage - 1) * 10) + idx + 1}', sembunyiDiKartu: true),
                   SelTabel.teks(
                     'NO KK',
                     noKk,
@@ -690,26 +690,6 @@ class _DataKkScreenState extends State<DataKkScreen> {
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: statusRumah == 'Milik Sendiri' ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
-                        ),
-                      ),
-                    ),
-                  ),
-                  SelTabel(
-                    'SAMPAH',
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: sampah
-                            ? const Color(0xFF3B82F6).withValues(alpha: 0.1)
-                            : Colors.grey.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        sampah ? 'Ya' : 'Tidak',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: sampah ? const Color(0xFF3B82F6) : Colors.grey[700],
                         ),
                       ),
                     ),

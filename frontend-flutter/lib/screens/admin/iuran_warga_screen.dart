@@ -64,7 +64,7 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<JenisIuranProvider>().fetchJenisIuran();
-      context.read<FamilyProvider>().fetchFamilies();
+      context.read<FamilyProvider>().fetchFamilies(limit: 1000);
       _loadData();
     });
   }
