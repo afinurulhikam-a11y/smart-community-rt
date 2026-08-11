@@ -299,6 +299,13 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
           ),
         if (_bolehUbah)
           _outlinedBtn(
+            Icons.bolt_outlined,
+            'Terbitkan Tagihan',
+            const Color(0xFF8B5CF6),
+            () => _showGenerateTagihanDialog(),
+          ),
+        if (_bolehUbah)
+          _outlinedBtn(
             Icons.chat_outlined,
             'Tagih Semua (WA)',
             const Color(0xFF22C55E),
@@ -1418,6 +1425,15 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            if (j.isAktif)
+                              IconButton(
+                                icon: const Icon(Icons.bolt_outlined, size: 18, color: Color(0xFF8B5CF6)),
+                                tooltip: 'Terbitkan Tagihan Ini',
+                                onPressed: () {
+                                  Navigator.pop(c);
+                                  _showGenerateTagihanDialog(j);
+                                },
+                              ),
                             IconButton(
                               icon: const Icon(Icons.edit_outlined, size: 18),
                               onPressed: () => _showFormJenis(j),
@@ -1467,6 +1483,183 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
           ),
           actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('Tutup'))],
         ),
+      ),
+    );
+  }
+
+  void _showGenerateTagihanDialog([JenisIuranModel? jenisAwal]) {
+    final jenisList = context
+        .read<JenisIuranProvider>()
+        .list
+        .where((j) => j.isAktif)
+        .toList();
+
+    if (jenisList.isEmpty) {
+      _pesan('Tidak ada Master Iuran aktif untuk diterbitkan.', sukses: false);
+      return;
+    }
+
+    JenisIuranModel terpilih = jenisAwal ?? jenisList.first;
+    final bulanCtrl = TextEditingController(text: periodeSekarang());
+    final nominalCtrl = TextEditingController(
+      text: terpilih.pakaiMeteran ? '' : terpilih.nominalDefault.toStringAsFixed(0),
+    );
+    final ketCtrl = TextEditingController();
+    DateTime? jatuhTempo;
+    final jatuhTempoCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (c) => StatefulBuilder(
+        builder: (c2, setLocal) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.bolt_outlined, color: Color(0xFF8B5CF6)),
+                ),
+                const SizedBox(width: 10),
+                const Text('Terbitkan Tagihan Periode'),
+              ],
+            ),
+            content: SizedBox(
+              width: lebarDialog(context, maksimal: 440),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonFormField<int>(
+                      initialValue: terpilih.id,
+                      decoration: const InputDecoration(
+                        labelText: 'Pilih Master Iuran *',
+                        prefixIcon: Icon(Icons.category_outlined),
+                      ),
+                      items: jenisList.map((j) {
+                        return DropdownMenuItem<int>(
+                          value: j.id,
+                          child: Text('${j.namaIuran} (${j.pakaiMeteran ? 'Meteran' : 'Nominal Tetap'})'),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setLocal(() {
+                            terpilih = jenisList.firstWhere((element) => element.id == val);
+                            if (!terpilih.pakaiMeteran) {
+                              nominalCtrl.text = terpilih.nominalDefault.toStringAsFixed(0);
+                            }
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: bulanCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Periode (YYYY-MM) *',
+                        hintText: 'Contoh: 2026-08',
+                        prefixIcon: Icon(Icons.calendar_month_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    if (!terpilih.pakaiMeteran) ...[
+                      TextField(
+                        controller: nominalCtrl,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        decoration: const InputDecoration(
+                          labelText: 'Nominal per KK (Rp) *',
+                          prefixIcon: Icon(Icons.attach_money),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    TextField(
+                      controller: ketCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Keterangan Tambahan (opsional)',
+                        prefixIcon: Icon(Icons.notes_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: jatuhTempoCtrl,
+                      readOnly: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Jatuh Tempo (opsional)',
+                        prefixIcon: Icon(Icons.event_outlined),
+                      ),
+                      onTap: () async {
+                        final d = await showDatePicker(
+                          context: c,
+                          initialDate: DateTime.now().add(const Duration(days: 10)),
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime.now().add(const Duration(days: 365)),
+                        );
+                        if (d != null) {
+                          jatuhTempo = d;
+                          jatuhTempoCtrl.text = DateFormat('yyyy-MM-dd').format(d);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(c),
+                child: const Text('Batal'),
+              ),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.send_rounded, size: 16),
+                label: const Text('Terbitkan Tagihan'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF8B5CF6),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () async {
+                  final bln = bulanCtrl.text.trim();
+                  if (bln.isEmpty) {
+                    _pesan('Periode bulan wajib diisi.', sukses: false);
+                    return;
+                  }
+                  double? nominal;
+                  if (!terpilih.pakaiMeteran) {
+                    nominal = double.tryParse(nominalCtrl.text.trim());
+                    if (nominal == null || nominal <= 0) {
+                      _pesan('Nominal wajib diisi dengan benar.', sukses: false);
+                      return;
+                    }
+                  }
+
+                  Navigator.pop(c);
+                  final res = await context.read<BillProvider>().generateBills(
+                    jenisIuranId: terpilih.id,
+                    bulan: bln,
+                    nominal: nominal,
+                    keterangan: ketCtrl.text.trim().isEmpty ? null : ketCtrl.text.trim(),
+                    jatuhTempo: jatuhTempo == null ? null : DateFormat('yyyy-MM-dd').format(jatuhTempo!),
+                  );
+
+                  _pesan(
+                    res['message']?.toString() ?? 'Selesai.',
+                    sukses: res['success'] == true,
+                  );
+                  if (res['success'] == true) {
+                    _loadData();
+                  }
+                },
+              ),
+            ],
+          );
+        },
       ),
     );
   }
