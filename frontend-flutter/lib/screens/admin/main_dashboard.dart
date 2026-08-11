@@ -1811,7 +1811,7 @@ class _MainDashboardState extends State<MainDashboard> {
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: hasActive
-                          ? const Color(0xFFD97706).withValues(alpha: 0.1)
+                          ? const Color(0xFF3B82F6).withValues(alpha: 0.1)
                           : const Color(0xFF059669).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -1820,7 +1820,7 @@ class _MainDashboardState extends State<MainDashboard> {
                           ? Icons.rate_review_rounded
                           : Icons.mark_chat_read_rounded,
                       color: hasActive
-                          ? const Color(0xFFD97706)
+                          ? const Color(0xFF3B82F6)
                           : const Color(0xFF059669),
                       size: 18,
                     ),
@@ -1857,7 +1857,7 @@ class _MainDashboardState extends State<MainDashboard> {
                     ),
                     decoration: BoxDecoration(
                       color: hasActive
-                          ? const Color(0xFFD97706).withValues(alpha: 0.1)
+                          ? const Color(0xFF3B82F6).withValues(alpha: 0.1)
                           : const Color(0xFF059669).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -1867,7 +1867,7 @@ class _MainDashboardState extends State<MainDashboard> {
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: hasActive
-                            ? const Color(0xFFD97706)
+                            ? const Color(0xFF3B82F6)
                             : const Color(0xFF059669),
                       ),
                     ),
@@ -1935,15 +1935,11 @@ class _MainDashboardState extends State<MainDashboard> {
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: _gelap
-                                ? const Color(
-                                    0xFFD97706,
-                                  ).withValues(alpha: 0.05)
-                                : const Color(0xFFFFFBEB),
+                                ? const Color(0xFF3B82F6).withValues(alpha: 0.05)
+                                : const Color(0xFFEFF6FF),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: const Color(
-                                0xFFD97706,
-                              ).withValues(alpha: 0.15),
+                              color: const Color(0xFF3B82F6).withValues(alpha: 0.15),
                             ),
                           ),
                           child: Row(
@@ -1951,7 +1947,7 @@ class _MainDashboardState extends State<MainDashboard> {
                               const Icon(
                                 Icons.report_problem_rounded,
                                 size: 16,
-                                color: Color(0xFFD97706),
+                                color: Color(0xFF3B82F6),
                               ),
                               const SizedBox(width: 10),
                               Expanded(
