@@ -24,7 +24,8 @@ class LetterProvider extends ChangeNotifier {
         (l) =>
             l.status.toLowerCase() == 'pending' ||
             l.status.toLowerCase() == 'diproses' ||
-            l.status.toLowerCase() == 'diajukan',
+            l.status.toLowerCase() == 'diajukan' ||
+            l.status.toLowerCase() == 'menunggu',
       )
       .length;
   List<LetterModel> get pendingLetters => _letters
@@ -32,7 +33,8 @@ class LetterProvider extends ChangeNotifier {
         (l) =>
             l.status.toLowerCase() == 'pending' ||
             l.status.toLowerCase() == 'diproses' ||
-            l.status.toLowerCase() == 'diajukan',
+            l.status.toLowerCase() == 'diajukan' ||
+            l.status.toLowerCase() == 'menunggu',
       )
       .toList();
 
