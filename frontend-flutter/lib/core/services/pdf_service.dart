@@ -182,7 +182,7 @@ class PdfService {
                       pw.SizedBox(height: 6),
                       pw.Text(
                         letter.approvedByNama != null && letter.approvedByNama!.isNotEmpty
-                            ? '( ${letter.approvedByNama} - Ketua RT )'
+                            ? '( ${letter.approvedByNama} )'
                             : '( Ketua RT )',
                         style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
                       ),
