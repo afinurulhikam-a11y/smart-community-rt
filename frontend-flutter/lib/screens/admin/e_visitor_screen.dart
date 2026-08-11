@@ -691,8 +691,8 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
                     decoration: const InputDecoration(labelText: 'Detail Keperluan *'),
                   ),
                   const SizedBox(height: AppTheme.spasiL),
-                  _duaKolom(
-                    kiri: DropdownButtonFormField<String>(
+                  if (jenisKendaraan == 'Jalan Kaki')
+                    DropdownButtonFormField<String>(
                       initialValue: jenisKendaraan,
                       decoration: const InputDecoration(labelText: 'Kendaraan *'),
                       items: const [
@@ -702,15 +702,28 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
                         DropdownMenuItem(value: 'Lainnya', child: Text('Lainnya')),
                       ],
                       onChanged: (v) => setState(() => jenisKendaraan = v!),
-                    ),
-                    kanan: TextField(
-                      controller: platCtrl,
-                      textCapitalization: TextCapitalization.characters,
-                      decoration: InputDecoration(
-                        labelText: jenisKendaraan == 'Lainnya' ? 'Plat Nomor' : 'Plat Nomor *',
+                    )
+                  else
+                    _duaKolom(
+                      kiri: DropdownButtonFormField<String>(
+                        initialValue: jenisKendaraan,
+                        decoration: const InputDecoration(labelText: 'Kendaraan *'),
+                        items: const [
+                          DropdownMenuItem(value: 'Motor', child: Text('Motor')),
+                          DropdownMenuItem(value: 'Mobil', child: Text('Mobil')),
+                          DropdownMenuItem(value: 'Jalan Kaki', child: Text('Jalan Kaki')),
+                          DropdownMenuItem(value: 'Lainnya', child: Text('Lainnya')),
+                        ],
+                        onChanged: (v) => setState(() => jenisKendaraan = v!),
+                      ),
+                      kanan: TextField(
+                        controller: platCtrl,
+                        textCapitalization: TextCapitalization.characters,
+                        decoration: InputDecoration(
+                          labelText: jenisKendaraan == 'Lainnya' ? 'Plat Nomor' : 'Plat Nomor *',
+                        ),
                       ),
                     ),
-                  ),
                   if (jenisKendaraan == 'Lainnya') ...[
                     const SizedBox(height: AppTheme.spasiL),
                     TextField(
@@ -740,7 +753,7 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
                       if (detailCtrl.text.trim().isEmpty) kosong.add('Detail Keperluan');
                       if (jenisKendaraan == 'Lainnya') {
                         if (kendaraanLainnyaCtrl.text.trim().isEmpty) kosong.add('Kendaraan Lainnya');
-                      } else {
+                      } else if (jenisKendaraan != 'Jalan Kaki') {
                         if (platCtrl.text.trim().isEmpty) kosong.add('Plat Nomor');
                       }
 
@@ -755,6 +768,7 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
                       final kendaraanFinal = jenisKendaraan == 'Lainnya'
                           ? kendaraanLainnyaCtrl.text.trim()
                           : jenisKendaraan;
+                      final platFinal = jenisKendaraan == 'Jalan Kaki' ? '-' : platCtrl.text.trim();
                       final success = await context.read<VisitorProvider>().createVisitor(
                         namaTamu: namaCtrl.text.trim(),
                         noHpTamu: noHpCtrl.text.trim(),
@@ -762,7 +776,7 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
                         noHpTujuan: noHpTujuanCtrl.text.trim(),
                         tipeKeperluan: tipeKeperluan,
                         detailKeperluan: detailCtrl.text.trim(),
-                        platNomor: platCtrl.text.trim(),
+                        platNomor: platFinal,
                         jenisKendaraan: kendaraanFinal,
                       );
                       setState(() => isSaving = false);
