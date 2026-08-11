@@ -462,6 +462,67 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
                         ],
                       ),
                       const Spacer(),
+                      if (_bolehUbah && isUpcoming)
+                        Tooltip(
+                          message: 'Tandai Selesai',
+                          child: InkWell(
+                            onTap: () async {
+                              final conf = await showDialog<bool>(
+                                context: context,
+                                builder: (c) => AlertDialog(
+                                  title: const Text('Tandai Selesai?'),
+                                  content: Text(
+                                    'Tandai "${event['judul']}" sebagai sudah selesai?',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(c, false),
+                                      child: const Text('Batal'),
+                                    ),
+                                    ElevatedButton(
+                                      onPressed: () => Navigator.pop(c, true),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF10B981),
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      child: const Text('Tandai Selesai'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (conf == true && mounted) {
+                                await context.read<AgendaProvider>().updateAgenda(
+                                  event['id'],
+                                  {'status': 'Selesai'},
+                                );
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFD1FAE5),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFF6EE7B7)),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.check_rounded, size: 14, color: Color(0xFF059669)),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Selesai',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF059669),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       if (_bolehUbah)
                         IconButton(
                           tooltip: 'Ubah',
