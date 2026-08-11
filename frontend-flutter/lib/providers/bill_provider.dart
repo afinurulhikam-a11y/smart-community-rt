@@ -179,7 +179,7 @@ class BillProvider extends ChangeNotifier {
     return response;
   }
 
-  /// Ubah tagihan yang belum lunas: nominal, keterangan, jatuh tempo.
+  /// Ubah tagihan yang belum lunas: nominal, keterangan, jatuh tempo, meteran.
   Future<Map<String, dynamic>> updateBill(
     String id, {
     double? nominal,
@@ -187,6 +187,7 @@ class BillProvider extends ChangeNotifier {
     String? jatuhTempo,
     int? meteranLalu,
     int? meteranSekarang,
+    String? alasan,
   }) async {
     final response = await ApiService.put(
       ApiConstants.bill(id),
@@ -196,6 +197,7 @@ class BillProvider extends ChangeNotifier {
         if (meteranSekarang != null) 'meteran_sekarang': meteranSekarang,
         if (keterangan != null && keterangan.isNotEmpty) 'keterangan': keterangan,
         if (jatuhTempo != null && jatuhTempo.isNotEmpty) 'jatuh_tempo': jatuhTempo,
+        if (alasan != null && alasan.isNotEmpty) 'alasan': alasan,
       },
     );
     if (response['success'] == true) await refresh();
