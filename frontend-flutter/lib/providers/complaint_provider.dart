@@ -97,15 +97,27 @@ class ComplaintProvider extends ChangeNotifier {
     }
   }
 
+  /// Ubah status pengaduan, sekaligus menyimpan teks tanggapan pengurus.
+  ///
+  /// `_errorMessage` WAJIB diisi di sini. Dialog Tanggapi menampilkan
+  /// `prov.errorMessage` ketika penyimpanan gagal — dan sebelumnya metode ini
+  /// tidak pernah menyentuhnya. Akibatnya bukan sekadar pesan yang kurang
+  /// informatif: nilai lamanya tetap tersimpan, sehingga kegagalan hari ini
+  /// bisa dijelaskan dengan alasan dari kegagalan yang sama sekali lain — dan
+  /// pengurus menyimpulkan sebab yang salah. Dikosongkan lagi saat berhasil,
+  /// supaya tidak ada pesan basi yang menunggu untuk salah dipakai.
   Future<bool> updateComplaintStatus(int id, {required String status, String? response}) async {
     final resp = await ApiService.put(
       ApiConstants.complaintStatus(id),
       body: {'status': status, if (response != null) 'response': response},
     );
     if (resp['success'] == true) {
+      _errorMessage = null;
       await fetchComplaints();
       return true;
     }
+    _errorMessage = resp['message'] as String?;
+    notifyListeners();
     return false;
   }
 
@@ -116,6 +128,26 @@ class ComplaintProvider extends ChangeNotifier {
       return true;
     }
     return false;
+  }
+
+  /// Pasang daftar langsung, tanpa jaringan — **hanya untuk pengujian.**
+  ///
+  /// Layar Pengaduan hanya menggambar tombol aksinya bila ada baris data, dan
+  /// dialog Tanggapi hanya bisa dibuka lewat tombol itu. Tanpa jalur ini, uji
+  /// widget selamanya melihat tabel kosong — yaitu satu-satunya keadaan yang
+  /// tidak punya dialog untuk diuji.
+  ///
+  /// Bukan sumber kebenaran kedua: tidak ada kode produksi yang memanggilnya,
+  /// dan pengambilan data berikutnya menimpanya.
+  @visibleForTesting
+  void pasangUji(List<Map<String, dynamic>> daftar, {String? galat}) {
+    _complaints = daftar;
+    _totalData = daftar.length;
+    _totalPages = 1;
+    _currentPage = 1;
+    _isLoading = false;
+    _errorMessage = galat;
+    notifyListeners();
   }
 
   /// Kosongkan seluruh state saat pengguna keluar.

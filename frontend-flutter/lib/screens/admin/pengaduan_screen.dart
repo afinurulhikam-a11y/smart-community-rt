@@ -151,7 +151,123 @@ class _PengaduanScreenState extends State<PengaduanScreen> {
             ),
           ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Tutup'))],
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Tutup')),
+          if (_bolehUbah && c['status']?.toString() != 'Selesai')
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _showFormTanggapi(c);
+              },
+              icon: const Icon(Icons.reply_rounded, size: 16),
+              label: const Text('Tanggapi'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F766E),
+                foregroundColor: Colors.white,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Dialog bagi pengurus untuk menanggapi pengaduan.
+  ///
+  /// Menggabungkan dua aksi — ubah status dan isi teks balasan — dalam satu
+  /// formulir ringkas sehingga pengurus tidak perlu dua langkah terpisah.
+  void _showFormTanggapi(Map<String, dynamic> c) {
+    final id = c['id'] as int;
+    final currentStatus = c['status']?.toString() ?? 'Menunggu';
+    final existingResponse = c['response']?.toString() ?? '';
+
+    // Default status = satu langkah lebih maju dari status saat ini.
+    String selectedStatus = currentStatus == 'Menunggu' ? 'Diproses' : currentStatus;
+    final tanggapanCtrl = TextEditingController(text: existingResponse);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Tanggapi Pengaduan',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                c['judul']?.toString() ?? '',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.normal,
+                  color: context.teksKedua,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: lebarDialog(context, maksimal: 460),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedStatus,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Ubah Status',
+                      prefixIcon: Icon(Icons.flag_outlined),
+                    ),
+                    items: ['Diproses', 'Selesai', 'Ditolak']
+                        .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                        .toList(),
+                    onChanged: (v) => setLocal(() => selectedStatus = v ?? selectedStatus),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: tanggapanCtrl,
+                    maxLines: 5,
+                    decoration: const InputDecoration(
+                      labelText: 'Teks Tanggapan',
+                      alignLabelWithHint: true,
+                      hintText: 'Jelaskan tindak lanjut atau respons terhadap pengaduan ini...',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+            ElevatedButton(
+              onPressed: () async {
+                final tanggapan = tanggapanCtrl.text.trim();
+                Navigator.pop(ctx);
+                final prov = context.read<ComplaintProvider>();
+                final ok = await prov.updateComplaintStatus(
+                  id,
+                  status: selectedStatus,
+                  response: tanggapan.isNotEmpty ? tanggapan : null,
+                );
+                _pesan(
+                  ok
+                      ? 'Tanggapan berhasil disimpan.'
+                      : (prov.errorMessage ?? 'Gagal menyimpan tanggapan.'),
+                  sukses: ok,
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F766E),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Simpan Tanggapan'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -321,7 +437,20 @@ class _PengaduanScreenState extends State<PengaduanScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              if (_bolehTambah)
+              // Di ponsel tombol ini TIDAK digambar: aksi yang sama sudah
+              // didaftarkan sebagai FAB beberapa baris di atas, dan
+              // menggambarnya dua kali bukan cuma mubazir — ia melubernya.
+              //
+              // Lebarnya ~180px tetap, sementara `Expanded` di sebelah kiri
+              // hanya menerima sisanya. Pada 320px sisa itu ~110px, sedangkan
+              // isi tetap Row kiri (tombol kembali + kotak ikon + dua jarak)
+              // sudah ~108px sebelum judulnya dapat sepetak pun: meluber 92px.
+              //
+              // Tidak pernah tertangkap uji lama karena luberannya hanya muncul
+              // ketika `_bolehTambah` bernilai true — yaitu pada setiap pengurus
+              // sungguhan, tetapi tidak pernah pada PermissionProvider kosong
+              // yang dipakai uji render.
+              if (_bolehTambah && !pakaiKartu(context))
                 ElevatedButton.icon(
                   onPressed: _showFormPengaduan,
                   style: ElevatedButton.styleFrom(
@@ -595,23 +724,16 @@ class _PengaduanScreenState extends State<PengaduanScreen> {
                                   style: gayaAksiTabel(const Color(0xFF0F766E)),
                                   onPressed: () => _showDetail(c),
                                 ),
-                                // Menindaklanjuti aduan adalah wewenang
-                                // pengurus; warga hanya memantau statusnya.
                                 if (status != 'Selesai' && _bolehUbah)
                                   IconButton(
-                                    tooltip: status == 'Menunggu' ? 'Proses' : 'Selesaikan',
-                                    icon: Icon(
-                                      status == 'Menunggu' ? Icons.published_with_changes : Icons.check_circle_outline,
+                                    tooltip: 'Tanggapi',
+                                    icon: const Icon(
+                                      Icons.reply_rounded,
                                       size: 20,
-                                      color: status == 'Menunggu' ? const Color(0xFF3B82F6) : const Color(0xFF10B981),
+                                      color: Color(0xFF0F766E),
                                     ),
-                                    style: gayaAksiTabel(
-                                      status == 'Menunggu' ? const Color(0xFF3B82F6) : const Color(0xFF10B981),
-                                    ),
-                                    onPressed: () async {
-                                      final newStatus = status == 'Menunggu' ? 'Diproses' : 'Selesai';
-                                      await provider.updateComplaintStatus(id, status: newStatus);
-                                    },
+                                    style: gayaAksiTabel(const Color(0xFF0F766E)),
+                                    onPressed: () => _showFormTanggapi(c),
                                   ),
                               ],
                             ),
