@@ -282,10 +282,13 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
           Icons.water_drop_outlined,
           'Bacaan Meteran',
           const Color(0xFF0EA5E9),
-          () => showDialog(
-            context: context,
-            builder: (_) => const DialogBacaanMeteran(),
-          ),
+          () async {
+            await showDialog(
+              context: context,
+              builder: (_) => const DialogBacaanMeteran(),
+            );
+            if (mounted) _loadData();
+          },
         ),
         if (_bolehUbah)
           _outlinedBtn(
@@ -915,6 +918,7 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
     final nominalCtrl = TextEditingController(text: b.nominal.toStringAsFixed(0));
     final meteranLaluCtrl = TextEditingController(text: b.meteranLalu?.toString() ?? '');
     final meteranKiniCtrl = TextEditingController(text: b.meteranSekarang?.toString() ?? '');
+    final alasanCtrl = TextEditingController();
     final keteranganCtrl = TextEditingController(text: b.keterangan ?? '');
     final jatuhTempoCtrl = TextEditingController(
       text: b.jatuhTempo == null ? '' : DateFormat('yyyy-MM-dd').format(b.jatuhTempo!),
@@ -1023,6 +1027,11 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                   const SizedBox(height: 14),
                   _pratinjauAir(b, meteranLaluCtrl.text, meteranKiniCtrl.text),
                   const SizedBox(height: 14),
+                  TextField(
+                    controller: alasanCtrl,
+                    decoration: dekor('Alasan Koreksi (wajib jika mengubah meteran)', Icons.note_alt_outlined),
+                  ),
+                  const SizedBox(height: 14),
                 ] else ...[
                   TextField(
                     controller: nominalCtrl,
@@ -1089,6 +1098,12 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                   );
                   return;
                 }
+                final meteranBerubah =
+                    mLalu != b.meteranLalu || mKini != b.meteranSekarang;
+                if (meteranBerubah && alasanCtrl.text.trim().isEmpty) {
+                  _pesan('Alasan koreksi wajib diisi saat mengubah meteran.', sukses: false);
+                  return;
+                }
               } else {
                 final nominal = double.tryParse(nominalCtrl.text);
                 if (nominal == null || nominal <= 0) {
@@ -1106,6 +1121,7 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                 meteranLalu: mLalu,
                 meteranSekarang: mKini,
                 keterangan: keteranganCtrl.text.trim(),
+                alasan: alasanCtrl.text.trim(),
                 jatuhTempo: jatuhTempo == null
                     ? null
                     : DateFormat('yyyy-MM-dd').format(jatuhTempo!),

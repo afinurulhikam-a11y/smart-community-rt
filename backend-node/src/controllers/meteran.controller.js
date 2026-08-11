@@ -19,6 +19,7 @@ const {
   STATUS_TERISI,
   STATUS_ANOMALI,
   TIPE_METERAN,
+  rincianTagihanAir,
 } = require('../utils/tagihan-air');
 const { terbitkanTagihanPeriode } = require('../services/tagihan-air.service');
 
@@ -543,6 +544,39 @@ async function koreksiMeteran(req, res) {
     }
 
     const baru = hasil.rows[0];
+
+    // Sinkronisasi otomatis ke tabel bills bila tagihan periode ini sudah terbit
+    const billRes = await pool.query(
+      `SELECT b.*, ji.tipe_hitung, ji.tarif_per_m3, ji.abondement, ji.biaya_sampah
+       FROM bills b
+       JOIN jenis_iuran ji ON b.jenis_iuran_id = ji.id
+       WHERE (b.id = $1 OR (b.keluarga_id = $2 AND b.bulan = $3))
+         AND ji.tipe_hitung = 'meteran_air'
+       LIMIT 1`,
+      [baru.bill_id || null, baru.keluarga_id, baru.periode]
+    );
+
+    if (billRes.rows.length > 0) {
+      const b = billRes.rows[0];
+      const air = rincianTagihanAir({
+        meteranLalu: baru.meteran_lalu,
+        meteranSekarang: baru.status === STATUS_TERISI ? baru.meteran_sekarang : null,
+        tarifPerM3: b.tarif_per_m3,
+        abondement: b.abondement,
+        biayaSampah: (b.langganan_sampah === true && b.biaya_sampah) ? b.biaya_sampah : 0,
+      });
+
+      await pool.query(
+        `UPDATE bills
+         SET meteran_lalu = $1,
+             meteran_sekarang = $2,
+             nominal = $3,
+             updated_at = NOW()
+         WHERE id = $4`,
+        [air.meteran_lalu, air.meteran_sekarang, air.total, b.id]
+      );
+    }
+
     const perubahan = bandingkan(lama, baru, {
       meteran_lalu: 'Meteran lalu',
       meteran_sekarang: 'Meteran sekarang',
@@ -559,11 +593,9 @@ async function koreksiMeteran(req, res) {
 
     return res.status(200).json({
       success: true,
-      message: 'Koreksi meteran tersimpan.',
+      message: 'Koreksi meteran dan tagihan air berhasil diperbarui.',
       data: baru,
-      catatan: baru.bill_id
-        ? 'Tagihan periode ini sudah terbit — nominalnya perlu dikoreksi terpisah lewat menu tagihan.'
-        : null,
+      catatan: null,
     });
   } catch (err) {
     console.error('KoreksiMeteran Error:', err.message);
