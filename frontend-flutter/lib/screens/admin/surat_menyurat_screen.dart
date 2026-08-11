@@ -204,22 +204,22 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
                         Color statusBg;
                         String statusLabel;
 
-                        if (status == 'disetujui') {
+                        if (data.isDisetujui) {
                           statusColor = const Color(0xFF10B981);
                           statusBg = const Color(0xFFD1FAE5);
                           statusLabel = 'Disetujui';
-                        } else if (status == 'ditolak') {
+                        } else if (data.isDitolak) {
                           statusColor = const Color(0xFFEF4444);
                           statusBg = const Color(0xFFFEE2E2);
                           statusLabel = 'Ditolak';
-                        } else if (status == 'diajukan' || status == 'diproses') {
+                        } else if (status == 'diproses') {
                           statusColor = const Color(0xFF2563EB);
                           statusBg = const Color(0xFFDBEAFE);
-                          statusLabel = 'Diajukan';
+                          statusLabel = 'Diproses';
                         } else {
                           statusColor = const Color(0xFFD97706);
                           statusBg = const Color(0xFFFEF3C7);
-                          statusLabel = 'Menunggu';
+                          statusLabel = 'Diajukan';
                         }
 
                         return BarisTabel(
@@ -278,10 +278,7 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                if (_bolehSetujui &&
-                                    (status == 'diajukan' ||
-                                        status == 'diproses' ||
-                                        status == 'pending')) ...[
+                                if (_bolehSetujui && data.isPending) ...[
                                   IconButton(
                                     icon: const Icon(
                                       Icons.check_circle_outline,
@@ -303,9 +300,7 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
                                       responseNote: 'Ditolak admin',
                                     ),
                                   ),
-                                ] else if (status != 'diajukan' &&
-                                    status != 'diproses' &&
-                                    status != 'pending') ...[
+                                ] else if (!data.isPending) ...[
                                   IconButton(
                                     icon: const Icon(
                                       Icons.download_rounded,
@@ -490,22 +485,22 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
                         Color statusBg;
                         String statusLabel;
 
-                        if (status == 'disetujui') {
+                        if (data.isDisetujui) {
                           statusColor = const Color(0xFF10B981);
                           statusBg = const Color(0xFFD1FAE5);
                           statusLabel = 'Disetujui';
-                        } else if (status == 'ditolak') {
+                        } else if (data.isDitolak) {
                           statusColor = const Color(0xFFEF4444);
                           statusBg = const Color(0xFFFEE2E2);
                           statusLabel = 'Ditolak';
-                        } else if (status == 'diajukan' || status == 'diproses') {
+                        } else if (status == 'diproses') {
                           statusColor = const Color(0xFF2563EB);
                           statusBg = const Color(0xFFDBEAFE);
-                          statusLabel = 'Diajukan';
+                          statusLabel = 'Diproses';
                         } else {
                           statusColor = const Color(0xFFD97706);
                           statusBg = const Color(0xFFFEF3C7);
-                          statusLabel = 'Menunggu';
+                          statusLabel = 'Diajukan';
                         }
 
                         return BarisTabel(

@@ -19,24 +19,8 @@ class LetterProvider extends ChangeNotifier {
   int get totalPages => _totalPages;
   int get totalData => _totalData;
 
-  int get pendingCount => _letters
-      .where(
-        (l) =>
-            l.status.toLowerCase() == 'pending' ||
-            l.status.toLowerCase() == 'diproses' ||
-            l.status.toLowerCase() == 'diajukan' ||
-            l.status.toLowerCase() == 'menunggu',
-      )
-      .length;
-  List<LetterModel> get pendingLetters => _letters
-      .where(
-        (l) =>
-            l.status.toLowerCase() == 'pending' ||
-            l.status.toLowerCase() == 'diproses' ||
-            l.status.toLowerCase() == 'diajukan' ||
-            l.status.toLowerCase() == 'menunggu',
-      )
-      .toList();
+  int get pendingCount => _letters.where((l) => l.isPending).length;
+  List<LetterModel> get pendingLetters => _letters.where((l) => l.isPending).toList();
 
   Future<void> fetchLetters({String? status, int page = 1}) async {
     _isLoading = true;
