@@ -161,7 +161,7 @@ class _MainDashboardState extends State<MainDashboard> {
         futures.add(finP.fetchSummary(bulan: null, sumber: null));
         futures.add(finP.fetchBulanan());
       }
-      if (izin.bolehLihat('layanan.surat', userRole: userRole)) {
+      if (userRole == 'warga' || izin.bolehLihat('layanan.surat', userRole: userRole)) {
         futures.add(context.read<LetterProvider>().fetchLetters());
       }
       if (izin.bolehLihat('aspirasi.darurat', userRole: userRole)) {
