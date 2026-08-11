@@ -146,33 +146,19 @@ class _LetterRequestScreenState extends State<LetterRequestScreen> {
   }
 
   Color _statusColor(String status) {
-    switch (status) {
-      case 'diajukan':
-        return AppTheme.warningColor;
-      case 'diproses':
-        return AppTheme.infoColor;
-      case 'disetujui':
-        return AppTheme.successColor;
-      case 'ditolak':
-        return AppTheme.dangerColor;
-      default:
-        return AppTheme.textSecondary;
-    }
+    final s = status.toLowerCase();
+    if (s == 'disetujui' || s == 'approved') return AppTheme.successColor;
+    if (s == 'ditolak' || s == 'rejected') return AppTheme.dangerColor;
+    if (s == 'diproses') return AppTheme.infoColor;
+    return AppTheme.warningColor;
   }
 
   IconData _statusIcon(String status) {
-    switch (status) {
-      case 'diajukan':
-        return Icons.schedule;
-      case 'diproses':
-        return Icons.hourglass_top;
-      case 'disetujui':
-        return Icons.check_circle;
-      case 'ditolak':
-        return Icons.cancel;
-      default:
-        return Icons.mail;
-    }
+    final s = status.toLowerCase();
+    if (s == 'disetujui' || s == 'approved') return Icons.check_circle;
+    if (s == 'ditolak' || s == 'rejected') return Icons.cancel;
+    if (s == 'diproses') return Icons.hourglass_top;
+    return Icons.schedule;
   }
 
   @override

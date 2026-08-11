@@ -65,7 +65,7 @@ async function updateLetterStatus(req, res) {
   try {
     const { id } = req.params;
     const { status, response_note } = req.body;
-    const validStatus = ['diproses', 'disetujui', 'ditolak'];
+    const validStatus = ['diproses', 'disetujui', 'ditolak', 'approved', 'rejected'];
     if (!status || !validStatus.includes(status)) return res.status(400).json({ success: false, message: `status harus salah satu dari: ${validStatus.join(', ')}` });
     const result = await pool.query(
       `UPDATE letters SET status = $1, approved_by = $2, response_note = $3, tanggal_respon = NOW(), updated_at = NOW() WHERE id = $4 RETURNING *`,
@@ -81,13 +81,13 @@ async function updateLetterStatus(req, res) {
       const userRes = await pool.query('SELECT nama, no_hp FROM users WHERE id = $1', [updatedLetter.user_id]);
       if (userRes.rows.length > 0) {
         const u = userRes.rows[0];
-        if (status === 'disetujui') {
+        if (status === 'disetujui' || status === 'approved') {
           await sendLetterApprovedWA({
             userNama: u.nama,
             noHp: u.no_hp,
             jenisSurat: updatedLetter.jenis_surat,
           });
-        } else if (status === 'ditolak') {
+        } else if (status === 'ditolak' || status === 'rejected') {
           await sendWA({
             target: u.no_hp,
             message: `📄 *PERMOHONAN SURAT DITOLAK*\n\nHalo Bpk/Ibu *${u.nama}*,\n\nPermohonan *${updatedLetter.jenis_surat}* Anda belum dapat disetujui.\nCatatan: ${response_note || 'Harap lengkapi persyaratan'}\n\n— *Pengurus RT*`,

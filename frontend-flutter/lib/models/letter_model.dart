@@ -49,18 +49,25 @@ class LetterModel {
     );
   }
 
+  bool get isPending {
+    final s = status.toLowerCase();
+    return s == 'pending' || s == 'diproses' || s == 'diajukan' || s == 'menunggu';
+  }
+
+  bool get isDisetujui {
+    final s = status.toLowerCase();
+    return s == 'disetujui' || s == 'approved';
+  }
+
+  bool get isDitolak {
+    final s = status.toLowerCase();
+    return s == 'ditolak' || s == 'rejected';
+  }
+
   String get statusLabel {
-    switch (status) {
-      case 'diajukan':
-        return 'Diajukan';
-      case 'diproses':
-        return 'Diproses';
-      case 'disetujui':
-        return 'Disetujui';
-      case 'ditolak':
-        return 'Ditolak';
-      default:
-        return status;
-    }
+    if (isDisetujui) return 'Disetujui';
+    if (isDitolak) return 'Ditolak';
+    if (status.toLowerCase() == 'diproses') return 'Diproses';
+    return 'Diajukan';
   }
 }
