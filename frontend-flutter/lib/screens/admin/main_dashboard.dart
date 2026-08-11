@@ -1799,12 +1799,7 @@ class _MainDashboardState extends State<MainDashboard> {
           decoration: BoxDecoration(
             color: context.latarKartu,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: hasActive
-                  ? const Color(0xFFD97706).withValues(alpha: 0.5)
-                  : context.garis,
-              width: hasActive ? 2 : 1,
-            ),
+            border: Border.all(color: context.garis),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
