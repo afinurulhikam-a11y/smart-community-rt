@@ -13,7 +13,8 @@ import '../../core/pesan.dart';
 
 const String _kodeIzin = 'kependudukan.warga';
 const double _ukuranHoverAksi = 30;
-const double _geserAksiTabel = -(kMinInteractiveDimension - _ukuranHoverAksi) / 2;
+const double _geserAksiTabel =
+    -(kMinInteractiveDimension - _ukuranHoverAksi) / 2;
 
 ButtonStyle _gayaAksiTabel(Color warnaIkon) => IconButton.styleFrom(
   alignment: Alignment.center,
@@ -52,10 +53,10 @@ class _DataKkScreenState extends State<DataKkScreen> {
 
   void _muatData() {
     context.read<FamilyProvider>().fetchFamilies(
-          search: _ctlCari.text.trim().isEmpty ? null : _ctlCari.text.trim(),
-          page: _halaman,
-          limit: 10,
-        );
+      search: _ctlCari.text.trim().isEmpty ? null : _ctlCari.text.trim(),
+      page: _halaman,
+      limit: 10,
+    );
   }
 
   void _resetFilter() {
@@ -84,7 +85,9 @@ class _DataKkScreenState extends State<DataKkScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusL)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusL),
+          ),
           title: const Row(
             children: [
               Icon(Icons.house_rounded, color: AppTheme.primaryColor),
@@ -113,8 +116,12 @@ class _DataKkScreenState extends State<DataKkScreen> {
                         prefixIcon: Icon(Icons.credit_card_rounded),
                       ),
                       validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'No KK wajib diisi.';
-                        if (v.trim().length != 16) return 'No KK harus 16 digit angka.';
+                        if (v == null || v.trim().isEmpty) {
+                          return 'No KK wajib diisi.';
+                        }
+                        if (v.trim().length != 16) {
+                          return 'No KK harus 16 digit angka.';
+                        }
                         return null;
                       },
                     ),
@@ -125,7 +132,9 @@ class _DataKkScreenState extends State<DataKkScreen> {
                         labelText: 'Nama Kepala Keluarga *',
                         prefixIcon: Icon(Icons.person_rounded),
                       ),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Nama Kepala Keluarga wajib diisi.' : null,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Nama Kepala Keluarga wajib diisi.'
+                          : null,
                     ),
                     const SizedBox(height: AppTheme.spasiM),
                     TextFormField(
@@ -135,7 +144,9 @@ class _DataKkScreenState extends State<DataKkScreen> {
                         hintText: 'Contoh: Jl. Kapten Yusuf Blok A No. 12',
                         prefixIcon: Icon(Icons.location_on_rounded),
                       ),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Alamat wajib diisi.' : null,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Alamat wajib diisi.'
+                          : null,
                     ),
                     const SizedBox(height: AppTheme.spasiM),
                     Row(
@@ -143,16 +154,24 @@ class _DataKkScreenState extends State<DataKkScreen> {
                         Expanded(
                           child: TextFormField(
                             controller: ctlRt,
-                            decoration: const InputDecoration(labelText: 'RT *'),
-                            validator: (v) => (v == null || v.trim().isEmpty) ? 'RT wajib diisi.' : null,
+                            decoration: const InputDecoration(
+                              labelText: 'RT *',
+                            ),
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? 'RT wajib diisi.'
+                                : null,
                           ),
                         ),
                         const SizedBox(width: AppTheme.spasiM),
                         Expanded(
                           child: TextFormField(
                             controller: ctlRw,
-                            decoration: const InputDecoration(labelText: 'RW *'),
-                            validator: (v) => (v == null || v.trim().isEmpty) ? 'RW wajib diisi.' : null,
+                            decoration: const InputDecoration(
+                              labelText: 'RW *',
+                            ),
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? 'RW wajib diisi.'
+                                : null,
                           ),
                         ),
                       ],
@@ -164,9 +183,19 @@ class _DataKkScreenState extends State<DataKkScreen> {
                         labelText: 'Status Kepemilikan Rumah',
                         prefixIcon: Icon(Icons.home_work_rounded),
                       ),
-                      items: ['Milik Sendiri', 'Sewa', 'Kontrak', 'Kos', 'Menumpang']
-                          .map((s) => DropdownMenuItem(value: s, child: Text(s)))
-                          .toList(),
+                      items:
+                          [
+                                'Milik Sendiri',
+                                'Sewa',
+                                'Kontrak',
+                                'Kos',
+                                'Menumpang',
+                              ]
+                              .map(
+                                (s) =>
+                                    DropdownMenuItem(value: s, child: Text(s)),
+                              )
+                              .toList(),
                       onChanged: (v) {
                         if (v != null) setDialogState(() => statusRumah = v);
                       },
@@ -185,11 +214,15 @@ class _DataKkScreenState extends State<DataKkScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               onPressed: () async {
                 if (!kunciForm.currentState!.validate()) return;
-                final success = await context.read<FamilyProvider>().createFamily(
+                final success = await context
+                    .read<FamilyProvider>()
+                    .createFamily(
                       noKk: ctlNoKk.text.trim(),
                       kepalaKeluarga: ctlKepala.text.trim(),
                       alamat: ctlAlamat.text.trim(),
@@ -212,13 +245,26 @@ class _DataKkScreenState extends State<DataKkScreen> {
     }
   }
 
-  Future<void> _bukaFormEdit(BuildContext context, Map<String, dynamic> kk) async {
-    final ctlKepala = TextEditingController(text: kk['kepala_keluarga']?.toString() ?? '');
-    final ctlAlamat = TextEditingController(text: kk['alamat']?.toString() ?? '');
+  Future<void> _bukaFormEdit(
+    BuildContext context,
+    Map<String, dynamic> kk,
+  ) async {
+    final ctlKepala = TextEditingController(
+      text: kk['kepala_keluarga']?.toString() ?? '',
+    );
+    final ctlAlamat = TextEditingController(
+      text: kk['alamat']?.toString() ?? '',
+    );
     final ctlRt = TextEditingController(text: kk['rt']?.toString() ?? '001');
     final ctlRw = TextEditingController(text: kk['rw']?.toString() ?? '001');
     String statusRumah = kk['status_rumah']?.toString() ?? 'Milik Sendiri';
-    if (!['Milik Sendiri', 'Sewa', 'Kontrak', 'Kos', 'Menumpang'].contains(statusRumah)) {
+    if (![
+      'Milik Sendiri',
+      'Sewa',
+      'Kontrak',
+      'Kos',
+      'Menumpang',
+    ].contains(statusRumah)) {
       statusRumah = 'Milik Sendiri';
     }
     final kunciForm = GlobalKey<FormState>();
@@ -228,7 +274,9 @@ class _DataKkScreenState extends State<DataKkScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusL)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusL),
+          ),
           title: Text('Edit Data KK #${kk['no_kk']}'),
           content: SizedBox(
             width: lebarDialog(ctx, maksimal: 500),
@@ -244,7 +292,9 @@ class _DataKkScreenState extends State<DataKkScreen> {
                         labelText: 'Nama Kepala Keluarga *',
                         prefixIcon: Icon(Icons.person_rounded),
                       ),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Nama Kepala Keluarga wajib diisi.' : null,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Nama Kepala Keluarga wajib diisi.'
+                          : null,
                     ),
                     const SizedBox(height: AppTheme.spasiM),
                     TextFormField(
@@ -253,7 +303,9 @@ class _DataKkScreenState extends State<DataKkScreen> {
                         labelText: 'Alamat / Blok & Nomor Rumah *',
                         prefixIcon: Icon(Icons.location_on_rounded),
                       ),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Alamat wajib diisi.' : null,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Alamat wajib diisi.'
+                          : null,
                     ),
                     const SizedBox(height: AppTheme.spasiM),
                     Row(
@@ -261,16 +313,24 @@ class _DataKkScreenState extends State<DataKkScreen> {
                         Expanded(
                           child: TextFormField(
                             controller: ctlRt,
-                            decoration: const InputDecoration(labelText: 'RT *'),
-                            validator: (v) => (v == null || v.trim().isEmpty) ? 'RT wajib diisi.' : null,
+                            decoration: const InputDecoration(
+                              labelText: 'RT *',
+                            ),
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? 'RT wajib diisi.'
+                                : null,
                           ),
                         ),
                         const SizedBox(width: AppTheme.spasiM),
                         Expanded(
                           child: TextFormField(
                             controller: ctlRw,
-                            decoration: const InputDecoration(labelText: 'RW *'),
-                            validator: (v) => (v == null || v.trim().isEmpty) ? 'RW wajib diisi.' : null,
+                            decoration: const InputDecoration(
+                              labelText: 'RW *',
+                            ),
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? 'RW wajib diisi.'
+                                : null,
                           ),
                         ),
                       ],
@@ -282,9 +342,19 @@ class _DataKkScreenState extends State<DataKkScreen> {
                         labelText: 'Status Kepemilikan Rumah',
                         prefixIcon: Icon(Icons.home_work_rounded),
                       ),
-                      items: ['Milik Sendiri', 'Sewa', 'Kontrak', 'Kos', 'Menumpang']
-                          .map((s) => DropdownMenuItem(value: s, child: Text(s)))
-                          .toList(),
+                      items:
+                          [
+                                'Milik Sendiri',
+                                'Sewa',
+                                'Kontrak',
+                                'Kos',
+                                'Menumpang',
+                              ]
+                              .map(
+                                (s) =>
+                                    DropdownMenuItem(value: s, child: Text(s)),
+                              )
+                              .toList(),
                       onChanged: (v) {
                         if (v != null) setDialogState(() => statusRumah = v);
                       },
@@ -303,17 +373,21 @@ class _DataKkScreenState extends State<DataKkScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               onPressed: () async {
                 if (!kunciForm.currentState!.validate()) return;
-                final success = await context.read<FamilyProvider>().updateFamily(id, {
-                  'kepala_keluarga': ctlKepala.text.trim(),
-                  'alamat': ctlAlamat.text.trim(),
-                  'rt': ctlRt.text.trim(),
-                  'rw': ctlRw.text.trim(),
-                  'status_rumah': statusRumah,
-                });
+                final success = await context
+                    .read<FamilyProvider>()
+                    .updateFamily(id, {
+                      'kepala_keluarga': ctlKepala.text.trim(),
+                      'alamat': ctlAlamat.text.trim(),
+                      'rt': ctlRt.text.trim(),
+                      'rw': ctlRw.text.trim(),
+                      'status_rumah': statusRumah,
+                    });
                 if (ctx.mounted) Navigator.pop(ctx, success);
               },
               child: const Text('Simpan Perubahan'),
@@ -344,15 +418,23 @@ class _DataKkScreenState extends State<DataKkScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusL)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusL),
+        ),
         title: Row(
           children: [
-            const Icon(Icons.family_restroom_rounded, color: AppTheme.primaryColor),
+            const Icon(
+              Icons.family_restroom_rounded,
+              color: AppTheme.primaryColor,
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 'Detail KK: $noKk',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -373,14 +455,28 @@ class _DataKkScreenState extends State<DataKkScreen> {
                   ),
                   child: Column(
                     children: [
-                      _barisDetail(ctx, 'Kepala Keluarga', detail['kepala_keluarga']?.toString() ?? '-'),
-                      _barisDetail(ctx, 'Alamat', detail['alamat']?.toString() ?? '-'),
+                      _barisDetail(
+                        ctx,
+                        'Kepala Keluarga',
+                        detail['kepala_keluarga']?.toString() ?? '-',
+                      ),
+                      _barisDetail(
+                        ctx,
+                        'Alamat',
+                        detail['alamat']?.toString() ?? '-',
+                      ),
                       _barisDetail(ctx, 'RT / RW', '001 / 001'),
-                      _barisDetail(ctx, 'Status Rumah', detail['status_rumah']?.toString() ?? 'Milik Sendiri'),
+                      _barisDetail(
+                        ctx,
+                        'Status Rumah',
+                        detail['status_rumah']?.toString() ?? 'Milik Sendiri',
+                      ),
                       _barisDetail(
                         ctx,
                         'Langganan Sampah',
-                        detail['langganan_sampah'] == true ? 'Berlangganan (Ya)' : 'Tidak',
+                        detail['langganan_sampah'] == true
+                            ? 'Berlangganan (Ya)'
+                            : 'Tidak',
                       ),
                     ],
                   ),
@@ -388,14 +484,21 @@ class _DataKkScreenState extends State<DataKkScreen> {
                 const SizedBox(height: AppTheme.spasiL),
                 Text(
                   'Anggota Keluarga (${anggota.length} Orang)',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: ctx.teksUtama),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: ctx.teksUtama,
+                  ),
                 ),
                 const SizedBox(height: AppTheme.spasiM),
                 if (anggota.isEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 20),
                     child: Center(
-                      child: Text('Belum ada anggota keluarga terdaftar.', style: TextStyle(color: ctx.teksKedua)),
+                      child: Text(
+                        'Belum ada anggota keluarga terdaftar.',
+                        style: TextStyle(color: ctx.teksKedua),
+                      ),
                     ),
                   )
                 else
@@ -410,7 +513,9 @@ class _DataKkScreenState extends State<DataKkScreen> {
                         dense: true,
                         contentPadding: EdgeInsets.zero,
                         leading: CircleAvatar(
-                          backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+                          backgroundColor: AppTheme.primaryColor.withValues(
+                            alpha: 0.1,
+                          ),
                           child: Icon(
                             a['status_keluarga'] == 'Kepala Keluarga'
                                 ? Icons.person_pin_rounded
@@ -423,11 +528,20 @@ class _DataKkScreenState extends State<DataKkScreen> {
                           a['nama']?.toString() ?? '-',
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
-                        subtitle: Text('NIK: ${a['nik'] ?? '-'} • ${a['status_keluarga'] ?? 'Anggota'}'),
+                        subtitle: Text(
+                          'NIK: ${a['nik'] ?? '-'} • ${a['status_keluarga'] ?? 'Anggota'}',
+                        ),
                         trailing: Chip(
-                          label: Text(a['jenis_kelamin']?.toString() == 'L' ? 'Laki-laki' : 'Perempuan'),
+                          label: Text(
+                            a['jenis_kelamin']?.toString() == 'L'
+                                ? 'Laki-laki'
+                                : 'Perempuan',
+                          ),
                           backgroundColor: ctx.latarLembut,
-                          labelStyle: TextStyle(fontSize: 11, color: ctx.teksUtama),
+                          labelStyle: TextStyle(
+                            fontSize: 11,
+                            color: ctx.teksUtama,
+                          ),
                         ),
                       );
                     },
@@ -453,7 +567,14 @@ class _DataKkScreenState extends State<DataKkScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: TextStyle(color: ctx.teksKedua, fontSize: 13)),
-          Text(nilai, style: TextStyle(fontWeight: FontWeight.w600, color: ctx.teksUtama, fontSize: 13)),
+          Text(
+            nilai,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: ctx.teksUtama,
+              fontSize: 13,
+            ),
+          ),
         ],
       ),
     );
@@ -465,11 +586,19 @@ class _DataKkScreenState extends State<DataKkScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Hapus Kartu Keluarga?'),
-        content: Text('Apakah Anda yakin ingin menghapus KK $noKk? Data keluarga ini akan dinonaktifkan.'),
+        content: Text(
+          'Apakah Anda yakin ingin menghapus KK $noKk? Data keluarga ini akan dinonaktifkan.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444), foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              foregroundColor: Colors.white,
+            ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Hapus'),
           ),
@@ -524,7 +653,11 @@ class _DataKkScreenState extends State<DataKkScreen> {
                         color: AppTheme.primaryColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.house_rounded, color: AppTheme.primaryColor, size: 20),
+                      child: const Icon(
+                        Icons.house_rounded,
+                        color: AppTheme.primaryColor,
+                        size: 20,
+                      ),
                     ),
                     const SizedBox(width: 10),
                     Text(
@@ -545,8 +678,13 @@ class _DataKkScreenState extends State<DataKkScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryColor,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusM)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                      ),
                     ),
                   ),
               ],
@@ -574,10 +712,16 @@ class _DataKkScreenState extends State<DataKkScreen> {
                       _muatData();
                     },
                     decoration: InputDecoration(
-                      hintText: 'Cari berdasarkan No KK, Kepala Keluarga, Alamat...',
+                      hintText:
+                          'Cari berdasarkan No KK, Kepala Keluarga, Alamat...',
                       prefixIcon: const Icon(Icons.search_rounded),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTheme.radiusM)),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                      ),
                     ),
                   ),
                 ),
@@ -592,16 +736,26 @@ class _DataKkScreenState extends State<DataKkScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusM)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                    ),
                   ),
                 ),
                 const SizedBox(width: AppTheme.spasiS),
                 OutlinedButton(
                   onPressed: _resetFilter,
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusM)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                    ),
                   ),
                   child: const Text('Reset'),
                 ),
@@ -637,12 +791,17 @@ class _DataKkScreenState extends State<DataKkScreen> {
               final kepala = item['kepala_keluarga']?.toString() ?? '-';
               final alamat = item['alamat']?.toString() ?? '-';
               final jumlahAnggota = item['jumlah_anggota'] ?? 0;
-              final statusRumah = item['status_rumah']?.toString() ?? 'Milik Sendiri';
+              final statusRumah =
+                  item['status_rumah']?.toString() ?? 'Milik Sendiri';
               final terkonfirmasi = item['kepala_terkonfirmasi'] == true;
 
               return BarisTabel(
                 sel: [
-                  SelTabel.teks('NO', '${((prov.currentPage - 1) * 10) + idx + 1}', sembunyiDiKartu: true),
+                  SelTabel.teks(
+                    'NO',
+                    '${((prov.currentPage - 1) * 10) + idx + 1}',
+                    sembunyiDiKartu: true,
+                  ),
                   SelTabel.teks(
                     'NO KK',
                     noKk,
@@ -669,7 +828,11 @@ class _DataKkScreenState extends State<DataKkScreen> {
                         if (!terkonfirmasi)
                           Tooltip(
                             message: 'Nama Kepala Keluarga belum terkonfirmasi',
-                            child: Icon(Icons.info_outline_rounded, size: 14, color: Colors.amber[700]),
+                            child: Icon(
+                              Icons.info_outline_rounded,
+                              size: 14,
+                              color: Colors.amber[700],
+                            ),
                           ),
                       ],
                     ),
@@ -678,7 +841,10 @@ class _DataKkScreenState extends State<DataKkScreen> {
                   SelTabel(
                     'ANGGOTA',
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: jumlahAnggota == 0
                             ? const Color(0xFFFEF3C7)
@@ -686,11 +852,15 @@ class _DataKkScreenState extends State<DataKkScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
-                        jumlahAnggota == 0 ? '0 Orang (KK Kosong)' : '$jumlahAnggota Orang',
+                        jumlahAnggota == 0
+                            ? '0 Orang (KK Kosong)'
+                            : '$jumlahAnggota Orang',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: jumlahAnggota == 0 ? const Color(0xFFD97706) : AppTheme.primaryColor,
+                          color: jumlahAnggota == 0
+                              ? const Color(0xFFD97706)
+                              : AppTheme.primaryColor,
                         ),
                       ),
                     ),
@@ -698,7 +868,10 @@ class _DataKkScreenState extends State<DataKkScreen> {
                   SelTabel(
                     'STATUS RUMAH',
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: statusRumah == 'Milik Sendiri'
                             ? const Color(0xFF10B981).withValues(alpha: 0.1)
@@ -710,7 +883,9 @@ class _DataKkScreenState extends State<DataKkScreen> {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: statusRumah == 'Milik Sendiri' ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                          color: statusRumah == 'Milik Sendiri'
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFFF59E0B),
                         ),
                       ),
                     ),
@@ -742,7 +917,10 @@ class _DataKkScreenState extends State<DataKkScreen> {
                         const SizedBox(width: 4),
                         IconButton(
                           tooltip: 'Hapus KK',
-                          icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                          icon: const Icon(
+                            Icons.delete_outline_rounded,
+                            size: 18,
+                          ),
                           color: Colors.red[600],
                           style: _gayaAksiTabel(Colors.red[600]!),
                           onPressed: () => _hapusKk(context, id, noKk),
