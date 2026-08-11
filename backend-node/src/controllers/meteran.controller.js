@@ -361,7 +361,7 @@ async function daftarMeteran(req, res) {
       FROM keluarga k
       LEFT JOIN pembacaan_meteran pm ON pm.keluarga_id = k.id AND pm.periode = $1
       LEFT JOIN bills b ON pm.bill_id = b.id
-      LEFT JOIN bills b2 ON b2.keluarga_id = k.id AND b2.bulan = $1 AND b2.jenis_iuran_id IN (SELECT id FROM jenis_iuran WHERE tipe_hitung = 'meteran_air')
+      LEFT JOIN bills b2 ON b2.keluarga_id = k.id AND b2.bulan = $1 AND b2.jenis_iuran_id IN (SELECT id FROM jenis_iuran WHERE tipe_hitung = 'meteran')
       WHERE k.deleted_at IS NULL
     `;
 
@@ -551,7 +551,7 @@ async function koreksiMeteran(req, res) {
        FROM bills b
        JOIN jenis_iuran ji ON b.jenis_iuran_id = ji.id
        WHERE (b.id = $1 OR (b.keluarga_id = $2 AND b.bulan = $3))
-         AND ji.tipe_hitung = 'meteran_air'
+         AND ji.tipe_hitung = 'meteran'
        LIMIT 1`,
       [baru.bill_id || null, baru.keluarga_id, baru.periode]
     );
