@@ -115,12 +115,59 @@ class PdfService {
                     ],
                   ),
                   pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.center,
                     children: [
                       pw.Text('Tanggal: $responseDateStr', style: const pw.TextStyle(fontSize: 11)),
                       pw.Text('Pengurus RT,', style: const pw.TextStyle(fontSize: 11)),
-                      pw.SizedBox(height: 50),
+                      pw.SizedBox(height: 6),
+                      if (letter.isDisetujui)
+                        pw.Container(
+                          padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: pw.BoxDecoration(
+                            color: PdfColors.teal50,
+                            border: pw.Border.all(color: PdfColors.teal700, width: 1.5),
+                            borderRadius: pw.BorderRadius.circular(6),
+                          ),
+                          child: pw.Column(
+                            children: [
+                              pw.Text(
+                                '✓ TTD & STEMPEL DIGITAL',
+                                style: pw.TextStyle(
+                                  fontSize: 8,
+                                  fontWeight: pw.FontWeight.bold,
+                                  color: PdfColors.teal800,
+                                ),
+                              ),
+                              pw.SizedBox(height: 2),
+                              pw.Text(
+                                'DISAHKAN OLEH PENGURUS RT',
+                                style: pw.TextStyle(
+                                  fontSize: 7,
+                                  fontWeight: pw.FontWeight.bold,
+                                  color: PdfColors.teal700,
+                                ),
+                              ),
+                              pw.SizedBox(height: 2),
+                              pw.Text(
+                                letter.approvedByNama != null && letter.approvedByNama!.isNotEmpty
+                                    ? letter.approvedByNama!
+                                    : 'Ketua RT',
+                                style: pw.TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: pw.FontWeight.bold,
+                                  color: PdfColors.teal900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        pw.SizedBox(height: 50),
+                      pw.SizedBox(height: 6),
                       pw.Text(
-                        '( Ketua RT )',
+                        letter.approvedByNama != null && letter.approvedByNama!.isNotEmpty
+                            ? '( ${letter.approvedByNama} - Ketua RT )'
+                            : '( Ketua RT )',
                         style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
                       ),
                     ],
