@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../core/responsif.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/agenda_provider.dart';
-import '../../providers/announcement_provider.dart';
 import '../../providers/permission_provider.dart';
 import '../../widgets/tombol_kembali.dart';
 import '../../core/theme/warna_konteks.dart';
@@ -12,22 +11,6 @@ import '../../core/pesan.dart';
 
 /// Kode modul di tabel izin. Bendahara dan warga hanya punya `view`.
 const String _kodeIzin = 'kegiatan.agenda';
-
-/// Pengumuman punya izinnya sendiri meski menumpang layar ini, sehingga admin
-/// tetap bisa membuka atau menutupnya terpisah dari agenda lewat Menu & Akses.
-const String _kodeIzinPengumuman = 'kegiatan.pengumuman';
-
-/// Indeks tab Pengumuman. Tiga tab pertama menampilkan agenda.
-const int _tabPengumuman = 3;
-
-const List<String> _kategoriPengumuman = [
-  'Umum',
-  'Kegiatan',
-  'Keamanan',
-  'Kebersihan',
-  'Iuran',
-  'Darurat',
-];
 
 class AgendaKegiatanScreen extends StatefulWidget {
   final VoidCallback? onBack;
@@ -42,25 +25,9 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
   bool get _bolehUbah => context.watch<PermissionProvider>().bolehUbah(_kodeIzin);
   bool get _bolehHapus => context.watch<PermissionProvider>().bolehHapus(_kodeIzin);
 
-  bool get _lihatPengumuman => context.watch<PermissionProvider>().bolehLihat(_kodeIzinPengumuman);
-  bool get _tambahPengumuman =>
-      context.watch<PermissionProvider>().bolehTambah(_kodeIzinPengumuman);
-  bool get _ubahPengumuman => context.watch<PermissionProvider>().bolehUbah(_kodeIzinPengumuman);
-  bool get _hapusPengumuman => context.watch<PermissionProvider>().bolehHapus(_kodeIzinPengumuman);
-
   int _selectedTabIndex = 0;
 
-  /// Pengumuman menumpang layar ini alih-alih punya layar sendiri: keduanya
-  /// sama-sama "informasi kegiatan", dan warga tidak perlu mencari di dua
-  /// tempat. Tabnya hanya muncul bila role memang boleh melihatnya.
-  List<String> get _tabs => [
-    'Semua Agenda',
-    'Akan Datang',
-    'Selesai',
-    if (_lihatPengumuman) 'Pengumuman',
-  ];
-
-  bool get _diTabPengumuman => _selectedTabIndex == _tabPengumuman;
+  List<String> get _tabs => const ['Semua Agenda', 'Akan Datang', 'Selesai'];
 
   /// Kotak pilihan yang tampil seperti kolom isian.
   ///
@@ -85,11 +52,9 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
 
   /// Baris tab.
   ///
-  /// Di layar lebar keempatnya berbagi lebar sama rata lewat `Expanded`. Di
-  /// ponsel itu memberi tiap tab hanya ~78px, dan "Pengumuman" terpenggal
-  /// menjadi "Pengumuma n". Karena itu di layar sempit barisnya digeser
-  /// mendatar dan tiap label memakai lebarnya sendiri — bentuk yang sama
-  /// dipakai chip filter di Menu & Akses.
+  /// Di layar lebar ketiganya berbagi lebar sama rata lewat `Expanded`. Di
+  /// ponsel itu memberi tiap tab hanya ~78px, sehingga di layar sempit barisnya
+  /// digeser mendatar dan tiap label memakai lebarnya sendiri.
   Widget _barisTab() {
     final sempit = pakaiKartu(context);
 
@@ -145,10 +110,6 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
   }
 
   void _loadData({int page = 1}) {
-    if (_diTabPengumuman) {
-      context.read<AnnouncementProvider>().fetchAnnouncements();
-      return;
-    }
     final provider = context.read<AgendaProvider>();
     String? statusFilter;
     if (_selectedTabIndex == 1) statusFilter = 'Akan Datang';
@@ -156,10 +117,6 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
     provider.fetchAgenda(status: statusFilter, page: page);
   }
 
-  void _pesan(String teks, {bool sukses = true}) {
-    if (!mounted) return;
-    tampilkanPesan(context, teks, sukses: sukses, perilaku: SnackBarBehavior.floating);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -191,9 +148,7 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
                   const SizedBox(width: 10),
                   Flexible(
                     child: Text(
-                      _diTabPengumuman
-                          ? 'Kegiatan & Info / Pengumuman'
-                          : 'Kegiatan & Info / Agenda Kegiatan',
+                      'Kegiatan & Info / Agenda Kegiatan',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
@@ -203,21 +158,7 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
                   ),
                 ],
               ),
-              // Tombolnya mengikuti tab yang sedang dibuka, dan masing-masing
-              // memakai izinnya sendiri.
-              if (_diTabPengumuman && _tambahPengumuman)
-                ElevatedButton.icon(
-                  onPressed: () => _showFormPengumuman(),
-                  icon: const Icon(Icons.campaign_rounded),
-                  label: const Text('Buat Pengumuman'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF3B82F6),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              if (!_diTabPengumuman && _bolehTambah)
+              if (_bolehTambah)
                 ElevatedButton.icon(
                   onPressed: () {
                     _showAddAgendaDialog();
@@ -250,63 +191,60 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
         const SizedBox(height: 16),
 
         // Content
-        if (_diTabPengumuman)
-          _buildDaftarPengumuman()
-        else
-          Consumer<AgendaProvider>(
-            builder: (context, provider, _) {
-              if (provider.isLoading) {
-                return const Padding(
-                  padding: EdgeInsets.all(40),
-                  child: Center(child: CircularProgressIndicator()),
-                );
-              }
-
-              if (provider.errorMessage != null) {
-                return Padding(
-                  padding: const EdgeInsets.all(40),
-                  child: Center(
-                    child: Text(provider.errorMessage!, style: const TextStyle(color: Colors.red)),
-                  ),
-                );
-              }
-
-              if (provider.agendaList.isEmpty) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(40.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.event_busy_rounded, size: 64, color: context.garis),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Belum ada agenda',
-                          style: TextStyle(color: context.teksTersier, fontSize: 16),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }
-
-              return Column(
-                children: [
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    padding: EdgeInsets.zero,
-                    itemCount: provider.agendaList.length,
-                    itemBuilder: (context, index) {
-                      final event = provider.agendaList[index];
-                      return _buildEventCard(event);
-                    },
-                  ),
-                  _buildAgendaPagination(provider),
-                ],
+        Consumer<AgendaProvider>(
+          builder: (context, provider, _) {
+            if (provider.isLoading) {
+              return const Padding(
+                padding: EdgeInsets.all(40),
+                child: Center(child: CircularProgressIndicator()),
               );
-            },
-          ),
+            }
+
+            if (provider.errorMessage != null) {
+              return Padding(
+                padding: const EdgeInsets.all(40),
+                child: Center(
+                  child: Text(provider.errorMessage!, style: const TextStyle(color: Colors.red)),
+                ),
+              );
+            }
+
+            if (provider.agendaList.isEmpty) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(40.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.event_busy_rounded, size: 64, color: context.garis),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Belum ada agenda',
+                        style: TextStyle(color: context.teksTersier, fontSize: 16),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            return Column(
+              children: [
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: EdgeInsets.zero,
+                  itemCount: provider.agendaList.length,
+                  itemBuilder: (context, index) {
+                    final event = provider.agendaList[index];
+                    return _buildEventCard(event);
+                  },
+                ),
+                _buildAgendaPagination(provider),
+              ],
+            );
+          },
+        ),
       ],
     );
   }
@@ -385,265 +323,17 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
     );
   }
 
-  // ======================= PENGUMUMAN =======================
-
-  Widget _buildDaftarPengumuman() {
-    return Consumer<AnnouncementProvider>(
-      builder: (context, provider, _) {
-        if (provider.isLoading) {
-          return const Padding(
-            padding: EdgeInsets.all(40),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        if (provider.errorMessage != null) {
-          return Padding(
-            padding: const EdgeInsets.all(40),
-            child: Center(
-              child: Text(provider.errorMessage!, style: const TextStyle(color: Colors.red)),
-            ),
-          );
-        }
-
-        if (provider.announcements.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(40.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.campaign_outlined, size: 64, color: context.garis),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Belum ada pengumuman',
-                    style: TextStyle(color: context.teksTersier, fontSize: 16),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        return ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: EdgeInsets.zero,
-          itemCount: provider.announcements.length,
-          itemBuilder: (context, i) => _buildKartuPengumuman(provider.announcements[i]),
-        );
-      },
-    );
-  }
-
-  Widget _buildKartuPengumuman(Map<String, dynamic> p) {
-    final judul = p['judul']?.toString() ?? '-';
-    final isi = p['isi']?.toString() ?? '';
-    final kategori = p['kategori']?.toString() ?? 'Umum';
-    final penulis = p['created_by_nama']?.toString() ?? '-';
-    final dibuat = DateTime.tryParse(p['created_at']?.toString() ?? '');
-    final darurat = kategori == 'Darurat';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: EdgeInsets.all(paddingKartu(context)),
-      decoration: BoxDecoration(
-        color: context.latarKartu,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: darurat ? const Color(0xFFFCA5A5) : context.garis),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: darurat ? const Color(0xFFFEE2E2) : const Color(0xFFDBEAFE),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  kategori,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: darurat ? const Color(0xFFB91C1C) : const Color(0xFF1D4ED8),
-                  ),
-                ),
-              ),
-              const Spacer(),
-              if (_ubahPengumuman)
-                IconButton(
-                  tooltip: 'Ubah',
-                  icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF3B82F6)),
-                  onPressed: () => _showFormPengumuman(data: p),
-                ),
-              if (_hapusPengumuman)
-                IconButton(
-                  tooltip: 'Hapus',
-                  icon: const Icon(Icons.delete_outline, size: 18, color: Color(0xFFEF4444)),
-                  onPressed: () => _hapusPengumumanDialog(p),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            judul,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: context.teksUtama,
-            ),
-          ),
-          if (isi.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(isi, style: TextStyle(fontSize: 13, height: 1.5, color: context.teksKedua)),
-          ],
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Icon(Icons.person_outline, size: 13, color: context.teksTersier),
-              const SizedBox(width: 4),
-              Text(penulis, style: TextStyle(fontSize: 11, color: context.teksTersier)),
-              if (dibuat != null) ...[
-                const SizedBox(width: 12),
-                Icon(Icons.schedule, size: 13, color: context.teksTersier),
-                const SizedBox(width: 4),
-                Text(
-                  DateFormat('dd MMM yyyy, HH:mm', 'id_ID').format(dibuat),
-                  style: TextStyle(fontSize: 11, color: context.teksTersier),
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showFormPengumuman({Map<String, dynamic>? data}) {
-    final ubah = data != null;
-    final judulCtrl = TextEditingController(text: data?['judul']?.toString() ?? '');
-    final isiCtrl = TextEditingController(text: data?['isi']?.toString() ?? '');
-    String kategori = _kategoriPengumuman.contains(data?['kategori'])
-        ? data!['kategori'].toString()
-        : _kategoriPengumuman.first;
-
-    showDialog(
-      context: context,
-      builder: (c) => StatefulBuilder(
-        builder: (c2, setLocal) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(
-            ubah ? 'Ubah Pengumuman' : 'Buat Pengumuman',
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-          ),
-          content: SizedBox(
-            width: lebarDialog(context, maksimal: 460),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: judulCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Judul',
-                      hintText: 'Contoh: Kerja bakti Minggu pagi',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: kategori,
-                    isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Kategori'),
-                    items: _kategoriPengumuman
-                        .map((k) => DropdownMenuItem(value: k, child: Text(k)))
-                        .toList(),
-                    onChanged: (v) => setLocal(() => kategori = v ?? kategori),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: isiCtrl,
-                    maxLines: 5,
-                    decoration: const InputDecoration(
-                      labelText: 'Isi Pengumuman',
-                      alignLabelWithHint: true,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(c), child: const Text('Batal')),
-            ElevatedButton(
-              onPressed: () async {
-                final judul = judulCtrl.text.trim();
-                final isi = isiCtrl.text.trim();
-                if (judul.isEmpty) {
-                  _pesan('Judul pengumuman wajib diisi.', sukses: false);
-                  return;
-                }
-                if (isi.isEmpty) {
-                  _pesan('Isi pengumuman wajib diisi.', sukses: false);
-                  return;
-                }
-                Navigator.pop(c);
-                final prov = context.read<AnnouncementProvider>();
-                final ok = ubah
-                    ? await prov.updateAnnouncement(
-                        data['id'] as int,
-                        judul: judul,
-                        isi: isi,
-                        kategori: kategori,
-                      )
-                    : await prov.createAnnouncement(judul: judul, isi: isi, kategori: kategori);
-                _pesan(
-                  ok
-                      ? (ubah ? 'Pengumuman diperbarui.' : 'Pengumuman diterbitkan.')
-                      : (prov.errorMessage ?? 'Pengumuman gagal disimpan.'),
-                  sukses: ok,
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF3B82F6),
-                foregroundColor: Colors.white,
-              ),
-              child: Text(ubah ? 'Simpan' : 'Terbitkan'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _hapusPengumumanDialog(Map<String, dynamic> p) async {
-    final yakin = await showDialog<bool>(
-      context: context,
-      builder: (c) => AlertDialog(
-        title: const Text('Hapus Pengumuman'),
-        content: Text('Hapus "${p['judul']}"? Tindakan ini tidak bisa dibatalkan.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Batal')),
-          TextButton(
-            onPressed: () => Navigator.pop(c, true),
-            child: const Text('Hapus', style: TextStyle(color: Color(0xFFEF4444))),
-          ),
-        ],
-      ),
-    );
-    if (yakin != true || !mounted) return;
-    final prov = context.read<AnnouncementProvider>();
-    final ok = await prov.deleteAnnouncement(p['id'] as int);
-    _pesan(ok ? 'Pengumuman dihapus.' : (prov.errorMessage ?? 'Gagal menghapus.'), sukses: ok);
-  }
-
   // ========================= AGENDA =========================
 
   Widget _buildEventCard(Map<String, dynamic> event) {
-    final status = event['status'] ?? 'Akan Datang';
     final tipe = event['tipe'] ?? 'Kegiatan';
+
+    // Agenda bertipe "Pengumuman" tampil dengan card bergaya pengumuman.
+    if (tipe == 'Pengumuman') {
+      return _buildKartuAgendaPengumuman(event);
+    }
+
+    final status = event['status'] ?? 'Akan Datang';
     final isUpcoming = status == 'Akan Datang';
     final isRapat = tipe == 'Rapat';
 
@@ -839,14 +529,131 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
                     event['deskripsi'] ?? '-',
                     style: TextStyle(color: context.teksKedua, height: 1.5),
                   ),
-                  // Blok "Notulen Rapat" dihapus: kolom agenda.notulen_url
-                  // tidak pernah bisa diisi dari mana pun, jadi bloknya tidak
-                  // pernah tampil dan tombolnya memang kosong.
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Card bergaya pengumuman untuk agenda dengan tipe "Pengumuman".
+  ///
+  /// Mengadaptasi desain `_buildKartuPengumuman()` yang lama ke field agenda:
+  /// - Badge kategori → badge tetap biru "Pengumuman"
+  /// - Isi konten → dari `deskripsi` agenda
+  /// - Tanggal → dari `tanggal` agenda
+  /// - Edit/hapus → memakai izin agenda (`bolehUbah` / `bolehHapus`)
+  Widget _buildKartuAgendaPengumuman(Map<String, dynamic> event) {
+    final judul = event['judul']?.toString() ?? '-';
+    final deskripsi = event['deskripsi']?.toString() ?? '';
+    final rawDate = event['tanggal']?.toString() ?? '';
+    final parsedDate = DateTime.tryParse(rawDate);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: EdgeInsets.all(paddingKartu(context)),
+      decoration: BoxDecoration(
+        color: context.latarKartu,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFBFDBFE)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDBEAFE),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  'Pengumuman',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1D4ED8),
+                  ),
+                ),
+              ),
+              const Spacer(),
+              if (_bolehUbah)
+                IconButton(
+                  tooltip: 'Ubah',
+                  icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF3B82F6)),
+                  onPressed: () => _showEditAgendaDialog(event),
+                ),
+              if (_bolehHapus)
+                IconButton(
+                  tooltip: 'Hapus',
+                  icon: const Icon(Icons.delete_outline, size: 18, color: Color(0xFFEF4444)),
+                  onPressed: () async {
+                    final conf = await showDialog<bool>(
+                      context: context,
+                      builder: (c) => AlertDialog(
+                        title: const Text('Hapus Pengumuman'),
+                        content: Text('Hapus "$judul"? Tindakan ini tidak bisa dibatalkan.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(c, false),
+                            child: const Text('Batal'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(c, true),
+                            child: const Text(
+                              'Hapus',
+                              style: TextStyle(color: Color(0xFFEF4444)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (conf == true && mounted) {
+                      await context.read<AgendaProvider>().deleteAgenda(event['id']);
+                    }
+                  },
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            judul,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: context.teksUtama,
+            ),
+          ),
+          if (deskripsi.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(deskripsi, style: TextStyle(fontSize: 13, height: 1.5, color: context.teksKedua)),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              if (parsedDate != null) ...[
+                Icon(Icons.schedule, size: 13, color: context.teksTersier),
+                const SizedBox(width: 4),
+                Text(
+                  DateFormat('dd MMM yyyy', 'id_ID').format(parsedDate),
+                  style: TextStyle(fontSize: 11, color: context.teksTersier),
+                ),
+              ],
+              if (event['lokasi'] != null && event['lokasi'].toString().isNotEmpty) ...[
+                const SizedBox(width: 12),
+                Icon(Icons.location_on_outlined, size: 13, color: context.teksTersier),
+                const SizedBox(width: 4),
+                Text(
+                  event['lokasi'].toString(),
+                  style: TextStyle(fontSize: 11, color: context.teksTersier),
+                ),
+              ],
+            ],
+          ),
+        ],
       ),
     );
   }
