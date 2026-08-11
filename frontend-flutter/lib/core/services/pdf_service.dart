@@ -13,6 +13,15 @@ class PdfService {
         ? DateFormat('dd MMMM yyyy').format(letter.tanggalRespon!)
         : dateStr;
 
+    pw.ImageProvider? stempelImage;
+    if (letter.isDisetujui) {
+      try {
+        stempelImage = await imageFromAssetBundle('assets/images/stempel_ttd.png');
+      } catch (_) {
+        stempelImage = null;
+      }
+    }
+
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
@@ -121,46 +130,53 @@ class PdfService {
                       pw.Text('Pengurus RT,', style: const pw.TextStyle(fontSize: 11)),
                       pw.SizedBox(height: 6),
                       if (letter.isDisetujui)
-                        pw.Container(
-                          padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: pw.BoxDecoration(
-                            color: PdfColors.teal50,
-                            border: pw.Border.all(color: PdfColors.teal700, width: 1.5),
-                            borderRadius: pw.BorderRadius.circular(6),
-                          ),
-                          child: pw.Column(
-                            children: [
-                              pw.Text(
-                                '✓ TTD & STEMPEL DIGITAL',
-                                style: pw.TextStyle(
-                                  fontSize: 8,
-                                  fontWeight: pw.FontWeight.bold,
-                                  color: PdfColors.teal800,
+                        if (stempelImage != null)
+                          pw.Container(
+                            height: 55,
+                            margin: const pw.EdgeInsets.symmetric(vertical: 2),
+                            child: pw.Image(stempelImage, fit: pw.BoxFit.contain),
+                          )
+                        else
+                          pw.Container(
+                            padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: pw.BoxDecoration(
+                              color: PdfColors.teal50,
+                              border: pw.Border.all(color: PdfColors.teal700, width: 1.5),
+                              borderRadius: pw.BorderRadius.circular(6),
+                            ),
+                            child: pw.Column(
+                              children: [
+                                pw.Text(
+                                  '✓ TTD & STEMPEL DIGITAL',
+                                  style: pw.TextStyle(
+                                    fontSize: 8,
+                                    fontWeight: pw.FontWeight.bold,
+                                    color: PdfColors.teal800,
+                                  ),
                                 ),
-                              ),
-                              pw.SizedBox(height: 2),
-                              pw.Text(
-                                'DISAHKAN OLEH PENGURUS RT',
-                                style: pw.TextStyle(
-                                  fontSize: 7,
-                                  fontWeight: pw.FontWeight.bold,
-                                  color: PdfColors.teal700,
+                                pw.SizedBox(height: 2),
+                                pw.Text(
+                                  'DISAHKAN OLEH PENGURUS RT',
+                                  style: pw.TextStyle(
+                                    fontSize: 7,
+                                    fontWeight: pw.FontWeight.bold,
+                                    color: PdfColors.teal700,
+                                  ),
                                 ),
-                              ),
-                              pw.SizedBox(height: 2),
-                              pw.Text(
-                                letter.approvedByNama != null && letter.approvedByNama!.isNotEmpty
-                                    ? letter.approvedByNama!
-                                    : 'Ketua RT',
-                                style: pw.TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: pw.FontWeight.bold,
-                                  color: PdfColors.teal900,
+                                pw.SizedBox(height: 2),
+                                pw.Text(
+                                  letter.approvedByNama != null && letter.approvedByNama!.isNotEmpty
+                                      ? letter.approvedByNama!
+                                      : 'Ketua RT',
+                                  style: pw.TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: pw.FontWeight.bold,
+                                    color: PdfColors.teal900,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        )
+                              ],
+                            ),
+                          )
                       else
                         pw.SizedBox(height: 50),
                       pw.SizedBox(height: 6),
