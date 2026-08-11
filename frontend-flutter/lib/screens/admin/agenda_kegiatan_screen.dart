@@ -1141,7 +1141,7 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF59E0B),
+                backgroundColor: const Color(0xFF3B82F6),
                 foregroundColor: Colors.white,
               ),
               child: const Text('Simpan Perubahan'),
