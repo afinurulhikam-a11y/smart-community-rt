@@ -884,14 +884,14 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
                 const Divider(height: 24),
                 Text('Keperluan:', style: TextStyle(fontSize: 12, color: context.teksKedua)),
                 const SizedBox(height: 4),
-                Text(data.keperluan, style: const TextStyle(fontSize: 14, color: Colors.black87)),
+                Text(data.keperluan, style: TextStyle(fontSize: 14, color: context.teksUtama)),
                 if (data.responseNote != null) ...[
                   const Divider(height: 24),
                   Text('Catatan Respon:', style: TextStyle(fontSize: 12, color: context.teksKedua)),
                   const SizedBox(height: 4),
                   Text(
                     data.responseNote!,
-                    style: const TextStyle(fontSize: 14, color: Colors.black87),
+                    style: TextStyle(fontSize: 14, color: context.teksUtama),
                   ),
                 ],
               ],

@@ -305,7 +305,7 @@ class _LetterRequestScreenState extends State<LetterRequestScreen> {
                         const SizedBox(height: 8),
                         Text(
                           'Keperluan: ${letter.keperluan}',
-                          style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                          style: TextStyle(fontSize: 13, color: context.teksKedua),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
