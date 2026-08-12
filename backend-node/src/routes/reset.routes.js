@@ -8,6 +8,7 @@ const {
   getRiwayatReset,
 } = require('../controllers/reset.controller');
 const { authMiddleware, roleGuard } = require('../middleware/auth.middleware');
+const { IZINKAN_TOKEN_QUERY } = require('../config/kompatibilitas');
 
 router.use(authMiddleware);
 
@@ -25,15 +26,26 @@ router.get('/ringkasan', getRingkasan);
 router.get('/riwayat', getRiwayatReset);
 router.post('/pratinjau', pratinjauReset);
 
-// Hanya POST. Versi GET dulu ada supaya layar bisa memanggilnya lewat
-// launchUrl dengan token di query — dan justru inilah URL yang paling tidak
-// boleh tercatat di log: ia menstreamkan dump mentah seluruh tabel dalam satu
-// grup reset, data warga termasuk.
-//
-// Unduhannya sekarang lewat tiket sekali pakai (`jenis: 'reset.cadangan'` di
-// src/config/jenis-unduh.js), yang menjalankan roleGuard('admin') yang sama —
-// dua kali, saat tiket dibuat dan saat ditukar.
 router.post('/cadangan', cadanganReset);
+
+// Versi GET dipertahankan SEMENTARA untuk klien lama, dan hanya itu.
+//
+// Ia hanya berguna lewat `?token=` — sebuah navigasi browser tidak bisa membawa
+// header — jadi umurnya terikat pada saklar yang sama. Begitu
+// IZINKAN_TOKEN_QUERY=false, rutenya tidak didaftarkan sama sekali: lebih jujur
+// daripada meninggalkan rute yang selalu menjawab 401 dan menyisakan kesan
+// bahwa jalurnya masih ada.
+//
+// Ini URL yang paling tidak boleh tercatat di log — ia menstreamkan dump mentah
+// seluruh tabel dalam satu grup reset, data warga termasuk. Karena itu ia yang
+// pertama harus ditinggalkan begitu klien baru terverifikasi.
+//
+// Penggantinya sudah jalan: tiket sekali pakai `jenis: 'reset.cadangan'` di
+// src/config/jenis-unduh.js, dengan roleGuard('admin') yang sama — diperiksa
+// dua kali, saat tiket dibuat dan saat ditukar.
+if (IZINKAN_TOKEN_QUERY) {
+  router.get('/cadangan', cadanganReset);
+}
 
 router.post('/eksekusi', eksekusiReset);
 
