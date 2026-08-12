@@ -113,7 +113,10 @@ class AuthService extends ChangeNotifier {
       }
       final status = response['statusCode'];
       if (status == 401 || status == 403) {
-        await logout();
+        // `panggilServer: false` — sesinya memang sudah ditolak server, jadi
+        // memanggil /auth/logout hanya akan ditolak lagi. Yang dibutuhkan di
+        // sini hanya membersihkan sisa sesi di perangkat ini.
+        await logout(panggilServer: false);
       }
     } catch (_) {
       // Diabaikan dengan sengaja: sesi dari cache tetap berlaku.
@@ -340,7 +343,33 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  Future<void> logout() async {
+  /// Keluar — DARI SEMUA PERANGKAT, bukan hanya perangkat ini.
+  ///
+  /// Server menaikkan `users.token_versi`, dan setiap token yang masih membawa
+  /// versi lama langsung ditolak. Itu konsekuensi langsung dari rancangannya:
+  /// versinya melekat pada PENGGUNA, bukan pada sesi. Layar Keluar wajib
+  /// menyebutkannya — perilaku yang mengejutkan tanpa peringatan adalah cacat
+  /// tersendiri, walau amannya benar.
+  ///
+  /// **Bila server tidak terjangkau, ini menjadi keluar LOKAL saja.** Token dan
+  /// `user_data` tetap dihapus dari perangkat ini, tetapi `token_versi` tidak
+  /// naik dan sesi di perangkat lain tetap hidup sampai kedaluwarsa alaminya.
+  /// Penyimpanan lokal dibersihkan apa pun yang terjadi: seseorang yang menekan
+  /// Keluar tidak boleh terjebak masih berada di dalam aplikasi.
+  ///
+  /// Sengaja TIDAK diantrekan lewat `AntreanOffline`, walau mekanismenya ada.
+  /// Alasannya makna, bukan mekanis: seseorang bisa menekan Keluar pukul 10.00
+  /// saat offline, masuk lagi pukul 10.05, lalu antreannya terkirim pukul
+  /// 10.10 — dan pencabutan yang tertunda itu akan membunuh sesi baru yang sah.
+  ///
+  /// [panggilServer] hanya disetel `false` pada jalur di mana server sudah
+  /// menolak sesinya (401/403); memanggilnya di sana hanya akan ditolak lagi.
+  Future<void> logout({bool panggilServer = true}) async {
+    if (panggilServer) {
+      // Hasilnya sengaja tidak diperiksa. Berhasil atau gagal, langkah
+      // berikutnya sama: bersihkan perangkat ini.
+      await ApiService.post(ApiConstants.logout, body: {});
+    }
     _user = null;
     // Profil lengkap ikut dibuang. Ia hanya di memori, tetapi provider ini hidup
     // selama proses berjalan di MultiProvider akar — dan perangkat di sini

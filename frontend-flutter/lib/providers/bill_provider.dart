@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../core/constants/api_constants.dart';
 import '../core/services/api_service.dart';
 import '../models/bill_model.dart';
@@ -277,24 +276,22 @@ class BillProvider extends ChangeNotifier {
     return response;
   }
 
-  /// Unduh export dengan filter yang sedang aktif. Token dikirim lewat query
-  /// param karena browser tidak menyertakan header pada navigasi unduhan —
-  /// pola yang sama dipakai WargaProvider.downloadExcel.
-  Future<void> downloadExport({required String format}) async {
-    final token = ApiService.token;
-    if (token == null) return;
-
-    final params = <String, String>{..._filterAktif, 'format': format, 'token': token};
-    final uri = Uri.parse(ApiConstants.billExport).replace(queryParameters: params);
-    await launchUrl(uri, webOnlyWindowName: '_self');
+  /// Unduh export dengan filter yang sedang aktif.
+  ///
+  /// Lewat tiket sekali pakai, bukan `?token=` — lihat
+  /// [ApiService.unduhDenganTiket].
+  Future<Map<String, dynamic>> downloadExport({required String format}) {
+    return ApiService.unduhDenganTiket(
+      'iuran.export',
+      parameter: {..._filterAktif, 'format': format},
+    );
   }
 
   /// Unduh kuitansi PDF resmi untuk satu tagihan yang sudah lunas.
-  Future<void> downloadReceipt(String billId) async {
-    final token = ApiService.token;
-    if (token == null) return;
-    final uri = Uri.parse('${ApiConstants.baseUrl}/bills/$billId/receipt?token=$token');
-    await launchUrl(uri, webOnlyWindowName: '_self');
+  Future<Map<String, dynamic>> downloadReceipt(String billId) {
+    // `id` adalah parameter JALUR di rute aslinya (`/bills/:id/receipt`), dan
+    // registry di backend yang tahu itu — di sini ia hanya sebuah nilai.
+    return ApiService.unduhDenganTiket('iuran.kuitansi', parameter: {'id': billId});
   }
 
   /// Kirim penagihan WhatsApp lewat gateway backend (Fonnte). Dipakai untuk

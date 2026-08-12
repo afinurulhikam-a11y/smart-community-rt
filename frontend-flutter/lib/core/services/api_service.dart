@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../constants/api_constants.dart';
 import 'cache_lokal.dart';
 import 'antrean_offline.dart';
 
@@ -189,6 +191,59 @@ class ApiService {
     } catch (e) {
       return {'success': false, penandaOffline: true, 'message': 'Gagal terhubung ke server: $e'};
     }
+  }
+
+  /// Membuka sebuah unduhan tanpa pernah menaruh token sesi di URL.
+  ///
+  /// Tombol Export dulu menyusun `.../export?token=<jwt>` lalu menyerahkannya ke
+  /// [launchUrl]. Itu satu-satunya cara yang tersedia — sebuah NAVIGASI TIDAK
+  /// BISA MEMBAWA HEADER, jadi `Authorization` bukan pilihan. Harganya: token
+  /// berumur 24 jam ikut tercatat di log akses server dan setiap proxy di
+  /// jalurnya, di riwayat browser, dan di header `Referer`.
+  ///
+  /// Sekarang aplikasi menukar sesinya dulu menjadi tiket: nilai acak berumur
+  /// 60 detik, sekali pakai, yang hanya membuka satu unduhan tertentu dan mati
+  /// begitu pemiliknya menekan Keluar. Yang bocor ke log menjadi tiket mati,
+  /// bukan sesi.
+  ///
+  /// [parameter] berisi filter yang biasanya menjadi query string — server
+  /// menyimpannya bersama tiket, sehingga URL yang akhirnya dibuka tidak
+  /// memuat apa pun selain tiketnya.
+  ///
+  /// Mengembalikan `{'success': bool, 'message': String?}` mengikuti amplop
+  /// yang sama seperti [get]/[post]; ia tidak pernah melempar.
+  static Future<Map<String, dynamic>> unduhDenganTiket(
+    String jenis, {
+    Map<String, dynamic> parameter = const {},
+  }) async {
+    // Nilai null dibuang, bukan dikirim: server menyimpan parameter apa adanya
+    // dan meneruskannya sebagai query, sedangkan filter yang tidak dipilih
+    // memang tidak boleh ikut.
+    final bersih = <String, dynamic>{
+      for (final e in parameter.entries)
+        if (e.value != null && e.value != '') e.key: e.value,
+    };
+
+    final hasil = await post(ApiConstants.unduhTiket, body: {
+      'jenis': jenis,
+      'parameter': bersih,
+    });
+
+    if (hasil['success'] != true) return hasil;
+
+    final tiket = hasil['data']?['tiket'] as String?;
+    if (tiket == null) {
+      return {'success': false, 'message': 'Server tidak mengembalikan tiket unduhan.'};
+    }
+
+    final uri = Uri.parse(ApiConstants.unduh(tiket));
+    // `_self` supaya berkas turun di tab yang sama dan tidak meninggalkan tab
+    // kosong — jawaban server adalah lampiran, jadi halamannya tidak berpindah.
+    final terbuka = await launchUrl(uri, webOnlyWindowName: '_self');
+    if (!terbuka) {
+      return {'success': false, 'message': 'Tidak dapat membuka tautan unduhan.'};
+    }
+    return {'success': true};
   }
 
   /// Ditambahkan pada jawaban ketika server sama sekali tidak terjangkau.

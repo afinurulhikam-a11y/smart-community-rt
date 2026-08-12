@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../core/constants/api_constants.dart';
 import '../core/services/api_service.dart';
 import '../models/inventory_model.dart';
@@ -285,21 +284,22 @@ class InventoryProvider extends ChangeNotifier {
 
   // ---------------------------------------------------------------- export
 
-  /// Token lewat query param karena browser tidak menyertakan header pada
-  /// navigasi unduhan.
-  Future<void> downloadExport({required String format, required bool peminjaman}) async {
-    final token = ApiService.token;
-    if (token == null) return;
-
-    final params = <String, String>{
-      ...(peminjaman ? _filterPinjam : _filterBarang),
-      'format': format,
-      'token': token,
-    };
-    final uri = Uri.parse(
-      peminjaman ? ApiConstants.borrowingExport : ApiConstants.inventoryExport,
-    ).replace(queryParameters: params);
-    await launchUrl(uri, webOnlyWindowName: '_self');
+  /// Lewat tiket sekali pakai — lihat [ApiService.unduhDenganTiket].
+  ///
+  /// Dua jenis, karena izinnya memang berbeda: barang dijaga
+  /// `inventaris.barang`, peminjaman dijaga `inventaris.peminjaman`. Warga
+  /// memegang yang kedua tanpa yang pertama.
+  Future<Map<String, dynamic>> downloadExport({
+    required String format,
+    required bool peminjaman,
+  }) {
+    return ApiService.unduhDenganTiket(
+      peminjaman ? 'peminjaman.export' : 'inventaris.export',
+      parameter: {
+        ...(peminjaman ? _filterPinjam : _filterBarang),
+        'format': format,
+      },
+    );
   }
 
   /// Kosongkan seluruh state saat pengguna keluar.

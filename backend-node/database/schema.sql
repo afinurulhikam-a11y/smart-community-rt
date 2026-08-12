@@ -1,6 +1,3 @@
--- =============================================================================
--- Smart Community RT — Skema Database
--- =============================================================================
 --
 -- PostgreSQL database dump
 --
@@ -997,6 +994,22 @@ ALTER SEQUENCE public.sensor_logs_id_seq OWNED BY public.sensor_logs.id;
 
 
 --
+-- Name: tiket_unduh; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tiket_unduh (
+    tiket_hash character varying(64) NOT NULL,
+    user_id uuid NOT NULL,
+    token_versi integer NOT NULL,
+    jenis character varying(60) NOT NULL,
+    parameter jsonb DEFAULT '{}'::jsonb NOT NULL,
+    kedaluwarsa timestamp with time zone NOT NULL,
+    dipakai_pada timestamp with time zone,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+--
 -- Name: users; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1016,7 +1029,8 @@ CREATE TABLE public.users (
     nik character varying(16),
     deleted_at timestamp without time zone,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    must_change_password boolean DEFAULT false NOT NULL
+    must_change_password boolean DEFAULT false NOT NULL,
+    token_versi integer DEFAULT 0 NOT NULL
 );
 
 
@@ -1546,6 +1560,14 @@ ALTER TABLE ONLY public.sensor_logs
 
 
 --
+-- Name: tiket_unduh tiket_unduh_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tiket_unduh
+    ADD CONSTRAINT tiket_unduh_pkey PRIMARY KEY (tiket_hash);
+
+
+--
 -- Name: users users_email_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1870,6 +1892,13 @@ CREATE INDEX reset_logs_waktu ON public.reset_logs USING btree (created_at DESC)
 --
 
 CREATE INDEX role_permissions_lookup ON public.role_permissions USING btree (role, menu_kode);
+
+
+--
+-- Name: tiket_unduh_kedaluwarsa_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX tiket_unduh_kedaluwarsa_idx ON public.tiket_unduh USING btree (kedaluwarsa);
 
 
 --
@@ -2228,6 +2257,14 @@ ALTER TABLE ONLY public.reset_logs
 
 ALTER TABLE ONLY public.role_permissions
     ADD CONSTRAINT role_permissions_menu_kode_fkey FOREIGN KEY (menu_kode) REFERENCES public.menu_items(kode) ON DELETE CASCADE;
+
+
+--
+-- Name: tiket_unduh tiket_unduh_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tiket_unduh
+    ADD CONSTRAINT tiket_unduh_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

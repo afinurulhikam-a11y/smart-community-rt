@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../core/constants/api_constants.dart';
 import '../core/services/api_service.dart';
 // FinanceModel dipakai ulang karena baris transaksi BOP bentuknya sama
@@ -184,16 +183,12 @@ class BopProvider extends ChangeNotifier {
     return response;
   }
 
-  /// Unduh laporan dengan filter aktif. Token lewat query param karena browser
-  /// tidak menyertakan header pada navigasi unduhan.
-  Future<void> downloadExport({required String format}) async {
-    final token = ApiService.token;
-    if (token == null) return;
-
-    final params = <String, String>{..._filterAktif, 'format': format, 'token': token};
+  /// Unduh laporan dengan filter aktif, lewat tiket sekali pakai —
+  /// lihat [ApiService.unduhDenganTiket].
+  Future<Map<String, dynamic>> downloadExport({required String format}) {
+    final params = <String, dynamic>{..._filterAktif, 'format': format};
     params.remove('limit');
-    final uri = Uri.parse(ApiConstants.bopExport).replace(queryParameters: params);
-    await launchUrl(uri, webOnlyWindowName: '_self');
+    return ApiService.unduhDenganTiket('bop.export', parameter: params);
   }
 
   /// Kosongkan seluruh state saat pengguna keluar.

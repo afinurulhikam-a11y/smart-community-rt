@@ -67,15 +67,29 @@ async function login(req, res) {
     }
 
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role, nama: user.nama, username: user.username },
+      {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        nama: user.nama,
+        username: user.username,
+        // Versi auth pemiliknya, dibaca dari database TEPAT pada saat token
+        // diterbitkan. `authMiddleware` menolak token yang `tv`-nya tidak lagi
+        // sama dengan `users.token_versi`, dan logout menaikkan angka itu.
+        //
+        // Karena angkanya dibaca di sini — bukan dibandingkan dengan jam mana
+        // pun — logout lalu login ulang pada detik yang sama tetap benar:
+        // token baru lahir membawa versi yang baru, bukan yang dicabut.
+        tv: user.token_versi ?? 0,
+      },
       process.env.JWT_SECRET,
       // Bawaan 24 jam, BUKAN 7 hari.
       //
       // Token ini tersimpan di localStorage pada Web — terbaca skrip mana pun di
-      // origin itu — dan sampai Fase B belum ada cara mencabutnya. Umur 7 hari
-      // berarti satu kebocoran memberi akses sepekan penuh tanpa satu pun tombol
-      // yang bisa menghentikannya. Bawaannya sengaja diperketat di kode, supaya
-      // deploy yang lupa mengisi env tidak diam-diam kembali ke sepekan.
+      // origin itu. Umur 7 hari berarti satu kebocoran memberi akses sepekan
+      // penuh; sejak Fase B ia bisa diputus lewat tombol Keluar, tetapi umur
+      // pendek tetap lapis pertamanya. Bawaannya sengaja diperketat di kode,
+      // supaya deploy yang lupa mengisi env tidak diam-diam kembali ke sepekan.
       { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
     );
 
@@ -118,6 +132,62 @@ function ringkasProfil(u) {
     username: u.username,
     must_change_password: u.must_change_password === true,
   };
+}
+
+/**
+ * POST /api/auth/logout — mengakhiri sesi pengguna DI SEMUA PERANGKAT.
+ *
+ * ===================================================================
+ * Kenapa seluruh sesi, bukan sesi yang sedang berjalan saja
+ * ===================================================================
+ *
+ * Ditetapkan tegas, bukan dibiarkan tersirat. Tiga alasan, berurut dari yang
+ * paling menentukan:
+ *
+ *   1. Ia konsekuensi langsung dari `token_versi`. Versinya melekat pada
+ *      PENGGUNA, bukan pada sesi. Logout per-perangkat menuntut identitas sesi
+ *      di dalam token (klaim `sid`) plus pencarian tabel sesi di setiap
+ *      permintaan — membuang sifat "nol kueri tambahan" yang membuat rancangan
+ *      ini murah.
+ *   2. Perangkat di sini memang dipakai bergantian. `bersihkanSemuaProvider` di
+ *      klien ada persis karena pengurus berbagi perangkat; pada pemakaian
+ *      seperti itu, "keluar" yang hanya mengenai satu perangkat menyesatkan.
+ *   3. Ia menjawab kekhawatiran yang tertulis di proyek ini sendiri — pengurus
+ *      yang dicopot harus bisa dihentikan seketika. Logout global adalah versi
+ *      sukarela dari tombol itu.
+ *
+ * Karena itu klien WAJIB memberitahu penggunanya. Perilaku yang mengejutkan
+ * tanpa peringatan adalah cacat tersendiri, walau amannya benar.
+ *
+ * `UPDATE … SET token_versi = token_versi + 1` dihitung oleh database, jadi dua
+ * logout paralel tetap benar tanpa transaksi. Idempoten dari sudut pandang
+ * pengguna: menekan Keluar dua kali tetap berakhir keluar.
+ */
+async function logout(req, res) {
+  try {
+    const hasil = await pool.query(
+      'UPDATE users SET token_versi = token_versi + 1 WHERE id = $1 RETURNING token_versi',
+      [req.user.id]
+    );
+
+    if (hasil.rows.length === 0) {
+      // Akunnya lenyap di antara verifikasi token dan baris ini. Sesinya toh
+      // sudah mati — jawab berhasil supaya klien tetap membersihkan dirinya.
+      return res.status(200).json({ success: true, message: 'Sesi sudah berakhir.' });
+    }
+
+    // Dicatat SETELAH update berhasil: jejaknya hanya boleh menyatakan yang
+    // benar-benar terjadi.
+    await logActivity(req, TIPE.LOGIN, 'Keluar dari semua perangkat');
+
+    return res.status(200).json({
+      success: true,
+      message: 'Anda telah keluar dari semua perangkat.',
+    });
+  } catch (err) {
+    console.error('Logout Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
 }
 
 async function getMe(req, res) {
@@ -299,4 +369,4 @@ async function changePassword(req, res) {
   }
 }
 
-module.exports = { register, login, getMe, getProfilLengkap, updateProfile, changePassword };
+module.exports = { register, login, logout, getMe, getProfilLengkap, updateProfile, changePassword };
