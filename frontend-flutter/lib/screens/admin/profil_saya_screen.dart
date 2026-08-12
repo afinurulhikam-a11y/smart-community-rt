@@ -29,19 +29,39 @@ class _ProfilSayaScreenState extends State<ProfilSayaScreen> {
   bool _obscureNewPassword = true;
   bool _obscureConfirmPassword = true;
 
+  /// Profil lengkap sedang diambil dari `/auth/profil`.
+  bool _memuatProfil = true;
+
   @override
   void initState() {
     super.initState();
+    // Nama dan username ada di profil ringkas yang tersimpan, jadi keduanya
+    // bisa langsung tampil. Email dan nomor HP TIDAK — keduanya sengaja tidak
+    // lagi disimpan di perangkat, dan diambil saat layar ini dibuka.
     final auth = context.read<AuthService>();
-    final user = auth.user ?? {};
-    final usernameVal = user['username']?.toString() ??
-        (user['email'] != null && user['email'].toString().contains('@')
-            ? user['email'].toString().split('@').first
-            : 'admin');
-    _namaController = TextEditingController(text: user['nama']?.toString() ?? '');
-    _usernameController = TextEditingController(text: usernameVal);
-    _emailController = TextEditingController(text: user['email']?.toString() ?? '');
-    _noHpController = TextEditingController(text: user['no_hp']?.toString() ?? '');
+    final ringkas = auth.user ?? {};
+    _namaController = TextEditingController(text: ringkas['nama']?.toString() ?? '');
+    _usernameController = TextEditingController(text: ringkas['username']?.toString() ?? '');
+    _emailController = TextEditingController();
+    _noHpController = TextEditingController();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => _muatProfil());
+  }
+
+  Future<void> _muatProfil() async {
+    final profil = await context.read<AuthService>().muatProfilLengkap();
+    if (!mounted) return;
+    setState(() {
+      _memuatProfil = false;
+      if (profil == null) return;
+      // Nilai dari server menimpa yang sudah ada — kecuali bila pengguna sudah
+      // terlanjur mengetik, yang tidak mungkin terjadi karena formnya masih
+      // menampilkan keadaan memuat sampai titik ini.
+      _namaController.text = profil['nama']?.toString() ?? _namaController.text;
+      _usernameController.text = profil['username']?.toString() ?? _usernameController.text;
+      _emailController.text = profil['email']?.toString() ?? '';
+      _noHpController.text = profil['no_hp']?.toString() ?? '';
+    });
   }
 
   @override
@@ -125,13 +145,22 @@ class _ProfilSayaScreenState extends State<ProfilSayaScreen> {
   }
 
   Widget _buildProfilAkunContent(AuthService auth) {
-    final user = auth.user ?? {};
-    final nama = user['nama']?.toString() ?? 'Pengguna';
-    final username = user['username']?.toString() ?? (user['email']?.toString().split('@')[0] ?? '-');
-    final email = user['email']?.toString() ?? '-';
-    final noHp = user['no_hp']?.toString() ?? '';
+    // Nama, username, dan peran datang dari profil ringkas yang tersimpan.
+    // Email, no_hp, dan is_active datang dari `/auth/profil` — keduanya tidak
+    // lagi disimpan di perangkat, jadi selama permintaan itu berjalan
+    // ditampilkan sebagai "Memuat…" alih-alih "-" yang menyatakan data kosong.
+    final ringkas = auth.user ?? {};
+    final lengkap = auth.profilLengkap ?? const <String, dynamic>{};
+    final belumAda = _memuatProfil ? 'Memuat…' : '-';
+
+    final nama = (lengkap['nama'] ?? ringkas['nama'])?.toString() ?? 'Pengguna';
+    final username = (lengkap['username'] ?? ringkas['username'])?.toString() ?? '-';
+    final email = lengkap['email']?.toString() ?? belumAda;
+    final noHp = lengkap['no_hp']?.toString() ?? '';
     final roleLabel = auth.userRoleLabel;
-    final isActive = user['is_active'] != false;
+    // Pengguna yang sedang melihat layar ini pasti aktif — akun nonaktif
+    // ditolak middleware. Nilai dari server tetap dipakai bila sudah ada.
+    final isActive = lengkap.isEmpty ? true : lengkap['is_active'] != false;
 
     return _buildResponsiveSplit(
       leftFlex: 1,

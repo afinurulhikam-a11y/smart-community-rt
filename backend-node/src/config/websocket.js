@@ -15,7 +15,10 @@ function initWebSocket(server) {
     const token = url.searchParams.get('token');
     if (token) {
       try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        // Allowlist algoritma sama dengan authMiddleware — lihat alasannya di
+        // sana. Jalur ini menerima token dari query string, jadi justru di sini
+        // penjaga itu paling tidak boleh bergantung pada bawaan pustaka.
+        const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
         ws.userId = decoded.id;
         ws.userNama = decoded.nama || decoded.email;
         ws.userRole = decoded.role;

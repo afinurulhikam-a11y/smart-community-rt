@@ -73,6 +73,13 @@ class ApiConstants {
   static String get register => '$baseUrl/auth/register';
   static String get me => '$baseUrl/auth/me';
 
+  /// Profil lengkap milik pemanggil sendiri — email, no_hp, no_kk, nik, alamat.
+  ///
+  /// Terpisah dari [me] karena hasil [me] DISIMPAN ke penyimpanan perangkat
+  /// (di Web berarti `localStorage`), sedangkan ini hanya dibaca saat layar
+  /// Profil Saya terbuka lalu dilupakan.
+  static String get authProfil => '$baseUrl/auth/profil';
+
   static String get updateProfile => '$baseUrl/auth/profile';
   static String get changePassword => '$baseUrl/auth/change-password';
 
