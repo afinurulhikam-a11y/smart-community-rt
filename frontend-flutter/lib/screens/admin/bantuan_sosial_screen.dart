@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/bantuan_sosial_provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../core/responsif.dart';
-import '../../core/constants/api_constants.dart';
 import '../../core/services/api_service.dart';
 import '../../providers/permission_provider.dart';
 import '../../widgets/banner_lihat_saja.dart';
@@ -147,31 +145,23 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
   }
 
   Future<void> _exportData(String format) async {
-    final queryParams = [];
-    if (_selectedTahun != 'Semua') queryParams.add('tahun=$_selectedTahun');
-    if (_jenisBantuan != 'Semua Jenis') {
-      queryParams.add('jenis_bantuan=${Uri.encodeComponent(_jenisBantuan)}');
-    }
-    if (_status != 'Semua Status') {
-      queryParams.add('status=${Uri.encodeComponent(_status)}');
-    }
-    if (_searchQuery.isNotEmpty) {
-      queryParams.add('search=${Uri.encodeComponent(_searchQuery)}');
-    }
-    queryParams.add('format=$format');
-    final token = ApiService.token;
-    if (token != null) queryParams.add('token=$token');
-
-    final queryString = queryParams.isNotEmpty
-        ? '?${queryParams.join('&')}'
-        : '';
-    final url = Uri.parse(
-      '${ApiConstants.baseUrl}/bantuan-sosial/export$queryString',
+    // Lewat tiket sekali pakai — lihat ApiService.unduhDenganTiket. Filter
+    // dikirim sebagai parameter dan disimpan server bersama tiketnya, jadi URL
+    // yang akhirnya dibuka tidak memuat apa pun selain tiket.
+    final hasil = await ApiService.unduhDenganTiket(
+      'bansos.export',
+      parameter: {
+        if (_selectedTahun != 'Semua') 'tahun': _selectedTahun,
+        if (_jenisBantuan != 'Semua Jenis') 'jenis_bantuan': _jenisBantuan,
+        if (_status != 'Semua Status') 'status': _status,
+        if (_searchQuery.isNotEmpty) 'search': _searchQuery,
+        'format': format,
+      },
     );
 
-    if (!await launchUrl(url)) {
+    if (hasil['success'] != true) {
       if (mounted) {
-        pesanGagal(context, 'Gagal mengunduh file');
+        pesanGagal(context, hasil['message']?.toString() ?? 'Gagal mengunduh file');
       }
     }
   }

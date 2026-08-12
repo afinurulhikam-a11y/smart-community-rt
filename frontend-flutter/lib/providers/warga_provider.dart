@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/constants/api_constants.dart';
 import '../core/services/api_service.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class WargaProvider extends ChangeNotifier {
   List<Map<String, dynamic>> _wargaList = [];
@@ -189,30 +188,15 @@ class WargaProvider extends ChangeNotifier {
     }
   }
 
-  void downloadExcel({String? search}) {
-    final token = ApiService.token;
-    if (token == null) return;
-
-    String url = '${ApiConstants.baseUrl}/warga/export/excel?token=$token';
-    if (search != null && search.isNotEmpty) {
-      url += '&search=$search';
-    }
-
-    final uri = Uri.parse(url);
-    launchUrl(uri, webOnlyWindowName: '_self');
+  /// Lewat tiket sekali pakai — lihat [ApiService.unduhDenganTiket]. Berkas ini
+  /// memuat NIK, no_kk, alamat dan nomor telepon seluruh warga, jadi tautannya
+  /// termasuk yang paling tidak boleh membawa kredensial di URL.
+  Future<Map<String, dynamic>> downloadExcel({String? search}) {
+    return ApiService.unduhDenganTiket('warga.excel', parameter: {'search': search});
   }
 
-  void downloadPdf({String? search}) {
-    final token = ApiService.token;
-    if (token == null) return;
-
-    String url = '${ApiConstants.baseUrl}/warga/export/pdf?token=$token';
-    if (search != null && search.isNotEmpty) {
-      url += '&search=$search';
-    }
-
-    final uri = Uri.parse(url);
-    launchUrl(uri, webOnlyWindowName: '_self');
+  Future<Map<String, dynamic>> downloadPdf({String? search}) {
+    return ApiService.unduhDenganTiket('warga.pdf', parameter: {'search': search});
   }
 
   Future<bool> createUserAccount(Map<String, dynamic> data) async {

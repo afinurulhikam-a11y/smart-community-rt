@@ -73,6 +73,19 @@ class ApiConstants {
   static String get register => '$baseUrl/auth/register';
   static String get me => '$baseUrl/auth/me';
 
+  /// Mengakhiri sesi DI SEMUA PERANGKAT milik pemanggil, bukan hanya perangkat
+  /// ini. Server menaikkan `users.token_versi`, dan setiap token yang membawa
+  /// versi lama langsung ditolak.
+  static String get logout => '$baseUrl/auth/logout';
+
+  /// Menukar sesi yang sah menjadi satu tautan unduhan berumur pendek.
+  ///
+  /// Ada karena sebuah navigasi browser tidak bisa membawa header, sehingga
+  /// tombol Export dulu menempelkan `?token=<jwt>` ke URL — dan URL lengkap
+  /// tercatat di log akses server, riwayat browser, serta header `Referer`.
+  static String get unduhTiket => '$baseUrl/unduh/tiket';
+  static String unduh(String tiket) => '$baseUrl/unduh/$tiket';
+
   /// Profil lengkap milik pemanggil sendiri — email, no_hp, no_kk, nik, alamat.
   ///
   /// Terpisah dari [me] karena hasil [me] DISIMPAN ke penyimpanan perangkat

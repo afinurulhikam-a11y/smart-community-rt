@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../core/constants/api_constants.dart';
 import '../core/services/api_service.dart';
 import '../models/finance_model.dart';
@@ -181,15 +180,13 @@ class FinanceProvider extends ChangeNotifier {
   }
 
 
-  /// Unduh laporan dengan filter aktif. Token lewat query param karena browser
-  /// tidak menyertakan header pada navigasi unduhan.
-  Future<void> downloadExport({required String format}) async {
-    final token = ApiService.token;
-    if (token == null) return;
-
-    final params = <String, String>{..._filterAktif, 'format': format, 'token': token};
-    final uri = Uri.parse(ApiConstants.financeExport).replace(queryParameters: params);
-    await launchUrl(uri, webOnlyWindowName: '_self');
+  /// Unduh laporan dengan filter aktif, lewat tiket sekali pakai —
+  /// lihat [ApiService.unduhDenganTiket].
+  Future<Map<String, dynamic>> downloadExport({required String format}) {
+    return ApiService.unduhDenganTiket(
+      'kas.export',
+      parameter: {..._filterAktif, 'format': format},
+    );
   }
 
   /// Kosongkan seluruh state saat pengguna keluar.

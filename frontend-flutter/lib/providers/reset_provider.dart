@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
 
 import '../core/constants/api_constants.dart';
 import '../core/services/api_service.dart';
@@ -75,18 +74,24 @@ class ResetProvider extends ChangeNotifier {
     return null;
   }
 
-  /// Unduh berkas cadangan lewat browser.
+  /// Unduh berkas cadangan lewat browser, memakai tiket sekali pakai.
   ///
-  /// Memakai launchUrl dengan token di query, pola yang sama dengan seluruh
-  /// tombol export lain di aplikasi ini.
+  /// Ini justru URL yang paling tidak boleh tercatat di log: ia menstreamkan
+  /// dump mentah seluruh tabel dalam satu grup reset, data warga termasuk.
+  /// `grup` tetap wajib — cadangan bersifat per-kelompok, bukan seluruh basis
+  /// data, dan menghilangkannya membuat orang mengira sudah punya cadangan
+  /// tepat sebelum menghapus data.
   Future<bool> unduhCadangan(String kode) async {
-    final token = ApiService.token;
-    if (token == null) return false;
-
-    final uri = Uri.parse(
-      ApiConstants.resetCadangan,
-    ).replace(queryParameters: {'grup': kode, 'token': token});
-    return launchUrl(uri, webOnlyWindowName: '_self');
+    final r = await ApiService.unduhDenganTiket(
+      'reset.cadangan',
+      parameter: {'grup': kode},
+    );
+    if (r['success'] != true) {
+      _error = r['message']?.toString() ?? 'Gagal mengunduh cadangan.';
+      notifyListeners();
+      return false;
+    }
+    return true;
   }
 
   /// Jalankan penghapusan.

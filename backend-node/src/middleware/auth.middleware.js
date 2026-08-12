@@ -19,44 +19,6 @@ const LABEL_AKSI = {
 };
 
 /**
- * Cache sesi singkat — menyimpan hasil verifikasi akun per user-id selama
- * MAX_AGE_MS. Dengan ini, 15 request bersamaan dari satu browser tab hanya
- * menyentuh database SEKALI, bukan 15 kali.
- *
- * Risikonya kecil: jika admin menonaktifkan akun, efeknya tertunda paling
- * lama 30 detik. Jauh lebih baik daripada semua request gagal karena pool
- * habis dan menampilkan "Tidak dapat memverifikasi sesi".
- */
-const _cacheAuth = new Map();
-const _CACHE_MAX_AGE_MS = 30_000; // 30 detik
-
-function _ambilCacheAuth(userId) {
-  const entry = _cacheAuth.get(userId);
-  if (!entry) return null;
-  if (Date.now() - entry.ts > _CACHE_MAX_AGE_MS) {
-    _cacheAuth.delete(userId);
-    return null;
-  }
-  return entry.data;
-}
-
-function _simpanCacheAuth(userId, data) {
-  _cacheAuth.set(userId, { data, ts: Date.now() });
-  // Bersihkan entry lama secara berkala agar memori tidak membengkak
-  if (_cacheAuth.size > 500) {
-    const sekarang = Date.now();
-    for (const [k, v] of _cacheAuth) {
-      if (sekarang - v.ts > _CACHE_MAX_AGE_MS) _cacheAuth.delete(k);
-    }
-  }
-}
-
-/** Hapus cache sesi untuk user tertentu — dipanggil saat status/role berubah. */
-function invalidateAuthCache(userId) {
-  _cacheAuth.delete(userId);
-}
-
-/**
  * Verifikasi token, LALU periksa akunnya ke database.
  *
  * ===================================================================
@@ -83,18 +45,48 @@ function invalidateAuthCache(userId) {
  * penurunan peran baru berlaku setelah pengguna login ulang — dan orang yang
  * baru saja dicopot tidak punya alasan untuk melakukannya.
  *
- * OPTIMASI: Hasil verifikasi di-cache selama 30 detik per user-id, sehingga
- * burst request (misalnya saat dashboard dibuka dan 10+ request ditembak
- * bersamaan) hanya menyentuh database sekali. Cache otomatis basi setelah
- * 30 detik, dan di-invalidate saat status/role diubah admin.
+ * ===================================================================
+ * Kenapa TIDAK ADA cache di sini
+ * ===================================================================
+ *
+ * Pernah ada: hasil verifikasi disimpan 30 detik per user-id supaya burst
+ * permintaan dari satu tab hanya menyentuh database sekali. Cache itu dibongkar
+ * ketika pencabutan sesi masuk, dan alasannya bukan selera:
+ *
+ *   1. Tiga kolom di bawah — `token_versi`, `is_active`, `deleted_at` — MENENTUKAN
+ *      apakah sebuah sesi masih hidup. Menyimpannya 30 detik berarti token yang
+ *      baru saja dicabut tetap diterima selama itu, dan pada Railway yang bisa
+ *      menjalankan lebih dari satu instance, `invalidateAuthCache` di satu proses
+ *      tidak pernah terlihat oleh proses lain. "Keluar" yang baru berlaku setengah
+ *      menit kemudian, di sebagian instance saja, bukan keluar.
+ *   2. Begitu ketiga kolom itu wajib segar, SELECT-nya tetap berjalan tiap
+ *      permintaan — sehingga cache tidak lagi menghemat satu kueri pun.
+ *      Menyisakannya hanya untuk `nama` berarti memelihara sumber kedua demi
+ *      nol keuntungan.
+ *
+ * Yang tersisa adalah biaya yang memang sudah diterima sejak awal berkas ini:
+ * satu SELECT terindeks pada primary key per permintaan. Bila pool terasa
+ * sesak, naikkan `DB_POOL_MAX` — jangan kembalikan cache di jalur ini.
+ *
+ * ===================================================================
+ * Token TIDAK LAGI diterima lewat query string
+ * ===================================================================
+ *
+ * Dulu `?token=` diterima supaya navigasi browser (tombol Export/Unduh) bisa
+ * menembak endpoint langsung, karena sebuah navigasi tidak bisa membawa header.
+ * Harganya: kredensial sesi berumur 24 jam ikut tercatat di log akses server,
+ * riwayat browser, dan header `Referer`.
+ *
+ * Penggantinya `src/routes/unduh.routes.js` — tiket sekali pakai berumur 60
+ * detik yang hanya membuka satu unduhan tertentu. Selama query-param masih
+ * diterima di sini, penghapusannya di klien tidak menutup apa pun, jadi
+ * keduanya harus naik bersamaan.
  */
 async function authMiddleware(req, res, next) {
   let token;
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.split(' ')[1];
-  } else if (req.query.token) {
-    token = req.query.token;
   }
 
   if (!token) {
@@ -121,17 +113,10 @@ async function authMiddleware(req, res, next) {
     });
   }
 
-  // Cek cache dulu — jika sudah pernah diverifikasi dalam 30 detik terakhir,
-  // tidak perlu menyentuh database lagi.
-  const cached = _ambilCacheAuth(decoded.id);
-  if (cached) {
-    req.user = { ...decoded, role: cached.role, nama: cached.nama };
-    return next();
-  }
-
   try {
     const akun = await pool.query(
-      'SELECT id, nama, role, is_active FROM users WHERE id = $1 AND deleted_at IS NULL',
+      `SELECT id, nama, role, is_active, token_versi
+       FROM users WHERE id = $1 AND deleted_at IS NULL`,
       [decoded.id]
     );
 
@@ -148,20 +133,40 @@ async function authMiddleware(req, res, next) {
       });
     }
 
-    // Simpan ke cache
-    _simpanCacheAuth(decoded.id, { role: akun.rows[0].role, nama: akun.rows[0].nama });
+    // Pencabutan sesi. `tv` dibandingkan sebagai BILANGAN BULAT, bukan terhadap
+    // waktu — lihat migration_v29_token_versi.js untuk alasannya.
+    //
+    // `?? 0` adalah jalur kompatibilitas: token yang diterbitkan sebelum Fase B
+    // tidak punya klaim ini, dan kolomnya lahir 0, jadi keduanya cocok dan tidak
+    // ada seorang pun yang dikeluarkan oleh migrasinya. Token lama baru mati
+    // pada logout pertama pemiliknya, atau pada kedaluwarsanya sendiri.
+    if ((decoded.tv ?? 0) !== akun.rows[0].token_versi) {
+      return res.status(401).json({
+        success: false,
+        message: 'Sesi Anda sudah berakhir. Silakan masuk kembali.',
+      });
+    }
 
     // Payload token dipertahankan (no_kk, email, dan lainnya dipakai controller),
     // tetapi peran dan nama ditimpa dengan yang berlaku sekarang.
     req.user = { ...decoded, role: akun.rows[0].role, nama: akun.rows[0].nama };
     return next();
   } catch (err) {
-    // Jika database mengalami kendala/timeout saat verifikasi tambahan,
-    // jangan menolak sesi pengguna yang sudah memiliki token JWT sah!
-    // Gunakan payload JWT sebagai fallback cadangan.
-    console.warn('AuthMiddleware DB Warning (fallback to JWT payload):', err.message);
-    req.user = decoded;
-    return next();
+    // FAIL-CLOSED. Sebelumnya jalur ini memakai payload JWT sebagai cadangan
+    // dan memanggil `next()` — sehingga gangguan database, sekecil apa pun,
+    // MEMBERIKAN AKSES tanpa satu pun pemeriksaan di atas berjalan: akun
+    // nonaktif lolos, akun terhapus lolos, dan sesi yang baru saja dicabut
+    // lolos. Sebuah kegagalan infrastruktur tidak boleh berubah menjadi izin.
+    //
+    // 503, bukan 401: pengguna tidak melakukan kesalahan apa pun, dan
+    // membedakannya penting supaya klien tidak menghapus sesi yang sebetulnya
+    // masih sah. Yang hilang hanyalah ilusi — aplikasi ini memang tidak
+    // berfungsi tanpa database.
+    console.error('AuthMiddleware DB Error (menolak, fail-closed):', err.message);
+    return res.status(503).json({
+      success: false,
+      message: 'Tidak dapat memverifikasi sesi karena database sedang bermasalah. Coba lagi sebentar lagi.',
+    });
   }
 }
 
@@ -263,4 +268,4 @@ function requirePermission(menuKode, aksi = 'view') {
   };
 }
 
-module.exports = { authMiddleware, roleGuard, requirePermission, invalidateAuthCache, ROLE_ADMIN };
+module.exports = { authMiddleware, roleGuard, requirePermission, ROLE_ADMIN };

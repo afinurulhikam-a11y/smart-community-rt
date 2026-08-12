@@ -25,10 +25,14 @@ router.get('/ringkasan', getRingkasan);
 router.get('/riwayat', getRiwayatReset);
 router.post('/pratinjau', pratinjauReset);
 
-// Cadangan tersedia sebagai GET dan POST. Versi GET dipakai layar lewat
-// launchUrl dengan token di query — pola unduhan yang sudah dipakai seluruh
-// tombol export lain di aplikasi ini, dan authMiddleware memang menerimanya.
-router.get('/cadangan', cadanganReset);
+// Hanya POST. Versi GET dulu ada supaya layar bisa memanggilnya lewat
+// launchUrl dengan token di query — dan justru inilah URL yang paling tidak
+// boleh tercatat di log: ia menstreamkan dump mentah seluruh tabel dalam satu
+// grup reset, data warga termasuk.
+//
+// Unduhannya sekarang lewat tiket sekali pakai (`jenis: 'reset.cadangan'` di
+// src/config/jenis-unduh.js), yang menjalankan roleGuard('admin') yang sama —
+// dua kali, saat tiket dibuat dan saat ditukar.
 router.post('/cadangan', cadanganReset);
 
 router.post('/eksekusi', eksekusiReset);

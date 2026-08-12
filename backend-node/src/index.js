@@ -48,6 +48,7 @@ const resetRoutes = require('./routes/reset.routes');
 const paymentRoutes = require('./routes/payment.routes');
 
 const uploadRoutes = require('./routes/upload.routes');
+const unduhRoutes = require('./routes/unduh.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -188,6 +189,9 @@ app.use('/api/reset', resetRoutes);
 app.use('/api/payments', paymentRoutes);
 
 app.use('/api/upload', uploadRoutes);
+
+// Tiket unduh sekali pakai — penggantinya `?token=` di URL tombol Export.
+app.use('/api/unduh', unduhRoutes);
 
 // Health check
 //

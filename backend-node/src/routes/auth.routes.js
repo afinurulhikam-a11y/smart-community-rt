@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { register, login, getMe,
+const { register, login, logout, getMe,
   getProfilLengkap, updateProfile, changePassword } = require('../controllers/auth.controller');
 const { authMiddleware } = require('../middleware/auth.middleware');
 
@@ -11,6 +11,11 @@ router.post('/login', login);
 
 // Selebihnya baru menuntut token.
 router.use(authMiddleware);
+
+// Logout MENUNTUT token, dan itu disengaja: ia mencabut sesi seluruh perangkat
+// milik pemanggil, jadi hanya pemilik sesi yang boleh memicunya. Tanpa penjaga
+// ini, siapa pun yang tahu sebuah user-id bisa mengeluarkan orang lain.
+router.post('/logout', logout);
 
 router.get('/me', getMe);
 

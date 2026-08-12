@@ -737,7 +737,7 @@ class _MainDashboardState extends State<MainDashboard> {
                   _pilihMenu(index);
                   Navigator.pop(context); // Close drawer
                 },
-                onLogout: () => auth.logout(),
+                onLogout: () => _konfirmasiKeluar(auth),
               ),
             ),
       body: Column(
@@ -791,7 +791,7 @@ class _MainDashboardState extends State<MainDashboard> {
                     onItemSelected: (index) {
                       _pilihMenu(index);
                     },
-                    onLogout: () => auth.logout(),
+                    onLogout: () => _konfirmasiKeluar(auth),
                   ),
 
                 // Main Content
@@ -849,6 +849,44 @@ class _MainDashboardState extends State<MainDashboard> {
         ],
       ),
     );
+  }
+
+  /// Menegaskan bahwa Keluar mengakhiri sesi DI SEMUA PERANGKAT.
+  ///
+  /// Bukan basa-basi konfirmasi. Sejak sesi bisa dicabut, menekan Keluar di
+  /// ponsel juga mengeluarkan sesi di desktop — konsekuensi langsung dari
+  /// `users.token_versi` yang melekat pada pengguna, bukan pada sesi. Perilaku
+  /// yang mengejutkan tanpa peringatan adalah cacat tersendiri, walau amannya
+  /// benar, jadi kalimat itu harus terbaca sebelum tombolnya ditekan.
+  Future<void> _konfirmasiKeluar(AuthService auth) async {
+    final setuju = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Keluar dari akun?'),
+        content: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: lebarDialog(ctx, maksimal: 420)),
+          child: const Text(
+            'Anda akan keluar dari SEMUA PERANGKAT yang sedang masuk dengan akun ini.\n\n'
+            'Jika perangkat ini sedang tidak terhubung ke server, Anda hanya keluar '
+            'dari perangkat ini — sesi di perangkat lain baru berakhir saat '
+            'terhubung kembali.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.dangerColor),
+            child: const Text('Keluar'),
+          ),
+        ],
+      ),
+    );
+
+    if (setuju == true) await auth.logout();
   }
 
   /// Pindah menu, sekaligus melepas aksi utama layar sebelumnya.
