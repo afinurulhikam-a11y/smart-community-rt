@@ -143,6 +143,53 @@ Terima kasih atas partisipasi Bpk/Ibu dalam menjaga kenyamanan lingkungan.
   }
 }
 
+/**
+ * Notifikasi WhatsApp saat pengaduan warga ditanggapi pengurus.
+ *
+ * Sejajar dengan `sendLetterApprovedWA`: warga mengajukan sesuatu, lalu
+ * menunggu jawaban manusia. Tanpa ini ia tidak punya cara tahu bahwa jawabannya
+ * sudah ada selain membuka aplikasi dan mengetuk aduannya satu per satu —
+ * padahal justru saat berstatus "Diproses" tidak ada satu pun angka di
+ * dasbornya yang berubah.
+ *
+ * Teks tanggapan ikut dikirim, bukan hanya "silakan buka aplikasi". Kalimat
+ * yang menyuruh membuka aplikasi untuk membaca satu paragraf hanya memindahkan
+ * pekerjaan ke warga; yang dipotong hanya bila panjangnya tidak wajar untuk WA.
+ */
+async function sendComplaintRepliedWA({ userNama, noHp, kodeTiket, judul, status, tanggapan }) {
+  const label = {
+    Diproses: '🔧 *SEDANG DIPROSES*',
+    Selesai: '✅ *SELESAI DITANGANI*',
+    Ditolak: '❌ *TIDAK DAPAT DIPROSES*',
+  }[status] || `*${status || 'DITANGGAPI'}*`;
+
+  const potong = (t, n = 400) => {
+    const s = String(t || '').trim();
+    return s.length > n ? `${s.slice(0, n)}…` : s;
+  };
+
+  const isiTanggapan = potong(tanggapan);
+
+  const pesan =
+`📣 *PENGADUAN ANDA DITANGGAPI*
+
+Halo Bpk/Ibu *${userNama || 'Warga'}*,
+
+Pengaduan Anda${kodeTiket ? ` [${kodeTiket}]` : ''} telah ditanggapi pengurus RT.
+📌 *Perihal*: ${judul || '-'}
+📊 *Status*: ${label}
+${isiTanggapan ? `\n💬 *Tanggapan Pengurus*:\n${isiTanggapan}\n` : ''}
+Rincian lengkapnya dapat dilihat di menu Pengaduan pada aplikasi:
+🌐 https://smart-community-rt.vercel.app
+
+Terima kasih sudah melapor.
+— *Pengurus RT*`;
+
+  if (noHp) {
+    await sendWA({ target: noHp, message: pesan });
+  }
+}
+
 /** Notifikasi WhatsApp untuk Persetujuan Surat Pengantar */
 async function sendLetterApprovedWA({ userNama, noHp, jenisSurat }) {
   const pesan = 
@@ -180,4 +227,5 @@ module.exports = {
   sendEmergencyWA,
   sendBillWA,
   sendLetterApprovedWA,
+  sendComplaintRepliedWA,
 };

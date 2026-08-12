@@ -47,7 +47,9 @@ Map<String, dynamic> _pengaduan({
   String status = 'Menunggu',
   String? tanggapan,
   String? penanggap,
+  String? dibacaPada,
 }) => {
+      'tanggapan_dibaca_pada': dibacaPada,
       'id': id,
       'kode_tiket': 'TKT-2026-000$id',
       // Sengaja panjang: judul pendek tidak pernah menekan tata letak.
@@ -279,6 +281,47 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byTooltip('Tanggapi'), findsNothing);
     });
+  });
+
+  group('Lencana tanggapan belum dibaca', () {
+    testWidgets('baris bertanggapan baru diberi lencana "Baru"', (tester) async {
+      await tester.pumpWidget(_bungkusPengaduan([
+        _pengaduan(status: 'Diproses', tanggapan: 'Petugas dijadwalkan besok.'),
+      ]));
+      await tester.pumpAndSettle();
+      expect(find.text('Baru'), findsOneWidget);
+    });
+
+    testWidgets('yang sudah dibaca tidak berlencana', (tester) async {
+      await tester.pumpWidget(_bungkusPengaduan([
+        _pengaduan(
+          status: 'Diproses',
+          tanggapan: 'Petugas dijadwalkan besok.',
+          dibacaPada: '2026-08-10T09:00:00.000Z',
+        ),
+      ]));
+      await tester.pumpAndSettle();
+      expect(find.text('Baru'), findsNothing);
+    });
+
+    testWidgets('belum ditanggapi juga tidak berlencana', (tester) async {
+      // Lencana yang menyala tanpa ada yang bisa dibaca hanya melatih warga
+      // mengabaikannya.
+      await tester.pumpWidget(_bungkusPengaduan([_pengaduan()]));
+      await tester.pumpAndSettle();
+      expect(find.text('Baru'), findsNothing);
+    });
+
+    for (final k in kondisiUji) {
+      testWidgets('lencana tidak meluberkan baris @ ${k.nama}', (tester) async {
+        pasangKondisi(tester, k);
+        await tester.pumpWidget(_bungkusPengaduan([
+          _pengaduan(status: 'Diproses', tanggapan: 'Sudah dijadwalkan.'),
+        ], skalaFont: k.skalaFont));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      });
+    }
   });
 
   group('Mode gelap', () {

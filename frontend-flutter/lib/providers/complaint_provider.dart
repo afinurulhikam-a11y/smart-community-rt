@@ -121,6 +121,45 @@ class ComplaintProvider extends ChangeNotifier {
     return false;
   }
 
+  /// Pengaduan milik warga yang tanggapannya BELUM ia baca.
+  ///
+  /// Turunannya tidak disimpan: selalu dihitung dari dua kolom yang datang dari
+  /// backend, sehingga tidak mungkin berbeda dari bahan penyusunnya. Sama
+  /// seperti `terpakai` pada meteran, yang juga tidak pernah disimpan.
+  List<Map<String, dynamic>> get tanggapanBelumDibaca => _complaints.where((c) {
+        final adaTanggapan = (c['response']?.toString().trim() ?? '').isNotEmpty;
+        final sudahDibaca = c['tanggapan_dibaca_pada'] != null;
+        return adaTanggapan && !sudahDibaca;
+      }).toList();
+
+  bool belumDibaca(Map<String, dynamic> c) =>
+      (c['response']?.toString().trim() ?? '').isNotEmpty &&
+      c['tanggapan_dibaca_pada'] == null;
+
+  /// Tandai tanggapan sudah dibaca, lalu padamkan lencananya seketika.
+  ///
+  /// Barisnya diperbarui di memori lebih dulu, bukan menunggu `fetchComplaints`
+  /// selesai: layar memanggil ini tepat saat warga membuka dialog Detail, dan
+  /// lencana yang masih menyala di belakang dialog yang sedang dibaca membuat
+  /// aplikasi terlihat tidak menyadari apa yang baru saja terjadi.
+  ///
+  /// Kegagalan sengaja tidak menampilkan apa pun. Ini efek samping dari membuka
+  /// dialog — warga tidak meminta apa-apa, jadi sebuah pesan merah hanya akan
+  /// membingungkan. Lencananya tetap menyala dan percobaan berikutnya akan
+  /// mencobanya lagi, yang justru perilaku yang benar.
+  Future<void> tandaiTanggapanDibaca(int id) async {
+    final resp = await ApiService.put(ApiConstants.complaintBaca(id));
+    if (resp['success'] != true || resp['ditandai'] != true) return;
+
+    final i = _complaints.indexWhere((c) => c['id'] == id);
+    if (i == -1) return;
+    _complaints[i] = {
+      ..._complaints[i],
+      'tanggapan_dibaca_pada': resp['dibaca_pada'] ?? DateTime.now().toIso8601String(),
+    };
+    notifyListeners();
+  }
+
   Future<bool> deleteComplaint(int id) async {
     final response = await ApiService.delete('${ApiConstants.complaints}/$id');
     if (response['success'] == true) {
