@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
+const { IZINKAN_TOKEN_QUERY, catatPemakaianTokenQuery } = require('../config/kompatibilitas');
 
 /** Role sistem yang selalu berakses penuh dan tidak pernah dibaca dari tabel. */
 const ROLE_ADMIN = 'admin';
@@ -69,24 +70,35 @@ const LABEL_AKSI = {
  * sesak, naikkan `DB_POOL_MAX` — jangan kembalikan cache di jalur ini.
  *
  * ===================================================================
- * Token TIDAK LAGI diterima lewat query string
+ * Token lewat query string: masih diterima, TETAPI sudah usang
  * ===================================================================
  *
- * Dulu `?token=` diterima supaya navigasi browser (tombol Export/Unduh) bisa
- * menembak endpoint langsung, karena sebuah navigasi tidak bisa membawa header.
- * Harganya: kredensial sesi berumur 24 jam ikut tercatat di log akses server,
- * riwayat browser, dan header `Referer`.
+ * `?token=` ada karena sebuah NAVIGASI TIDAK BISA MEMBAWA HEADER, sehingga
+ * tombol Export/Unduh tidak punya cara lain menembak endpoint. Harganya:
+ * kredensial sesi ikut tercatat di log akses server dan proxy, riwayat browser,
+ * dan header `Referer`.
  *
- * Penggantinya `src/routes/unduh.routes.js` — tiket sekali pakai berumur 60
- * detik yang hanya membuka satu unduhan tertentu. Selama query-param masih
- * diterima di sini, penghapusannya di klien tidak menutup apa pun, jadi
- * keduanya harus naik bersamaan.
+ * Penggantinya sudah ada dan sudah diuji — `src/routes/unduh.routes.js`, tiket
+ * sekali pakai berumur 60 detik. Tetapi backend dan klien tidak naik pada detik
+ * yang sama: Flutter Web produksi hari ini masih memakai `?token=`, dan
+ * menutupnya sekarang mematikan setiap tombol Export di produksi seketika.
+ *
+ * Jadi jalur ini dipertahankan sementara, di balik `IZINKAN_TOKEN_QUERY`, dan
+ * dicabut setelah klien baru terverifikasi. Lihat `src/config/kompatibilitas.js`
+ * untuk seluruh pertimbangannya.
+ *
+ * Yang PENTING: token dari query menjalani pemeriksaan yang sama persis dengan
+ * token dari header — tanda tangan, kedaluwarsa, akun, DAN `token_versi`. Sesi
+ * yang sudah dicabut tetap ditolak walau tokennya dikirim lewat URL.
  */
 async function authMiddleware(req, res, next) {
   let token;
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.split(' ')[1];
+  } else if (IZINKAN_TOKEN_QUERY && req.query.token) {
+    token = req.query.token;
+    catatPemakaianTokenQuery(req);
   }
 
   if (!token) {
