@@ -657,6 +657,17 @@ class _PengaduanScreenState extends State<PengaduanScreen> {
                             DateTime.tryParse(c['created_at'] ?? '') ?? DateTime.now();
                         final dateStr = DateFormat('dd/MM/yyyy').format(createdAt);
 
+                        // Empat status, empat warna. `Ditolak` sebelumnya tidak
+                        // punya cabang sendiri sehingga jatuh ke oranye bawaan —
+                        // warna yang SAMA PERSIS dengan `Menunggu`. Aduan yang
+                        // sudah ditolak karena itu terlihat identik dengan yang
+                        // belum disentuh siapa pun, dan satu-satunya cara
+                        // membedakannya adalah membaca tulisan kecil di dalam
+                        // lencananya.
+                        //
+                        // Cacat yang sama pernah ada di kartu dasbor warga, yang
+                        // menghitung `Ditolak` sebagai "Sedang ditangani" karena
+                        // penyaringnya hanya `!= 'Selesai'`.
                         Color statusColor = Colors.orange;
                         Color statusBgColor = Colors.orange.shade50;
                         if (status == 'Diproses') {
@@ -665,6 +676,14 @@ class _PengaduanScreenState extends State<PengaduanScreen> {
                         } else if (status == 'Selesai') {
                           statusColor = const Color(0xFF166534);
                           statusBgColor = const Color(0xFFDCFCE7);
+                        } else if (status == 'Ditolak') {
+                          // Merah tua di atas merah muda, mengikuti pasangan yang
+                          // sudah dipakai `Selesai` (hijau tua di atas hijau
+                          // muda) — bukan merah terang yang dipakai tombol hapus,
+                          // karena ini keterangan yang dibaca, bukan tombol yang
+                          // ditekan.
+                          statusColor = const Color(0xFFB91C1C);
+                          statusBgColor = const Color(0xFFFEE2E2);
                         }
 
                         return BarisTabel(
@@ -776,15 +795,31 @@ class _PengaduanScreenState extends State<PengaduanScreen> {
                                   style: gayaAksiTabel(const Color(0xFF0F766E)),
                                   onPressed: () => _showDetail(c),
                                 ),
+                                // Warna Tanggapi SENGAJA berbeda dari Detail.
+                                //
+                                // Keduanya dulu memakai teal yang sama, sehingga
+                                // dua ikon bersebelahan hanya bisa dibedakan dari
+                                // bentuk glifnya — padahal salah satunya cuma
+                                // membaca dan satunya lagi mengubah status
+                                // sekaligus mengirim WhatsApp ke warga. Layar lain
+                                // sudah memakai satu warna per aksi (BOP: Ubah
+                                // biru, Hapus merah); layar ini yang menyimpang.
+                                //
+                                // Ungu dipilih karena tiga warna lain sudah punya
+                                // arti di baris yang sama: lencana status memakai
+                                // oranye (Menunggu), biru (Diproses), dan hijau
+                                // tua (Selesai). Ungu juga warna modul Pengaduan
+                                // di kartu dasbor warga, jadi ia bukan warna baru
+                                // yang muncul entah dari mana.
                                 if (status != 'Selesai' && _bolehUbah)
                                   IconButton(
                                     tooltip: 'Tanggapi',
                                     icon: const Icon(
                                       Icons.reply_rounded,
                                       size: 20,
-                                      color: Color(0xFF0F766E),
+                                      color: Color(0xFF8B5CF6),
                                     ),
-                                    style: gayaAksiTabel(const Color(0xFF0F766E)),
+                                    style: gayaAksiTabel(const Color(0xFF8B5CF6)),
                                     onPressed: () => _showFormTanggapi(c),
                                   ),
                               ],

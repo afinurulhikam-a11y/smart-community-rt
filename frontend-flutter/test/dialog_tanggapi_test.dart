@@ -324,6 +324,129 @@ void main() {
     }
   });
 
+  group('Kolom aksi — kesejajaran diukur, bukan diperkirakan', () {
+    // Dijalankan di lebar desktop supaya tabelnya benar-benar tabel; di ponsel
+    // TabelResponsif berubah jadi kartu dan kolom aksinya tata letaknya lain.
+    Future<void> siapkan(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(_bungkusPengaduan([_pengaduan(status: 'Diproses')]));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('kedua tombol berukuran sama persis', (tester) async {
+      await siapkan(tester);
+      final detail = tester.getSize(find.byTooltip('Lihat Detail'));
+      final tanggapi = tester.getSize(find.byTooltip('Tanggapi'));
+      expect(tanggapi, detail,
+          reason: 'ukuran berbeda → satu tombol terasa lebih lega daripada yang lain');
+    });
+
+    testWidgets('sejajar VERTIKAL — titik tengah y identik', (tester) async {
+      await siapkan(tester);
+      final d = tester.getCenter(find.byTooltip('Lihat Detail'));
+      final t = tester.getCenter(find.byTooltip('Tanggapi'));
+      expect(t.dy, d.dy, reason: 'salah satu tombol duduk lebih tinggi/rendah');
+    });
+
+    testWidgets('sejajar HORIZONTAL — jaraknya persis selebar satu tombol',
+        (tester) async {
+      await siapkan(tester);
+      final d = tester.getRect(find.byTooltip('Lihat Detail'));
+      final t = tester.getRect(find.byTooltip('Tanggapi'));
+
+      // Yang dikunci adalah jarak ANTAR-PUSAT, bukan celah antar-lingkaran.
+      //
+      // Terukur: kedua tombol 30×30, dan pusatnya berjarak tepat 48px — yaitu
+      // `kMinInteractiveDimension`. Lingkaran hover-nya memang 30, sehingga
+      // tersisa celah 18px di antaranya (48 − 30), dan itu BUKAN celah liar
+      // melainkan padding sasaran sentuh 48dp yang jadi aturan proyek ini.
+      //
+      // Mengunci "celah nol" justru salah: ia akan memaksa kedua sasaran sentuh
+      // saling tumpang tindih, dan ketukan di perbatasan mengenai tombol yang
+      // keliru. Yang benar adalah sasaran sentuhnya bersebelahan persis — tidak
+      // beririsan, tidak berjarak.
+      expect(t.center.dx - d.center.dx, kMinInteractiveDimension,
+          reason: 'pusatnya tidak berjarak satu sasaran sentuh penuh');
+      expect(t.width, d.width);
+      expect(d.width, 30.0, reason: 'ukuran hover berubah dari gayaAksiTabel');
+    });
+
+    testWidgets('warnanya BERBEDA — bukan dua ikon teal yang sama', (tester) async {
+      await siapkan(tester);
+      Color? warna(String tooltip) => tester
+          .widget<Icon>(find.descendant(
+            of: find.byTooltip(tooltip),
+            matching: find.byType(Icon),
+          ))
+          .color;
+
+      final detail = warna('Lihat Detail');
+      final tanggapi = warna('Tanggapi');
+      expect(detail, isNotNull);
+      expect(tanggapi, isNotNull);
+      expect(tanggapi, isNot(detail),
+          reason: 'Detail hanya membaca; Tanggapi mengubah status DAN mengirim '
+              'WhatsApp ke warga — keduanya tidak boleh terlihat sama');
+
+      // Tidak boleh bertabrakan dengan warna lencana status di baris yang sama.
+      const warnaStatus = [Colors.orange, Colors.blue, Color(0xFF166534)];
+      expect(warnaStatus.contains(tanggapi), isFalse,
+          reason: 'warnanya sama dengan salah satu lencana status');
+    });
+  });
+
+  group('Lencana status — empat status, empat warna', () {
+    /// Warna teks lencana status pada baris pertama tabel.
+    Color? warnaLencana(WidgetTester tester, String status) {
+      final teks = tester.widget<Text>(find.descendant(
+        of: find.byType(Container),
+        matching: find.text(status),
+      ).first);
+      return teks.style?.color;
+    }
+
+    Future<Color?> render(WidgetTester tester, String status) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(_bungkusPengaduan([_pengaduan(status: status)]));
+      await tester.pumpAndSettle();
+      return warnaLencana(tester, status);
+    }
+
+    testWidgets('Ditolak TIDAK berwarna sama dengan Menunggu', (tester) async {
+      // Inti cacatnya: `Ditolak` tidak punya cabang sendiri sehingga jatuh ke
+      // oranye bawaan — warna Menunggu. Aduan yang sudah ditutup terlihat sama
+      // persis dengan yang belum disentuh siapa pun.
+      final menunggu = await render(tester, 'Menunggu');
+      expect(menunggu, isNotNull);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+
+      final ditolak = await render(tester, 'Ditolak');
+      expect(ditolak, isNotNull);
+      expect(ditolak, isNot(menunggu),
+          reason: 'Ditolak masih memakai warna bawaan yang sama dengan Menunggu');
+    });
+
+    testWidgets('keempat statusnya berwarna berbeda satu sama lain',
+        (tester) async {
+      final warna = <String, Color?>{};
+      for (final s in ['Menunggu', 'Diproses', 'Selesai', 'Ditolak']) {
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpAndSettle();
+        warna[s] = await render(tester, s);
+      }
+      final unik = warna.values.whereType<Color>().toSet();
+      expect(unik.length, 4,
+          reason: 'ada status yang berbagi warna: '
+              '${warna.entries.map((e) => '${e.key}=${e.value}').join(', ')}');
+    });
+  });
+
   group('Mode gelap', () {
     testWidgets('dialog Tanggapi tergambar di tema gelap', (tester) async {
       await tester.pumpWidget(_bungkusPengaduan([_pengaduan()], gelap: true));
