@@ -185,6 +185,10 @@ class ApiConstants {
   static String get complaintStats => '$baseUrl/complaints/stats';
   static String complaintStatus(int id) => '$baseUrl/complaints/$id/status';
 
+  /// Warga menandai tanggapan pengurus sudah ia baca — dijaga izin `view`,
+  /// kepemilikannya ditegakkan backend lewat `user_id`.
+  static String complaintBaca(int id) => '$baseUrl/complaints/$id/baca';
+
   // Agenda (Kegiatan)
   static String get agenda => '$baseUrl/agenda';
 

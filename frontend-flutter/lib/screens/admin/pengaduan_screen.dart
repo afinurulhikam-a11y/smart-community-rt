@@ -80,6 +80,15 @@ class _PengaduanScreenState extends State<PengaduanScreen> {
     final penanggap = c['responded_by_nama']?.toString() ?? '';
     final dibuat = DateTime.tryParse(c['created_at']?.toString() ?? '');
 
+    // Membuka dialog ini BERARTI membacanya — jadi lencananya dipadamkan di
+    // sini, bukan lewat tombol "tandai sudah dibaca" yang harus ditekan
+    // sendiri. Backend menolak permintaan dari siapa pun selain pemiliknya,
+    // jadi pengurus yang membuka aduan warga tidak menghapus lencana warga itu.
+    final prov = context.read<ComplaintProvider>();
+    if (prov.belumDibaca(c) && c['id'] is int) {
+      prov.tandaiTanggapanDibaca(c['id'] as int);
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -691,7 +700,50 @@ class _PengaduanScreenState extends State<PengaduanScreen> {
                               ),
                             ),
                             SelTabel.teks('PENGIRIM', pengirim),
-                            SelTabel.teks('JUDUL', judul, utama: true),
+                            // Judul membawa lencana "tanggapan baru" — bukan
+                            // kolom sendiri. Kolom tambahan akan kosong pada
+                            // hampir setiap baris dan tetap memakan lebar di
+                            // layar sempit; menempelkannya ke judul membuatnya
+                            // muncul persis di tempat mata sudah tertuju.
+                            SelTabel(
+                              'JUDUL',
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      judul,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  if (context.read<ComplaintProvider>().belumDibaca(c)) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF0F766E),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Text(
+                                        'Baru',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              utama: true,
+                            ),
                             SelTabel.teks('KATEGORI', kategori),
                             SelTabel(
                               'STATUS',

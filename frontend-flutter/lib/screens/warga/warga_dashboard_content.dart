@@ -35,10 +35,25 @@ class WargaDashboardContent extends StatelessWidget {
     final totalTunggakan = bills.unpaidBills.fold(0.0, (sum, item) => sum + item.nominal);
     final suratPending = letters.pendingCount;
     // Backend sudah menyaring pengaduan milik warga yang sedang masuk, jadi
-    // yang tersisa tinggal menghitung yang belum selesai.
+    // yang tersisa tinggal menghitung yang benar-benar masih berjalan.
+    //
+    // `Ditolak` ikut dikecualikan, bukan hanya `Selesai`. Keduanya sama-sama
+    // keadaan akhir — urusannya sudah tuntas, hanya jawabannya berbeda.
+    // Sebelumnya penyaringnya hanya `!= 'Selesai'`, sehingga aduan yang sudah
+    // ditolak tetap terhitung aktif dan diberi keterangan "Sedang ditangani"
+    // selamanya: warga membaca bahwa aduannya masih dikerjakan, padahal
+    // pengurus sudah menutupnya.
+    const statusSelesai = {'Selesai', 'Ditolak'};
     final aduanAktif = complaints.complaints
-        .where((c) => (c['status']?.toString() ?? '') != 'Selesai')
+        .where((c) => !statusSelesai.contains(c['status']?.toString() ?? ''))
         .length;
+
+    // Tanggapan yang belum dibaca — inilah satu-satunya hal di dasbor yang
+    // berubah ketika pengurus menanggapi lalu menandai "Diproses". Tanpa ini,
+    // kasus yang paling sering justru tidak menggerakkan satu angka pun:
+    // aduannya tetap terhitung aktif, keterangannya tetap "Sedang ditangani",
+    // dan warga tidak punya alasan untuk membukanya.
+    final tanggapanBaru = complaints.tanggapanBelumDibaca.length;
     final totalTunggakanStr = rupiah(totalTunggakan);
     final saldoKas = rupiah(finances.summary?.saldo ?? 0);
 
@@ -126,14 +141,22 @@ class WargaDashboardContent extends StatelessWidget {
             const Color(0xFF3B82F6),
             const Color(0xFFDBEAFE),
           ),
+          // Tanggapan yang belum dibaca mengambil alih tampilan kartu ini.
+          // Ia mendesak dan bisa ditindaklanjuti ("buka dan baca"), sedangkan
+          // "Sedang ditangani" hanyalah keadaan — jadi ketika keduanya benar,
+          // yang perlu dibaca warga adalah yang pertama.
           _buildSummaryCard(
             context,
-            'Pengaduan Aktif',
-            '$aduanAktif',
-            aduanAktif == 0 ? 'Semua terselesaikan' : 'Sedang ditangani',
-            Icons.support_agent_rounded,
-            const Color(0xFF8B5CF6),
-            const Color(0xFFEDE9FE),
+            tanggapanBaru > 0 ? 'Tanggapan Baru' : 'Pengaduan Aktif',
+            tanggapanBaru > 0 ? '$tanggapanBaru' : '$aduanAktif',
+            tanggapanBaru > 0
+                ? 'Ketuk untuk membaca'
+                : (aduanAktif == 0 ? 'Semua terselesaikan' : 'Sedang ditangani'),
+            tanggapanBaru > 0
+                ? Icons.mark_chat_unread_rounded
+                : Icons.support_agent_rounded,
+            tanggapanBaru > 0 ? const Color(0xFF0F766E) : const Color(0xFF8B5CF6),
+            tanggapanBaru > 0 ? const Color(0xFFCCFBF1) : const Color(0xFFEDE9FE),
           ),
         ]),
 

@@ -85,17 +85,120 @@ async function updateComplaintStatus(req, res) {
     let finalStatus = status;
     if (finalStatus && finalStatus.toLowerCase() === 'pending') finalStatus = 'Menunggu';
     if (!finalStatus || !validStatus.includes(finalStatus)) return res.status(400).json({ success: false, message: `Status harus salah satu dari: ${validStatus.join(', ')}` });
+    // `tanggapan_dibaca_pada` dikosongkan setiap kali tanggapan ditulis.
+    //
+    // Satu pengaduan bisa ditanggapi berkali-kali — "Diproses" hari ini,
+    // "Selesai" minggu depan dengan penjelasan yang berbeda. Kalau penandanya
+    // dipasang sekali seumur hidup baris, tanggapan kedua tidak akan pernah
+    // terlihat baru: warga sudah membaca yang pertama, dan aplikasinya
+    // menganggap urusannya sudah lewat.
+    //
+    // Hanya dikosongkan bila memang ADA teks tanggapan. Mengubah status tanpa
+    // menulis apa pun tidak menghadirkan sesuatu yang perlu dibaca, jadi
+    // menyalakan lencananya hanya melatih warga mengabaikan lencana itu.
+    //
+    // `response` HANYA ditulis bila kuncinya memang dikirim.
+    //
+    // Sebelumnya kolomnya selalu ditimpa `response || null`, sehingga "tidak
+    // mengirim field ini" dan "sengaja mengosongkannya" tidak bisa dibedakan:
+    // satu permintaan yang hanya memajukan status akan MENGHAPUS tanggapan yang
+    // sudah pernah ditulis pengurus. Hilangnya tak bergejala — statusnya
+    // berubah seperti diminta, dan teks yang lenyap baru ketahuan kalau ada
+    // yang membuka dialog Detail dan bertanya ke mana perginya.
+    //
+    // Ditemukan oleh uji ini sendiri: bagian yang mengubah status tanpa teks
+    // membuat bagian berikutnya gagal, karena barisnya kehilangan tanggapannya.
+    const kirimResponse = response !== undefined;
+    const adaTanggapan = kirimResponse && typeof response === 'string' && response.trim() !== '';
     const result = await pool.query(
-      `UPDATE complaints SET status = $1, response = $2, responded_by = $3, updated_at = NOW() WHERE id = $4 RETURNING *`,
-      [finalStatus, response || null, req.user.id, id]
+      `UPDATE complaints SET
+         status = $1,
+         response = CASE WHEN $5 THEN $2 ELSE response END,
+         responded_by = $3,
+         tanggapan_dibaca_pada = CASE WHEN $6 THEN NULL ELSE tanggapan_dibaca_pada END,
+         updated_at = NOW()
+       WHERE id = $4 RETURNING *`,
+      [finalStatus, response ?? null, req.user.id, id, kirimResponse, adaTanggapan]
     );
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Pengaduan tidak ditemukan.' });
     const a = result.rows[0];
     await logActivity(req, TIPE.UPDATE, `Menanggapi pengaduan [${a.kode_tiket}] "${ringkas(a.judul)}" — status menjadi "${status}"${response ? `, tanggapan: "${ringkas(response, 80)}"` : ''}`);
 
+    // Beri tahu pelapornya lewat WhatsApp — sejajar dengan surat yang disetujui
+    // dan tagihan yang terbit. Tanpa ini, pengaduan yang ditanggapi lalu
+    // ditandai "Diproses" tidak mengubah satu angka pun di dasbor warga, jadi
+    // ia benar-benar tidak punya cara tahu jawabannya sudah ada.
+    //
+    // Dijalankan tanpa di-await dan galatnya ditelan: WhatsApp adalah kabar
+    // tambahan, dan gateway yang sedang mati tidak boleh membuat penyimpanan
+    // tanggapan ikut gagal — tanggapannya sendiri sudah tersimpan di atas.
+    const { sendComplaintRepliedWA } = require('../services/whatsapp.service');
+    (async () => {
+      if (!adaTanggapan) return;
+      const u = await pool.query('SELECT nama, no_hp FROM users WHERE id = $1', [a.user_id]);
+      if (u.rows.length === 0) return;
+      await sendComplaintRepliedWA({
+        userNama: u.rows[0].nama,
+        noHp: u.rows[0].no_hp,
+        kodeTiket: a.kode_tiket,
+        judul: a.judul,
+        status: finalStatus,
+        tanggapan: a.response,
+      });
+    })().catch((e) => console.log('ℹ️ Catatan WA Pengaduan:', e.message));
+
     return res.status(200).json({ success: true, message: `Status pengaduan berhasil diubah ke "${status}".`, data: result.rows[0] });
   } catch (err) {
     console.error('UpdateComplaintStatus Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
+/**
+ * PUT /api/complaints/:id/baca — warga menandai tanggapan sudah ia baca.
+ *
+ * Dijaga izin `view`, BUKAN `update`. Di modul ini `update` berarti menanggapi
+ * pengaduan — kewenangan pengurus — jadi memberi warga `update` supaya bisa
+ * menghapus lencananya sendiri akan sekaligus membuka jalan menanggapi seluruh
+ * pengaduan warga lain. Preseden yang sama sudah tercatat pada
+ * `POST /polling/:id/vote` dan `POST /meteran`.
+ *
+ * Kepemilikan ditegakkan DI SINI lewat `user_id`, bukan dengan mempercayai
+ * pemanggil: klausanya ada di dalam WHERE, sehingga id milik orang lain tidak
+ * memperbarui apa pun dan menjawab 404 — bukan 403, karena warga memang tidak
+ * berhak tahu bahwa baris itu ada.
+ *
+ * Idempoten: menandai dua kali tidak menggeser waktunya, supaya "kapan dibaca"
+ * tetap berarti pertama kali dibaca.
+ */
+async function tandaiTanggapanDibaca(req, res) {
+  try {
+    const { id } = req.params;
+    const hasil = await pool.query(
+      `UPDATE complaints
+       SET tanggapan_dibaca_pada = COALESCE(tanggapan_dibaca_pada, NOW())
+       WHERE id = $1 AND user_id = $2 AND deleted_at IS NULL
+         AND response IS NOT NULL
+       RETURNING id, tanggapan_dibaca_pada`,
+      [id, req.user.id]
+    );
+
+    if (hasil.rows.length === 0) {
+      // Tidak ditemukan, bukan milik pemanggil, atau memang belum ada
+      // tanggapan untuk dibaca. Ketiganya bukan galat yang perlu ditampilkan
+      // ke warga — layarnya memanggil ini otomatis saat dialog dibuka, dan
+      // sebuah kesalahan merah untuk aduan yang belum ditanggapi hanya
+      // membingungkan. Dijawab 200 dengan penanda apa adanya.
+      return res.status(200).json({ success: true, ditandai: false });
+    }
+
+    return res.status(200).json({
+      success: true,
+      ditandai: true,
+      dibaca_pada: hasil.rows[0].tanggapan_dibaca_pada,
+    });
+  } catch (err) {
+    console.error('TandaiTanggapanDibaca Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
   }
 }
@@ -155,5 +258,5 @@ async function getComplaintStats(req, res) {
   }
 }
 
-module.exports = { getComplaints, getComplaintStats, createComplaint, updateComplaintStatus, deleteComplaint };
+module.exports = { getComplaints, getComplaintStats, createComplaint, updateComplaintStatus, tandaiTanggapanDibaca, deleteComplaint };
 

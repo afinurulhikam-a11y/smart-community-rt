@@ -232,19 +232,20 @@ CREATE TABLE public.bantuan_sosial (
     id integer NOT NULL,
     user_id uuid,
     jenis_bantuan character varying(100) NOT NULL,
-    bentuk_bantuan character varying(50) DEFAULT 'Tunai'::character varying,
-    sumber_bantuan character varying(100) DEFAULT 'Pemerintah Pusat'::character varying,
-    no_sk character varying(100),
-    tanggal_bantuan date,
-    tanggal_mulai date,
-    tanggal_selesai date,
     tahun integer,
     nominal numeric DEFAULT 0,
     status character varying(20) DEFAULT 'Aktif'::character varying,
     keterangan text,
     created_by uuid,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    tanggal_bantuan date,
+    tanggal_mulai date,
+    tanggal_selesai date,
+    bentuk_bantuan character varying(50) DEFAULT 'Tunai'::character varying,
+    sumber_bantuan character varying(100) DEFAULT 'Pemerintah Pusat'::character varying,
+    no_sk character varying(100),
+    CONSTRAINT bantuan_sosial_tanggal_valid CHECK (((tanggal_selesai IS NULL) OR (tanggal_mulai IS NULL) OR (tanggal_selesai >= tanggal_mulai)))
 );
 
 
@@ -421,7 +422,8 @@ CREATE TABLE public.complaints (
     responded_by uuid,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    deleted_at timestamp without time zone
+    deleted_at timestamp without time zone,
+    tanggapan_dibaca_pada timestamp without time zone
 );
 
 
@@ -1616,6 +1618,13 @@ CREATE INDEX bop_finances_tanggal_idx ON public.bop_finances USING btree (tangga
 --
 
 CREATE INDEX borrowings_status_idx ON public.borrowings USING btree (status, inventory_id);
+
+
+--
+-- Name: complaints_tanggapan_belum_dibaca_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX complaints_tanggapan_belum_dibaca_idx ON public.complaints USING btree (user_id) WHERE ((response IS NOT NULL) AND (tanggapan_dibaca_pada IS NULL) AND (deleted_at IS NULL));
 
 
 --
