@@ -106,7 +106,14 @@ async function authMiddleware(req, res, next) {
 
   let decoded;
   try {
-    decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // Algoritma dikunci eksplisit, tidak diserahkan ke bawaan pustaka.
+    //
+    // `alg=none` dan token ber-RS256 dengan kunci penyerang sudah ditolak
+    // jsonwebtoken@9 hari ini — tetapi penolakan itu milik PUSTAKA, bukan milik
+    // kode ini, dan bawaan pustaka bisa berubah antar-versi mayor. Allowlist di
+    // sini membuat "hanya HS256 yang diterima" menjadi keputusan yang tertulis
+    // dan teruji, bukan warisan yang kebetulan masih berlaku.
+    decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
   } catch (err) {
     return res.status(401).json({
       success: false,

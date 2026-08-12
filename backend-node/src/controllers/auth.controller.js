@@ -69,11 +69,19 @@ async function login(req, res) {
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role, nama: user.nama, username: user.username },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+      // Bawaan 24 jam, BUKAN 7 hari.
+      //
+      // Token ini tersimpan di localStorage pada Web — terbaca skrip mana pun di
+      // origin itu — dan sampai Fase B belum ada cara mencabutnya. Umur 7 hari
+      // berarti satu kebocoran memberi akses sepekan penuh tanpa satu pun tombol
+      // yang bisa menghentikannya. Bawaannya sengaja diperketat di kode, supaya
+      // deploy yang lupa mengisi env tidak diam-diam kembali ke sepekan.
+      { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
     );
 
     const { password_hash, ...userData } = user;
     req.user = userData;
+    const profilRingkas = ringkasProfil(userData);
     // Peran ikut dicatat: "bendahara masuk pukul 02.13" adalah baris yang
     // berbeda artinya dari "warga masuk pukul 02.13".
     await logActivity(
@@ -82,17 +90,72 @@ async function login(req, res) {
       `Berhasil masuk sebagai ${userData.nama || userData.email} (peran: ${userData.role})`
     );
 
-    return res.status(200).json({ success: true, message: 'Login berhasil.', data: { user: userData, token } });
+    return res.status(200).json({ success: true, message: 'Login berhasil.', data: { user: profilRingkas, token } });
   } catch (err) {
     console.error('Login Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
   }
 }
 
+/**
+ * Profil ringkas — satu-satunya bentuk identitas yang boleh disimpan klien.
+ *
+ * Klien Flutter menuliskan hasil `/auth/me` ke `user_data`, dan di Web
+ * `SharedPreferences` berarti `localStorage` — terbaca skrip mana pun di origin
+ * itu. Sebelumnya yang tersimpan di sana adalah baris `users` hampir utuh:
+ * `nik`, `no_kk`, `no_hp`, `alamat`, `email`. NIK dan nomor KK dijaga ketat di
+ * sisi backend proyek ini, lalu tergeletak terbuka di sisi klien.
+ *
+ * Lima field ini yang benar-benar dipakai untuk menjalankan aplikasi: `role`
+ * menentukan menu, `must_change_password` menentukan pengalihan paksa, sisanya
+ * untuk sapaan. Selebihnya diambil saat dibutuhkan lewat `/auth/profil`.
+ */
+function ringkasProfil(u) {
+  return {
+    id: u.id,
+    nama: u.nama,
+    role: u.role,
+    username: u.username,
+    must_change_password: u.must_change_password === true,
+  };
+}
+
 async function getMe(req, res) {
   try {
     const result = await pool.query(
-      'SELECT id, username, nama, email, no_hp, no_kk, alamat, no_rt, role, is_active, must_change_password, created_at FROM users WHERE id = $1',
+      'SELECT id, username, nama, role, must_change_password FROM users WHERE id = $1',
+      [req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'User tidak ditemukan.' });
+    }
+
+    return res.status(200).json({ success: true, data: ringkasProfil(result.rows[0]) });
+  } catch (err) {
+    console.error('GetMe Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
+/**
+ * GET /api/auth/profil — profil lengkap milik pemanggil sendiri.
+ *
+ * Dipanggil hanya oleh layar Profil Saya, saat layarnya dibuka. Hasilnya
+ * SENGAJA tidak pernah ditulis ke penyimpanan mana pun di klien — ia hidup di
+ * memori selama layar itu terbuka, lalu hilang.
+ *
+ * Tidak butuh izin modul: setiap orang berhak melihat datanya sendiri, dan
+ * `req.user.id` datang dari token yang sudah diverifikasi — bukan dari
+ * parameter yang bisa dipilih pemanggil. Tidak ada jalan meminta profil orang
+ * lain lewat endpoint ini.
+ */
+async function getProfilLengkap(req, res) {
+  try {
+    const result = await pool.query(
+      `SELECT id, username, nama, email, no_hp, no_kk, nik, alamat, no_rt, role,
+              is_active, must_change_password, created_at
+       FROM users WHERE id = $1`,
       [req.user.id]
     );
 
@@ -102,7 +165,7 @@ async function getMe(req, res) {
 
     return res.status(200).json({ success: true, data: result.rows[0] });
   } catch (err) {
-    console.error('GetMe Error:', err.message);
+    console.error('GetProfilLengkap Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
   }
 }
@@ -236,4 +299,4 @@ async function changePassword(req, res) {
   }
 }
 
-module.exports = { register, login, getMe, updateProfile, changePassword };
+module.exports = { register, login, getMe, getProfilLengkap, updateProfile, changePassword };
