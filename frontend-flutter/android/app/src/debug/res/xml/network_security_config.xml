@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Konfigurasi jaringan untuk build DEBUG: HTTP polos diizinkan.
+
+    Menimpa src/main/res/xml/network_security_config.xml lewat penggabungan
+    resource per build type — source set build type selalu menang atas main.
+
+    Sengaja dibuka menyeluruh alih-alih didaftar per-IP, karena alamat backend
+    memang berpindah-pindah lewat dart-define API_HOST saat menguji di jaringan
+    yang berbeda-beda, dan mendaftar IP satu per satu hanya akan membuat orang
+    menonaktifkan berkas ini seluruhnya.
+
+    Kelonggaran ini TIDAK pernah sampai ke APK rilis: varian release memakai
+    berkas di src/main, yang menolak cleartext.
+
+    CATATAN: komentar XML tidak boleh memuat dua tanda hubung berurutan, jadi
+    jangan menuliskan opsi baris perintah Flutter apa adanya di sini.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Konfigurasi jaringan untuk build PROFILE: HTTP polos diizinkan.
+
+    Alasannya sama dengan src/debug: profile dipakai mengukur performa terhadap
+    backend lokal, dan tanpa berkas ini setiap panggilan ke http://ip-lan:3001
+    gagal — aplikasi tampak "tidak connect" padahal backend-nya hidup.
+
+    Hanya varian release yang memakai berkas ketat di src/main.
+
+    CATATAN: komentar XML tidak boleh memuat dua tanda hubung berurutan, jadi
+    jangan menuliskan opsi baris perintah Flutter apa adanya di sini.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
