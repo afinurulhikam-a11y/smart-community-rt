@@ -1,283 +1,279 @@
-/**
- * ============================================================
- * ESP32 Alarm Firmware
- * Smart Community Management Platform
- * ============================================================
- * 
- * Fungsi:
- *  - Konek ke WiFi
- *  - Konek ke WebSocket server backend
- *  - Mendengarkan pesan ALARM_ON / ALARM_OFF
- *  - Menyalakan/mematikan Buzzer & LED
- * 
- * Wiring (DevKit V1 30 pin — keempatnya di deretan KIRI, USB menghadap bawah):
- *  - GPIO 25 (kiri ke-8) → Buzzer AKTIF (+)   ·  buzzer (−) → GND
- *  - GPIO 26 (kiri ke-7) → resistor 220 Ω → LED merah  (penanda alarm)
- *  - GPIO 27 (kiri ke-6) → resistor 220 Ω → LED hijau  (penanda koneksi)
- *  - GND     (kiri ke-2) → jalur ground bersama
+/*
+ * ============================================================================
+ *  Smart Community RT — Alarm Darurat (ESP32)
+ * ============================================================================
  *
- * Buzzernya harus AKTIF, bukan pasif: firmware ini menghidup-matikan pin
- * (digitalWrite), tidak membangkitkan nada. Buzzer pasif hanya akan berdecit.
+ *  Alat ini berlangganan satu topik MQTT dan menyalakan buzzer + LED merah
+ *  ketika menerima "ON", lalu mematikannya ketika menerima "OFF".
  *
- * Library yang dibutuhkan:
- *  - WiFi.h (built-in ESP32)
- *  - WebSocketsClient (install: "WebSockets" by Markus Sattler)
- *  - ArduinoJson (install: "ArduinoJson" by Benoit Blanchon)
- * ============================================================
+ *  ---------------------------------------------------------------------------
+ *  PERUBAHAN BESAR: WebSocket -> MQTT
+ *  ---------------------------------------------------------------------------
+ *
+ *  Versi sebelumnya menyambung ke WebSocket backend dan membaca field `type`
+ *  dari pesan JSON. Sekarang alat berlangganan topik MQTT, dan muatannya
+ *  bukan lagi JSON melainkan teks polos "ON" / "OFF".
+ *
+ *  Akibatnya: PERANGKAT YANG MASIH MEMAKAI FIRMWARE LAMA TIDAK AKAN BERBUNYI.
+ *  Backend tidak lagi mengirim perintah alarm lewat WebSocket, jadi setiap
+ *  ESP32 wajib di-flash ulang dengan berkas ini. Tidak ada masa tumpang tindih
+ *  di mana keduanya bekerja.
+ *
+ *  Yang TIDAK berubah: WebSocket di backend tetap hidup, tetapi tugasnya kini
+ *  hanya memunculkan popup darurat di aplikasi pengurus. Alat tidak lagi
+ *  terlibat di sana.
+ *
+ *  ---------------------------------------------------------------------------
+ *  Kenapa muatannya teks polos, bukan JSON
+ *  ---------------------------------------------------------------------------
+ *
+ *  Alat ini hanya perlu tahu satu hal: nyala atau mati. Ia tidak membaca nama
+ *  pelapor, alamat, maupun koordinat — buzzer tidak membacakan apa pun. Muatan
+ *  sekecil "ON" menghapus seluruh kelas kegagalan parsing JSON, dan menghapus
+ *  kemungkinan data pribadi warga sampai ke perangkat yang topiknya bisa
+ *  didengar siapa saja yang punya kredensial broker.
+ *
+ *  ---------------------------------------------------------------------------
+ *  Pustaka yang dibutuhkan (Arduino IDE -> Library Manager)
+ *  ---------------------------------------------------------------------------
+ *   - PubSubClient  (Nick O'Leary)   <- MENGGANTIKAN "WebSockets"
+ *   - WiFiClientSecure sudah termasuk paket board ESP32
+ *
+ *  ArduinoJson TIDAK lagi diperlukan.
+ *
+ *  ---------------------------------------------------------------------------
+ *  Isi tiga blok di bawah sebelum flash: WiFi, broker, dan topik.
+ * ============================================================================
  */
 
 #include <WiFi.h>
-#include <WebSocketsClient.h>
-#include <ArduinoJson.h>
+#include <WiFiClientSecure.h>
+#include <PubSubClient.h>
 
-// ========================
-// KONFIGURASI - Sesuaikan!
-// ========================
+// ============================================================================
+// KONFIGURASI — WAJIB DIISI
+// ============================================================================
 const char* WIFI_SSID     = "NamaWiFi_Anda";
 const char* WIFI_PASSWORD = "PasswordWiFi_Anda";
 
-// Alamat backend di Railway.
+// Broker MQTT. Harus SAMA dengan MQTT_URL di backend-node/.env.
 //
-// Ditulis TANPA "https://" — pustaka WebSockets hanya menerima nama host.
-//
-// Port 443, bukan 3001. Angka 3001 itu port INTERNAL kontainer dan tidak
-// pernah dibuka ke publik: Railway menaruh proxy di depannya, mengakhiri TLS
-// di sana, lalu meneruskan ke kontainer. Dari luar yang ada hanya 443.
-const char* WS_HOST = "smart-community-rt-production.up.railway.app";
-const int   WS_PORT = 443;
-const char* WS_PATH = "/";
+// Port 8883 = TLS (dianjurkan). Port 1883 = tanpa enkripsi; pada jaringan
+// bersama, siapa pun yang menyadap bisa membaca dan menyuntikkan perintah
+// alarm. Pakai 1883 hanya di LAN tertutup saat pengujian.
+const char* MQTT_HOST = "broker.contoh.com";
+const int   MQTT_PORT = 8883;
+const bool  MQTT_PAKAI_TLS = true;
 
-// ========================
-// PIN DEFINITIONS
-// ========================
+const char* MQTT_USERNAME = "";   // kosongkan bila broker anonim
+const char* MQTT_PASSWORD = "";
+
+// Harus SAMA PERSIS dengan MQTT_TOPIC_ALARM di backend.
+const char* TOPIK_ALARM = "smart-community/alarm/command";
+
+// Id klien wajib unik per perangkat. Dua alat dengan id sama akan saling
+// memutus sambungan bergantian, dan gejalanya adalah alarm yang berbunyi
+// putus-putus tanpa sebab yang jelas.
+const char* MQTT_CLIENT_ID = "smart-community-esp32-01";
+
+// ============================================================================
+// PIN
+// ============================================================================
 #define BUZZER_PIN    25
 #define LED_RED_PIN   26
 #define LED_GREEN_PIN 27
 
-// ========================
-// GLOBAL VARIABLES
-// ========================
-WebSocketsClient webSocket;
-bool alarmActive = false;
-unsigned long lastBlinkTime = 0;
-bool ledState = false;
+// ============================================================================
+// STATE
+// ============================================================================
+WiFiClientSecure clientAman;
+WiFiClient       clientPolos;
+PubSubClient     mqtt(clientAman);
 
-// Pola bunyi buzzer, dikelola dengan millis() seperti kedip LED.
-unsigned long lastBeepTime = 0;
+bool alarmAktif = false;
+
+unsigned long tandaKedip = 0;
+unsigned long tandaBip   = 0;
+bool ledState  = false;
 bool beepState = false;
 
 const unsigned long JEDA_KEDIP = 300;  // ms — LED merah
 const unsigned long JEDA_BIP   = 400;  // ms — buzzer hidup/mati
 
-// ========================
-// SETUP
-// ========================
+unsigned long tandaSambungUlang = 0;
+const unsigned long JEDA_SAMBUNG_ULANG = 5000;
+
+// ============================================================================
 void setup() {
   Serial.begin(115200);
-  delay(1000);
+  delay(500);
 
-  Serial.println();
-  Serial.println("╔═══════════════════════════════════════╗");
-  Serial.println("║  ESP32 Alarm - Smart Community RT     ║");
-  Serial.println("╚═══════════════════════════════════════╝");
-
-  // Setup pins
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(LED_RED_PIN, OUTPUT);
   pinMode(LED_GREEN_PIN, OUTPUT);
 
-  // Initial state: semua OFF
-  digitalWrite(BUZZER_PIN, LOW);
-  digitalWrite(LED_RED_PIN, LOW);
+  matikanAlarm();
   digitalWrite(LED_GREEN_PIN, LOW);
 
-  // Connect WiFi
-  connectWiFi();
+  Serial.println();
+  Serial.println("=== Smart Community RT — Alarm (MQTT) ===");
 
-  // beginSSL, BUKAN begin.
-  //
-  // `begin()` membuka WebSocket polos (ws://). Railway sama sekali tidak
-  // melayani itu — yang ada hanya wss:// di port 443. Dengan `begin()`
-  // sambungannya ditolak tanpa pesan galat yang menunjuk sebabnya; perangkatnya
-  // hanya diam seolah tidak ada apa-apa.
-  //
-  // Tanpa fingerprint, pustaka ini memakai setInsecure() di ESP32: lalu lintasnya
-  // tetap terenkripsi, tetapi sertifikat server tidak diverifikasi. Cukup untuk
-  // perangkat di jaringan sendiri; bukan yang saya sarankan bila alat ini kelak
-  // dipasang di jaringan publik.
-  webSocket.beginSSL(WS_HOST, WS_PORT, WS_PATH);
-  webSocket.onEvent(webSocketEvent);
-  webSocket.setReconnectInterval(5000);  // Auto reconnect setiap 5 detik
+  sambungWifi();
 
-  Serial.println("✅ Setup selesai. Menunggu sinyal alarm...");
+  if (MQTT_PAKAI_TLS) {
+    // Tanpa sertifikat CA, sambungan TLS tetap terenkripsi tetapi TIDAK
+    // memverifikasi identitas broker. Untuk pemasangan sungguhan, ganti dengan
+    // clientAman.setCACert(ca_root) memakai sertifikat broker Anda.
+    clientAman.setInsecure();
+    mqtt.setClient(clientAman);
+  } else {
+    mqtt.setClient(clientPolos);
+  }
+
+  mqtt.setServer(MQTT_HOST, MQTT_PORT);
+  mqtt.setCallback(pesanMasuk);
+  mqtt.setKeepAlive(30);
 }
 
-// ========================
-// MAIN LOOP
-// ========================
+// ============================================================================
 void loop() {
-  // Satu-satunya yang benar-benar membaca data masuk dari jaringan. Harus
-  // dipanggil sesering mungkin — dan tidak boleh ada delay() di bawahnya.
-  webSocket.loop();
+  if (WiFi.status() != WL_CONNECTED) {
+    digitalWrite(LED_GREEN_PIN, LOW);
+    sambungWifi();
+  }
 
-  if (!alarmActive) return;
+  if (!mqtt.connected()) {
+    digitalWrite(LED_GREEN_PIN, LOW);
+    sambungUlangMqtt();
+  } else {
+    digitalWrite(LED_GREEN_PIN, HIGH);  // hijau menyala = siap menerima perintah
+    mqtt.loop();
+  }
+
+  jalankanAlarm();
+}
+
+// ============================================================================
+void sambungWifi() {
+  if (WiFi.status() == WL_CONNECTED) return;
+
+  Serial.print("Menyambung WiFi");
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+  unsigned long mulai = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - mulai < 20000) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println();
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.print("WiFi tersambung. IP: ");
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.println("WiFi GAGAL — akan dicoba lagi.");
+  }
+}
+
+// ============================================================================
+void sambungUlangMqtt() {
+  // Tidak memakai delay(): alarm yang sedang berbunyi harus terus berbunyi
+  // selama percobaan sambung ulang. delay() akan membekukan jalankanAlarm()
+  // dan buzzer justru diam pada saat paling dibutuhkan.
+  if (millis() - tandaSambungUlang < JEDA_SAMBUNG_ULANG) return;
+  tandaSambungUlang = millis();
+
+  Serial.print("Menyambung broker MQTT... ");
+
+  bool ok;
+  if (strlen(MQTT_USERNAME) > 0) {
+    ok = mqtt.connect(MQTT_CLIENT_ID, MQTT_USERNAME, MQTT_PASSWORD);
+  } else {
+    ok = mqtt.connect(MQTT_CLIENT_ID);
+  }
+
+  if (ok) {
+    Serial.println("tersambung.");
+    // QoS 1: broker mengulang pengiriman sampai alat mengonfirmasi. QoS 0 boleh
+    // hilang diam-diam, dan perintah alarm yang hilang diam-diam adalah
+    // kegagalan terburuk pada alat ini.
+    mqtt.subscribe(TOPIK_ALARM, 1);
+    Serial.print("Berlangganan topik: ");
+    Serial.println(TOPIK_ALARM);
+    // Pesan retained dari broker akan langsung menyusul di sini, sehingga alat
+    // yang baru menyala tahu apakah alarm sedang aktif.
+  } else {
+    Serial.print("gagal, kode=");
+    Serial.println(mqtt.state());
+  }
+}
+
+// ============================================================================
+void pesanMasuk(char* topik, byte* muatan, unsigned int panjang) {
+  // Muatan MQTT bukan string ber-null. Menyalinnya ke buffer sendiri adalah
+  // satu-satunya cara aman membacanya.
+  char perintah[16];
+  unsigned int n = panjang < sizeof(perintah) - 1 ? panjang : sizeof(perintah) - 1;
+  memcpy(perintah, muatan, n);
+  perintah[n] = '\0';
+
+  Serial.print("MQTT [");
+  Serial.print(topik);
+  Serial.print("] -> ");
+  Serial.println(perintah);
+
+  if (strcasecmp(perintah, "ON") == 0) {
+    nyalakanAlarm();
+  } else if (strcasecmp(perintah, "OFF") == 0) {
+    matikanAlarm();
+  } else {
+    // Perintah tak dikenal DIABAIKAN, bukan ditafsirkan. Menebak-nebak di sini
+    // berarti sebuah pesan rusak bisa membangunkan satu kampung.
+    Serial.println("Perintah tidak dikenal — diabaikan.");
+  }
+}
+
+// ============================================================================
+void nyalakanAlarm() {
+  if (alarmAktif) return;   // sudah menyala, jangan mengulang dari awal
+  alarmAktif = true;
+  tandaKedip = millis();
+  tandaBip   = millis();
+  Serial.println(">>> ALARM MENYALA");
+}
+
+void matikanAlarm() {
+  alarmAktif = false;
+  ledState   = false;
+  beepState  = false;
+  digitalWrite(BUZZER_PIN, LOW);
+  digitalWrite(LED_RED_PIN, LOW);
+  Serial.println(">>> alarm mati");
+}
+
+// ============================================================================
+void jalankanAlarm() {
+  if (!alarmAktif) return;
 
   const unsigned long sekarang = millis();
 
   // LED merah berkedip.
-  if (sekarang - lastBlinkTime >= JEDA_KEDIP) {
-    lastBlinkTime = sekarang;
+  if (sekarang - tandaKedip >= JEDA_KEDIP) {
+    tandaKedip = sekarang;
     ledState = !ledState;
     digitalWrite(LED_RED_PIN, ledState ? HIGH : LOW);
   }
 
-  // Buzzer AKTIF cukup dihidup-matikan; ia punya osilator sendiri dan tidak
-  // mengenal nada, jadi tone() tidak berlaku di sini.
+  // Buzzer AKTIF digerakkan on/off, bukan tone(): buzzer aktif punya osilator
+  // sendiri dan hanya perlu tegangan.
   //
-  // Dulu blok ini memakai tone() + dua delay(250). Selama 500 ms itu
-  // webSocket.loop() di atas tidak pernah jalan, sehingga ALARM_OFF menunggu
-  // di antrean sampai setengah detik — dan urusan keepalive pustaka ikut
-  // tertahan, yang di atas TLS memperbesar peluang sambungan dianggap mati.
-  if (sekarang - lastBeepTime >= JEDA_BIP) {
-    lastBeepTime = sekarang;
+  // Ditulis tanpa delay() dengan sengaja. Versi ber-delay membuat alat berhenti
+  // membaca jaringan selama ratusan milidetik — dan perintah OFF yang tiba pada
+  // jeda itu bisa terlewat, sehingga buzzer terus berbunyi setelah pengurus
+  // menekan tombol mati.
+  if (sekarang - tandaBip >= JEDA_BIP) {
+    tandaBip = sekarang;
     beepState = !beepState;
     digitalWrite(BUZZER_PIN, beepState ? HIGH : LOW);
   }
-}
-
-// ========================
-// WIFI CONNECTION
-// ========================
-void connectWiFi() {
-  Serial.print("📡 Menghubungkan ke WiFi: ");
-  Serial.println(WIFI_SSID);
-
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-  int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 30) {
-    delay(500);
-    Serial.print(".");
-    attempts++;
-  }
-
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println();
-    Serial.print("✅ WiFi terhubung! IP: ");
-    Serial.println(WiFi.localIP());
-    digitalWrite(LED_GREEN_PIN, HIGH);  // LED hijau ON = connected
-  } else {
-    Serial.println();
-    Serial.println("❌ Gagal terhubung ke WiFi. Restart ESP32...");
-    delay(3000);
-    ESP.restart();
-  }
-}
-
-// ========================
-// WEBSOCKET EVENT HANDLER
-// ========================
-void webSocketEvent(WStype_t type, uint8_t* payload, size_t length) {
-  switch (type) {
-    case WStype_DISCONNECTED:
-      Serial.println("❌ WebSocket terputus");
-      digitalWrite(LED_GREEN_PIN, LOW);
-      break;
-
-    case WStype_CONNECTED:
-      Serial.println("✅ WebSocket terhubung ke backend");
-      digitalWrite(LED_GREEN_PIN, HIGH);
-      break;
-
-    case WStype_TEXT: {
-      Serial.print("📨 Pesan diterima: ");
-      Serial.println((char*)payload);
-
-      // Parse JSON
-      JsonDocument doc;
-      DeserializationError error = deserializeJson(doc, payload, length);
-
-      if (error) {
-        Serial.print("⚠️ JSON parse error: ");
-        Serial.println(error.c_str());
-        return;
-      }
-
-      const char* messageType = doc["type"];
-
-      if (messageType == NULL) {
-        Serial.println("⚠️ Tidak ada field 'type' dalam pesan");
-        return;
-      }
-
-      // ========================
-      // HANDLE ALARM_ON
-      // ========================
-      if (strcmp(messageType, "ALARM_ON") == 0) {
-        Serial.println("🚨 === ALARM AKTIF! ===");
-
-        const char* nama   = doc["nama"]   | "Tidak diketahui";
-        const char* alamat = doc["alamat"]  | "-";
-        const char* pesan  = doc["message"] | "DARURAT!";
-
-        Serial.print("   Dari   : "); Serial.println(nama);
-        Serial.print("   Alamat : "); Serial.println(alamat);
-        Serial.print("   Pesan  : "); Serial.println(pesan);
-
-        activateAlarm();
-      }
-
-      // ========================
-      // HANDLE ALARM_OFF
-      // ========================
-      else if (strcmp(messageType, "ALARM_OFF") == 0) {
-        Serial.println("✅ === ALARM DIMATIKAN ===");
-        deactivateAlarm();
-      }
-
-      // ========================
-      // HANDLE CONNECTED (welcome message)
-      // ========================
-      else if (strcmp(messageType, "CONNECTED") == 0) {
-        Serial.println("📡 Terhubung ke Smart Community RT Server");
-      }
-
-      break;
-    }
-
-    case WStype_ERROR:
-      Serial.println("⚠️ WebSocket error");
-      break;
-
-    default:
-      break;
-  }
-}
-
-// ========================
-// ALARM CONTROL
-// ========================
-void activateAlarm() {
-  alarmActive = true;
-
-  // Pewaktu di-nol-kan supaya bip dan kedip dimulai dari awal, bukan melanjutkan
-  // sisa hitungan alarm sebelumnya.
-  lastBlinkTime = millis();
-  lastBeepTime  = millis();
-
-  ledState  = true;
-  beepState = true;
-  digitalWrite(LED_RED_PIN, HIGH);
-  digitalWrite(BUZZER_PIN, HIGH);
-
-  Serial.println("🔴 Buzzer & LED AKTIF");
-}
-
-void deactivateAlarm() {
-  alarmActive = false;
-  digitalWrite(BUZZER_PIN, LOW);
-  digitalWrite(LED_RED_PIN, LOW);
-  ledState  = false;
-  beepState = false;
-  Serial.println("🟢 Buzzer & LED MATI");
 }

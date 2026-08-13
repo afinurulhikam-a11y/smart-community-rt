@@ -187,6 +187,14 @@ class ApiConstants {
   // Emergency
   static String get emergencyTrigger => '$baseUrl/emergency/trigger';
   static String emergencyDismiss(String id) => '$baseUrl/emergency/dismiss/$id';
+  /// Kendali alat alarm — terpisah dari pelaporan kejadian.
+  ///
+  /// Backend yang menerbitkan perintahnya ke broker MQTT; aplikasi tidak
+  /// pernah menyentuh broker maupun kredensialnya. Klien hanya memanggil
+  /// endpoint HTTP biasa yang sudah dijaga sesi dan PIN darurat.
+  static String get emergencyAlarm => '$baseUrl/emergency/alarm';
+  static String get emergencyAlarmStatus => '$baseUrl/emergency/alarm/status';
+
   static String get emergencyAlerts => '$baseUrl/emergency/alerts';
   static String get emergencyActive => '$baseUrl/emergency/active';
 
