@@ -1,279 +1,485 @@
-/*
- * ============================================================================
- *  Smart Community RT — Alarm Darurat (ESP32)
- * ============================================================================
- *
- *  Alat ini berlangganan satu topik MQTT dan menyalakan buzzer + LED merah
- *  ketika menerima "ON", lalu mematikannya ketika menerima "OFF".
- *
- *  ---------------------------------------------------------------------------
- *  PERUBAHAN BESAR: WebSocket -> MQTT
- *  ---------------------------------------------------------------------------
- *
- *  Versi sebelumnya menyambung ke WebSocket backend dan membaca field `type`
- *  dari pesan JSON. Sekarang alat berlangganan topik MQTT, dan muatannya
- *  bukan lagi JSON melainkan teks polos "ON" / "OFF".
- *
- *  Akibatnya: PERANGKAT YANG MASIH MEMAKAI FIRMWARE LAMA TIDAK AKAN BERBUNYI.
- *  Backend tidak lagi mengirim perintah alarm lewat WebSocket, jadi setiap
- *  ESP32 wajib di-flash ulang dengan berkas ini. Tidak ada masa tumpang tindih
- *  di mana keduanya bekerja.
- *
- *  Yang TIDAK berubah: WebSocket di backend tetap hidup, tetapi tugasnya kini
- *  hanya memunculkan popup darurat di aplikasi pengurus. Alat tidak lagi
- *  terlibat di sana.
- *
- *  ---------------------------------------------------------------------------
- *  Kenapa muatannya teks polos, bukan JSON
- *  ---------------------------------------------------------------------------
- *
- *  Alat ini hanya perlu tahu satu hal: nyala atau mati. Ia tidak membaca nama
- *  pelapor, alamat, maupun koordinat — buzzer tidak membacakan apa pun. Muatan
- *  sekecil "ON" menghapus seluruh kelas kegagalan parsing JSON, dan menghapus
- *  kemungkinan data pribadi warga sampai ke perangkat yang topiknya bisa
- *  didengar siapa saja yang punya kredensial broker.
- *
- *  ---------------------------------------------------------------------------
- *  Pustaka yang dibutuhkan (Arduino IDE -> Library Manager)
- *  ---------------------------------------------------------------------------
- *   - PubSubClient  (Nick O'Leary)   <- MENGGANTIKAN "WebSockets"
- *   - WiFiClientSecure sudah termasuk paket board ESP32
- *
- *  ArduinoJson TIDAK lagi diperlukan.
- *
- *  ---------------------------------------------------------------------------
- *  Isi tiga blok di bawah sebelum flash: WiFi, broker, dan topik.
- * ============================================================================
- */
-
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <PubSubClient.h>
+#include <time.h>
 
-// ============================================================================
-// KONFIGURASI — WAJIB DIISI
-// ============================================================================
-const char* WIFI_SSID     = "NamaWiFi_Anda";
-const char* WIFI_PASSWORD = "PasswordWiFi_Anda";
-
-// Broker MQTT. Harus SAMA dengan MQTT_URL di backend-node/.env.
+// ============================================================
+//  Smart Community RT - Alarm ESP32
+// ============================================================
 //
-// Port 8883 = TLS (dianjurkan). Port 1883 = tanpa enkripsi; pada jaringan
-// bersama, siapa pun yang menyadap bisa membaca dan menyuntikkan perintah
-// alarm. Pakai 1883 hanya di LAN tertutup saat pengujian.
-const char* MQTT_HOST = "broker.contoh.com";
-const int   MQTT_PORT = 8883;
-const bool  MQTT_PAKAI_TLS = true;
+//  Berlangganan perintah alarm lewat MQTT dan menggerakkan relay sirene
+//  beserta dua LED penanda.
+//
+//  ------------------------------------------------------------
+//  Arti kedua LED
+//  ------------------------------------------------------------
+//
+//    LED 2  = SIAGA. Menyala terus saat keadaan aman.
+//    LED 1  = ALARM. Berkedip saat sirene menyala.
+//
+//  Keduanya TIDAK PERNAH menyala bersamaan, dan itu disengaja: satu lampu
+//  padam adalah tanda yang sama kuatnya dengan satu lampu menyala. Kalau
+//  keduanya menyala saat alarm aktif, orang harus memperhatikan lampu mana
+//  yang berkedip untuk tahu keadaannya — dari kejauhan, atau sekilas lewat,
+//  itu tidak terbaca.
+//
+//  Dengan pembagian ini keadaan alat terbaca dari satu pandangan:
+//
+//    LED 2 menyala tenang        -> aman
+//    LED 1 berkedip, LED 2 padam -> alarm menyala
+//    keduanya padam              -> alat mati atau belum siap
+//
+//  Keadaan ketiga itu penting: sebelumnya "aman" dan "alat mati" sama-sama
+//  ditandai kedua LED padam, sehingga alat yang mati diam-diam terlihat persis
+//  seperti alat yang sedang berjaga.
+// ============================================================
 
-const char* MQTT_USERNAME = "";   // kosongkan bila broker anonim
-const char* MQTT_PASSWORD = "";
 
-// Harus SAMA PERSIS dengan MQTT_TOPIC_ALARM di backend.
-const char* TOPIK_ALARM = "smart-community/alarm/command";
+// ============================================================
+//  KREDENSIAL SENGAJA DIKOSONGKAN
+// ============================================================
+//
+//  Repositori ini PUBLIK. Nilai asli WiFi dan broker TIDAK ditulis di sini
+//  karena riwayat git bersifat permanen: sekali ter-push, sandi itu terbit
+//  selamanya walau barisnya dihapus di commit berikutnya.
+//
+//  Kredensial broker adalah yang paling berbahaya. Siapa pun yang memilikinya
+//  bisa menyambung langsung ke broker dan menerbitkan "ON" sendiri - melewati
+//  PIN darurat, melewati RBAC, dan tanpa meninggalkan satu baris pun di
+//  activity_logs. Seluruh penjagaan di backend menjadi tidak berarti.
+//
+//  Isi kelima nilai di bawah pada salinan LOKAL sebelum flash, dan jangan
+//  meng-commit salinan itu. Pola yang sama dipakai backend-node/.env.example.
+// ============================================================
 
-// Id klien wajib unik per perangkat. Dua alat dengan id sama akan saling
-// memutus sambungan bergantian, dan gejalanya adalah alarm yang berbunyi
-// putus-putus tanpa sebab yang jelas.
-const char* MQTT_CLIENT_ID = "smart-community-esp32-01";
+// ============================================================
+// WiFi
+// ============================================================
+const char* WIFI_SSID = "GANTI_NAMA_WIFI";
+const char* WIFI_PASSWORD = "GANTI_PASSWORD_WIFI";
 
-// ============================================================================
-// PIN
-// ============================================================================
-#define BUZZER_PIN    25
-#define LED_RED_PIN   26
-#define LED_GREEN_PIN 27
+// ============================================================
+// MQTT / EMQX Cloud
+// ============================================================
+const char* MQTT_HOST = "GANTI_HOST_BROKER";
+const uint16_t MQTT_PORT = 8883;
 
-// ============================================================================
-// STATE
-// ============================================================================
-WiFiClientSecure clientAman;
-WiFiClient       clientPolos;
-PubSubClient     mqtt(clientAman);
+const char* MQTT_USER = "GANTI_USER_BROKER";
+const char* MQTT_PASSWORD = "GANTI_PASSWORD_BROKER";
 
-bool alarmAktif = false;
+// ============================================================
+// MQTT Topics
+// ============================================================
+const char* TOPIC_COMMAND = "smart-community/alarm/command";
+const char* TOPIC_STATUS  = "smart-community/alarm/status";
 
-unsigned long tandaKedip = 0;
-unsigned long tandaBip   = 0;
-bool ledState  = false;
-bool beepState = false;
+// ============================================================
+// GPIO
+// ============================================================
+// Sesuaikan dengan wiring rangkaian kamu.
+constexpr uint8_t RELAY_PIN = 25;
+constexpr uint8_t LED1_PIN  = 26;  // ALARM  - berkedip saat sirene menyala
+constexpr uint8_t LED2_PIN  = 27;  // SIAGA  - menyala saat keadaan aman
 
-const unsigned long JEDA_KEDIP = 300;  // ms — LED merah
-const unsigned long JEDA_BIP   = 400;  // ms — buzzer hidup/mati
+// Relay module ACTIVE LOW:
+// LOW  = relay ON
+// HIGH = relay OFF
+constexpr uint8_t RELAY_ON  = LOW;
+constexpr uint8_t RELAY_OFF = HIGH;
 
-unsigned long tandaSambungUlang = 0;
-const unsigned long JEDA_SAMBUNG_ULANG = 5000;
+// Jeda kedip LED alarm.
+//
+// 300 ms terbaca sebagai "darurat" tanpa membuat mata lelah. Di bawah ~150 ms
+// kedipannya mulai terlihat seperti lampu rusak, bukan peringatan.
+constexpr unsigned long BLINK_INTERVAL = 300;
 
-// ============================================================================
-void setup() {
-  Serial.begin(115200);
-  delay(500);
+// ============================================================
+// State
+// ============================================================
+bool alarmActive = false;
 
-  pinMode(BUZZER_PIN, OUTPUT);
-  pinMode(LED_RED_PIN, OUTPUT);
-  pinMode(LED_GREEN_PIN, OUTPUT);
+// Keadaan kedip LED alarm. Dikelola di loop(), bukan dengan delay(), supaya
+// alat tetap membaca jaringan selama LED berkedip - lihat catatan di
+// blinkAlarmLed().
+bool led1State = false;
+unsigned long lastBlink = 0;
 
-  matikanAlarm();
-  digitalWrite(LED_GREEN_PIN, LOW);
+// ============================================================
+// Network
+// ============================================================
+WiFiClientSecure espClient;
+PubSubClient mqtt(espClient);
+
+// ============================================================
+// NTP
+// ============================================================
+void syncTime() {
+  Serial.println("[NTP] Synchronizing time...");
+
+  configTime(
+    0,
+    0,
+    "pool.ntp.org",
+    "time.nist.gov",
+    "time.google.com"
+  );
+
+  struct tm timeinfo;
+
+  for (int i = 0; i < 20; i++) {
+    if (getLocalTime(&timeinfo, 1000)) {
+      Serial.println("[NTP] Time synchronized");
+
+      Serial.printf(
+        "[NTP] %04d-%02d-%02d %02d:%02d:%02d\n",
+        timeinfo.tm_year + 1900,
+        timeinfo.tm_mon + 1,
+        timeinfo.tm_mday,
+        timeinfo.tm_hour,
+        timeinfo.tm_min,
+        timeinfo.tm_sec
+      );
+
+      return;
+    }
+
+    Serial.print(".");
+  }
 
   Serial.println();
-  Serial.println("=== Smart Community RT — Alarm (MQTT) ===");
-
-  sambungWifi();
-
-  if (MQTT_PAKAI_TLS) {
-    // Tanpa sertifikat CA, sambungan TLS tetap terenkripsi tetapi TIDAK
-    // memverifikasi identitas broker. Untuk pemasangan sungguhan, ganti dengan
-    // clientAman.setCACert(ca_root) memakai sertifikat broker Anda.
-    clientAman.setInsecure();
-    mqtt.setClient(clientAman);
-  } else {
-    mqtt.setClient(clientPolos);
-  }
-
-  mqtt.setServer(MQTT_HOST, MQTT_PORT);
-  mqtt.setCallback(pesanMasuk);
-  mqtt.setKeepAlive(30);
+  Serial.println("[NTP] FAILED");
 }
 
-// ============================================================================
-void loop() {
-  if (WiFi.status() != WL_CONNECTED) {
-    digitalWrite(LED_GREEN_PIN, LOW);
-    sambungWifi();
-  }
-
-  if (!mqtt.connected()) {
-    digitalWrite(LED_GREEN_PIN, LOW);
-    sambungUlangMqtt();
-  } else {
-    digitalWrite(LED_GREEN_PIN, HIGH);  // hijau menyala = siap menerima perintah
-    mqtt.loop();
-  }
-
-  jalankanAlarm();
+// ============================================================
+// LED Siaga
+// ============================================================
+// Dipakai saat boot dan setiap kali alarm mati, supaya "aman" selalu ditandai
+// hal yang sama di seluruh berkas ini.
+void setIdleLeds() {
+  digitalWrite(LED1_PIN, LOW);   // alarm padam
+  digitalWrite(LED2_PIN, HIGH);  // siaga menyala
+  led1State = false;
 }
 
-// ============================================================================
-void sambungWifi() {
-  if (WiFi.status() == WL_CONNECTED) return;
+// ============================================================
+// Alarm Control
+// ============================================================
+void setAlarm(bool active) {
+  alarmActive = active;
 
-  Serial.print("Menyambung WiFi");
+  if (active) {
+    // Alarm ON
+    digitalWrite(RELAY_PIN, RELAY_ON);
+
+    // LED siaga DIPADAMKAN. Ia menandakan "aman", dan keadaan sekarang
+    // bukan aman.
+    digitalWrite(LED2_PIN, LOW);
+
+    // Kedip dimulai dari padam lalu langsung dibalik oleh loop().
+    // lastBlink = 0 membuat kedipan pertama terjadi seketika, bukan setelah
+    // menunggu satu interval - pada alarm, jeda 300 ms di awal terasa seperti
+    // alat yang tidak merespons.
+    led1State = false;
+    digitalWrite(LED1_PIN, LOW);
+    lastBlink = 0;
+
+    if (mqtt.connected()) {
+      mqtt.publish(TOPIC_STATUS, "ON", true);
+    }
+
+    Serial.println("[ALARM] ON  - LED1 berkedip, LED2 padam");
+  } else {
+    // Alarm OFF
+    digitalWrite(RELAY_PIN, RELAY_OFF);
+
+    // Kembali ke tanda siaga: alarm padam, siaga menyala.
+    setIdleLeds();
+
+    if (mqtt.connected()) {
+      mqtt.publish(TOPIC_STATUS, "OFF", true);
+    }
+
+    Serial.println("[ALARM] OFF - LED1 padam, LED2 menyala");
+  }
+}
+
+// ============================================================
+// Kedip LED alarm
+// ============================================================
+// Ditulis TANPA delay() dengan sengaja.
+//
+// Versi ber-delay membuat alat berhenti membaca jaringan selama ratusan
+// milidetik pada setiap kedipan. Perintah OFF yang tiba pada jeda itu bisa
+// terlewat, dan gejalanya adalah sirene yang terus berbunyi setelah pengurus
+// menekan tombol mati - kegagalan yang jauh lebih terasa daripada LED yang
+// berkedip tidak rapi.
+void blinkAlarmLed() {
+  if (!alarmActive) {
+    return;
+  }
+
+  const unsigned long now = millis();
+
+  if (now - lastBlink >= BLINK_INTERVAL) {
+    lastBlink = now;
+    led1State = !led1State;
+    digitalWrite(LED1_PIN, led1State ? HIGH : LOW);
+  }
+}
+
+// ============================================================
+// MQTT Callback
+// ============================================================
+void mqttCallback(char* topic, byte* payload, unsigned int length) {
+  String message;
+
+  for (unsigned int i = 0; i < length; i++) {
+    message += (char)payload[i];
+  }
+
+  message.trim();
+  message.toUpperCase();
+
+  Serial.println();
+  Serial.println("[MQTT] Message received");
+
+  Serial.print("[MQTT] Topic   : ");
+  Serial.println(topic);
+
+  Serial.print("[MQTT] Payload : ");
+  Serial.println(message);
+
+  // Hanya proses topic command
+  if (String(topic) != TOPIC_COMMAND) {
+    Serial.println("[MQTT] Topic ignored");
+    return;
+  }
+
+  // Alarm ON
+  if (
+    message == "ON" ||
+    message == "ALARM_ON" ||
+    message == "TEST"
+  ) {
+    setAlarm(true);
+  }
+
+  // Alarm OFF
+  else if (
+    message == "OFF" ||
+    message == "ALARM_OFF"
+  ) {
+    setAlarm(false);
+  }
+
+  // Command tidak dikenal DIABAIKAN, bukan ditebak. Menebak di sini berarti
+  // satu pesan rusak bisa membangunkan satu kampung.
+  else {
+    Serial.print("[MQTT] Unknown command: ");
+    Serial.println(message);
+  }
+}
+
+// ============================================================
+// WiFi Connection
+// ============================================================
+void connectWiFi() {
+  if (WiFi.status() == WL_CONNECTED) {
+    return;
+  }
+
+  Serial.println();
+  Serial.print("[WiFi] Connecting to ");
+  Serial.println(WIFI_SSID);
+
+  WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
-  unsigned long mulai = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - mulai < 20000) {
+  while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
+
   Serial.println();
+  Serial.println("[WiFi] Connected");
 
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.print("WiFi tersambung. IP: ");
-    Serial.println(WiFi.localIP());
-  } else {
-    Serial.println("WiFi GAGAL — akan dicoba lagi.");
+  Serial.print("[WiFi] IP: ");
+  Serial.println(WiFi.localIP());
+
+  Serial.print("[WiFi] RSSI: ");
+  Serial.print(WiFi.RSSI());
+  Serial.println(" dBm");
+}
+
+// ============================================================
+// MQTT Connection
+// ============================================================
+void connectMQTT() {
+  while (!mqtt.connected()) {
+    Serial.println();
+    Serial.print("[MQTT] Connecting to ");
+    Serial.print(MQTT_HOST);
+    Serial.print(":");
+    Serial.println(MQTT_PORT);
+
+    String clientId =
+      "ESP32-ALARM-" +
+      String((uint32_t)ESP.getEfuseMac(), HEX);
+
+    bool connected = false;
+
+    if (strlen(MQTT_USER) > 0) {
+      connected = mqtt.connect(
+        clientId.c_str(),
+        MQTT_USER,
+        MQTT_PASSWORD
+      );
+    } else {
+      connected = mqtt.connect(clientId.c_str());
+    }
+
+    if (connected) {
+      Serial.println("[MQTT] Connected");
+
+      bool subscribed = mqtt.subscribe(TOPIC_COMMAND);
+
+      Serial.print("[MQTT] Subscribe: ");
+      Serial.println(subscribed ? "OK" : "FAILED");
+
+      Serial.print("[MQTT] Topic: ");
+      Serial.println(TOPIC_COMMAND);
+
+      // Publish current alarm state
+      mqtt.publish(
+        TOPIC_STATUS,
+        alarmActive ? "ON" : "OFF",
+        true
+      );
+    } else {
+      Serial.print("[MQTT] Connection failed, state=");
+      Serial.println(mqtt.state());
+
+      // Sirene TIDAK dipadamkan di sini. Kalau alarm sedang menyala dan
+      // jaringan terputus, relay harus tetap menahan sirene - memadamkannya
+      // karena WiFi bermasalah berarti alarm mati justru saat orang paling
+      // membutuhkannya.
+      //
+      // Kedipan LED memang berhenti selama menunggu di sini, karena loop()
+      // tidak berjalan. Itu kosmetik; yang menentukan adalah relay tetap ON.
+      delay(3000);
+    }
   }
 }
 
-// ============================================================================
-void sambungUlangMqtt() {
-  // Tidak memakai delay(): alarm yang sedang berbunyi harus terus berbunyi
-  // selama percobaan sambung ulang. delay() akan membekukan jalankanAlarm()
-  // dan buzzer justru diam pada saat paling dibutuhkan.
-  if (millis() - tandaSambungUlang < JEDA_SAMBUNG_ULANG) return;
-  tandaSambungUlang = millis();
+// ============================================================
+// Setup
+// ============================================================
+void setup() {
+  Serial.begin(115200);
 
-  Serial.print("Menyambung broker MQTT... ");
+  delay(500);
 
-  bool ok;
-  if (strlen(MQTT_USERNAME) > 0) {
-    ok = mqtt.connect(MQTT_CLIENT_ID, MQTT_USERNAME, MQTT_PASSWORD);
-  } else {
-    ok = mqtt.connect(MQTT_CLIENT_ID);
-  }
+  Serial.println();
+  Serial.println("========================================");
+  Serial.println(" Smart Community RT - Alarm ESP32");
+  Serial.println("========================================");
 
-  if (ok) {
-    Serial.println("tersambung.");
-    // QoS 1: broker mengulang pengiriman sampai alat mengonfirmasi. QoS 0 boleh
-    // hilang diam-diam, dan perintah alarm yang hilang diam-diam adalah
-    // kegagalan terburuk pada alat ini.
-    mqtt.subscribe(TOPIK_ALARM, 1);
-    Serial.print("Berlangganan topik: ");
-    Serial.println(TOPIK_ALARM);
-    // Pesan retained dari broker akan langsung menyusul di sini, sehingga alat
-    // yang baru menyala tahu apakah alarm sedang aktif.
-  } else {
-    Serial.print("gagal, kode=");
-    Serial.println(mqtt.state());
-  }
-}
+  // ----------------------------------------------------------
+  // GPIO
+  // ----------------------------------------------------------
+  pinMode(RELAY_PIN, OUTPUT);
+  pinMode(LED1_PIN, OUTPUT);
+  pinMode(LED2_PIN, OUTPUT);
 
-// ============================================================================
-void pesanMasuk(char* topik, byte* muatan, unsigned int panjang) {
-  // Muatan MQTT bukan string ber-null. Menyalinnya ke buffer sendiri adalah
-  // satu-satunya cara aman membacanya.
-  char perintah[16];
-  unsigned int n = panjang < sizeof(perintah) - 1 ? panjang : sizeof(perintah) - 1;
-  memcpy(perintah, muatan, n);
-  perintah[n] = '\0';
+  // Kondisi AMAN saat boot
+  // Active LOW relay -> HIGH = OFF
+  digitalWrite(RELAY_PIN, RELAY_OFF);
+  setIdleLeds();
 
-  Serial.print("MQTT [");
-  Serial.print(topik);
-  Serial.print("] -> ");
-  Serial.println(perintah);
+  alarmActive = false;
 
-  if (strcasecmp(perintah, "ON") == 0) {
-    nyalakanAlarm();
-  } else if (strcasecmp(perintah, "OFF") == 0) {
-    matikanAlarm();
-  } else {
-    // Perintah tak dikenal DIABAIKAN, bukan ditafsirkan. Menebak-nebak di sini
-    // berarti sebuah pesan rusak bisa membangunkan satu kampung.
-    Serial.println("Perintah tidak dikenal — diabaikan.");
-  }
-}
+  Serial.println("[BOOT] Relay : OFF");
+  Serial.println("[BOOT] LED 1 : OFF (alarm)");
+  Serial.println("[BOOT] LED 2 : ON  (siaga)");
+  Serial.println("[BOOT] Alarm : OFF");
 
-// ============================================================================
-void nyalakanAlarm() {
-  if (alarmAktif) return;   // sudah menyala, jangan mengulang dari awal
-  alarmAktif = true;
-  tandaKedip = millis();
-  tandaBip   = millis();
-  Serial.println(">>> ALARM MENYALA");
-}
+  // ----------------------------------------------------------
+  // WiFi
+  // ----------------------------------------------------------
+  connectWiFi();
 
-void matikanAlarm() {
-  alarmAktif = false;
-  ledState   = false;
-  beepState  = false;
-  digitalWrite(BUZZER_PIN, LOW);
-  digitalWrite(LED_RED_PIN, LOW);
-  Serial.println(">>> alarm mati");
-}
+  // ----------------------------------------------------------
+  // NTP
+  // ----------------------------------------------------------
+  syncTime();
 
-// ============================================================================
-void jalankanAlarm() {
-  if (!alarmAktif) return;
+  // ----------------------------------------------------------
+  // TLS
+  // ----------------------------------------------------------
+  // SEMENTARA untuk testing.
+  // Jangan gunakan setInsecure() untuk deployment final.
+  espClient.setInsecure();
 
-  const unsigned long sekarang = millis();
+  // ----------------------------------------------------------
+  // MQTT
+  // ----------------------------------------------------------
+  mqtt.setServer(MQTT_HOST, MQTT_PORT);
+  mqtt.setCallback(mqttCallback);
+  mqtt.setBufferSize(256);
 
-  // LED merah berkedip.
-  if (sekarang - tandaKedip >= JEDA_KEDIP) {
-    tandaKedip = sekarang;
-    ledState = !ledState;
-    digitalWrite(LED_RED_PIN, ledState ? HIGH : LOW);
-  }
+  connectMQTT();
 
-  // Buzzer AKTIF digerakkan on/off, bukan tone(): buzzer aktif punya osilator
-  // sendiri dan hanya perlu tegangan.
+  // Pastikan output tetap pada keadaan siaga setelah koneksi MQTT.
   //
-  // Ditulis tanpa delay() dengan sengaja. Versi ber-delay membuat alat berhenti
-  // membaca jaringan selama ratusan milidetik — dan perintah OFF yang tiba pada
-  // jeda itu bisa terlewat, sehingga buzzer terus berbunyi setelah pengurus
-  // menekan tombol mati.
-  if (sekarang - tandaBip >= JEDA_BIP) {
-    tandaBip = sekarang;
-    beepState = !beepState;
-    digitalWrite(BUZZER_PIN, beepState ? HIGH : LOW);
+  // Dijaga dengan `if (!alarmActive)`: broker mengirim pesan retained segera
+  // setelah subscribe, jadi alat yang menyala saat alarm sedang aktif bisa
+  // SUDAH menerima "ON" sebelum baris ini dijalankan. Memaksa siaga tanpa
+  // pemeriksaan itu akan memadamkan alarm yang seharusnya berbunyi.
+  if (!alarmActive) {
+    digitalWrite(RELAY_PIN, RELAY_OFF);
+    setIdleLeds();
   }
+
+  Serial.println();
+  Serial.println("[SYSTEM] Ready");
+  Serial.println("[SYSTEM] Alarm akan tetap ON sampai menerima OFF");
+}
+
+// ============================================================
+// Loop
+// ============================================================
+void loop() {
+  // ----------------------------------------------------------
+  // WiFi
+  // ----------------------------------------------------------
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("[WiFi] Disconnected");
+    connectWiFi();
+    syncTime();
+  }
+
+  // ----------------------------------------------------------
+  // MQTT
+  // ----------------------------------------------------------
+  if (!mqtt.connected()) {
+    Serial.println("[MQTT] Disconnected");
+    connectMQTT();
+  }
+
+  mqtt.loop();
+
+  // ----------------------------------------------------------
+  // LED alarm
+  // ----------------------------------------------------------
+  blinkAlarmLed();
+
+  // ----------------------------------------------------------
+  // Tidak ada auto-off.
+  //
+  // Alarm hanya mati jika:
+  // 1. menerima command OFF
+  // 2. ESP32 direstart / kehilangan daya
+  // ----------------------------------------------------------
+
+  delay(10);
 }
