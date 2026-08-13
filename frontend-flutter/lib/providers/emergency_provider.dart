@@ -38,6 +38,62 @@ class EmergencyProvider extends ChangeNotifier {
     }
   }
 
+  /// Apakah sirene sedang dianggap menyala oleh aplikasi ini.
+  ///
+  /// Ini keadaan yang DIKETAHUI aplikasi, bukan pembacaan langsung dari alat.
+  /// Alat tidak melapor balik ke sini, jadi label di layar sengaja berbunyi
+  /// "alarm dinyalakan", bukan "alat berbunyi" — mengaku tahu lebih banyak
+  /// daripada yang sebenarnya diketahui adalah cara membuat orang berhenti
+  /// memeriksa alatnya sendiri.
+  bool _alarmMenyala = false;
+  bool get alarmMenyala => _alarmMenyala;
+
+  /// True selama satu perintah alarm sedang dikirim. Dipakai layar untuk
+  /// mengunci tombol, sehingga tekan-berkali-kali tidak menjadi banyak
+  /// permintaan.
+  bool _mengirimAlarm = false;
+  bool get mengirimAlarm => _mengirimAlarm;
+
+  /// Menyalakan atau mematikan alat lewat backend.
+  ///
+  /// [aksi] hanya boleh 'ON' atau 'OFF'. PIN diverifikasi DI BACKEND; nilai di
+  /// sini hanya diteruskan. Aplikasi tidak pernah menyentuh broker MQTT dan
+  /// tidak pernah memegang kredensialnya.
+  ///
+  /// Mengembalikan pesan galat bila gagal, atau null bila berhasil — pemanggil
+  /// butuh teksnya untuk ditampilkan, bukan sekadar true/false.
+  Future<String?> kendaliAlarm(String aksi, String pin) async {
+    if (_mengirimAlarm) return 'Perintah sebelumnya masih diproses.';
+
+    _mengirimAlarm = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    final r = await ApiService.post(
+      ApiConstants.emergencyAlarm,
+      body: {'aksi': aksi, 'pin': pin},
+    );
+
+    _mengirimAlarm = false;
+
+    if (r['success'] == true) {
+      _alarmMenyala = aksi.toUpperCase() == 'ON';
+      _successMessage = r['message'] as String?;
+      notifyListeners();
+      return null;
+    }
+
+    // Server tidak terjangkau dibedakan dari server yang menolak. Pada tombol
+    // darurat perbedaan itu menentukan tindakan berikutnya: yang satu berarti
+    // coba lagi, yang lain berarti periksa alatnya langsung.
+    final galat = r[ApiService.penandaOffline] == true
+        ? 'Tidak dapat menghubungi server. Alarm BELUM tentu menyala — periksa alat secara langsung.'
+        : (r['message'] as String? ?? 'Gagal mengirim perintah alarm.');
+    _errorMessage = galat;
+    notifyListeners();
+    return galat;
+  }
+
   Future<bool> triggerAlarm({String? message, String? pin}) async {
     _isSending = true;
     _errorMessage = null;

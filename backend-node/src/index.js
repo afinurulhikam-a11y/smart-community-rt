@@ -49,6 +49,7 @@ const paymentRoutes = require('./routes/payment.routes');
 
 const uploadRoutes = require('./routes/upload.routes');
 const unduhRoutes = require('./routes/unduh.routes');
+const { initMqtt } = require('./config/mqtt');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -256,6 +257,7 @@ const server = http.createServer(app);
 
 // Inisialisasi WebSocket pada server HTTP yang sama
 initWebSocket(server);
+initMqtt();  // Sambungan broker alarm dihangatkan sejak startup.
 
 server.listen(PORT, () => {
   console.log(`

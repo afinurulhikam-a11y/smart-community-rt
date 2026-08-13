@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../core/responsif.dart';
+import '../../widgets/kartu_alarm_darurat.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/websocket_service.dart';
@@ -1196,6 +1197,11 @@ class _MainDashboardState extends State<MainDashboard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Tombol darurat diletakkan PALING ATAS, sama seperti dasbor warga.
+        // Dalam keadaan darurat orang tidak menggulir mencari tombol.
+        const KartuAlarmDarurat(),
+        const SizedBox(height: 16),
+
         // Welcome Section
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,

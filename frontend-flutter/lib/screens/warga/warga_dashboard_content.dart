@@ -12,6 +12,7 @@ import 'package:intl/intl.dart';
 import '../../core/responsif.dart';
 import '../../core/theme/warna_konteks.dart';
 import '../../core/format.dart';
+import '../../widgets/kartu_alarm_darurat.dart';
 
 class WargaDashboardContent extends StatelessWidget {
   final AuthService auth;
@@ -60,6 +61,11 @@ class WargaDashboardContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Tombol darurat diletakkan PALING ATAS, sebelum sapaan maupun kartu
+        // apa pun. Dalam keadaan darurat orang tidak menggulir mencari tombol.
+        const KartuAlarmDarurat(),
+        const SizedBox(height: 16),
+
         // Header Greeting
         Container(
           width: double.infinity,
