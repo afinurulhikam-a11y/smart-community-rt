@@ -1,7 +1,13 @@
 name: smart_community
 description: "Smart Community Management Platform RT - Mobile & Web"
 publish_to: 'none'
-version: 1.0.0+1
+# versionName + versionCode. Sumber tunggal, ter-commit dan ter-review —
+# BUKAN bendera --build-name/--build-number, yang hanya menulis ke
+# android/local.properties (gitignored) sehingga build berikutnya diam-diam
+# kembali ke nilai lama. versionCode WAJIB naik pada setiap artefak yang
+# dibagikan; Android menolak memasang versionCode yang sama atau lebih rendah.
+# Lihat RELEASE-ANDROID.md.
+version: 1.1.0+3
 
 environment:
   sdk: ^3.12.0

@@ -1,24 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Mengizinkan HTTP polos (tanpa TLS).
+    Konfigurasi jaringan untuk build RILIS: HTTP polos DITOLAK.
 
-    Sejak Android 9 (API 28) cleartext diblokir secara bawaan, dan proyek ini
-    memakai targetSdk 36. Tanpa berkas ini SETIAP panggilan ke
-    http://ip-lan:3001 gagal, dan aplikasi tampak seperti "tidak connect"
-    padahal backend-nya hidup.
+    Sebelumnya berkas ini membuka cleartext menyeluruh demi pengujian LAN
+    terhadap http://ip-lan:3001, dan kelonggaran itu ikut terbawa ke APK yang
+    hendak dibagikan ke warga. Pada jaringan publik — Wi-Fi warung, hotspot
+    bersama — cleartext membuka serangan downgrade: penyerang cukup memblokir
+    HTTPS agar aplikasi jatuh ke HTTP, lalu membaca seluruh lalu lintasnya.
 
-    Sengaja dibuka menyeluruh alih-alih didaftar per-IP, karena alamat server
-    memang berpindah-pindah lewat dart-define API_HOST saat pengujian di
-    jaringan yang berbeda-beda.
+    Produksi memang sudah HTTPS
+    (https://smart-community-rt-production.up.railway.app), jadi pembatasan ini
+    tidak memutus apa pun yang sah.
 
-    PERINGATAN: ini pantas untuk pengujian di jaringan lokal, BUKAN untuk
-    aplikasi yang dipublikasikan. Saat backend sudah dipasang sungguhan, pindah
-    ke HTTPS lalu perketat berkas ini menjadi domain-config untuk host itu
-    saja, atau hapus rujukannya dari AndroidManifest.
+    PENGUJIAN LAN TIDAK HILANG. Build debug dan profile memakai berkas dengan
+    nama yang sama di src/debug/res/xml dan src/profile/res/xml, yang menimpa
+    berkas ini lewat penggabungan resource per build type. Jadi `flutter run`
+    tetap bisa menembak http://ip-lan:3001 tanpa satu pun bendera tambahan.
+
+    Yang berubah: menjalankan Flutter dalam mode rilis terhadap LAN akan GAGAL.
+    Itu bukan bug, itu tujuannya. Untuk menguji build rilis terhadap backend
+    lokal, pakai tunnel HTTPS (ngrok) lewat dart-define API_BASE_URL.
 
     CATATAN: komentar XML tidak boleh memuat dua tanda hubung berurutan, jadi
     jangan menuliskan opsi baris perintah Flutter apa adanya di sini.
 -->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="true" />
+    <base-config cleartextTrafficPermitted="false" />
 </network-security-config>

@@ -1,4 +1,4 @@
-package com.example.smart_community
+package id.smartcommunityrt.app
 
 import io.flutter.embedding.android.FlutterActivity
 
