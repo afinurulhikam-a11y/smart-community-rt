@@ -70,7 +70,7 @@ class PollingProvider extends ChangeNotifier {
       body: {'option_id': optionId},
     );
     if (response['success'] == true) {
-      await fetchPolling();
+      await fetchPolling(status: _currentStatusFilter == 'Semua' ? null : _currentStatusFilter);
       return true;
     }
     _errorMessage = response['message'] as String?;
@@ -81,19 +81,32 @@ class PollingProvider extends ChangeNotifier {
   Future<bool> updatePollingStatus(int id, String status) async {
     final response = await ApiService.put(ApiConstants.pollingStatus(id), body: {'status': status});
     if (response['success'] == true) {
-      await fetchPolling();
+      await fetchPolling(status: _currentStatusFilter == 'Semua' ? null : _currentStatusFilter);
       return true;
     }
+    _errorMessage = response['message'] as String?;
+    notifyListeners();
     return false;
   }
 
   Future<bool> deletePolling(int id) async {
     final response = await ApiService.delete('${ApiConstants.polling}/$id');
     if (response['success'] == true) {
-      await fetchPolling();
+      await fetchPolling(status: _currentStatusFilter == 'Semua' ? null : _currentStatusFilter);
       return true;
     }
+    _errorMessage = response['message'] as String?;
+    notifyListeners();
     return false;
+  }
+
+  /// Jalur khusus pengujian widget.
+  @visibleForTesting
+  void pasangUji(List<Map<String, dynamic>> daftar, {String? galat}) {
+    _pollingList = List<Map<String, dynamic>>.from(daftar);
+    _isLoading = false;
+    _errorMessage = galat;
+    notifyListeners();
   }
 
   /// Kosongkan seluruh state saat pengguna keluar.
@@ -110,5 +123,4 @@ class PollingProvider extends ChangeNotifier {
     _currentStatusFilter = null;
     notifyListeners();
   }
-
 }
