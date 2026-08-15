@@ -37,180 +37,6 @@ class _StatusDaruratScreenState extends State<StatusDaruratScreen> {
     provider.fetchAlerts(status: statusFilter, page: page, limit: 10);
   }
 
-  void _showSimulateDialog() {
-    final msgController = TextEditingController(text: 'Latihan Darurat Kebakaran');
-    final pinController = TextEditingController();
-    String? pinError;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setModalState) => Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 420),
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEF2F2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.shield_outlined, color: Color(0xFFDC2626), size: 24),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Verifikasi Keamanan 2-Langkah',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: context.teksUtama),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Konfirmasi pemicuan simulasi darurat',
-                            style: TextStyle(fontSize: 12, color: context.teksKedua),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'Detail Pesan Simulasi:',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: context.teksKedua),
-                ),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: msgController,
-                  decoration: InputDecoration(
-                    hintText: 'Pesan / detail kejadian',
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Masukkan PIN Keamanan (Default: 1234):',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: context.teksKedua),
-                ),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: pinController,
-                  obscureText: true,
-                  keyboardType: TextInputType.number,
-                  maxLength: 4,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(4),
-                  ],
-                  decoration: InputDecoration(
-                    counterText: '',
-                    hintText: 'Masukkan 4-digit PIN',
-                    prefixIcon: const Icon(Icons.lock_outline, size: 18),
-                    errorText: pinError,
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFFBEB),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFFDE68A)),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.info_outline, size: 16, color: Color(0xFFD97706)),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Fitur verifikasi ini mencegah penyalahgunaan atau ketidaksengajaan tertekan oleh anak kecil.',
-                          style: TextStyle(fontSize: 11, color: Color(0xFF92400E)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        child: const Text('Batal'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFDC2626),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        onPressed: () async {
-                          final pin = pinController.text.trim();
-                          if (pin.isEmpty) {
-                            setModalState(() {
-                              pinError = 'Wajib memasukkan PIN Keamanan';
-                            });
-                            return;
-                          }
-                          Navigator.pop(ctx);
-                          final messenger = ScaffoldMessenger.of(context);
-                          final provider = context.read<EmergencyProvider>();
-                          final success = await provider.triggerAlarm(
-                            message: msgController.text.trim(),
-                            pin: pin,
-                          );
-                          if (mounted) {
-                            if (success) {
-                              tampilkanPesanDi(
-                                messenger,
-                                provider.successMessage ?? 'Sinyal darurat berhasil dikirim!',
-                                sukses: true,
-                              );
-                            } else {
-                              tampilkanPesanDi(
-                                messenger,
-                                provider.errorMessage ?? 'PIN Keamanan salah atau gagal mengirim sinyal.',
-                                sukses: false,
-                              );
-                            }
-                            _loadData();
-                          }
-                        },
-                        child: const Text('Verifikasi & Kirim', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   void _showResolveDialog(String alertId) {
     final pinController = TextEditingController();
     String? pinError;
@@ -365,56 +191,30 @@ class _StatusDaruratScreenState extends State<StatusDaruratScreen> {
               color: context.garis,
             ),
           ),
-          child: SizedBox(
-            width: double.infinity,
-            child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TombolKembali(onPressed: widget.onBack),
-                    const SizedBox(width: 10),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEF4444).withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.crisis_alert, color: Color(0xFFEF4444), size: 20),
-                    ),
-                    const SizedBox(width: 10),
-                    Flexible(
-                      child: Text(
-                        'Aspirasi & Partisipasi / Status Darurat',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: _isDarkMode ? Colors.white70 : context.teksKedua,
-                        ),
-                      ),
-                    ),
-                  ],
+          child: Row(
+            children: [
+              TombolKembali(onPressed: widget.onBack),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEF4444).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                ElevatedButton.icon(
-                  onPressed: _showSimulateDialog,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFEF4444),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  ),
-                  icon: const Icon(Icons.warning, size: 18),
-                  label: const Text(
-                    'Simulasi Darurat',
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                child: const Icon(Icons.crisis_alert, color: Color(0xFFEF4444), size: 20),
+              ),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  'Aspirasi & Partisipasi / Status Darurat',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: _isDarkMode ? Colors.white70 : context.teksKedua,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
 
