@@ -170,6 +170,9 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
                 final int totalSuara = int.tryParse(polling['total_votes']?.toString() ?? '0') ?? 0;
                 final optionsData = polling['options'] as List? ?? [];
                 final int? pilihanSaya = int.tryParse(polling['pilihan_saya']?.toString() ?? '');
+                final bool lewatDeadline = polling['lewat_deadline'] == true ||
+                    (dateSelesai.isBefore(DateTime.now()) &&
+                        (polling['tanggal_selesai']?.toString().contains(':') ?? false));
                 final options = optionsData.map<Map<String, dynamic>>((opt) {
                   final int votes = int.tryParse(opt['vote_count']?.toString() ?? '0') ?? 0;
                   final int percentage = totalSuara > 0 ? ((votes / totalSuara) * 100).round() : 0;
@@ -180,13 +183,12 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
                     'percentage': percentage,
                     'suara': votes,
                     'dipilih': pilihanSaya != null && pilihanSaya == optId,
-                    'color': const Color(0xFF0F766E), // simplify color
+                    'color': const Color(0xFF0F766E),
                   };
                 }).toList();
 
                 return SizedBox(
-                  // 400 tetap membuat kartu ini lebih lebar dari layar 360px
-                  // dan meluber. Di ponsel kartunya mengisi lebar Wrap.
+                  // Di ponsel kartunya mengisi lebar Wrap.
                   width: lebarKolomFilter(context, maksimal: 400),
                   child: _buildPollingCard(
                     id: polling['id'],
@@ -197,6 +199,8 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
                     totalVotes: '$totalSuara suara',
                     options: options,
                     sudahVote: polling['sudah_vote'] == true,
+                    pilihanSaya: pilihanSaya,
+                    lewatDeadline: lewatDeadline,
                   ),
                 );
               }).toList(),
@@ -276,16 +280,18 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
     required String totalVotes,
     required List<Map<String, dynamic>> options,
     bool sudahVote = false,
+    int? pilihanSaya,
+    bool lewatDeadline = false,
   }) {
-    final displayStatus = status.isEmpty
-        ? 'Aktif'
-        : (status.toLowerCase() == 'aktif'
-            ? 'Aktif'
-            : (status.toLowerCase() == 'selesai'
-                ? 'Selesai'
-                : (status.toLowerCase() == 'ditutup'
-                    ? 'Ditutup'
-                    : '${status[0].toUpperCase()}${status.substring(1)}')));
+    final rawStatus = status.toLowerCase();
+    String displayStatus = 'Aktif';
+    if (rawStatus == 'selesai') {
+      displayStatus = 'Selesai';
+    } else if (rawStatus == 'ditutup' || lewatDeadline) {
+      displayStatus = 'Ditutup';
+    } else if (rawStatus.isNotEmpty) {
+      displayStatus = '${status[0].toUpperCase()}${status.substring(1)}';
+    }
 
     IconData statusIcon = Icons.play_circle_outline;
     Color statusColor = const Color(0xFF0F766E);
@@ -298,7 +304,7 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
     }
 
     return Container(
-      height: 480,
+      height: 520,
       decoration: BoxDecoration(
         color: context.latarKartu,
         borderRadius: BorderRadius.circular(16),
@@ -376,7 +382,12 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
                           ],
                           const SizedBox(height: 16),
                           ...options.map(
-                            (opt) => _buildProgressRow(opt['label'], opt['percentage'], opt['color']),
+                            (opt) => _buildProgressRow(
+                              opt['label'],
+                              opt['percentage'],
+                              opt['color'],
+                              dipilih: opt['dipilih'] == true,
+                            ),
                           ),
                         ],
                       ),
@@ -387,11 +398,24 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
                     children: [
                       Icon(Icons.calendar_today, size: 12, color: context.teksTersier),
                       const SizedBox(width: 4),
-                      Text(dateRange, style: TextStyle(fontSize: 11, color: context.teksTersier)),
+                      Expanded(
+                        child: Text(
+                          dateRange,
+                          style: TextStyle(fontSize: 11, color: context.teksTersier),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  _tombolPilih(id: id, status: status, options: options, sudahVote: sudahVote),
+                  _tombolPilih(
+                    id: id,
+                    status: status,
+                    options: options,
+                    sudahVote: sudahVote,
+                    pilihanSaya: pilihanSaya,
+                    lewatDeadline: lewatDeadline,
+                  ),
                 ],
               ),
             ),
@@ -408,7 +432,7 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (status.toLowerCase() == 'aktif' && _bolehUbah) ...[
+                      if (status.toLowerCase() == 'aktif' && _bolehUbah && !lewatDeadline) ...[
                         _buildActionButton(
                           Icons.lock_outline,
                           'Tutup',
@@ -472,14 +496,32 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
     );
   }
 
-  Widget _buildProgressRow(String label, int percentage, Color color) {
+  Widget _buildProgressRow(String label, int percentage, Color color, {bool dipilih = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Row(
         children: [
           Expanded(
             flex: 2,
-            child: Text(label, style: TextStyle(fontSize: 12, color: context.teksUtama)),
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: dipilih ? FontWeight.bold : FontWeight.normal,
+                      color: context.teksUtama,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (dipilih) ...[
+                  const SizedBox(width: 4),
+                  const Icon(Icons.check_circle, size: 12, color: Color(0xFF0F766E)),
+                ],
+              ],
+            ),
           ),
           Expanded(
             flex: 5,
@@ -493,7 +535,7 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
                   ),
                 ),
                 FractionallySizedBox(
-                  widthFactor: percentage / 100,
+                  widthFactor: (percentage / 100).clamp(0.0, 1.0),
                   child: Container(
                     height: 8,
                     decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(8)),
@@ -504,7 +546,7 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
           ),
           const SizedBox(width: 12),
           SizedBox(
-            width: 32,
+            width: 34,
             child: Text(
               '$percentage%',
               textAlign: TextAlign.right,
@@ -700,34 +742,93 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
     );
   }
 
-  /// Tombol memberikan suara.
+  /// Tombol memberikan suara atau mengubah pilihan.
   ///
-  /// Tiga keadaan yang berbeda dan semuanya perlu dibedakan: polling sudah
-  /// ditutup, pengguna sudah memilih, atau masih boleh memilih. Tanpa itu
-  /// tombolnya akan terus tampil dan berakhir 409 dari backend.
+  /// Keadaan yang ditangani:
+  /// 1. Polling ditutup / selesai / lewat deadline:
+  ///    - Jika sudah vote: tampilkan "Pilihan Anda: [Label] (Terkunci)".
+  ///    - Jika belum vote: tampilkan keterangan polling ditutup / selesai.
+  /// 2. Polling aktif & belum lewat deadline:
+  ///    - Jika sudah vote: tampilkan "Pilihan Anda: [Label]" dan tombol "Ubah Pilihan".
+  ///    - Jika belum vote: tampilkan tombol "Berikan Suara".
   Widget _tombolPilih({
     required int id,
     required String status,
     required List<Map<String, dynamic>> options,
     required bool sudahVote,
+    int? pilihanSaya,
+    bool lewatDeadline = false,
   }) {
     final st = status.toLowerCase();
-    if (st == 'ditutup') {
+    final isDitutup = st == 'ditutup' || lewatDeadline;
+    final isSelesai = st == 'selesai';
+
+    final pilihan = options.where((o) => o['dipilih'] == true).firstOrNull;
+
+    if (isDitutup) {
+      if (sudahVote) {
+        return _kotakInfo(
+          Icons.lock_outline,
+          pilihan == null ? 'Pilihan Anda: - (Terkunci)' : 'Pilihan Anda: ${pilihan['label']} (Terkunci)',
+          context.teksKedua,
+        );
+      }
       return _kotakInfo(Icons.lock_outline, 'Polling sudah ditutup.', context.teksTersier);
     }
-    if (st == 'selesai') {
+
+    if (isSelesai) {
+      if (sudahVote) {
+        return _kotakInfo(
+          Icons.check_circle_outline,
+          pilihan == null ? 'Pilihan Anda tercatat (Selesai)' : 'Pilihan Anda: ${pilihan['label']} (Selesai)',
+          const Color(0xFF166534),
+        );
+      }
       return _kotakInfo(Icons.check_circle_outline, 'Polling telah selesai.', const Color(0xFF166534));
     }
+
     if (st != 'aktif') {
       return _kotakInfo(Icons.lock_outline, 'Polling sudah ditutup.', context.teksTersier);
     }
 
     if (sudahVote) {
-      final pilihan = options.where((o) => o['dipilih'] == true).firstOrNull;
-      return _kotakInfo(
-        Icons.check_circle,
-        pilihan == null ? 'Anda sudah memberikan suara.' : 'Suara Anda: ${pilihan['label']}',
-        const Color(0xFF0F766E),
+      if (!_bolehPilih) {
+        return _kotakInfo(
+          Icons.check_circle,
+          pilihan == null ? 'Pilihan Anda tercatat' : 'Pilihan Anda: ${pilihan['label']}',
+          const Color(0xFF0F766E),
+        );
+      }
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _kotakInfo(
+            Icons.check_circle,
+            pilihan == null ? 'Pilihan Anda tercatat' : 'Pilihan Anda: ${pilihan['label']}',
+            const Color(0xFF0F766E),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            key: const Key('tombol_ubah_pilihan'),
+            onPressed: () => _pilihDialog(
+              id,
+              options,
+              initialOptionId: pilihanSaya,
+              isUbah: true,
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF0F766E),
+              side: const BorderSide(color: Color(0xFF0F766E)),
+              minimumSize: const Size(double.infinity, 38),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.edit_outlined, size: 15),
+            label: const Text(
+              'Ubah Pilihan',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
       );
     }
 
@@ -740,7 +841,8 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
     }
 
     return ElevatedButton(
-      onPressed: () => _pilihDialog(id, options),
+      key: const Key('tombol_berikan_suara'),
+      onPressed: () => _pilihDialog(id, options, isUbah: false),
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xFF0F766E),
         foregroundColor: Colors.white,
@@ -785,17 +887,22 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
     );
   }
 
-  void _pilihDialog(int pollingId, List<Map<String, dynamic>> options) {
-    int? terpilih = options.isNotEmpty ? options.first['id'] as int? : null;
+  void _pilihDialog(
+    int pollingId,
+    List<Map<String, dynamic>> options, {
+    int? initialOptionId,
+    bool isUbah = false,
+  }) {
+    int? terpilih = initialOptionId ?? (options.isNotEmpty ? options.first['id'] as int? : null);
 
     showDialog(
       context: context,
       builder: (c) => StatefulBuilder(
         builder: (c2, setLocal) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text(
-            'Berikan Suara',
-            style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+          title: Text(
+            isUbah ? 'Ubah Pilihan' : 'Berikan Suara',
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
           ),
           content: SizedBox(
             width: lebarDialog(context, maksimal: 380),
@@ -804,7 +911,9 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Pilihan hanya dapat diberikan satu kali dan tidak bisa diubah.',
+                  isUbah
+                      ? 'Anda dapat mengubah pilihan selama polling masih aktif dan belum melewati batas waktu.'
+                      : 'Pilihan dapat diubah kembali selama polling masih aktif dan belum melewati batas waktu.',
                   style: TextStyle(fontSize: 12, color: context.teksKedua),
                 ),
                 const SizedBox(height: 12),
@@ -835,6 +944,7 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
           actions: [
             TextButton(onPressed: () => Navigator.pop(c), child: const Text('Batal')),
             ElevatedButton(
+              key: const Key('tombol_simpan_suara'),
               onPressed: terpilih == null
                   ? null
                   : () async {
@@ -843,7 +953,7 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
                       final ok = await prov.vote(pollingId, terpilih!);
                       _pesan(
                         ok
-                            ? 'Suara Anda tersimpan. Terima kasih.'
+                            ? (isUbah ? 'Pilihan Anda berhasil diperbarui.' : 'Suara Anda tersimpan. Terima kasih.')
                             : (prov.errorMessage ?? 'Suara gagal disimpan.'),
                         sukses: ok,
                       );
@@ -852,7 +962,7 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
                 backgroundColor: const Color(0xFF0F766E),
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Kirim Suara'),
+              child: Text(isUbah ? 'Simpan Perubahan' : 'Kirim Suara'),
             ),
           ],
         ),

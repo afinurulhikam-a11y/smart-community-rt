@@ -4,7 +4,23 @@ const { logActivity, ringkas, TIPE } = require('../services/log.service');
 async function getPolling(req, res) {
   try {
     const { status } = req.query;
-    let query = `SELECT p.*, u.nama AS created_by_nama FROM polling p LEFT JOIN users u ON p.created_by = u.id WHERE 1=1`;
+    let query = `
+      SELECT p.*, 
+        u.nama AS created_by_nama,
+        CASE 
+          WHEN p.tanggal_selesai::text ~ 'T|\\s\\d{2}:' AND NOT p.tanggal_selesai::text ~ '00:00:00' 
+            THEN NOW() > p.tanggal_selesai::timestamp
+          ELSE CURRENT_DATE > p.tanggal_selesai::date
+        END AS lewat_deadline,
+        CASE 
+          WHEN p.tanggal_mulai::text ~ 'T|\\s\\d{2}:' AND NOT p.tanggal_mulai::text ~ '00:00:00' 
+            THEN NOW() < p.tanggal_mulai::timestamp
+          ELSE CURRENT_DATE < p.tanggal_mulai::date
+        END AS belum_mulai
+      FROM polling p 
+      LEFT JOIN users u ON p.created_by = u.id 
+      WHERE 1=1
+    `;
     const params = [];
     if (status && status !== 'Semua') {
       params.push(status.toLowerCase());
@@ -12,22 +28,14 @@ async function getPolling(req, res) {
     }
     query += ' ORDER BY p.created_at DESC';
     const result = await pool.query(query, params);
-    // Suara milik pemanggil, sekali ambil untuk seluruh polling. Tanpa ini
-    // layar tidak bisa tahu polling mana yang sudah ia pilih, sehingga tombol
-    // memilih akan terus muncul dan berakhir 409.
+
+    // Suara milik pemanggil, sekali ambil untuk seluruh polling.
     const suaraSaya = await pool.query(
       'SELECT polling_id, option_id FROM polling_votes WHERE user_id = $1',
       [req.user.id]
     );
     const pilihanSaya = new Map(suaraSaya.rows.map((v) => [v.polling_id, v.option_id]));
 
-    // SATU query untuk seluruh opsi, bukan satu query per polling.
-    //
-    // Sebelumnya blok ini berupa `for` yang menembak `SELECT ... WHERE
-    // polling_id = $1` sekali untuk setiap baris polling. Dua puluh polling
-    // berarti dua puluh satu perjalanan bolak-balik ke database untuk satu kali
-    // buka layar, dan angkanya tumbuh mengikuti jumlah polling — bukan mengikuti
-    // jumlah data yang sebenarnya dibutuhkan.
     const semuaId = result.rows.map((p) => p.id);
     const opsiPerPolling = new Map();
 
@@ -47,6 +55,8 @@ async function getPolling(req, res) {
       const totalVotes = daftarOpsi.reduce((sum, o) => sum + (o.vote_count || 0), 0);
       return {
         ...p,
+        lewat_deadline: Boolean(p.lewat_deadline),
+        belum_mulai: Boolean(p.belum_mulai),
         options: daftarOpsi.map((o) => ({
           ...o,
           percentage: totalVotes > 0 ? Math.round((o.vote_count / totalVotes) * 100) : 0,
@@ -66,8 +76,15 @@ async function getPolling(req, res) {
 async function createPolling(req, res) {
   try {
     const { judul, deskripsi, tanggal_mulai, tanggal_selesai, options } = req.body;
-    if (!judul || !tanggal_mulai || !tanggal_selesai) return res.status(400).json({ success: false, message: 'Judul, tanggal mulai, dan tanggal selesai wajib diisi.' });
-    if (!options || !Array.isArray(options) || options.length < 2) return res.status(400).json({ success: false, message: 'Minimal 2 opsi polling diperlukan.' });
+    if (!judul || !tanggal_mulai || !tanggal_selesai) {
+      return res.status(400).json({ success: false, message: 'Judul, tanggal mulai, dan tanggal selesai wajib diisi.' });
+    }
+    if (new Date(tanggal_selesai) < new Date(tanggal_mulai)) {
+      return res.status(400).json({ success: false, message: 'Tanggal selesai tidak boleh mendahului tanggal mulai.' });
+    }
+    if (!options || !Array.isArray(options) || options.length < 2) {
+      return res.status(400).json({ success: false, message: 'Minimal 2 opsi polling diperlukan.' });
+    }
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -83,8 +100,12 @@ async function createPolling(req, res) {
       await logActivity(req, TIPE.CREATE, `Membuat polling "${ringkas(polling.judul)}"`);
 
       return res.status(201).json({ success: true, message: 'Polling berhasil dibuat.', data: polling });
-    } catch (txErr) { await client.query('ROLLBACK'); throw txErr; }
-    finally { client.release(); }
+    } catch (txErr) { 
+      await client.query('ROLLBACK'); 
+      throw txErr; 
+    } finally { 
+      client.release(); 
+    }
   } catch (err) {
     console.error('CreatePolling Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
@@ -92,49 +113,141 @@ async function createPolling(req, res) {
 }
 
 async function vote(req, res) {
+  const { id } = req.params;
+  const { option_id } = req.body;
+  const parsedOptionId = parseInt(option_id, 10);
+
+  if (!option_id || isNaN(parsedOptionId)) {
+    return res.status(400).json({ success: false, message: 'option_id wajib diisi dengan format yang benar.' });
+  }
+
+  const client = await pool.connect();
   try {
-    const { id } = req.params;
-    const { option_id } = req.body;
-    if (!option_id) return res.status(400).json({ success: false, message: 'option_id wajib diisi.' });
-    // Check if polling exists and is active
-    const pollingResult = await pool.query('SELECT * FROM polling WHERE id = $1', [id]);
-    if (pollingResult.rows.length === 0) return res.status(404).json({ success: false, message: 'Polling tidak ditemukan.' });
-    if (pollingResult.rows[0].status !== 'aktif') return res.status(400).json({ success: false, message: 'Polling sudah ditutup.' });
-    // Pilihan harus benar-benar milik polling ini. Tanpa pemeriksaan ini,
-    // mengirim option_id milik polling lain akan menambah vote_count polling
-    // tersebut — suara masuk ke tempat yang salah.
-    const opsi = await pool.query('SELECT id FROM polling_options WHERE id = $1 AND polling_id = $2', [option_id, id]);
-    if (opsi.rows.length === 0) {
+    await client.query('BEGIN');
+
+    // Kunci baris polling untuk verifikasi status & deadline (mencegah race condition penutupan status)
+    const pollingResult = await client.query(
+      `SELECT id, judul, status, tanggal_mulai, tanggal_selesai,
+        CASE 
+          WHEN tanggal_selesai::text ~ 'T|\\s\\d{2}:' AND NOT tanggal_selesai::text ~ '00:00:00' 
+            THEN NOW() > tanggal_selesai::timestamp
+          ELSE CURRENT_DATE > tanggal_selesai::date
+        END AS lewat_deadline,
+        CASE 
+          WHEN tanggal_mulai::text ~ 'T|\\s\\d{2}:' AND NOT tanggal_mulai::text ~ '00:00:00' 
+            THEN NOW() < tanggal_mulai::timestamp
+          ELSE CURRENT_DATE < tanggal_mulai::date
+        END AS belum_mulai
+      FROM polling 
+      WHERE id = $1 
+      FOR SHARE`,
+      [id]
+    );
+
+    if (pollingResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, message: 'Polling tidak ditemukan.' });
+    }
+
+    const polling = pollingResult.rows[0];
+    const statusLower = (polling.status || '').toLowerCase();
+
+    if (statusLower !== 'aktif') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, message: 'Polling sudah ditutup atau tidak aktif.' });
+    }
+
+    if (polling.belum_mulai) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, message: 'Polling belum dimulai.' });
+    }
+
+    if (polling.lewat_deadline) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, message: 'Polling sudah melewati batas waktu (deadline).' });
+    }
+
+    // Pastikan pilihan opsi benar-benar terdaftar pada polling ini
+    const opsiResult = await client.query(
+      'SELECT id, label FROM polling_options WHERE id = $1 AND polling_id = $2',
+      [parsedOptionId, id]
+    );
+    if (opsiResult.rows.length === 0) {
+      await client.query('ROLLBACK');
       return res.status(400).json({ success: false, message: 'Pilihan tidak tersedia pada polling ini.' });
     }
 
-    // Check duplicate vote
-    const existing = await pool.query('SELECT id FROM polling_votes WHERE polling_id = $1 AND user_id = $2', [id, req.user.id]);
-    if (existing.rows.length > 0) return res.status(409).json({ success: false, message: 'Anda sudah pernah vote di polling ini.' });
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      await client.query('INSERT INTO polling_votes (polling_id, option_id, user_id) VALUES ($1, $2, $3)', [id, option_id, req.user.id]);
-      await client.query('UPDATE polling_options SET vote_count = vote_count + 1 WHERE id = $1', [option_id]);
-      await client.query('COMMIT');
+    // Kunci baris vote milik pengguna ini jika sudah pernah memilih (mencegah double-submit / race condition)
+    const existingVoteResult = await client.query(
+      'SELECT id, option_id FROM polling_votes WHERE polling_id = $1 AND user_id = $2 FOR UPDATE',
+      [id, req.user.id]
+    );
 
-      // Dicatat setelah COMMIT. Pilihan yang diambil TIDAK ikut dicatat —
-      // hanya bahwa yang bersangkutan sudah memilih. Suara adalah hal yang
-      // wajar dirahasiakan, dan tabel ini permanen serta terbaca administrator.
-      await logActivity(req, TIPE.CREATE, `Memberikan suara pada polling #${id}`);
+    let isChange = false;
+    if (existingVoteResult.rows.length > 0) {
+      isChange = true;
+      const existingVote = existingVoteResult.rows[0];
+      const oldOptionId = existingVote.option_id;
 
-      return res.status(200).json({ success: true, message: 'Vote berhasil dicatat.' });
-    } catch (txErr) { await client.query('ROLLBACK'); throw txErr; }
-    finally { client.release(); }
+      if (oldOptionId !== parsedOptionId) {
+        // Update record vote eksisting (TIDAK menambah record baru)
+        await client.query(
+          'UPDATE polling_votes SET option_id = $1, created_at = NOW() WHERE id = $2',
+          [parsedOptionId, existingVote.id]
+        );
+
+        // Update vote_count dengan urutan id terurut untuk mencegah deadlock pada konkurensi tinggi
+        const idPertama = Math.min(oldOptionId, parsedOptionId);
+
+        if (idPertama === oldOptionId) {
+          await client.query('UPDATE polling_options SET vote_count = GREATEST(0, vote_count - 1) WHERE id = $1', [oldOptionId]);
+          await client.query('UPDATE polling_options SET vote_count = vote_count + 1 WHERE id = $1', [parsedOptionId]);
+        } else {
+          await client.query('UPDATE polling_options SET vote_count = vote_count + 1 WHERE id = $1', [parsedOptionId]);
+          await client.query('UPDATE polling_options SET vote_count = GREATEST(0, vote_count - 1) WHERE id = $1', [oldOptionId]);
+        }
+      }
+      // Jika oldOptionId === parsedOptionId (A -> A), tidak ada perubahan vote_count
+    } else {
+      // Pemilihan pertama kali: Masukkan satu record baru
+      await client.query(
+        'INSERT INTO polling_votes (polling_id, option_id, user_id) VALUES ($1, $2, $3)',
+        [id, parsedOptionId, req.user.id]
+      );
+      await client.query(
+        'UPDATE polling_options SET vote_count = vote_count + 1 WHERE id = $1',
+        [parsedOptionId]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    // Catat log aktivitas sesuai konteks
+    await logActivity(
+      req,
+      isChange ? TIPE.UPDATE : TIPE.CREATE,
+      isChange ? `Mengubah suara pada polling #${id}` : `Memberikan suara pada polling #${id}`
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: isChange ? 'Pilihan Anda berhasil diperbarui.' : 'Vote berhasil dicatat.',
+      data: {
+        polling_id: parseInt(id, 10),
+        option_id: parsedOptionId,
+        is_change: isChange,
+      },
+    });
   } catch (err) {
-    // Pemeriksaan duplikat di atas bisa dilewati oleh dua permintaan yang
-    // datang bersamaan; UNIQUE (polling_id, user_id) yang menjadi penjaga
-    // terakhir. Terjemahkan jadi pesan yang sama, bukan 500.
+    await client.query('ROLLBACK');
+    // Fallback jika terjadi bentrok unique constraint dari transaksi paralel
     if (err.code === '23505') {
-      return res.status(409).json({ success: false, message: 'Anda sudah pernah vote di polling ini.' });
+      return res.status(409).json({ success: false, message: 'Suara Anda sedang diproses. Silakan coba kembali.' });
     }
     console.error('Vote Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  } finally {
+    client.release();
   }
 }
 
@@ -154,8 +267,7 @@ async function updatePollingStatus(req, res) {
     );
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Polling tidak ditemukan.' });
 
-    // Menutup polling menghentikan suara yang masuk. Kapan itu dilakukan bisa
-    // menjadi pertanyaan bila hasilnya diperdebatkan.
+    // Menutup polling menghentikan suara yang masuk.
     await logActivity(
       req,
       TIPE.UPDATE,
@@ -184,3 +296,4 @@ async function deletePolling(req, res) {
 }
 
 module.exports = { getPolling, createPolling, vote, updatePollingStatus, deletePolling };
+
