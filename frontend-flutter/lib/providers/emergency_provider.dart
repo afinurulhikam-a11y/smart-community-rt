@@ -38,15 +38,51 @@ class EmergencyProvider extends ChangeNotifier {
     }
   }
 
-  /// Apakah sirene sedang dianggap menyala oleh aplikasi ini.
+  /// Apakah ada kejadian darurat yang sedang AKTIF menurut backend.
   ///
-  /// Ini keadaan yang DIKETAHUI aplikasi, bukan pembacaan langsung dari alat.
-  /// Alat tidak melapor balik ke sini, jadi label di layar sengaja berbunyi
-  /// "alarm dinyalakan", bukan "alat berbunyi" — mengaku tahu lebih banyak
-  /// daripada yang sebenarnya diketahui adalah cara membuat orang berhenti
-  /// memeriksa alatnya sendiri.
+  /// Sumbernya `/emergency/alarm/status`, bukan ingatan aplikasi ini. Keadaan
+  /// yang hanya hidup di memori akan salah begitu aplikasi dibuka ulang, atau
+  /// begitu orang lain menyalakan alarm dari perangkat lain — dan pada tombol
+  /// darurat, layar yang menampilkan keadaan salah lebih berbahaya daripada
+  /// layar yang mengaku tidak tahu.
   bool _alarmMenyala = false;
   bool get alarmMenyala => _alarmMenyala;
+
+  /// Kejadian aktif beserta izin yang DIHITUNG SERVER. Null bila tidak ada.
+  ///
+  /// Memuat `emergency_id`, `nama_pengaktif`, `milik_saya`, dan
+  /// `boleh_matikan`. Yang terakhir dipakai layar untuk memilih tombol —
+  /// tetapi ia kenyamanan, bukan pengaman: endpoint OFF menolak sendiri bila
+  /// klien mengabaikannya.
+  Map<String, dynamic>? _kejadianAktif;
+  Map<String, dynamic>? get kejadianAktif => _kejadianAktif;
+
+  /// True bila pengguna ini boleh mematikan kejadian yang sedang aktif.
+  bool get bolehMatikan => _kejadianAktif?['boleh_matikan'] == true;
+
+  /// True bila kejadian aktif dinyalakan oleh orang lain.
+  bool get daruratMilikOrangLain =>
+      _kejadianAktif != null && _kejadianAktif!['milik_saya'] != true;
+
+  String get namaPengaktif =>
+      (_kejadianAktif?['nama_pengaktif'] as String?) ?? 'Tidak diketahui';
+
+  /// Menyegarkan keadaan sirene dari backend.
+  ///
+  /// Gagal diam-diam pada kegagalan jaringan: kartu tetap menampilkan keadaan
+  /// terakhir yang diketahui, dan tidak berpura-pura alarm sudah mati hanya
+  /// karena server sedang tidak terjangkau.
+  Future<void> muatStatusAlarm() async {
+    final r = await ApiService.get(ApiConstants.emergencyAlarmStatus);
+    if (r['success'] != true) return;
+
+    final d = r['data'] as Map<String, dynamic>?;
+    if (d == null) return;
+
+    _alarmMenyala = d['alarm_aktif'] == true;
+    _kejadianAktif = d['kejadian_aktif'] as Map<String, dynamic>?;
+    notifyListeners();
+  }
 
   /// True selama satu perintah alarm sedang dikirim. Dipakai layar untuk
   /// mengunci tombol, sehingga tekan-berkali-kali tidak menjadi banyak
@@ -77,9 +113,12 @@ class EmergencyProvider extends ChangeNotifier {
     _mengirimAlarm = false;
 
     if (r['success'] == true) {
-      _alarmMenyala = aksi.toUpperCase() == 'ON';
       _successMessage = r['message'] as String?;
       notifyListeners();
+      // Keadaan diambil ULANG dari backend, bukan disimpulkan dari aksi yang
+      // baru dikirim. Menyimpulkannya membuat layar yakin alarm menyala walau
+      // kejadiannya ternyata sudah ditutup orang lain sedetik sebelumnya.
+      await muatStatusAlarm();
       return null;
     }
 
