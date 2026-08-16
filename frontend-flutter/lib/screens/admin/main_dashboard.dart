@@ -1022,14 +1022,66 @@ class _MainDashboardState extends State<MainDashboard> {
           ),
           onPressed: _gantiTema,
         ),
-        IconButton(
-          tooltip: 'Profil Saya',
-          icon: const CircleAvatar(
-            radius: 14,
-            backgroundColor: AppTheme.primaryColor,
-            child: Icon(Icons.person, color: Colors.white, size: 16),
+        PopupMenuButton<String>(
+          tooltip: 'Menu Akun',
+          offset: const Offset(0, 48),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: context.garis),
           ),
-          onPressed: () => _pilihMenu(81),
+          color: context.latarKartu,
+          onSelected: (value) {
+            if (value == 'profil') {
+              _pilihMenu(81);
+            } else if (value == 'keluar') {
+              _konfirmasiKeluar(auth);
+            }
+          },
+          itemBuilder: (ctx) => [
+            PopupMenuItem<String>(
+              value: 'profil',
+              child: Row(
+                children: [
+                  Icon(Icons.person_outline_rounded, size: 18, color: context.teksUtama),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Profil Saya',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: context.teksUtama,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const PopupMenuDivider(),
+            PopupMenuItem<String>(
+              value: 'keluar',
+              child: Row(
+                children: const [
+                  Icon(Icons.logout_rounded, size: 18, color: Color(0xFFEF4444)),
+                  SizedBox(width: 12),
+                  Text(
+                    'Keluar',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFEF4444),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: CircleAvatar(
+              radius: 14,
+              backgroundColor: AppTheme.primaryColor,
+              child: Icon(Icons.person, color: Colors.white, size: 16),
+            ),
+          ),
         ),
         const SizedBox(width: AppTheme.spasiXs),
       ],
@@ -1096,19 +1148,61 @@ class _MainDashboardState extends State<MainDashboard> {
           ),
           SizedBox(width: sempit ? 8 : 16),
 
-          // User Info
-          //
-          // Nama role disembunyikan di ponsel. Teksnya tanpa batas lebar —
-          // "Administrator" saja sudah sekitar 90px — dan itu diambil langsung
-          // dari jatah judul. Avatar di sebelahnya sudah menandakan akun, dan
-          // nama role tetap terbaca di menu Profil Saya.
-          // User Info & Avatar (Klik untuk membuka Profil Saya)
-          InkWell(
-            onTap: () => _pilihMenu(81),
-            borderRadius: BorderRadius.circular(24),
-            child: Tooltip(
-              message:
-                  'Buka Profil Saya (${_getRoleDisplayName(auth.userRole)})',
+          // User Info & Avatar (Klik untuk membuka Menu Akun: Profil Saya & Keluar)
+          PopupMenuButton<String>(
+            tooltip: 'Menu Akun (${_getRoleDisplayName(auth.userRole)})',
+            offset: const Offset(0, 48),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: context.garis),
+            ),
+            color: context.latarKartu,
+            onSelected: (value) {
+              if (value == 'profil') {
+                _pilihMenu(81);
+              } else if (value == 'keluar') {
+                _konfirmasiKeluar(auth);
+              }
+            },
+            itemBuilder: (ctx) => [
+              PopupMenuItem<String>(
+                value: 'profil',
+                child: Row(
+                  children: [
+                    Icon(Icons.person_outline_rounded, size: 18, color: context.teksUtama),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Profil Saya',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: context.teksUtama,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              PopupMenuItem<String>(
+                value: 'keluar',
+                child: Row(
+                  children: const [
+                    Icon(Icons.logout_rounded, size: 18, color: Color(0xFFEF4444)),
+                    SizedBox(width: 12),
+                    Text(
+                      'Keluar',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFFEF4444),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 child: Row(
@@ -1133,6 +1227,12 @@ class _MainDashboardState extends State<MainDashboard> {
                       radius: 18,
                       backgroundColor: Color(0xFF1B7A6A),
                       child: Icon(Icons.person, color: Colors.white, size: 20),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.arrow_drop_down_rounded,
+                      color: context.teksKedua,
+                      size: 20,
                     ),
                   ],
                 ),

@@ -5,14 +5,14 @@ import '../providers/permission_provider.dart';
 class SidebarMenu extends StatefulWidget {
   final int selectedIndex;
   final Function(int) onItemSelected;
-  final VoidCallback onLogout;
+  final VoidCallback? onLogout;
   final String role;
 
   const SidebarMenu({
     super.key,
     required this.selectedIndex,
     required this.onItemSelected,
-    required this.onLogout,
+    this.onLogout,
     this.role = 'admin',
   });
 
@@ -350,17 +350,6 @@ class _SidebarMenuState extends State<SidebarMenu> {
                 ],
               ),
             ),
-
-            // Logout Button
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: _buildMenuItem(
-                index: -1,
-                icon: Icons.logout_rounded,
-                label: 'Keluar',
-                isLogout: true,
-              ),
-            ),
           ],
         ),
       ),
@@ -371,9 +360,8 @@ class _SidebarMenuState extends State<SidebarMenu> {
     required int index,
     required IconData icon,
     required String label,
-    bool isLogout = false,
   }) {
-    final isSelected = widget.selectedIndex == index && !isLogout;
+    final isSelected = widget.selectedIndex == index;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
@@ -381,11 +369,7 @@ class _SidebarMenuState extends State<SidebarMenu> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            if (isLogout) {
-              widget.onLogout();
-            } else {
-              widget.onItemSelected(index);
-            }
+            widget.onItemSelected(index);
           },
           borderRadius: BorderRadius.circular(10),
           child: Container(
@@ -393,16 +377,14 @@ class _SidebarMenuState extends State<SidebarMenu> {
             decoration: BoxDecoration(
               color: isSelected
                   ? Colors.white.withValues(alpha: 0.2)
-                  : (isLogout ? Colors.red.withValues(alpha: 0.1) : Colors.transparent),
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
               children: [
                 Icon(
                   icon,
-                  color: isLogout
-                      ? const Color(0xFFFF3333)
-                      : (isSelected ? Colors.white : Colors.white.withValues(alpha: 0.6)),
+                  color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.6),
                   size: 20,
                 ),
                 const SizedBox(width: 12),
@@ -410,9 +392,7 @@ class _SidebarMenuState extends State<SidebarMenu> {
                   child: Text(
                     label,
                     style: TextStyle(
-                      color: isLogout
-                          ? const Color(0xFFFF3333)
-                          : (isSelected ? Colors.white : Colors.white.withValues(alpha: 0.7)),
+                      color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.7),
                       fontSize: 13,
                       fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                     ),
