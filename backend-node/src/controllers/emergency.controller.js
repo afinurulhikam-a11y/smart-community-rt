@@ -21,6 +21,49 @@ function pinCocok(pin) {
   return !!pin && pin.toString().trim() === pinDaruratBerlaku();
 }
 
+/**
+ * Peran yang boleh menutup kejadian darurat milik siapa pun.
+ *
+ * Daftar ini SATU, dipakai `dismissAlarm` maupun `matikanDarurat`. Dua jalur
+ * yang mematikan alarm tidak boleh punya dua aturan — pada hari keduanya
+ * berbeda, yang lebih longgarlah yang akan dipakai orang.
+ */
+const PERAN_PENGURUS = ['admin', 'ketua_rt', 'sekretaris', 'bendahara', 'pengurus_rt'];
+
+/**
+ * Kunci penasihat yang menyerialkan seluruh perubahan keadaan darurat.
+ *
+ * `SELECT ... FOR UPDATE` SAJA TIDAK CUKUP, dan ini ditemukan oleh uji, bukan
+ * saat merancang: kunci baris hanya bisa mengunci baris yang SUDAH ADA. Ketika
+ * belum ada kejadian aktif, tiga permintaan ON bersamaan sama-sama membaca nol
+ * baris, sama-sama lolos pemeriksaan "belum ada yang aktif", lalu sama-sama
+ * INSERT — dan riwayat berisi tiga kejadian untuk satu keadaan darurat.
+ * Uji skenario 9 menangkapnya persis begitu: 3 id berbeda, 3 baris bertambah.
+ *
+ * Kunci penasihat tidak terikat pada baris mana pun, jadi ia bekerja justru
+ * ketika belum ada apa-apa untuk dikunci. Ia dilepas otomatis saat transaksi
+ * berakhir — commit maupun rollback — sehingga tidak ada jalur yang bisa
+ * meninggalkannya menggantung.
+ *
+ * Angkanya sembarang tetapi harus TETAP: ia hanya perlu berbeda dari kunci
+ * penasihat lain di aplikasi yang sama.
+ */
+const KUNCI_DARURAT = 918273645;
+
+/**
+ * Siapa yang boleh menutup sebuah kejadian: PEMILIKNYA, atau pengurus.
+ *
+ * Diputuskan dari `req.user` yang sudah diverifikasi `authMiddleware` terhadap
+ * database pada setiap permintaan — bukan dari peran yang dikirim klien, dan
+ * bukan dari tombol yang kebetulan tampil di layar. Menyembunyikan tombol
+ * hanyalah kenyamanan; inilah penjagaannya.
+ */
+function bolehMenutupDarurat(pengguna, kejadian) {
+  if (!pengguna) return false;
+  if (PERAN_PENGURUS.includes(pengguna.role)) return true;
+  return !!kejadian.user_id && kejadian.user_id === pengguna.id;
+}
+
 async function triggerAlarm(req, res) {
   try {
     const { message, latitude, longitude, pin } = req.body;
@@ -150,7 +193,8 @@ async function dismissAlarm(req, res) {
 
     const alertItem = alertCheck.rows[0];
     const isOwner = alertItem.user_id === req.user.id;
-    const isPengurus = ['admin', 'ketua_rt', 'sekretaris', 'bendahara', 'pengurus_rt'].includes(req.user.role);
+    // Daftar peran yang SAMA dengan `matikanDarurat`, bukan salinan kedua.
+    const isPengurus = PERAN_PENGURUS.includes(req.user.role);
 
     if (!isOwner && !isPengurus) {
       return res.status(403).json({
@@ -366,42 +410,288 @@ async function kendaliAlarm(req, res) {
     });
   }
 
+  return aksiMentah === mqttAlarm.PERINTAH.NYALA
+    ? nyalakanDarurat(req, res)
+    : matikanDarurat(req, res);
+}
+
+/**
+ * ON — membuat TEPAT SATU kejadian darurat, lalu membunyikan sirene.
+ *
+ * ===================================================================
+ * Akar masalah yang ditutup di sini
+ * ===================================================================
+ *
+ * Sebelumnya endpoint ini TIDAK MENYENTUH DATABASE SAMA SEKALI. Ia hanya
+ * menerbitkan MQTT. Akibatnya menekan NYALAKAN di dasbor tidak pernah membuat
+ * kejadian, dan layar Status Darurat selalu kosong walau sirene benar-benar
+ * meraung — riwayatnya hilang justru untuk peristiwa yang paling perlu dicatat.
+ *
+ * ===================================================================
+ * Kenapa transaksi dan row lock
+ * ===================================================================
+ *
+ * Dua orang menekan NYALAKAN pada detik yang sama harus tetap menghasilkan
+ * SATU kejadian, bukan dua. `FOR UPDATE` membuat yang kalah menunggu, lalu
+ * membaca keadaan SETELAH pemenang commit — bukan keadaan basi dari sebelum
+ * transaksi. Pola yang sama sudah dipakai `payBill` dan penukaran tiket unduh.
+ *
+ * ===================================================================
+ * Urutannya: buat baris -> terbitkan MQTT -> commit
+ * ===================================================================
+ *
+ * Kalau penerbitan gagal, transaksi di-ROLLBACK sehingga tidak ada kejadian
+ * yang tercatat untuk sirene yang tidak pernah berbunyi. Riwayat yang
+ * menyatakan "darurat pukul 21.10" padahal tidak ada yang berbunyi lebih buruk
+ * daripada tidak ada riwayat sama sekali: ia membuat orang mengira sistemnya
+ * bekerja.
+ */
+async function nyalakanDarurat(req, res) {
+  const client = await pool.connect();
   try {
-    const hasil = await mqttAlarm.terbitkanPerintahAlarm(aksiMentah);
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock($1)', [KUNCI_DARURAT]);
+
+    const aktif = await client.query(
+      `SELECT id, user_id, created_at FROM emergency_alerts
+       WHERE status = 'active' ORDER BY created_at DESC LIMIT 1 FOR UPDATE`
+    );
+
+    let kejadian;
+    let baru;
+
+    if (aktif.rows.length > 0) {
+      // IDEMPOTEN. Tekan dua kali, coba ulang setelah jaringan putus, atau dua
+      // orang menekan bersamaan — semuanya menunjuk kejadian yang SAMA.
+      kejadian = aktif.rows[0];
+      baru = false;
+    } else {
+      const dibuat = await client.query(
+        `INSERT INTO emergency_alerts (user_id, message, status)
+         VALUES ($1, $2, 'active') RETURNING id, user_id, created_at`,
+        [req.user.id, (req.body?.message || 'Alarm darurat dinyalakan dari dasbor').toString().slice(0, 500)]
+      );
+      kejadian = dibuat.rows[0];
+      baru = true;
+    }
+
+    // Sirene tetap dibunyikan ulang walau kejadiannya sudah ada. Perintahnya
+    // retained dan idempoten di sisi alat, dan menegaskan ulang jauh lebih
+    // aman daripada berasumsi alat masih mendengar perintah sebelumnya.
+    await mqttAlarm.terbitkanPerintahAlarm(mqttAlarm.PERINTAH.NYALA);
+
+    await client.query('COMMIT');
 
     await logActivity(
       req,
       TIPE.DARURAT,
-      aksiMentah === mqttAlarm.PERINTAH.NYALA
-        ? 'MENYALAKAN alarm darurat lewat tombol dasbor'
-        : 'Mematikan alarm darurat lewat tombol dasbor'
+      baru
+        ? `MENYALAKAN alarm darurat lewat tombol dasbor (kejadian ${kejadian.id})`
+        : `Menekan NYALAKAN saat kejadian ${kejadian.id} masih aktif — tidak membuat kejadian baru`
+    );
+
+    return res.status(baru ? 201 : 200).json({
+      success: true,
+      message: baru
+        ? 'Alarm dinyalakan.'
+        : 'Alarm sudah menyala sejak sebelumnya. Sirene ditegaskan ulang.',
+      data: {
+        aksi: mqttAlarm.PERINTAH.NYALA,
+        topik: mqttAlarm.TOPIK_ALARM,
+        kejadian_baru: baru,
+        emergency_id: kejadian.id,
+      },
+    });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    return balasGagalAlarm(req, res, err, mqttAlarm.PERINTAH.NYALA);
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * OFF — menutup kejadian aktif, dengan otorisasi PEMILIK-atau-PENGURUS.
+ *
+ * ===================================================================
+ * Otorisasi ditegakkan DI SINI, bukan dengan menyembunyikan tombol
+ * ===================================================================
+ *
+ * Warga hanya boleh menutup kejadian yang ia sendiri nyalakan. Pengurus dan
+ * admin boleh menutup milik siapa pun. Peran diambil dari `req.user` yang
+ * sudah diverifikasi `authMiddleware` terhadap database pada setiap
+ * permintaan — bukan dari apa pun yang dikirim klien.
+ *
+ * Daftar perannya memakai `PERAN_PENGURUS` yang sama dengan `dismissAlarm`,
+ * supaya dua jalur mematikan alarm tidak mungkin berbeda aturan.
+ *
+ * ===================================================================
+ * Ketika tidak ada kejadian aktif
+ * ===================================================================
+ *
+ * Perintah MATI tetap diterbitkan, dan TIDAK ada riwayat yang dibuat.
+ *
+ * Terdengar longgar, tetapi kebalikannya berbahaya: bila sirene terlanjur
+ * menyala tanpa kejadian tercatat — misalnya pesan retained dari sebelum
+ * fitur ini ada, atau baris kejadian sudah ditutup lewat jalur lain — menolak
+ * menerbitkan OFF berarti buzzer tidak bisa dihentikan dari aplikasi sama
+ * sekali. Buzzer yang tidak bisa dihentikan lebih buruk daripada satu perintah
+ * MATI yang berlebih.
+ *
+ * Yang dijaga tetap dijaga: begitu ADA kejadian aktif, pemeriksaan kepemilikan
+ * berlaku penuh dan tidak bisa dilewati lewat cabang ini.
+ */
+async function matikanDarurat(req, res) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock($1)', [KUNCI_DARURAT]);
+
+    const aktif = await client.query(
+      `SELECT id, user_id, created_at FROM emergency_alerts
+       WHERE status = 'active' ORDER BY created_at DESC LIMIT 1 FOR UPDATE`
+    );
+
+    if (aktif.rows.length === 0) {
+      await mqttAlarm.terbitkanPerintahAlarm(mqttAlarm.PERINTAH.MATI);
+      await client.query('COMMIT');
+
+      await logActivity(req, TIPE.DARURAT, 'Menekan MATIKAN saat tidak ada kejadian darurat aktif');
+
+      return res.status(200).json({
+        success: true,
+        message: 'Tidak ada darurat aktif. Perintah mati tetap dikirim ke alat.',
+        data: {
+          aksi: mqttAlarm.PERINTAH.MATI,
+          topik: mqttAlarm.TOPIK_ALARM,
+          emergency_id: null,
+          kejadian_ditutup: false,
+        },
+      });
+    }
+
+    const kejadian = aktif.rows[0];
+    if (!bolehMenutupDarurat(req.user, kejadian)) {
+      await client.query('ROLLBACK');
+      await logActivity(
+        req,
+        TIPE.DARURAT,
+        `DITOLAK mematikan kejadian ${kejadian.id} milik warga lain`
+      );
+      return res.status(403).json({
+        success: false,
+        message: 'Darurat ini dinyalakan warga lain. Hanya pemiliknya atau Pengurus RT yang boleh mematikannya.',
+      });
+    }
+
+    // `AND status = 'active'` diulang di sini walau barisnya sudah dikunci:
+    // ia yang menjamin sebuah kejadian tidak bisa ditutup dua kali, dan nol
+    // baris kembali berarti pemenang lain sudah mendahului.
+    const ditutup = await client.query(
+      `UPDATE emergency_alerts
+       SET status = 'dismissed', dismissed_by = $1, dismissed_at = NOW()
+       WHERE id = $2 AND status = 'active'
+       RETURNING id, user_id, created_at, dismissed_at`,
+      [req.user.id, kejadian.id]
+    );
+
+    if (ditutup.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        success: false,
+        message: 'Kejadian darurat itu sudah diselesaikan oleh orang lain.',
+      });
+    }
+
+    await mqttAlarm.terbitkanPerintahAlarm(mqttAlarm.PERINTAH.MATI);
+    await client.query('COMMIT');
+
+    await logActivity(
+      req,
+      TIPE.DARURAT,
+      `Menyelesaikan kejadian darurat ${kejadian.id} lewat tombol dasbor`
     );
 
     return res.status(200).json({
       success: true,
-      message: aksiMentah === mqttAlarm.PERINTAH.NYALA
-        ? 'Alarm dinyalakan.'
-        : 'Alarm dimatikan.',
-      data: { aksi: hasil.perintah, topik: hasil.topik },
+      message: 'Alarm dimatikan.',
+      data: {
+        aksi: mqttAlarm.PERINTAH.MATI,
+        topik: mqttAlarm.TOPIK_ALARM,
+        emergency_id: ditutup.rows[0].id,
+        kejadian_ditutup: true,
+      },
     });
   } catch (err) {
-    // Kegagalan menerbitkan TIDAK BOLEH dilaporkan sebagai berhasil. Pengguna
-    // yang percaya alarmnya berbunyi akan berhenti mencari cara lain.
-    console.error('KendaliAlarm Error:', err.message);
-    await logActivity(req, TIPE.DARURAT, `GAGAL ${aksiMentah} alarm — ${ringkas(err.message, 80)}`);
-
-    const kodeHttp = err.kode === 'MQTT_TIMEOUT' ? 504 : 503;
-    return res.status(kodeHttp).json({
-      success: false,
-      message: err.kode === 'MQTT_TIMEOUT'
-        ? 'Broker alarm tidak menjawab. Alarm BELUM tentu menyala — periksa alat secara langsung.'
-        : 'Gagal mengirim perintah ke alarm. Alarm BELUM menyala.',
-    });
+    await client.query('ROLLBACK').catch(() => {});
+    return balasGagalAlarm(req, res, err, mqttAlarm.PERINTAH.MATI);
+  } finally {
+    client.release();
   }
 }
 
-/** GET /api/emergency/alarm/status — kesiapan jalur alarm, untuk ditampilkan di dasbor. */
+/**
+ * Kegagalan menerbitkan TIDAK BOLEH dilaporkan sebagai berhasil. Pengguna yang
+ * percaya alarmnya berbunyi akan berhenti mencari cara lain.
+ */
+async function balasGagalAlarm(req, res, err, aksi) {
+  console.error('KendaliAlarm Error:', err.message);
+  await logActivity(req, TIPE.DARURAT, `GAGAL ${aksi} alarm — ${ringkas(err.message, 80)}`);
+
+  const kodeHttp = err.kode === 'MQTT_TIMEOUT' ? 504 : 503;
+  return res.status(kodeHttp).json({
+    success: false,
+    message: err.kode === 'MQTT_TIMEOUT'
+      ? 'Broker alarm tidak menjawab. Alarm BELUM tentu berubah — periksa alat secara langsung.'
+      : 'Gagal mengirim perintah ke alarm. Keadaan alat TIDAK berubah.',
+  });
+}
+
+/**
+ * GET /api/emergency/alarm/status — kesiapan jalur alarm DAN kejadian aktif.
+ *
+ * Dasbor mengambil keadaan sirene dari sini, bukan dari tebakan lokalnya
+ * sendiri. Aplikasi yang menyimpan keadaan di memori akan salah begitu ia
+ * dibuka ulang, atau begitu orang lain menyalakan alarm dari perangkat lain.
+ *
+ * `boleh_matikan` dihitung DI SERVER dengan aturan yang sama persis dengan
+ * yang menjaga endpoint OFF. Klien memakainya untuk memilih tombol mana yang
+ * ditampilkan — tetapi bila klien mengabaikannya dan tetap mengirim OFF,
+ * penjagaan di `matikanDarurat` yang menolak. Nilai ini kenyamanan, bukan
+ * pengaman.
+ *
+ * Field lama (`terkonfigurasi`, `tersambung`, …) dipertahankan apa adanya
+ * supaya klien yang sudah beredar tidak putus.
+ */
 async function statusAlarm(req, res) {
+  let aktif = null;
+  try {
+    const r = await pool.query(
+      `SELECT ea.id, ea.user_id, ea.message, ea.created_at,
+              COALESCE(u.nama, 'Tidak diketahui') AS nama_pengaktif
+       FROM emergency_alerts ea
+       LEFT JOIN users u ON u.id = ea.user_id
+       WHERE ea.status = 'active'
+       ORDER BY ea.created_at DESC LIMIT 1`
+    );
+    if (r.rows.length > 0) {
+      const k = r.rows[0];
+      aktif = {
+        emergency_id: k.id,
+        user_id: k.user_id,
+        nama_pengaktif: k.nama_pengaktif,
+        message: k.message,
+        created_at: k.created_at,
+        milik_saya: !!k.user_id && k.user_id === req.user.id,
+        boleh_matikan: bolehMenutupDarurat(req.user, k),
+      };
+    }
+  } catch (e) {
+    // Kegagalan membaca kejadian tidak boleh menjatuhkan pembacaan kesiapan
+    // broker — dua hal berbeda, dan yang satu masih berguna tanpa yang lain.
+    console.error('StatusAlarm (kejadian aktif) Error:', e.message);
+  }
+
   return res.status(200).json({
     success: true,
     data: {
@@ -409,6 +699,8 @@ async function statusAlarm(req, res) {
       tersambung: mqttAlarm.tersambung(),
       pernah_tersambung: mqttAlarm.pernahTersambung(),
       topik: mqttAlarm.TOPIK_ALARM,
+      alarm_aktif: aktif !== null,
+      kejadian_aktif: aktif,
     },
   });
 }

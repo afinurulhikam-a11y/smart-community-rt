@@ -52,6 +52,9 @@ class KartuAlarmDarurat extends StatelessWidget {
     final darurat = context.watch<EmergencyProvider>();
     final menyala = darurat.alarmMenyala;
     final sibuk = darurat.mengirimAlarm;
+    final bolehMatikan = darurat.bolehMatikan;
+    final milikOrangLain = darurat.daruratMilikOrangLain;
+    final pengaktif = darurat.namaPengaktif;
     final rapat = !pakaiKartu(context);
 
     return AnimatedContainer(
@@ -80,9 +83,13 @@ class KartuAlarmDarurat extends StatelessWidget {
           SizedBox(height: rapat ? AppTheme.spasiM : AppTheme.spasiL),
           Divider(height: 1, thickness: 1, color: context.garis),
           SizedBox(height: rapat ? AppTheme.spasiM : AppTheme.spasiL),
-          _peringatan(context, menyala: menyala),
+          _peringatan(context,
+              menyala: menyala,
+              milikOrangLain: milikOrangLain,
+              bolehMatikan: bolehMatikan,
+              pengaktif: pengaktif),
           SizedBox(height: rapat ? AppTheme.spasiM : AppTheme.spasiL),
-          _aksi(context, menyala: menyala, sibuk: sibuk),
+          _aksi(context, menyala: menyala, sibuk: sibuk, bolehMatikan: bolehMatikan),
         ],
       ),
     );
@@ -181,7 +188,12 @@ class KartuAlarmDarurat extends StatelessWidget {
   }
 
   // ────────────────────────────────────────────────────────── peringatan
-  Widget _peringatan(BuildContext context, {required bool menyala}) {
+  Widget _peringatan(BuildContext context, {
+    required bool menyala,
+    required bool milikOrangLain,
+    required bool bolehMatikan,
+    required String pengaktif,
+  }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -198,7 +210,10 @@ class KartuAlarmDarurat extends StatelessWidget {
                 // hanya tahu perintahnya terkirim; alat tidak melapor balik ke
                 // sini. Mengaku tahu lebih banyak daripada yang sebenarnya
                 // diketahui membuat orang berhenti memeriksa alatnya sendiri.
-                ? 'Perintah menyalakan sirene sudah dikirim. Tekan MATIKAN bila keadaan sudah aman.'
+                ? (milikOrangLain
+                    ? 'Darurat ini dinyalakan oleh $pengaktif. '
+                      '${bolehMatikan ? "Anda berwenang mematikannya bila keadaan sudah aman." : "Hanya pemiliknya atau Pengurus RT yang boleh mematikannya — hubungi Pengurus bila perlu."}'
+                    : 'Perintah menyalakan sirene sudah dikirim. Tekan MATIKAN bila keadaan sudah aman.')
                 : 'Menyalakan sirene di lingkungan RT. Gunakan hanya untuk keadaan darurat sungguhan — setiap penekanan tercatat beserta nama Anda.',
             style: TextStyle(
               fontSize: 12.5,
@@ -224,7 +239,11 @@ class KartuAlarmDarurat extends StatelessWidget {
   // Alasannya sederhana: ketika sirene sedang meraung, satu-satunya hal yang
   // ingin dilakukan orang adalah menghentikannya. Tombol utama harus tombol
   // yang sedang dibutuhkan, bukan tombol yang sama sepanjang waktu.
-  Widget _aksi(BuildContext context, {required bool menyala, required bool sibuk}) {
+  Widget _aksi(BuildContext context, {
+    required bool menyala,
+    required bool sibuk,
+    required bool bolehMatikan,
+  }) {
     final nyalakan = _TombolAksi(
       label: 'NYALAKAN',
       ikon: Icons.campaign_rounded,
@@ -247,7 +266,14 @@ class KartuAlarmDarurat extends StatelessWidget {
       // salah (dibuka ulang, atau dinyalakan dari perangkat lain), dan buzzer
       // yang tidak bisa dihentikan jauh lebih buruk daripada perintah OFF
       // yang berlebih.
-      aktif: !sibuk,
+      // Izin datang dari BACKEND (`boleh_matikan` di /alarm/status), bukan dari
+      // peran yang ditebak klien. Saat tidak ada kejadian aktif, tombolnya
+      // tetap hidup — aplikasi bisa saja tertinggal keadaan, dan buzzer yang
+      // tidak bisa dihentikan lebih buruk daripada satu perintah OFF berlebih.
+      //
+      // Menyembunyikan tombol hanyalah kenyamanan: endpoint OFF tetap menolak
+      // 403 bila yang menekan bukan pemilik dan bukan pengurus.
+      aktif: !sibuk && (!menyala || bolehMatikan),
       sibuk: sibuk && menyala,
       onTap: () => _mintaPin(context, 'OFF'),
     );
