@@ -45,8 +45,61 @@ import '../providers/emergency_provider.dart';
 ///
 /// Ia juga tidak pernah menyentuh broker MQTT maupun kredensialnya. Aplikasi
 /// memanggil endpoint HTTP biasa; server yang menerbitkan perintahnya.
-class KartuAlarmDarurat extends StatelessWidget {
+class KartuAlarmDarurat extends StatefulWidget {
   const KartuAlarmDarurat({super.key});
+
+  @override
+  State<KartuAlarmDarurat> createState() => _KartuAlarmDaruratState();
+}
+
+class _KartuAlarmDaruratState extends State<KartuAlarmDarurat>
+    with WidgetsBindingObserver {
+  /// ===================================================================
+  /// Kenapa kartu ini memuat keadaannya sendiri
+  /// ===================================================================
+  ///
+  /// Sebelumnya `muatStatusAlarm()` TIDAK PERNAH dipanggil satu layar pun —
+  /// satu-satunya pemanggilnya adalah `kendaliAlarm` sesudah tombol ditekan.
+  /// Akibatnya kartu ini selalu lahir dalam keadaan SIAGA:
+  ///
+  ///   - membuka ulang aplikasi saat darurat masih menyala → tampak SIAGA
+  ///   - darurat yang dinyalakan orang lain → tidak pernah terlihat
+  ///
+  /// Keduanya adalah keadaan salah pada layar yang paling tidak boleh salah,
+  /// dan keduanya diam — tidak ada galat yang muncul.
+  ///
+  /// Pemuatannya diletakkan di kartu, bukan di kedua dasbor, karena kartu ini
+  /// dipakai dasbor pengurus DAN dasbor warga. Menaruhnya di layar berarti
+  /// suatu hari yang satu ingat memanggil dan yang lain lupa.
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // Setelah frame pertama: `muatStatusAlarm` memanggil notifyListeners, dan
+    // memanggilnya selama build akan melempar.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<EmergencyProvider>().muatStatusAlarm();
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Membaca ulang keadaan saat aplikasi kembali aktif.
+  ///
+  /// Tanpa ini, ponsel yang dikunci sepuluh menit lalu dibuka lagi menampilkan
+  /// keadaan sepuluh menit lalu — dan darurat bisa saja sudah diselesaikan
+  /// orang lain dari perangkat lain. Hanya `resumed` yang memicu; tidak ada
+  /// timer dan tidak ada polling berkala.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      context.read<EmergencyProvider>().muatStatusAlarm();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -102,6 +102,15 @@ class _MainDashboardState extends State<MainDashboard> {
       final wsService = context.read<WebSocketService>();
       wsService.connect();
       wsService.addListener(_onWebSocketUpdate);
+
+      // Siaran ALARM_ON/ALARM_OFF disambungkan ke EmergencyProvider.
+      //
+      // Dipasang DI SINI, bukan di kartu darurat, karena MainDashboard adalah
+      // kerangka yang menampung SELURUH layar — termasuk Status Darurat.
+      // Memasangnya di kartu berarti pendengarnya mati begitu pengguna
+      // berpindah menu, justru saat ia sedang membuka layar darurat.
+      context.read<EmergencyProvider>().pasangSumberRealtime(wsService);
+
       _loadData();
       _startAutoRefresh();
     });
@@ -112,6 +121,7 @@ class _MainDashboardState extends State<MainDashboard> {
     _autoRefreshTimer?.cancel();
     try {
       context.read<WebSocketService>().removeListener(_onWebSocketUpdate);
+      context.read<EmergencyProvider>().lepasSumberRealtime();
     } catch (_) {}
     super.dispose();
   }
