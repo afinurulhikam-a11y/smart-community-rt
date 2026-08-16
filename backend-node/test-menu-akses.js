@@ -314,8 +314,62 @@ const ADMIN = { id: '00000000-0000-0000-0000-0000000000ad', role: 'admin', nama:
     console.log(`   ${diperiksa} kombinasi peran x menu x aksi cocok seluruhnya.\n`);
   }
 
+  // ------------------------------------------------------------------
+  console.log('11. Urutan registry dan penjagaan rute sesuai peta final...');
+  {
+    const URUTAN_FINAL = [
+      'kependudukan.warga', 'kependudukan.kk', 'kependudukan.bansos', 'kependudukan.statistik',
+      'keuangan.iuran', 'keuangan.kas', 'keuangan.bop',
+      'layanan.visitor', 'layanan.surat',
+      'kegiatan.agenda',
+      'aspirasi.pengaduan', 'aspirasi.polling', 'aspirasi.darurat',
+      'inventaris.barang', 'inventaris.peminjaman',
+      'pengaturan.log', 'pengaturan.akses', 'pengaturan.reset',
+    ];
+    assert.deepStrictEqual(MENU_ITEMS.map((m) => m.kode), URUTAN_FINAL,
+      'urutan registry tidak sesuai peta final');
+
+    // `urutan` di database menentukan urutan baris di layar Menu & Akses.
+    const dbUrut = (await pool.query('SELECT kode FROM menu_items ORDER BY urutan ASC, id ASC')).rows.map((r) => r.kode);
+    assert.deepStrictEqual(dbUrut, URUTAN_FINAL, 'urutan di database belum sesuai — jalankan migrasi v32');
+
+    // Penjagaan rute dibaca dari berkasnya, bukan diasumsikan. Satu kode yang
+    // tertinggal di sini berarti sebuah modul dijaga izin yang sudah tidak ada,
+    // dan `requirePermission` akan menolak SEMUA orang dengan 403.
+    const fs = require('fs');
+    const family = fs.readFileSync('src/routes/family.routes.js', 'utf8');
+    const announce = fs.readFileSync('src/routes/announcement.routes.js', 'utf8');
+
+    for (const aksi of ['view', 'create', 'update']) {
+      assert.ok(family.includes(`requirePermission('kependudukan.kk', '${aksi}')`),
+        `family.routes.js belum memakai kependudukan.kk:${aksi}`);
+      assert.ok(announce.includes(`requirePermission('kegiatan.agenda', '${aksi}')`),
+        `announcement.routes.js belum memakai kegiatan.agenda:${aksi}`);
+    }
+    assert.ok(!/requirePermission\('kependudukan\.warga'/.test(family),
+      'family.routes.js masih menyisakan kependudukan.warga');
+    assert.ok(family.includes("roleGuard('admin'), deleteFamily"),
+      'DELETE keluarga harus tetap admin-only');
+
+    // Tidak boleh ada kode izin yang sudah dihapus tetapi masih dijaga rute.
+    const kodeSah = new Set(MENU_ITEMS.map((m) => m.kode));
+    const dir = 'src/routes';
+    const tertinggal = [];
+    for (const f of fs.readdirSync(dir)) {
+      const t = fs.readFileSync(`${dir}/${f}`, 'utf8');
+      for (const m of t.matchAll(/requirePermission\('([^']+)'/g)) {
+        if (!kodeSah.has(m[1])) tertinggal.push(`${f}: ${m[1]}`);
+      }
+    }
+    assert.deepStrictEqual(tertinggal, [],
+      `rute menjaga izin yang tidak ada di registry: ${tertinggal.join(', ')}`);
+
+    console.log('   18 kode berurutan sesuai peta, family→kk, pengumuman→agenda,');
+    console.log('   DELETE keluarga tetap admin-only, nol izin yatim di rute.\n');
+  }
+
   console.log('================================================================');
-  console.log('SELURUH 10 SKENARIO MENU & AKSES LULUS.');
+  console.log('SELURUH 11 SKENARIO MENU & AKSES LULUS.');
   console.log('================================================================\n');
 })()
   .then(async () => { await pulihkan(); process.exit(0); })

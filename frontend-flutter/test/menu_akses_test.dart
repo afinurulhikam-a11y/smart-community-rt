@@ -123,31 +123,37 @@ void main() {
           reason: 'menu lain dalam grup yang sama tidak boleh ikut hilang');
     });
 
-    testWidgets('Data KK mengikuti izin kependudukan.warga, bukan izin sendiri',
+    testWidgets('Data KK berdiri di atas izinnya sendiri, terpisah dari Data Warga',
         (tester) async {
-      // Data KK sengaja TIDAK punya baris izin sendiri — ia tampilan lain atas
-      // data yang sama. Jadi ia harus muncul dan hilang bersama Data Warga.
-      final ada = _izinDari({'kependudukan.warga': _penuh});
-      await _pumpSidebar(tester, ada, role: 'ketua_rt');
-
+      // Data KK kini punya `kependudukan.kk`. Keduanya harus bisa dibuka dan
+      // ditutup sendiri-sendiri — itulah gunanya dipisah.
+      final keduanya = _izinDari({
+        'kependudukan.warga': _penuh,
+        'kependudukan.kk': _penuh,
+      });
+      await _pumpSidebar(tester, keduanya, role: 'ketua_rt');
       expect(find.text('Data Warga'), findsOneWidget);
       expect(find.text('Data KK'), findsOneWidget);
 
-      // Izin tetangga SENGAJA dibiarkan menyala supaya grup Kependudukan tetap
-      // tergambar. Tanpa itu seluruh grup ikut hilang, dan uji ini akan lulus
-      // walau gerbang Data KK-nya sendiri dicabut — lulus karena alasan yang
-      // salah. Ditemukan saat membuktikan uji ini benar-benar bergigi.
-      final tiada = _izinDari({
-        'kependudukan.warga': _tertutup,
-        'kependudukan.bansos': _penuh,
+      // Data Warga terbuka, Data KK tertutup.
+      final tanpaKk = _izinDari({
+        'kependudukan.warga': _penuh,
+        'kependudukan.kk': _tertutup,
       });
-      await _pumpSidebar(tester, tiada, role: 'ketua_rt');
+      await _pumpSidebar(tester, tanpaKk, role: 'ketua_rt');
+      expect(find.text('Data Warga'), findsOneWidget,
+          reason: 'menutup Data KK tidak boleh ikut menutup Data Warga');
+      expect(find.text('Data KK'), findsNothing);
 
-      expect(find.text('Bantuan Sosial'), findsOneWidget,
-          reason: 'prasyarat: grup Kependudukan harus tetap tergambar');
+      // Kebalikannya: Data KK terbuka, Data Warga tertutup.
+      final tanpaWarga = _izinDari({
+        'kependudukan.warga': _tertutup,
+        'kependudukan.kk': _penuh,
+      });
+      await _pumpSidebar(tester, tanpaWarga, role: 'ketua_rt');
+      expect(find.text('Data KK'), findsOneWidget,
+          reason: 'grup Kependudukan harus tetap tergambar hanya karena izin KK');
       expect(find.text('Data Warga'), findsNothing);
-      expect(find.text('Data KK'), findsNothing,
-          reason: 'Data KK harus ikut tertutup bersama Data Warga');
     });
 
     testWidgets('Profil Saya selalu tersedia walau tanpa izin apa pun', (tester) async {

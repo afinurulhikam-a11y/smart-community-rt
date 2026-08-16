@@ -28,7 +28,17 @@ const F = { view: true, create: true, update: true, delete: true };     // penuh
  */
 const MENU_ITEMS = [
   // ===================================================================
-  // Tiga entri sidebar SENGAJA tidak ada di daftar ini
+  // URUTAN ARRAY INI ADALAH URUTAN LAYAR MENU & AKSES
+  // ===================================================================
+  //
+  // `auto-setup.js` menyimpan index array sebagai kolom `urutan`, dan
+  // `getMenuAkses` mengurutkan dengan `ORDER BY urutan`. Jadi memindahkan baris
+  // di sini benar-benar memindahkan barisnya di layar — bukan sekadar merapikan
+  // berkas. Urutannya mengikuti sidebar supaya administrator membaca daftar
+  // yang sama dengan yang dilihat pemakainya.
+  //
+  // ===================================================================
+  // Dua entri sidebar SENGAJA tidak ada di daftar ini
   // ===================================================================
   //
   // Daftar ini adalah daftar hal yang IZINNYA BISA DIATUR. Entri sidebar yang
@@ -43,42 +53,50 @@ const MENU_ITEMS = [
   //                           20 saklar (4 aksi x 5 peran) tidak berpengaruh
   //                           sama sekali. Dihapus lewat migrasi v31.
   //
-  //   index 15 Data KK      — tampilan lain atas data yang SAMA dengan Data
-  //                           Warga (keluarga + anggota_keluarga), jadi ia
-  //                           ikut `kependudukan.warga`. Memberinya izin
-  //                           sendiri akan memungkinkan keadaan yang tidak
-  //                           masuk akal: boleh membaca anggota keluarga
-  //                           tetapi tidak boleh membaca kartu keluarganya.
-  //
   //   index 81 Profil Saya  — data diri pemakai sendiri, bukan modul RT.
   //                           Mencabutnya berarti seseorang tidak bisa
   //                           mengganti kata sandinya sendiri.
+
+  // --- Kependudukan --------------------------------------------------
   { kode: 'kependudukan.warga', nama: 'Data Warga', grup: 'Kependudukan', menu_index: 12 },
+  // Data KK kini izin tersendiri, menjaga SELURUH `/api/families`.
+  //
+  // Sebelumnya ia menumpang `kependudukan.warga`. Dipisah karena keduanya
+  // memang dua kewenangan yang berbeda: mengubah anggota keluarga tidak sama
+  // dengan mengubah susunan kartu keluarganya. Konsekuensinya harus disadari —
+  // Iuran Warga membaca `/api/families` untuk menagih per kartu keluarga, jadi
+  // peran yang mengelola iuran WAJIB memegang minimal `view` di sini.
+  { kode: 'kependudukan.kk', nama: 'Data KK', grup: 'Kependudukan', menu_index: 15 },
   { kode: 'kependudukan.bansos', nama: 'Bantuan Sosial', grup: 'Kependudukan', menu_index: 13 },
   { kode: 'kependudukan.statistik', nama: 'Statistik & Grafik', grup: 'Kependudukan', menu_index: 14 },
 
+  // --- Keuangan ------------------------------------------------------
   { kode: 'keuangan.iuran', nama: 'Iuran Warga', grup: 'Keuangan', menu_index: 21 },
   { kode: 'keuangan.kas', nama: 'Kas RT', grup: 'Keuangan', menu_index: 22 },
   { kode: 'keuangan.bop', nama: 'Dana BOP', grup: 'Keuangan', menu_index: 23 },
 
-  { kode: 'inventaris.barang', nama: 'Data Barang', grup: 'Inventaris', menu_index: 31 },
-  { kode: 'inventaris.peminjaman', nama: 'Peminjaman', grup: 'Inventaris', menu_index: 32 },
-
+  // --- Layanan Warga -------------------------------------------------
   { kode: 'layanan.visitor', nama: 'E-Visitor', grup: 'Layanan Warga', menu_index: 43 },
   { kode: 'layanan.surat', nama: 'Surat Menyurat', grup: 'Layanan Warga', menu_index: 44 },
 
+  // --- Kegiatan & Info -----------------------------------------------
+  // Pengumuman TIDAK lagi izin tersendiri. Ia sudah menjadi tab di dalam
+  // Agenda & Kegiatan, dan `announcement.routes.js` kini dijaga
+  // `kegiatan.agenda`. Penggabungannya tidak mengubah kewenangan siapa pun:
+  // pada matriks bawaan, setiap peran memegang nilai yang SAMA persis untuk
+  // agenda dan pengumuman, jadi tidak ada akses yang bertambah atau berkurang.
   { kode: 'kegiatan.agenda', nama: 'Agenda & Kegiatan', grup: 'Kegiatan & Info', menu_index: 50 },
-  // Pengumuman tidak punya layar sendiri — ia tab keempat dari Agenda &
-  // Kegiatan (menu 50). `menu_index: null` = punya endpoint tetapi tidak
-  // tampil sebagai entri sidebar; izinnya tetap diatur terpisah supaya
-  // admin bisa membuka/menutupnya dari Menu & Akses.
-  { kode: 'kegiatan.pengumuman', nama: 'Pengumuman', grup: 'Kegiatan & Info', menu_index: null },
 
-
-  { kode: 'aspirasi.darurat', nama: 'Status Darurat', grup: 'Aspirasi & Partisipasi', menu_index: 60 },
+  // --- Aspirasi & Partisipasi ----------------------------------------
   { kode: 'aspirasi.pengaduan', nama: 'Pengaduan', grup: 'Aspirasi & Partisipasi', menu_index: 61 },
   { kode: 'aspirasi.polling', nama: 'Polling Warga', grup: 'Aspirasi & Partisipasi', menu_index: 62 },
+  { kode: 'aspirasi.darurat', nama: 'Status Darurat', grup: 'Aspirasi & Partisipasi', menu_index: 60 },
 
+  // --- Inventaris ----------------------------------------------------
+  { kode: 'inventaris.barang', nama: 'Data Barang', grup: 'Inventaris', menu_index: 31 },
+  { kode: 'inventaris.peminjaman', nama: 'Peminjaman', grup: 'Inventaris', menu_index: 32 },
+
+  // --- Pengaturan ----------------------------------------------------
   { kode: 'pengaturan.log', nama: 'Log Aktivitas', grup: 'Pengaturan', menu_index: 84 },
   { kode: 'pengaturan.akses', nama: 'Menu & Akses', grup: 'Pengaturan', menu_index: 85, is_sistem: true },
   { kode: 'pengaturan.reset', nama: 'Reset Sistem', grup: 'Pengaturan', menu_index: 86, is_sistem: true },
@@ -95,6 +113,7 @@ const DEFAULT_PERMISSIONS = {
 
   ketua_rt: {
     'kependudukan.warga': F,
+    'kependudukan.kk': F,
     'kependudukan.bansos': F,
     'kependudukan.statistik': V,
     'keuangan.iuran': F,
@@ -106,7 +125,6 @@ const DEFAULT_PERMISSIONS = {
     // Ketua menandatangani surat: boleh menyetujui, tidak menyusun.
     'layanan.surat': VU,
     'kegiatan.agenda': F,
-    'kegiatan.pengumuman': F,
 
     'aspirasi.darurat': F,
     'aspirasi.pengaduan': F,
@@ -118,6 +136,7 @@ const DEFAULT_PERMISSIONS = {
 
   sekretaris: {
     'kependudukan.warga': F,
+    'kependudukan.kk': F,
     'kependudukan.bansos': F,
     'kependudukan.statistik': V,
     // Boleh membaca angka untuk laporan, tidak boleh mencatat transaksi.
@@ -129,7 +148,6 @@ const DEFAULT_PERMISSIONS = {
     'layanan.visitor': F,
     'layanan.surat': F,
     'kegiatan.agenda': F,
-    'kegiatan.pengumuman': F,
 
     'aspirasi.darurat': F,
     'aspirasi.pengaduan': F,
@@ -143,6 +161,10 @@ const DEFAULT_PERMISSIONS = {
     // Iuran ditagihkan per kartu keluarga, jadi bendahara perlu melihat
     // data warga untuk mencocokkan pembayaran — tetapi tidak mengubahnya.
     'kependudukan.warga': V,
+    // WAJIB minimal `view`: Iuran Warga memuat `/api/families` untuk menagih
+    // per kartu keluarga. Menutupnya di sini akan membuat layar Iuran gagal
+    // memuat daftar KK-nya, padahal izin iurannya sendiri penuh.
+    'kependudukan.kk': V,
     'kependudukan.bansos': V,
     'kependudukan.statistik': V,
     'keuangan.iuran': F,
@@ -153,7 +175,6 @@ const DEFAULT_PERMISSIONS = {
     'layanan.visitor': N,
     'layanan.surat': N,
     'kegiatan.agenda': V,
-    'kegiatan.pengumuman': V,
 
     'aspirasi.darurat': V,
     'aspirasi.pengaduan': V,
@@ -165,6 +186,9 @@ const DEFAULT_PERMISSIONS = {
 
   warga: {
     'kependudukan.warga': N,
+    // Warga tidak mengelola kartu keluarga RT. Tagihannya sendiri disaring
+    // controller lewat `users.no_kk`, bukan lewat izin modul ini.
+    'kependudukan.kk': N,
     'kependudukan.bansos': N,
     'kependudukan.statistik': N,
     // Controller sudah menyaring per user; izin ini cukup di tingkat modul.
@@ -177,7 +201,6 @@ const DEFAULT_PERMISSIONS = {
     'layanan.visitor': VCU,
     'layanan.surat': VC,
     'kegiatan.agenda': V,
-    'kegiatan.pengumuman': V,
 
     'aspirasi.darurat': VC,
     'aspirasi.pengaduan': VC,
