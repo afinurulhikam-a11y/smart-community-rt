@@ -61,6 +61,13 @@ class _StatusDaruratScreenState extends State<StatusDaruratScreen> {
     if (_status == 'Aktif') statusFilter = 'active';
     if (_status == 'Selesai') statusFilter = 'dismissed';
     provider.fetchAlerts(status: statusFilter, page: page, limit: 10);
+
+    // Status sirene global ikut dibaca, bukan hanya daftarnya.
+    //
+    // Keduanya berasal dari provider yang sama, jadi membiarkan yang satu
+    // basi berarti dasbor dan layar ini bisa berbeda pendapat tentang
+    // kejadian yang sama — persis keadaan yang hendak dihilangkan.
+    provider.muatStatusAlarm();
   }
 
   /// Detail lengkap satu kejadian — termasuk keterangan yang di tabel dipotong.

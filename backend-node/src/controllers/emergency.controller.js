@@ -132,6 +132,42 @@ function validasiKeterangan(mentah) {
 }
 
 /**
+ * Menyiarkan perubahan keadaan darurat ke aplikasi yang sedang terbuka.
+ *
+ * ===================================================================
+ * Kenapa ini ada
+ * ===================================================================
+ *
+ * `triggerAlarm` dan `dismissAlarm` sudah menyiarkan sejak awal, tetapi kedua
+ * jalur TOMBOL DASBOR — `nyalakanDarurat` dan `matikanDarurat` — tidak. Jadi
+ * menyalakan alarm dari dasbor satu ponsel tidak terlihat sama sekali di
+ * ponsel lain sampai aplikasinya dibuka ulang. Padahal justru itu alur yang
+ * paling sering dipakai.
+ *
+ * ===================================================================
+ * Siaran adalah PEMBERITAHUAN, bukan sumber kebenaran
+ * ===================================================================
+ *
+ * Karena itu kegagalannya ditelan. Baris `emergency_alerts` sudah tersimpan
+ * dan sirene sudah berbunyi lewat MQTT; menggagalkan permintaan hanya karena
+ * pemberitahuannya tidak terkirim akan membuat pemakai menekan tombol lagi
+ * untuk keadaan yang sebenarnya sudah berhasil. Klien pun punya jaring
+ * pengaman sendiri: membaca ulang saat dipasang, saat aplikasi kembali aktif,
+ * dan saat WebSocket tersambung lagi.
+ *
+ * Pemanggilnya WAJIB memanggil ini SESUDAH `COMMIT`. Menyiarkan sebelum itu
+ * berarti mengumumkan keadaan yang masih bisa dibatalkan.
+ */
+function siarkanPerubahanDarurat(muatan, muatanPerangkat) {
+  try {
+    return broadcast(muatan, muatanPerangkat);
+  } catch (e) {
+    console.error('⚠️  Siaran realtime darurat gagal:', e.message);
+    return 0;
+  }
+}
+
+/**
  * PIN darurat yang berlaku. Satu tempat, dipakai seluruh endpoint darurat.
  *
  * Diverifikasi DI SINI, bukan di klien. Verifikasi di Flutter hanya menyaring
@@ -678,6 +714,34 @@ async function nyalakanDarurat(req, res, keterangan, legacyTanpaKeterangan = fal
 
     await client.query('COMMIT');
 
+    // Siaran SESUDAH commit, memakai format yang sama persis dengan
+    // `triggerAlarm` — tipe, nama field, dan muatan perangkat yang direduksi.
+    // Klien sudah mengenali bentuk ini, jadi tidak ada protokol baru.
+    //
+    // Ditembakkan juga pada penekanan berulang (`baru === false`), dan itu
+    // disengaja: perangkat yang TIDAK sempat menerima siaran pertama akan
+    // menganggapnya peristiwa baru lalu menyusul keadaan, sementara perangkat
+    // yang sudah menerimanya menyaringnya sendiri karena `alert_id`-nya sama.
+    // Alasannya sama dengan MQTT di atas yang juga selalu ditegaskan ulang.
+    // Tetap SATU siaran untuk satu permintaan.
+    siarkanPerubahanDarurat({
+      type: 'ALARM_ON',
+      event: 'emergency_alert',
+      alert_id: kejadian.id,
+      user_id: kejadian.user_id,
+      nama: req.user?.nama || 'Warga/Admin',
+      no_hp: req.user?.no_hp || '-',
+      alamat: req.user?.alamat || '-',
+      message: kejadian.message,
+      timestamp: kejadian.created_at,
+    }, {
+      // Muatan perangkat tanpa akun: hanya cukup untuk membunyikan alarm,
+      // tanpa nama, alamat, atau keterangan bebas dari pelapor.
+      type: 'ALARM_ON',
+      alert_id: kejadian.id,
+      timestamp: kejadian.created_at,
+    });
+
     await logActivity(
       req,
       TIPE.DARURAT,
@@ -816,6 +880,24 @@ async function matikanDarurat(req, res) {
 
     await mqttAlarm.terbitkanPerintahAlarm(mqttAlarm.PERINTAH.MATI);
     await client.query('COMMIT');
+
+    // Format sama dengan `dismissAlarm`. Hanya ditembakkan di cabang ini —
+    // cabang "tidak ada kejadian aktif" di atas tidak mengubah satu baris pun,
+    // jadi tidak ada perubahan yang perlu diumumkan ke perangkat lain.
+    siarkanPerubahanDarurat({
+      type: 'ALARM_OFF',
+      event: 'emergency_dismissed',
+      alert_id: ditutup.rows[0].id,
+      dismissed_by: req.user.id,
+      dismissed_by_nama: req.user?.nama || 'Pengurus/Pelapor',
+      timestamp: ditutup.rows[0].dismissed_at,
+    }, {
+      // Perangkat WAJIB menerima perintah mati; nama yang mematikan tidak
+      // dibutuhkannya.
+      type: 'ALARM_OFF',
+      alert_id: ditutup.rows[0].id,
+      timestamp: ditutup.rows[0].dismissed_at,
+    });
 
     await logActivity(
       req,
