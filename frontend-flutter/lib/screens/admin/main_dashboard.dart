@@ -29,7 +29,9 @@ import '../../providers/visitor_provider.dart';
 import '../../providers/announcement_provider.dart';
 
 import '../../providers/polling_provider.dart';
+import '../../providers/family_provider.dart';
 import '../../providers/log_provider.dart';
+import '../../providers/reset_provider.dart';
 import '../../widgets/navigasi_bawah.dart';
 import '../../widgets/sidebar_menu.dart';
 import '../../widgets/gradient_stat_card.dart';
@@ -248,6 +250,11 @@ class _MainDashboardState extends State<MainDashboard> {
     switch (_selectedMenuIndex) {
       case 12:
         await warga.fetchWarga();
+      case 15:
+        // Data KK adalah tampilan lain atas data yang sama dengan Data Warga,
+        // tetapi daftarnya dipegang FamilyProvider — tanpa case ini, tarik-untuk-
+        // menyegarkan di layar Data KK berputar lalu tidak memuat apa pun.
+        await context.read<FamilyProvider>().fetchFamilies();
       case 13:
         await bansos.fetchBantuanSosial();
       case 14:
@@ -278,11 +285,41 @@ class _MainDashboardState extends State<MainDashboard> {
         await pengaduan.fetchComplaints();
       case 62:
         await polling.fetchPolling();
-
+      case 84:
+        // Label `case 84:` sempat hilang, sehingga `fetchLogs()` terjatuh ke
+        // dalam badan `case 62`. Akibatnya menyegarkan Polling ikut menarik
+        // log, sementara layar Log Aktivitas sendiri — satu-satunya layar yang
+        // gunanya membuktikan sesuatu benar terjadi — tidak pernah tersegarkan.
         await log.fetchLogs();
+      case 86:
+        await context.read<ResetProvider>().muatRingkasan();
+
+      // ─────────────────────────────────────────────────────────────
+      // Profil Saya (81) dan Menu & Akses (85) SENGAJA tidak punya case
+      // ─────────────────────────────────────────────────────────────
+      //
+      // Syarat sebuah layar bisa disegarkan dari sini: datanya dipegang
+      // provider DAN layarnya menggambar ulang dari provider itu. Tiga layar
+      // di atas memenuhinya (FamilyProvider, LogProvider, ResetProvider —
+      // yang terakhir dibaca lewat Consumer). Dua ini tidak:
+      //
+      //   81 Profil Saya  — memanggil `muatProfilLengkap()` lalu menyimpan
+      //                     hasilnya ke State-nya sendiri. Menyegarkan
+      //                     AuthService dari sini tidak akan mengubah salinan
+      //                     yang sedang ditampilkan; geraknya selesai tanpa
+      //                     mengubah apa pun di layar.
+      //
+      //   85 Menu & Akses — `_menus`/`_roles`/`_draft` adalah State privat, dan
+      //                     `_draft` memuat SUNTINGAN YANG BELUM DISIMPAN.
+      //                     Memuat ulang dari server di sini akan membuang
+      //                     perubahan administrator tanpa bertanya. Layar itu
+      //                     sudah punya jalur segarnya sendiri: setiap simpan
+      //                     dan setiap saklar Aktif memanggil `_muat()`.
+      //
+      // Menambahkan case untuk keduanya menuntut mesin baru (GlobalKey atau
+      // provider baru) — itu fitur baru, bukan perbaikan penyegaran.
       default:
-        // Beranda (0) dan layar tanpa daftar sendiri — Profil, Menu & Akses,
-        // Reset Sistem — jatuh ke pemuatan dashboard.
+        // Beranda (0) dan layar yang memuat datanya sendiri saat dibuka.
         await _loadDataAsync();
     }
   }

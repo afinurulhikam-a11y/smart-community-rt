@@ -337,8 +337,12 @@ class _SidebarMenuState extends State<SidebarMenu> {
                       if (isAdmin)
                         _buildSubMenuItem(
                           index: 86,
+                          // Label disamakan dengan registry ("Reset Sistem").
+                          // Sebelumnya sidebar menulis "Reset" sementara Menu &
+                          // Akses menulis "Reset Sistem", sehingga administrator
+                          // harus menebak bahwa keduanya benda yang sama.
                           icon: Icons.warning_amber_rounded,
-                          label: 'Reset',
+                          label: 'Reset Sistem',
                           iconColor: const Color(0xFFF87171),
                         ),
                     ],

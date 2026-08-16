@@ -587,7 +587,12 @@ class _MenuAksesScreenState extends State<MenuAksesScreen> {
             nilai: m.isAktif,
             // Menu sistem tidak boleh dinonaktifkan — aplikasi bisa kehilangan
             // pintu masuk ke pengaturannya sendiri.
-            aktif: !m.isSistem,
+            //
+            // Dikunci juga selama permintaan menu INI sedang berjalan, supaya
+            // ketukan kedua tidak menjadi permintaan kedua yang saling
+            // mendahului dan menyisakan keadaan yang tidak diminta siapa pun.
+            aktif: !m.isSistem && _menoggle != m.kode,
+            sibuk: _menoggle == m.kode,
             onUbah: (v) => _toggleAktif(m, v),
             tooltip: m.isSistem ? 'Menu sistem tidak bisa dinonaktifkan' : null,
           ),
@@ -642,11 +647,35 @@ class _MenuAksesScreenState extends State<MenuAksesScreen> {
     );
   }
 
+  /// Kode menu yang saklar Aktif-nya sedang dikirim. Null bila tidak ada.
+  ///
+  /// Satu nilai, bukan Set: dua permintaan bersamaan atas menu yang BERBEDA
+  /// tidak saling merusak, sedangkan dua permintaan atas menu yang SAMA justru
+  /// yang berbahaya — itulah yang dijaga di sini.
+  String? _menoggle;
+
   Future<void> _toggleAktif(MenuItemModel m, bool nilai) async {
+    if (_menoggle == m.kode) return;
+    setState(() => _menoggle = m.kode);
+
     final r = await ApiService.put(ApiConstants.menuAktif(m.kode), body: {'is_aktif': nilai});
     if (!mounted) return;
+
+    setState(() => _menoggle = null);
     _pesan(r['message']?.toString() ?? 'Selesai.', sukses: r['success'] == true);
-    if (r['success'] == true) await _muat();
+
+    // Tidak ada pembaruan optimistis di sini: saklar digambar dari `m.isAktif`
+    // milik data server. Jadi kegagalan tidak perlu di-rollback — tidak ada
+    // yang terlanjur berubah untuk dikembalikan, dan layar tetap menampilkan
+    // apa yang benar-benar tersimpan.
+    if (r['success'] == true) {
+      await _muat();
+      // Izin milik pengguna ini ikut dimuat ulang. Mematikan sebuah menu
+      // mengubah apa yang boleh dilihat SEKARANG, dan sidebar membacanya dari
+      // PermissionProvider — tanpa ini, sidebar baru menyusul setelah aplikasi
+      // dibuka ulang.
+      if (mounted) await context.read<PermissionProvider>().muat();
+    }
   }
 
   Widget _sakelar({
@@ -654,7 +683,24 @@ class _MenuAksesScreenState extends State<MenuAksesScreen> {
     required bool aktif,
     required ValueChanged<bool> onUbah,
     String? tooltip,
+    bool sibuk = false,
   }) {
+    // Selama menunggu jawaban server, saklarnya diganti lingkaran menunggu.
+    // Saklar yang tetap terlihat normal selama permintaan berjalan membuat
+    // orang mengira ketukannya tidak terbaca, lalu menekannya lagi.
+    if (sibuk) {
+      return const SizedBox(
+        width: 34,
+        child: Center(
+          child: SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
     final w = InkWell(
       onTap: aktif ? () => onUbah(!nilai) : null,
       mouseCursor: aktif ? SystemMouseCursors.click : SystemMouseCursors.forbidden,
