@@ -4,6 +4,67 @@ const { broadcast } = require('../config/websocket');
 const mqttAlarm = require('../config/mqtt');
 
 /**
+ * ===================================================================
+ * SATU-SATUNYA tempat waktu darurat ditafsirkan
+ * ===================================================================
+ *
+ * `emergency_alerts.created_at` dan `dismissed_at` bertipe `timestamp WITHOUT
+ * time zone`. Tipe itu tidak menyimpan zona sama sekali — isinya jam dinding
+ * belaka. Sejak `DB_TIMEZONE=Asia/Jakarta`, jam dinding itu SELALU WIB, karena
+ * `NOW()` menulisnya di bawah zona sesi tersebut.
+ *
+ * Masalahnya muncul saat membacanya kembali. node-postgres menyusun objek Date
+ * dari jam dinding itu memakai zona proses NODE, bukan zona sesi Postgres.
+ * Akibatnya nilai yang sama ditafsirkan berbeda di dua mesin:
+ *
+ *   nilai tersimpan  : 2026-08-16 16:45:00   (jam dinding WIB)
+ *   Node TZ=Asia/Jakarta → 2026-08-16T09:45:00.000Z   ← instant benar
+ *   Node TZ=UTC          → 2026-08-16T16:45:00.000Z   ← MAJU 7 JAM
+ *
+ * Klien lalu memanggil `.toLocal()` — perilaku yang benar dan tidak perlu
+ * diubah — sehingga di perangkat WIB nilai kedua tampil sebagai 23:45 untuk
+ * kejadian pukul 16:45. Itulah +7 jam yang terlihat di produksi: Railway
+ * menjalankan Node di UTC, mesin pengembangan di Asia/Jakarta. Karena itu
+ * pengujian lokal SELALU lulus dan bug-nya hanya hidup di produksi.
+ *
+ * `::timestamptz` menutupnya di perbatasan SQL: ia menafsirkan jam dinding
+ * memakai zona SESI Postgres — yang sudah dipaku ke `DB_TIMEZONE` oleh
+ * `database.js` — lalu mengirimkan offsetnya secara eksplisit. node-postgres
+ * membaca offset itu alih-alih menebak, sehingga hasilnya identik di mesin mana
+ * pun. Ia juga mengikuti `DB_TIMEZONE` dengan sendirinya, tanpa menyalin nama
+ * zona ke berkas ini dan tanpa menyisipkan env ke dalam SQL.
+ *
+ * Perbaikan ini sengaja BERHENTI di modul darurat. Mengubah pengurai tipe
+ * node-postgres secara global memang menutup seluruh tabel sekaligus, tetapi
+ * layar lain (Pengaduan, Pembayaran, Keuangan) membaca timestamp TANPA
+ * `.toLocal()`, sehingga kini kebetulan menampilkan digit dari string `Z` apa
+ * adanya. Menggeser instant-nya akan memperbaiki satu layar dan merusak
+ * selusin lainnya sekaligus.
+ *
+ * Yang TIDAK diperbaiki: baris yang terlanjur ditulis SEBELUM `DB_TIMEZONE`
+ * dipasang tersimpan sebagai jam dinding UTC, dan kini ditafsirkan sebagai WIB
+ * — jadi kejadian lama tampil tujuh jam lebih maju. Memperbaikinya menuntut
+ * pengetahuan tentang zona yang berlaku saat setiap baris ditulis, dan
+ * menebaknya berarti merusak baris yang sudah benar.
+ *
+ * Dipakai lewat dua konstanta di bawah supaya tidak ada kueri yang tertinggal
+ * dengan tafsir lama — daftar kolomnya satu, bukan tujuh salinan.
+ */
+const KOLOM_WAKTU_WIB = `
+  ea.created_at::timestamptz AS created_at,
+  ea.dismissed_at::timestamptz AS dismissed_at`;
+
+/** Semua kolom `emergency_alerts`, dengan waktunya sudah ditafsirkan. */
+const KOLOM_ALERT = `ea.id, ea.user_id, ea.message, ea.latitude, ea.longitude,
+  ea.status, ea.dismissed_by,${KOLOM_WAKTU_WIB}`;
+
+/** Bentuk tanpa awalan tabel, untuk `RETURNING` pada INSERT/UPDATE. */
+const KOLOM_ALERT_RETURNING = `id, user_id, message, latitude, longitude,
+  status, dismissed_by,
+  created_at::timestamptz AS created_at,
+  dismissed_at::timestamptz AS dismissed_at`;
+
+/**
  * PIN darurat yang berlaku. Satu tempat, dipakai seluruh endpoint darurat.
  *
  * Diverifikasi DI SINI, bukan di klien. Verifikasi di Flutter hanya menyaring
@@ -87,7 +148,8 @@ async function triggerAlarm(req, res) {
       : { id: validUserId, nama: req.user?.nama || 'Admin RT', no_hp: req.user?.no_hp || '-', alamat: req.user?.alamat || '-' };
 
     const result = await pool.query(
-      `INSERT INTO emergency_alerts (user_id, message, latitude, longitude) VALUES ($1, $2, $3, $4) RETURNING *`,
+      `INSERT INTO emergency_alerts (user_id, message, latitude, longitude)
+       VALUES ($1, $2, $3, $4) RETURNING ${KOLOM_ALERT_RETURNING}`,
       [validUserId, message || 'DARURAT! Warga membutuhkan bantuan!', latitude || null, longitude || null]
     );
     const alert = result.rows[0];
@@ -209,7 +271,8 @@ async function dismissAlarm(req, res) {
     const adminName = (userCheck.rows && userCheck.rows.length > 0) ? userCheck.rows[0].nama : (req.user?.nama || 'Pengurus/Pelapor');
 
     const result = await pool.query(
-      `UPDATE emergency_alerts SET status = 'dismissed', dismissed_by = $1, dismissed_at = NOW() WHERE id = $2 AND status = 'active' RETURNING *`,
+      `UPDATE emergency_alerts SET status = 'dismissed', dismissed_by = $1, dismissed_at = NOW()
+       WHERE id = $2 AND status = 'active' RETURNING ${KOLOM_ALERT_RETURNING}`,
       [validUserId, id]
     );
     if (result.rows.length === 0) {
@@ -287,8 +350,8 @@ async function getAlerts(req, res) {
     );
     const totalData = parseInt(countResult.rows[0].count, 10);
 
-    let query = `SELECT ea.*, 
-      COALESCE(u.nama, 'Administrator') AS nama_warga, 
+    let query = `SELECT ${KOLOM_ALERT},
+      COALESCE(u.nama, 'Administrator') AS nama_warga,
       COALESCE(u.alamat, '') AS alamat, 
       u.no_hp, 
       COALESCE(d.nama, CASE WHEN ea.dismissed_by IS NOT NULL THEN 'Pengurus RT' ELSE NULL END) AS dismissed_by_nama
@@ -335,11 +398,11 @@ async function getAlerts(req, res) {
 async function getActiveAlerts(req, res) {
   try {
     const result = await pool.query(
-      `SELECT ea.*, 
-        COALESCE(u.nama, 'Administrator') AS nama_warga, 
-        COALESCE(u.alamat, '') AS alamat, 
-        u.no_hp 
-        FROM emergency_alerts ea 
+      `SELECT ${KOLOM_ALERT},
+        COALESCE(u.nama, 'Administrator') AS nama_warga,
+        COALESCE(u.alamat, '') AS alamat,
+        u.no_hp
+        FROM emergency_alerts ea
         LEFT JOIN users u ON ea.user_id = u.id 
         WHERE ea.status = 'active' 
         ORDER BY ea.created_at DESC`
@@ -453,7 +516,7 @@ async function nyalakanDarurat(req, res) {
     await client.query('SELECT pg_advisory_xact_lock($1)', [KUNCI_DARURAT]);
 
     const aktif = await client.query(
-      `SELECT id, user_id, created_at FROM emergency_alerts
+      `SELECT id, user_id, created_at::timestamptz AS created_at FROM emergency_alerts
        WHERE status = 'active' ORDER BY created_at DESC LIMIT 1 FOR UPDATE`
     );
 
@@ -468,7 +531,8 @@ async function nyalakanDarurat(req, res) {
     } else {
       const dibuat = await client.query(
         `INSERT INTO emergency_alerts (user_id, message, status)
-         VALUES ($1, $2, 'active') RETURNING id, user_id, created_at`,
+         VALUES ($1, $2, 'active')
+         RETURNING id, user_id, created_at::timestamptz AS created_at`,
         [req.user.id, (req.body?.message || 'Alarm darurat dinyalakan dari dasbor').toString().slice(0, 500)]
       );
       kejadian = dibuat.rows[0];
@@ -548,7 +612,7 @@ async function matikanDarurat(req, res) {
     await client.query('SELECT pg_advisory_xact_lock($1)', [KUNCI_DARURAT]);
 
     const aktif = await client.query(
-      `SELECT id, user_id, created_at FROM emergency_alerts
+      `SELECT id, user_id, created_at::timestamptz AS created_at FROM emergency_alerts
        WHERE status = 'active' ORDER BY created_at DESC LIMIT 1 FOR UPDATE`
     );
 
@@ -591,7 +655,9 @@ async function matikanDarurat(req, res) {
       `UPDATE emergency_alerts
        SET status = 'dismissed', dismissed_by = $1, dismissed_at = NOW()
        WHERE id = $2 AND status = 'active'
-       RETURNING id, user_id, created_at, dismissed_at`,
+       RETURNING id, user_id,
+                 created_at::timestamptz AS created_at,
+                 dismissed_at::timestamptz AS dismissed_at`,
       [req.user.id, kejadian.id]
     );
 
@@ -667,7 +733,8 @@ async function statusAlarm(req, res) {
   let aktif = null;
   try {
     const r = await pool.query(
-      `SELECT ea.id, ea.user_id, ea.message, ea.created_at,
+      `SELECT ea.id, ea.user_id, ea.message,
+              ea.created_at::timestamptz AS created_at,
               COALESCE(u.nama, 'Tidak diketahui') AS nama_pengaktif
        FROM emergency_alerts ea
        LEFT JOIN users u ON u.id = ea.user_id
