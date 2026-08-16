@@ -7,7 +7,7 @@ publish_to: 'none'
 # kembali ke nilai lama. versionCode WAJIB naik pada setiap artefak yang
 # dibagikan; Android menolak memasang versionCode yang sama atau lebih rendah.
 # Lihat RELEASE-ANDROID.md.
-version: 1.1.0+3
+version: 1.1.0+4
 
 environment:
   sdk: ^3.12.0
