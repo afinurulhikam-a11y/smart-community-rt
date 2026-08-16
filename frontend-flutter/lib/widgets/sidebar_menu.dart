@@ -125,6 +125,7 @@ class _SidebarMenuState extends State<SidebarMenu> {
                   // 2. Kependudukan
                   if (_lihatSalahSatu(const [
                     'kependudukan.warga',
+                    'kependudukan.kk',
                     'kependudukan.bansos',
                     'kependudukan.statistik',
                   ])) ...[
@@ -141,12 +142,15 @@ class _SidebarMenuState extends State<SidebarMenu> {
                           label: 'Data Warga',
                           isViewOnly: _hanyaLihat('kependudukan.warga'),
                         ),
-                      if (_lihat('kependudukan.warga'))
+                      // Data KK kini berdiri di atas izinnya sendiri, bukan lagi
+                      // menumpang Data Warga. Backend mengikuti: seluruh
+                      // `/api/families` dijaga `kependudukan.kk`.
+                      if (_lihat('kependudukan.kk'))
                         _buildSubMenuItem(
                           index: 15,
                           icon: Icons.house_outlined,
                           label: 'Data KK',
-                          isViewOnly: _hanyaLihat('kependudukan.warga'),
+                          isViewOnly: _hanyaLihat('kependudukan.kk'),
                         ),
                       if (_lihat('kependudukan.bansos'))
                         _buildSubMenuItem(
