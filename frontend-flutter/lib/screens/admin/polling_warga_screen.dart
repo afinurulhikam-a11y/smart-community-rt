@@ -173,6 +173,7 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
                 final bool lewatDeadline = polling['lewat_deadline'] == true ||
                     (dateSelesai.isBefore(DateTime.now()) &&
                         (polling['tanggal_selesai']?.toString().contains(':') ?? false));
+                final bool belumMulai = polling['belum_mulai'] == true;
                 final options = optionsData.map<Map<String, dynamic>>((opt) {
                   final int votes = int.tryParse(opt['vote_count']?.toString() ?? '0') ?? 0;
                   final int percentage = totalSuara > 0 ? ((votes / totalSuara) * 100).round() : 0;
@@ -201,6 +202,7 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
                     sudahVote: polling['sudah_vote'] == true,
                     pilihanSaya: pilihanSaya,
                     lewatDeadline: lewatDeadline,
+                    belumMulai: belumMulai,
                   ),
                 );
               }).toList(),
@@ -282,6 +284,7 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
     bool sudahVote = false,
     int? pilihanSaya,
     bool lewatDeadline = false,
+    bool belumMulai = false,
   }) {
     final rawStatus = status.toLowerCase();
     String displayStatus = 'Aktif';
@@ -289,6 +292,8 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
       displayStatus = 'Selesai';
     } else if (rawStatus == 'ditutup' || lewatDeadline) {
       displayStatus = 'Ditutup';
+    } else if (belumMulai) {
+      displayStatus = 'Belum Mulai';
     } else if (rawStatus.isNotEmpty) {
       displayStatus = '${status[0].toUpperCase()}${status.substring(1)}';
     }
@@ -300,6 +305,9 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
       statusColor = const Color(0xFF166534);
     } else if (displayStatus == 'Ditutup') {
       statusIcon = Icons.lock_outline;
+      statusColor = const Color(0xFFDC2626);
+    } else if (displayStatus == 'Belum Mulai') {
+      statusIcon = Icons.schedule;
       statusColor = const Color(0xFFD97706);
     }
 
@@ -415,6 +423,7 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
                     sudahVote: sudahVote,
                     pilihanSaya: pilihanSaya,
                     lewatDeadline: lewatDeadline,
+                    belumMulai: belumMulai,
                   ),
                 ],
               ),
@@ -758,12 +767,24 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
     required bool sudahVote,
     int? pilihanSaya,
     bool lewatDeadline = false,
+    bool belumMulai = false,
   }) {
     final st = status.toLowerCase();
     final isDitutup = st == 'ditutup' || lewatDeadline;
     final isSelesai = st == 'selesai';
 
     final pilihan = options.where((o) => o['dipilih'] == true).firstOrNull;
+
+    if (belumMulai) {
+      if (sudahVote) {
+        return _kotakInfo(
+          Icons.schedule,
+          pilihan == null ? 'Pilihan Anda tercatat' : 'Pilihan Anda: ${pilihan['label']}',
+          context.teksKedua,
+        );
+      }
+      return _kotakInfo(Icons.schedule, 'Polling belum dimulai.', context.teksTersier);
+    }
 
     if (isDitutup) {
       if (sudahVote) {

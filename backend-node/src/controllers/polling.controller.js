@@ -5,17 +5,20 @@ async function getPolling(req, res) {
   try {
     const { status } = req.query;
     let query = `
-      SELECT p.*, 
+      SELECT p.id, p.judul, p.deskripsi, p.status,
+        p.tanggal_mulai::text AS tanggal_mulai,
+        p.tanggal_selesai::text AS tanggal_selesai,
+        p.created_by, p.created_at, p.updated_at,
         u.nama AS created_by_nama,
         CASE 
           WHEN p.tanggal_selesai::text ~ 'T|\\s\\d{2}:' AND NOT p.tanggal_selesai::text ~ '00:00:00' 
-            THEN NOW() > p.tanggal_selesai::timestamp
-          ELSE CURRENT_DATE > p.tanggal_selesai::date
+            THEN (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta') > p.tanggal_selesai::timestamp
+          ELSE (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::date > p.tanggal_selesai::date
         END AS lewat_deadline,
         CASE 
           WHEN p.tanggal_mulai::text ~ 'T|\\s\\d{2}:' AND NOT p.tanggal_mulai::text ~ '00:00:00' 
-            THEN NOW() < p.tanggal_mulai::timestamp
-          ELSE CURRENT_DATE < p.tanggal_mulai::date
+            THEN (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta') < p.tanggal_mulai::timestamp
+          ELSE (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::date < p.tanggal_mulai::date
         END AS belum_mulai
       FROM polling p 
       LEFT JOIN users u ON p.created_by = u.id 
@@ -89,7 +92,9 @@ async function createPolling(req, res) {
     try {
       await client.query('BEGIN');
       const pollingResult = await client.query(
-        `INSERT INTO polling (judul, deskripsi, tanggal_mulai, tanggal_selesai, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+        `INSERT INTO polling (judul, deskripsi, tanggal_mulai, tanggal_selesai, created_by)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id, judul, deskripsi, status, tanggal_mulai::text AS tanggal_mulai, tanggal_selesai::text AS tanggal_selesai, created_by, created_at, updated_at`,
         [judul, deskripsi || null, tanggal_mulai, tanggal_selesai, req.user.id]
       );
       const polling = pollingResult.rows[0];
@@ -127,16 +132,18 @@ async function vote(req, res) {
 
     // Kunci baris polling untuk verifikasi status & deadline (mencegah race condition penutupan status)
     const pollingResult = await client.query(
-      `SELECT id, judul, status, tanggal_mulai, tanggal_selesai,
+      `SELECT id, judul, status,
+        tanggal_mulai::text AS tanggal_mulai,
+        tanggal_selesai::text AS tanggal_selesai,
         CASE 
           WHEN tanggal_selesai::text ~ 'T|\\s\\d{2}:' AND NOT tanggal_selesai::text ~ '00:00:00' 
-            THEN NOW() > tanggal_selesai::timestamp
-          ELSE CURRENT_DATE > tanggal_selesai::date
+            THEN (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta') > tanggal_selesai::timestamp
+          ELSE (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::date > tanggal_selesai::date
         END AS lewat_deadline,
         CASE 
           WHEN tanggal_mulai::text ~ 'T|\\s\\d{2}:' AND NOT tanggal_mulai::text ~ '00:00:00' 
-            THEN NOW() < tanggal_mulai::timestamp
-          ELSE CURRENT_DATE < tanggal_mulai::date
+            THEN (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta') < tanggal_mulai::timestamp
+          ELSE (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::date < tanggal_mulai::date
         END AS belum_mulai
       FROM polling 
       WHERE id = $1 
@@ -262,7 +269,7 @@ async function updatePollingStatus(req, res) {
     }
     const formattedStatus = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1);
     const result = await pool.query(
-      'UPDATE polling SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+      'UPDATE polling SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING id, judul, deskripsi, status, tanggal_mulai::text AS tanggal_mulai, tanggal_selesai::text AS tanggal_selesai, created_by, created_at, updated_at',
       [formattedStatus, id]
     );
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Polling tidak ditemukan.' });

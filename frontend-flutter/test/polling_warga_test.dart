@@ -24,6 +24,7 @@ Map<String, dynamic> _pollingFixture({
   bool sudahVote = false,
   int? pilihanSaya,
   bool lewatDeadline = false,
+  bool belumMulai = false,
 }) =>
     {
       'id': id,
@@ -36,6 +37,7 @@ Map<String, dynamic> _pollingFixture({
       'sudah_vote': sudahVote,
       'pilihan_saya': pilihanSaya,
       'lewat_deadline': lewatDeadline,
+      'belum_mulai': belumMulai,
       'options': [
         {
           'id': 101,
@@ -183,6 +185,22 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Pilihan Anda: Lokasi A (Dekat Gerbang Utama) (Terkunci)'), findsOneWidget);
+      expect(find.text('Ubah Pilihan'), findsNothing);
+    });
+
+    testWidgets('Layar menampilkan status Belum Mulai saat belum_mulai true', (tester) async {
+      final polling = [
+        _pollingFixture(
+          status: 'Aktif',
+          belumMulai: true,
+          sudahVote: false,
+        ),
+      ];
+      await tester.pumpWidget(_susunLayar(pollingList: polling));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Polling belum dimulai.'), findsOneWidget);
+      expect(find.text('Berikan Suara'), findsNothing);
       expect(find.text('Ubah Pilihan'), findsNothing);
     });
 
