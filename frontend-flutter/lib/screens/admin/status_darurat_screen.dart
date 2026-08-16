@@ -6,6 +6,8 @@ import '../../core/responsif.dart';
 import '../../widgets/tabel_responsif.dart';
 import '../../widgets/tombol_kembali.dart';
 import '../../providers/emergency_provider.dart';
+import '../../models/emergency_model.dart';
+import '../../core/services/auth_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
 import '../../core/pesan.dart';
@@ -21,6 +23,30 @@ class StatusDaruratScreen extends StatefulWidget {
 class _StatusDaruratScreenState extends State<StatusDaruratScreen> {
   String _status = 'Semua Status';
 
+  /// Boleh-tidaknya pengguna ini menutup kejadian [alert].
+  ///
+  /// **Cermin dari `bolehMenutupDarurat` di `emergency.controller.js`**:
+  /// pemilik kejadian, atau Pengurus/Admin. Bila aturan di backend berubah,
+  /// ubah di sini juga.
+  ///
+  /// Dipakai HANYA untuk memutuskan apa yang digambar. Ia bukan pengaman —
+  /// endpoint OFF tetap menolak 403 untuk yang bukan pemilik dan bukan
+  /// pengurus, jadi klien yang dimodifikasi tidak mendapat apa pun dari
+  /// memaksa tombolnya muncul.
+  ///
+  /// Menyembunyikan aksinya TIDAK menyembunyikan kejadiannya: baris riwayat,
+  /// nama pelapor, waktu, dan keterangannya tetap tampil untuk semua orang.
+  /// Yang hilang hanya wewenang yang memang tidak dimiliki.
+  bool _bolehMenyelesaikan(EmergencyModel alert) {
+    final auth = context.read<AuthService>();
+    if (auth.isPengurus) return true;
+
+    // `AuthService.userId` bertipe int sementara id pengguna adalah UUID, jadi
+    // nilainya dibaca langsung dari peta dan dibandingkan sebagai teks.
+    final idSaya = auth.user?['id']?.toString() ?? '';
+    return idSaya.isNotEmpty && idSaya == alert.userId;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -35,6 +61,133 @@ class _StatusDaruratScreenState extends State<StatusDaruratScreen> {
     if (_status == 'Aktif') statusFilter = 'active';
     if (_status == 'Selesai') statusFilter = 'dismissed';
     provider.fetchAlerts(status: statusFilter, page: page, limit: 10);
+  }
+
+  /// Detail lengkap satu kejadian — termasuk keterangan yang di tabel dipotong.
+  ///
+  /// Hanya menampilkan; tidak ada satu pun aksi di sini yang mengubah status.
+  /// Membuka detail sebuah kejadian tidak boleh menyelesaikannya.
+  void _showDetailDialog(EmergencyModel alert) {
+    final aktif = alert.isActive;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              aktif ? Icons.notifications_active_rounded : Icons.check_circle_outline,
+              color: aktif ? AppTheme.dangerColor : const Color(0xFF059669),
+              size: 22,
+            ),
+            const SizedBox(width: AppTheme.spasiM),
+            Expanded(
+              child: Text(
+                aktif ? 'Darurat Aktif' : 'Darurat Selesai',
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+        content: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: lebarDialog(ctx, maksimal: 460)),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _barisDetail(ctx, 'Pelapor', alert.namaWarga?.trim().isNotEmpty == true
+                    ? alert.namaWarga!
+                    : 'Tidak diketahui'),
+                if (alert.alamat?.trim().isNotEmpty == true)
+                  _barisDetail(ctx, 'Alamat', alert.alamat!),
+                if (alert.noHp?.trim().isNotEmpty == true)
+                  _barisDetail(ctx, 'No. HP', alert.noHp!),
+                _barisDetail(ctx, 'Waktu Kejadian',
+                    DateFormat('dd MMM yyyy, HH:mm').format(alert.createdAt)),
+                // Pelapor dan penyelesai sengaja ditampilkan sebagai dua baris
+                // terpisah: ketika Pengurus menutup darurat milik warga,
+                // keduanya memang orang yang berbeda, dan riwayat harus
+                // menunjukkannya begitu.
+                if (!aktif) ...[
+                  _barisDetail(ctx, 'Diselesaikan oleh',
+                      (alert.dismissedByNama?.trim().isNotEmpty == true &&
+                              alert.dismissedByNama != '-')
+                          ? alert.dismissedByNama!
+                          : 'Tidak tercatat'),
+                  if (alert.dismissedAt != null)
+                    _barisDetail(ctx, 'Waktu Selesai',
+                        DateFormat('dd MMM yyyy, HH:mm').format(alert.dismissedAt!)),
+                ],
+                const SizedBox(height: AppTheme.spasiM),
+                Text(
+                  'Keterangan Kejadian',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: ctx.teksKedua,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(AppTheme.spasiM),
+                  decoration: BoxDecoration(
+                    color: ctx.latarLembut,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusS),
+                    border: Border.all(color: ctx.garis),
+                  ),
+                  // Tanpa maxLines: inilah tempat keterangan dibaca utuh.
+                  child: Text(
+                    alert.keteranganTampil,
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.45,
+                      color: alert.tanpaKeteranganLegacy ? ctx.teksTersier : ctx.teksUtama,
+                      fontStyle: alert.tanpaKeteranganLegacy ? FontStyle.italic : null,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _barisDetail(BuildContext ctx, String label, String nilai) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 130,
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 12, color: ctx.teksKedua),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              nilai,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: ctx.teksUtama,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showResolveDialog(String alertId) {
@@ -370,7 +523,28 @@ class _StatusDaruratScreenState extends State<StatusDaruratScreen> {
                               ),
                               utama: true,
                             ),
-                            SelTabel.teks('Pesan', alert.message),
+                            // Dipotong dengan aman, bukan ditampilkan utuh:
+                            // keterangan boleh sampai 500 karakter dan satu
+                            // baris sepanjang itu akan merusak seluruh baris
+                            // tabel. Teks penuhnya ada di dialog Detail.
+                            SelTabel(
+                              'Pesan',
+                              Text(
+                                alert.keteranganTampil,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                // Penanda legacy dimiringkan: ia keterangan
+                                // TENTANG kejadian, bukan keterangan DARI
+                                // pelapor, dan pembedaan itu harus terlihat
+                                // tanpa harus membuka detail.
+                                style: alert.tanpaKeteranganLegacy
+                                    ? TextStyle(
+                                        fontStyle: FontStyle.italic,
+                                        color: context.teksTersier,
+                                      )
+                                    : null,
+                              ),
+                            ),
                             SelTabel(
                               'Status',
                               Container(
@@ -412,19 +586,45 @@ class _StatusDaruratScreenState extends State<StatusDaruratScreen> {
                             ),
                           ],
                           aksi: isActive
-                              ? ElevatedButton.icon(
-                                  onPressed: () => _showResolveDialog(alert.id),
-                                  icon: const Icon(Icons.check_circle_outline, size: 14),
-                                  label: const Text('Selesaikan', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF059669),
-                                    foregroundColor: Colors.white,
-                                    elevation: 0,
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
+                              ? Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: [
+                                    // Detail selalu tersedia untuk semua orang.
+                                    // Melihat apa yang terjadi bukan wewenang
+                                    // yang perlu dibatasi; MENUTUP kejadiannya
+                                    // yang perlu.
+                                    OutlinedButton.icon(
+                                      onPressed: () => _showDetailDialog(alert),
+                                      icon: const Icon(Icons.info_outline, size: 14),
+                                      label: const Text('Detail', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                    // Tombolnya DIHILANGKAN, bukan dinonaktifkan,
+                                    // bagi yang tidak berwenang — tombol mati
+                                    // tetap mengundang orang menekannya lalu
+                                    // menyimpulkan aplikasinya rusak.
+                                    if (_bolehMenyelesaikan(alert))
+                                      ElevatedButton.icon(
+                                        onPressed: () => _showResolveDialog(alert.id),
+                                        icon: const Icon(Icons.check_circle_outline, size: 14),
+                                        label: const Text('Selesaikan', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFF059669),
+                                          foregroundColor: Colors.white,
+                                          elevation: 0,
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 )
                               : Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),

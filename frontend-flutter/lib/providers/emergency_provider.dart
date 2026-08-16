@@ -67,6 +67,39 @@ class EmergencyProvider extends ChangeNotifier {
   String get namaPengaktif =>
       (_kejadianAktif?['nama_pengaktif'] as String?) ?? 'Tidak diketahui';
 
+  /// Batas panjang keterangan kejadian. **Cermin dari `emergency.controller.js`**
+  /// (`KETERANGAN_MIN` / `KETERANGAN_MAKS`).
+  ///
+  /// Nilai di sini hanya untuk memberi tahu pemakai lebih awal — bukan
+  /// pengaman. Backend memvalidasi ulang setiap permintaan, jadi klien yang
+  /// dimodifikasi tetap ditolak. Bila batas di backend berubah, ubah di sini.
+  static const int keteranganMin = 5;
+  static const int keteranganMaks = 500;
+
+  /// Keterangan kejadian yang sedang aktif, apa adanya dari backend.
+  ///
+  /// Kosong bila tidak ada kejadian aktif — layar memakai kekosongan itu untuk
+  /// memilih antara menampilkan detail atau tidak menampilkan blok itu sama
+  /// sekali, bukan menampilkan blok kosong yang membingungkan.
+  String get keteranganKejadian =>
+      (_kejadianAktif?['message'] as String?)?.trim() ?? '';
+
+  /// Keterangan siap tampil — penanda legacy sudah diterjemahkan menjadi
+  /// kalimat yang bisa dibaca. Lihat [keteranganUntukTampilan].
+  String get keteranganKejadianTampil =>
+      keteranganKejadian.isEmpty ? '' : keteranganUntukTampilan(keteranganKejadian);
+
+  /// True bila kejadian aktif dinyalakan klien lama tanpa keterangan.
+  bool get kejadianTanpaKeteranganLegacy =>
+      keteranganKejadian == penandaLegacyKeterangan;
+
+  /// Kapan kejadian aktif dinyalakan. Null bila tidak ada kejadian aktif.
+  DateTime? get waktuKejadian {
+    final v = _kejadianAktif?['created_at'];
+    if (v == null) return null;
+    return DateTime.tryParse(v.toString())?.toLocal();
+  }
+
   /// Menyegarkan keadaan sirene dari backend.
   ///
   /// Gagal diam-diam pada kegagalan jaringan: kartu tetap menampilkan keadaan
@@ -96,9 +129,54 @@ class EmergencyProvider extends ChangeNotifier {
   /// sini hanya diteruskan. Aplikasi tidak pernah menyentuh broker MQTT dan
   /// tidak pernah memegang kredensialnya.
   ///
+  /// Menyusun badan permintaan `POST /emergency/alarm`.
+  ///
+  /// Dipisah menjadi fungsi tersendiri supaya bisa diuji tanpa jaringan —
+  /// isinya adalah bagian yang paling mudah salah diam-diam, dan kesalahannya
+  /// tidak memunculkan galat apa pun.
+  ///
+  /// ===================================================================
+  /// Kenapa `keterangan` DAN `message` dikirim berdua
+  /// ===================================================================
+  ///
+  /// Klien dan backend tidak naik pada detik yang sama. Backend produksi hari
+  /// ini belum mengenal `keterangan` sama sekali — ia membaca
+  /// `req.body?.message`, dan bila kosong memakai kalimat bawaannya sendiri.
+  /// Jadi mengirim `keterangan` SAJA berarti kalimat yang diketik warga
+  /// dibuang diam-diam, lalu Riwayat Darurat menampilkan "Alarm darurat
+  /// dinyalakan dari dasbor" seolah-olah itu yang ia tulis. Kolomnya terisi,
+  /// tetapi isinya bukan miliknya — dan tidak ada satu pun galat yang muncul.
+  ///
+  /// Dengan keduanya dikirim bernilai sama, satu badan permintaan benar di
+  /// kedua sisi: backend lama membaca `message`, backend baru membaca
+  /// `keterangan` lebih dulu (`req.body?.keterangan ?? req.body?.message`).
+  /// Karena nilainya identik, tidak ada tafsir yang bisa berbeda di antara
+  /// keduanya.
+  ///
+  /// `message` boleh dilepas setelah backend berketerangan terpasang di
+  /// produksi.
+  @visibleForTesting
+  static Map<String, dynamic> susunBadanAlarm(String aksi, String pin, String? keterangan) {
+    final body = <String, dynamic>{'aksi': aksi, 'pin': pin};
+
+    // Hanya untuk ON, dan hanya bila ada isinya. Menyertakan field kosong pada
+    // OFF membuat badan permintaan mengaku membawa sesuatu yang tidak dipakai.
+    final k = keterangan?.trim() ?? '';
+    if (aksi == 'ON' && k.isNotEmpty) {
+      body['keterangan'] = k;
+      body['message'] = k;
+    }
+
+    return body;
+  }
+
+  /// [keterangan] WAJIB untuk aksi `ON` dan diabaikan untuk `OFF`. Backend
+  /// menolak `ON` tanpa keterangan yang sah dengan 400, jadi mengirimkannya
+  /// bukan pilihan.
+  ///
   /// Mengembalikan pesan galat bila gagal, atau null bila berhasil — pemanggil
   /// butuh teksnya untuk ditampilkan, bukan sekadar true/false.
-  Future<String?> kendaliAlarm(String aksi, String pin) async {
+  Future<String?> kendaliAlarm(String aksi, String pin, {String? keterangan}) async {
     if (_mengirimAlarm) return 'Perintah sebelumnya masih diproses.';
 
     _mengirimAlarm = true;
@@ -107,7 +185,7 @@ class EmergencyProvider extends ChangeNotifier {
 
     final r = await ApiService.post(
       ApiConstants.emergencyAlarm,
-      body: {'aksi': aksi, 'pin': pin},
+      body: susunBadanAlarm(aksi, pin, keterangan),
     );
 
     _mengirimAlarm = false;

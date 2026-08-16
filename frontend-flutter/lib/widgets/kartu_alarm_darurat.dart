@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../core/pesan.dart';
@@ -88,6 +89,19 @@ class KartuAlarmDarurat extends StatelessWidget {
               milikOrangLain: milikOrangLain,
               bolehMatikan: bolehMatikan,
               pengaktif: pengaktif),
+          // Detail kejadian hanya muncul ketika ada yang bisa diceritakan.
+          // Blok kosong berlabel "Keterangan" pada kartu siaga hanya menambah
+          // kebisingan pada layar yang harus terbaca dalam sekali pandang.
+          if (menyala && darurat.keteranganKejadian.isNotEmpty) ...[
+            SizedBox(height: rapat ? AppTheme.spasiM : AppTheme.spasiL),
+            _detailKejadian(
+              context,
+              pengaktif: pengaktif,
+              keterangan: darurat.keteranganKejadianTampil,
+              legacy: darurat.kejadianTanpaKeteranganLegacy,
+              waktu: darurat.waktuKejadian,
+            ),
+          ],
           SizedBox(height: rapat ? AppTheme.spasiM : AppTheme.spasiL),
           _aksi(context, menyala: menyala, sibuk: sibuk, bolehMatikan: bolehMatikan),
         ],
@@ -226,6 +240,87 @@ class KartuAlarmDarurat extends StatelessWidget {
     );
   }
 
+  // ─────────────────────────────────────────────────────── detail kejadian
+  //
+  // Siapa, apa, dan kapan — tiga hal yang ditanyakan orang begitu sirene
+  // berbunyi, ditampilkan tanpa harus membuka layar lain.
+  //
+  // Keterangannya TIDAK dipotong di sini. Kartu ini adalah tempat orang
+  // membaca apa yang sebenarnya terjadi, dan memotongnya menjadi satu baris
+  // bisa menghilangkan justru bagian yang menentukan tindakan — "kebakaran di
+  // dapur, **api sudah padam**" berubah maknanya sepenuhnya bila terpotong.
+  Widget _detailKejadian(
+    BuildContext context, {
+    required String pengaktif,
+    required String keterangan,
+    bool legacy = false,
+    DateTime? waktu,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppTheme.spasiM),
+      decoration: BoxDecoration(
+        color: AppTheme.dangerColor.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
+        border: Border.all(color: AppTheme.dangerColor.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Wrap, bukan Row: pada layar sempit nama panjang dan jam tidak
+          // saling mendorong keluar batas, keduanya turun baris dengan rapi.
+          Wrap(
+            spacing: AppTheme.spasiS,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.person_outline_rounded, size: 14, color: context.teksKedua),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Aktif oleh $pengaktif',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: context.teksUtama,
+                    ),
+                  ),
+                ],
+              ),
+              if (waktu != null)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.schedule_rounded, size: 14, color: context.teksTersier),
+                    const SizedBox(width: 4),
+                    Text(
+                      DateFormat('dd MMM yyyy, HH:mm').format(waktu),
+                      style: TextStyle(fontSize: 12, color: context.teksKedua),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spasiS),
+          Text(
+            keterangan,
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.4,
+              // Dimiringkan bila legacy: ia keterangan TENTANG kejadian, bukan
+              // kalimat yang benar-benar diketik pelapor.
+              color: legacy ? context.teksKedua : context.teksUtama,
+              fontStyle: legacy ? FontStyle.italic : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ──────────────────────────────────────────────────────────────── aksi
   //
   // Kedua tombol berbagi lebar sama rata — keduanya penting, dan menyempitkan
@@ -256,6 +351,23 @@ class KartuAlarmDarurat extends StatelessWidget {
       onTap: () => _mintaPin(context, 'ON'),
     );
 
+    // MATIKAN DIHILANGKAN, bukan sekadar dinonaktifkan, ketika ada kejadian
+    // aktif milik orang lain dan pengguna ini tidak berwenang menutupnya.
+    //
+    // Tombol mati yang tetap terlihat mengundang orang menekannya berulang
+    // kali dalam keadaan darurat lalu menyimpulkan aplikasinya rusak. Yang
+    // dibutuhkan bukan tombol, melainkan kalimat yang menyebut siapa
+    // pemiliknya — dan itu sudah ada di blok peringatan.
+    //
+    // Saat TIDAK ada kejadian aktif, tombolnya tetap ada dengan sengaja:
+    // aplikasi bisa saja tertinggal keadaan (dibuka ulang, atau alarm
+    // dinyalakan dari perangkat lain), dan buzzer yang tidak bisa dihentikan
+    // lebih buruk daripada satu perintah OFF yang berlebih.
+    //
+    // Ini semata soal tampilan. Endpoint OFF tetap menolak 403 bila yang
+    // menekan bukan pemilik dan bukan pengurus.
+    final tampilkanMatikan = !menyala || bolehMatikan;
+
     final matikan = _TombolAksi(
       label: 'MATIKAN',
       ikon: Icons.notifications_off_rounded,
@@ -267,16 +379,18 @@ class KartuAlarmDarurat extends StatelessWidget {
       // yang tidak bisa dihentikan jauh lebih buruk daripada perintah OFF
       // yang berlebih.
       // Izin datang dari BACKEND (`boleh_matikan` di /alarm/status), bukan dari
-      // peran yang ditebak klien. Saat tidak ada kejadian aktif, tombolnya
-      // tetap hidup — aplikasi bisa saja tertinggal keadaan, dan buzzer yang
-      // tidak bisa dihentikan lebih buruk daripada satu perintah OFF berlebih.
-      //
-      // Menyembunyikan tombol hanyalah kenyamanan: endpoint OFF tetap menolak
-      // 403 bila yang menekan bukan pemilik dan bukan pengurus.
-      aktif: !sibuk && (!menyala || bolehMatikan),
+      // peran yang ditebak klien.
+      aktif: !sibuk,
       sibuk: sibuk && menyala,
       onTap: () => _mintaPin(context, 'OFF'),
     );
+
+    // Tanpa MATIKAN, NYALAKAN berdiri sendiri selebar kartu — bukan setengah
+    // baris dengan ruang kosong di sebelahnya yang terbaca seperti tombol yang
+    // gagal dimuat.
+    if (!tampilkanMatikan) {
+      return SizedBox(width: double.infinity, child: nyalakan);
+    }
 
     // Di bawah ~360 px dua tombol berdampingan memaksa labelnya terpotong.
     // Ditumpuk, keduanya tetap selebar layar dan tetap mudah ditekan.
@@ -302,18 +416,69 @@ class KartuAlarmDarurat extends StatelessWidget {
     );
   }
 
-  /// Dialog konfirmasi + PIN. Satu dialog untuk ON dan OFF; hanya kalimatnya
-  /// yang berbeda, supaya keduanya tidak bisa berbeda perilaku.
+  /// Dialog konfirmasi + PIN, dan — khusus ON — keterangan kejadian.
+  ///
+  /// Satu dialog untuk ON dan OFF supaya keduanya tidak bisa berbeda perilaku;
+  /// yang berbeda hanya kalimatnya dan ada-tidaknya kolom keterangan.
+  ///
+  /// Keterangan divalidasi di sini HANYA supaya pemakai tahu lebih awal.
+  /// Aturannya yang sesungguhnya ada di backend, yang memvalidasi ulang setiap
+  /// permintaan — klien yang dimodifikasi tetap dijawab 400.
   Future<void> _mintaPin(BuildContext context, String aksi) async {
     final nyala = aksi == 'ON';
     final kontrolPin = TextEditingController();
+    final kontrolKeterangan = TextEditingController();
     final darurat = context.read<EmergencyProvider>();
 
-    final pin = await showDialog<String>(
+    /// Mengembalikan pesan galat, atau null bila sah. Aturannya cermin dari
+    /// `validasiKeterangan` di backend.
+    String? periksaKeterangan(String v) {
+      final t = v.trim();
+      if (t.isEmpty) return 'Keterangan kejadian wajib diisi';
+      if (t.length < EmergencyProvider.keteranganMin) {
+        return 'Terlalu pendek — minimal ${EmergencyProvider.keteranganMin} karakter';
+      }
+      if (t.length > EmergencyProvider.keteranganMaks) {
+        return 'Terlalu panjang — maksimal ${EmergencyProvider.keteranganMaks} karakter';
+      }
+      return null;
+    }
+
+    final hasil = await showDialog<_HasilDialogAlarm>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
         String? galatLokal;
+        String? galatKeterangan;
+
+        /// Satu jalur pengiriman untuk tombol maupun tombol Enter.
+        ///
+        /// Dua salinan aturan validasi adalah cara termudah agar Enter suatu
+        /// hari melewati pemeriksaan yang masih dijalankan tombolnya.
+        void kirim(StateSetter setLokal, BuildContext ctx) {
+          final ket = kontrolKeterangan.text;
+          final pin = kontrolPin.text.trim();
+
+          final galatKet = nyala ? periksaKeterangan(ket) : null;
+          final galatPin = pin.isEmpty ? 'PIN wajib diisi' : null;
+
+          // Keduanya diperiksa dan ditampilkan SEKALIGUS. Menampilkan satu
+          // galat pada satu waktu memaksa orang menekan tombol berkali-kali
+          // untuk menemukan semua yang kurang — di tengah keadaan darurat.
+          if (galatKet != null || galatPin != null) {
+            setLokal(() {
+              galatKeterangan = galatKet;
+              galatLokal = galatPin;
+            });
+            return;
+          }
+
+          Navigator.pop(
+            ctx,
+            _HasilDialogAlarm(pin: pin, keterangan: ket.trim()),
+          );
+        }
+
         return StatefulBuilder(
           builder: (ctx, setLokal) => AlertDialog(
             title: Row(
@@ -353,10 +518,57 @@ class KartuAlarmDarurat extends StatelessWidget {
                         : 'Sirene akan berhenti berbunyi. Penekanan ini juga tercatat.',
                     style: TextStyle(fontSize: 13, height: 1.4, color: ctx.teksKedua),
                   ),
+                  if (nyala) ...[
+                    const SizedBox(height: AppTheme.spasiL),
+                    TextField(
+                      controller: kontrolKeterangan,
+                      autofocus: true,
+                      // Beberapa baris, bukan satu: kejadian darurat jarang
+                      // muat dalam satu baris, dan kolom sempit membuat orang
+                      // memendekkan cerita yang justru perlu lengkap.
+                      minLines: 2,
+                      maxLines: 4,
+                      textCapitalization: TextCapitalization.sentences,
+                      // Penghitung karakter ditampilkan, tetapi batasnya TIDAK
+                      // dipaksakan pada ketikan — `MaxLengthEnforcement.none`.
+                      //
+                      // Dengan pemaksaan bawaan, menempelkan teks 600 karakter
+                      // akan terpotong DIAM-DIAM menjadi 500: separuh kalimat
+                      // tersimpan tanpa pemiliknya tahu, dan pada catatan
+                      // darurat separuh kalimat bisa berarti kebalikannya.
+                      // Alasan yang sama persis dipakai backend ketika memilih
+                      // menolak alih-alih memangkas.
+                      maxLength: EmergencyProvider.keteranganMaks,
+                      maxLengthEnforcement: MaxLengthEnforcement.none,
+                      decoration: InputDecoration(
+                        labelText: 'Keterangan Kejadian',
+                        hintText: 'Contoh: Ada warga jatuh dan membutuhkan bantuan',
+                        helperText: 'Wajib diisi — dibaca pengurus di Riwayat Darurat',
+                        errorText: galatKeterangan,
+                        alignLabelWithHint: true,
+                        prefixIcon: const Padding(
+                          padding: EdgeInsets.only(bottom: 40),
+                          child: Icon(Icons.notes_rounded),
+                        ),
+                      ),
+                      onChanged: (v) {
+                        // Galat dibersihkan begitu pemakai memperbaikinya, dan
+                        // TIDAK dimunculkan saat ia baru mulai mengetik —
+                        // memerahkan kolom pada huruf pertama terasa seperti
+                        // dimarahi sebelum sempat selesai.
+                        if (galatKeterangan != null && periksaKeterangan(v) == null) {
+                          setLokal(() => galatKeterangan = null);
+                        }
+                      },
+                    ),
+                  ],
                   const SizedBox(height: AppTheme.spasiL),
                   TextField(
                     controller: kontrolPin,
-                    autofocus: true,
+                    // Fokus awal jatuh ke keterangan bila ada, karena itu yang
+                    // diisi lebih dulu; memaksa orang melompat mundur satu
+                    // kolom membuat kesalahan pengisian lebih mungkin.
+                    autofocus: !nyala,
                     obscureText: true,
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -366,13 +578,7 @@ class KartuAlarmDarurat extends StatelessWidget {
                       errorText: galatLokal,
                       prefixIcon: const Icon(Icons.lock_outline_rounded),
                     ),
-                    onSubmitted: (v) {
-                      if (v.trim().isEmpty) {
-                        setLokal(() => galatLokal = 'PIN wajib diisi');
-                        return;
-                      }
-                      Navigator.pop(ctx, v.trim());
-                    },
+                    onSubmitted: (_) => kirim(setLokal, ctx),
                   ),
                 ],
               ),
@@ -383,14 +589,7 @@ class KartuAlarmDarurat extends StatelessWidget {
                 child: const Text('Batal'),
               ),
               ElevatedButton(
-                onPressed: () {
-                  final v = kontrolPin.text.trim();
-                  if (v.isEmpty) {
-                    setLokal(() => galatLokal = 'PIN wajib diisi');
-                    return;
-                  }
-                  Navigator.pop(ctx, v);
-                },
+                onPressed: () => kirim(setLokal, ctx),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: nyala ? AppTheme.dangerColor : null,
                 ),
@@ -402,9 +601,13 @@ class KartuAlarmDarurat extends StatelessWidget {
       },
     );
 
-    if (pin == null || pin.isEmpty) return;
+    if (hasil == null) return;
 
-    final galat = await darurat.kendaliAlarm(aksi, pin);
+    final galat = await darurat.kendaliAlarm(
+      aksi,
+      hasil.pin,
+      keterangan: hasil.keterangan,
+    );
     if (!context.mounted) return;
 
     // Lewat helper bersama, bukan SnackBar sendiri: `lib/core/pesan.dart`
@@ -421,6 +624,20 @@ class KartuAlarmDarurat extends StatelessWidget {
       );
     }
   }
+}
+
+/// Hasil dialog aktivasi: PIN dan keterangan kejadian.
+///
+/// Dibungkus menjadi satu tipe, bukan dikembalikan sebagai dua nilai lewat dua
+/// dialog berurutan. Dua dialog berarti orang bisa mengisi keterangan lalu
+/// membatalkan di PIN, dan keterangannya hilang tanpa jejak.
+class _HasilDialogAlarm {
+  final String pin;
+
+  /// Kosong untuk aksi OFF — endpoint memang tidak memakainya di sana.
+  final String keterangan;
+
+  const _HasilDialogAlarm({required this.pin, required this.keterangan});
 }
 
 /// Tombol aksi panel darurat.
