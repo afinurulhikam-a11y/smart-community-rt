@@ -1207,11 +1207,6 @@ class _MainDashboardState extends State<MainDashboard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Tombol darurat diletakkan PALING ATAS, sama seperti dasbor warga.
-        // Dalam keadaan darurat orang tidak menggulir mencari tombol.
-        const KartuAlarmDarurat(),
-        const SizedBox(height: 16),
-
         // Welcome Section
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1338,7 +1333,7 @@ class _MainDashboardState extends State<MainDashboard> {
 
         const SizedBox(height: 24),
 
-        // === BARIS 2 (PALING BAWAH): STATUS DARURAT + PENGADUAN WARGA ===
+        // === BARIS 2: STATUS DARURAT + PENGADUAN WARGA ===
         if (pakaiKartu(context)) ...[
           if (izin.bolehLihat('aspirasi.darurat')) _buildStatusDaruratCard(),
           if (izin.bolehLihat('aspirasi.darurat') &&
@@ -1363,6 +1358,11 @@ class _MainDashboardState extends State<MainDashboard> {
             ),
           ),
         ],
+
+        const SizedBox(height: 24),
+
+        // Panel Kendali Darurat (Paling Bawah)
+        const KartuAlarmDarurat(),
       ],
     );
   }

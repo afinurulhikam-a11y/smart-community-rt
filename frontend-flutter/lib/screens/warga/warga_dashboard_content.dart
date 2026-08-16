@@ -61,11 +61,6 @@ class WargaDashboardContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Tombol darurat diletakkan PALING ATAS, sebelum sapaan maupun kartu
-        // apa pun. Dalam keadaan darurat orang tidak menggulir mencari tombol.
-        const KartuAlarmDarurat(),
-        const SizedBox(height: 16),
-
         // Header Greeting
         Container(
           width: double.infinity,
@@ -185,6 +180,11 @@ class WargaDashboardContent extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         _buildQuickMenuGrid(context),
+
+        const SizedBox(height: 24),
+
+        // Panel Kendali Darurat (Paling Bawah)
+        const KartuAlarmDarurat(),
       ],
     );
   }
