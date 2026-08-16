@@ -27,8 +27,32 @@ const F = { view: true, create: true, update: true, delete: true };     // penuh
  * lewat layar. Inilah yang mencegah admin kehilangan kendali.
  */
 const MENU_ITEMS = [
-  { kode: 'dashboard', nama: 'Dashboard', grup: 'Umum', menu_index: 0 },
-
+  // ===================================================================
+  // Tiga entri sidebar SENGAJA tidak ada di daftar ini
+  // ===================================================================
+  //
+  // Daftar ini adalah daftar hal yang IZINNYA BISA DIATUR. Entri sidebar yang
+  // tidak bisa diatur tidak boleh muncul di Menu & Akses, karena saklar yang
+  // tidak mengubah apa pun lebih berbahaya daripada tidak ada saklar — ia
+  // membuat administrator yakin sudah menutup sesuatu.
+  //
+  //   index 0  Dashboard    — beranda setiap peran, tampil tanpa syarat.
+  //                           Dulu punya baris `dashboard` di sini, tetapi
+  //                           TIDAK ADA satu pun rute yang menjaganya dan
+  //                           tidak ada kode klien yang membacanya, sehingga
+  //                           20 saklar (4 aksi x 5 peran) tidak berpengaruh
+  //                           sama sekali. Dihapus lewat migrasi v31.
+  //
+  //   index 15 Data KK      — tampilan lain atas data yang SAMA dengan Data
+  //                           Warga (keluarga + anggota_keluarga), jadi ia
+  //                           ikut `kependudukan.warga`. Memberinya izin
+  //                           sendiri akan memungkinkan keadaan yang tidak
+  //                           masuk akal: boleh membaca anggota keluarga
+  //                           tetapi tidak boleh membaca kartu keluarganya.
+  //
+  //   index 81 Profil Saya  — data diri pemakai sendiri, bukan modul RT.
+  //                           Mencabutnya berarti seseorang tidak bisa
+  //                           mengganti kata sandinya sendiri.
   { kode: 'kependudukan.warga', nama: 'Data Warga', grup: 'Kependudukan', menu_index: 12 },
   { kode: 'kependudukan.bansos', nama: 'Bantuan Sosial', grup: 'Kependudukan', menu_index: 13 },
   { kode: 'kependudukan.statistik', nama: 'Statistik & Grafik', grup: 'Kependudukan', menu_index: 14 },
@@ -70,7 +94,6 @@ const DEFAULT_PERMISSIONS = {
   admin: Object.fromEntries(MENU_ITEMS.map((m) => [m.kode, F])),
 
   ketua_rt: {
-    'dashboard': V,
     'kependudukan.warga': F,
     'kependudukan.bansos': F,
     'kependudukan.statistik': V,
@@ -94,7 +117,6 @@ const DEFAULT_PERMISSIONS = {
   },
 
   sekretaris: {
-    'dashboard': V,
     'kependudukan.warga': F,
     'kependudukan.bansos': F,
     'kependudukan.statistik': V,
@@ -118,7 +140,6 @@ const DEFAULT_PERMISSIONS = {
   },
 
   bendahara: {
-    'dashboard': V,
     // Iuran ditagihkan per kartu keluarga, jadi bendahara perlu melihat
     // data warga untuk mencocokkan pembayaran — tetapi tidak mengubahnya.
     'kependudukan.warga': V,
@@ -143,7 +164,6 @@ const DEFAULT_PERMISSIONS = {
   },
 
   warga: {
-    'dashboard': V,
     'kependudukan.warga': N,
     'kependudukan.bansos': N,
     'kependudukan.statistik': N,
