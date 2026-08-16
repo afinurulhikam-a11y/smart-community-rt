@@ -2,6 +2,11 @@ const { pool } = require('../config/database');
 const { logActivity, ringkas, TIPE } = require('../services/log.service');
 const { broadcast } = require('../config/websocket');
 const mqttAlarm = require('../config/mqtt');
+const {
+  WAJIBKAN_KETERANGAN_DARURAT,
+  PENANDA_LEGACY,
+  catatDaruratTanpaKeterangan,
+} = require('../config/kompatibilitas');
 
 /**
  * ===================================================================
@@ -63,6 +68,68 @@ const KOLOM_ALERT_RETURNING = `id, user_id, message, latitude, longitude,
   status, dismissed_by,
   created_at::timestamptz AS created_at,
   dismissed_at::timestamptz AS dismissed_at`;
+
+/**
+ * Batas panjang keterangan kejadian darurat.
+ *
+ * `KETERANGAN_MIN` sengaja pendek. Orang mengetiknya sambil panik, kadang
+ * dengan satu tangan — memaksa kalimat lengkap akan membuat orang mengetik
+ * "aaaaa" hanya supaya tombolnya mau ditekan, dan itu lebih buruk daripada
+ * batas yang longgar. Lima karakter cukup untuk menolak "." dan "-" tetapi
+ * masih menerima "Maling", "Banjir", "Api".
+ *
+ * `KETERANGAN_MAKS` mengikuti pemotongan yang sudah dipakai sebelumnya (500),
+ * jadi tidak ada baris lama yang mendadak melanggar aturan baru.
+ */
+const KETERANGAN_MIN = 5;
+const KETERANGAN_MAKS = 500;
+
+/**
+ * Memvalidasi keterangan kejadian, DI SERVER.
+ *
+ * Klien sudah memvalidasi lebih dulu, dan itu hanya kenyamanan: siapa pun bisa
+ * memanggil endpoint ini dengan curl. Aturan yang menentukan ada di sini.
+ *
+ * Yang ditolak dan alasannya:
+ *   - kosong / hanya spasi → kejadian tanpa konteks persis yang ingin
+ *     dihilangkan; `"   "` harus ditolak sama tegasnya dengan `""`.
+ *   - terlalu pendek → "." atau "-" secara teknis bukan spasi, tetapi sama
+ *     tidak berartinya bagi pengurus yang membaca riwayat.
+ *   - terlalu panjang → ditolak, BUKAN dipotong diam-diam. Memotong berarti
+ *     menyimpan setengah kalimat orang tanpa memberi tahu, dan setengah
+ *     kalimat pada catatan darurat bisa berarti kebalikannya.
+ *
+ * Mengembalikan `{ ok, nilai, pesan }` — bukan melempar — supaya pemanggil
+ * yang menentukan bentuk responsnya.
+ */
+function validasiKeterangan(mentah) {
+  // `kosong: true` membedakan "tidak dikirim sama sekali" dari "dikirim tetapi
+  // buruk", dan pembedaan itulah yang membuat rollout bertahap mungkin:
+  // hanya yang pertama yang boleh dilonggarkan untuk klien lama.
+  if (mentah === undefined || mentah === null) {
+    return { ok: false, kosong: true, pesan: 'Keterangan kejadian wajib diisi.' };
+  }
+
+  const nilai = mentah.toString().trim();
+
+  if (nilai === '') {
+    return { ok: false, kosong: true, pesan: 'Keterangan kejadian wajib diisi.' };
+  }
+  if (nilai.length < KETERANGAN_MIN) {
+    return {
+      ok: false,
+      pesan: `Keterangan kejadian terlalu pendek — minimal ${KETERANGAN_MIN} karakter.`,
+    };
+  }
+  if (nilai.length > KETERANGAN_MAKS) {
+    return {
+      ok: false,
+      pesan: `Keterangan kejadian terlalu panjang — maksimal ${KETERANGAN_MAKS} karakter (saat ini ${nilai.length}).`,
+    };
+  }
+
+  return { ok: true, nilai };
+}
 
 /**
  * PIN darurat yang berlaku. Satu tempat, dipakai seluruh endpoint darurat.
@@ -463,6 +530,59 @@ async function kendaliAlarm(req, res) {
     });
   }
 
+  // Keterangan kejadian WAJIB untuk ON, dan diperiksa SESUDAH PIN.
+  //
+  // Urutan itu menjaga sifat yang sudah ada: setiap percobaan PIN — terutama
+  // yang salah — tetap masuk ke Log Aktivitas. Kalau keterangan diperiksa
+  // lebih dulu, penebak PIN cukup mengirim badan permintaan tanpa keterangan
+  // untuk dijawab 400 dan keluar sebelum sempat tercatat.
+  //
+  // Diperiksa juga SEBELUM kesiapan broker: "keterangan wajib diisi" adalah
+  // sesuatu yang bisa diperbaiki pemakai saat itu juga, sedangkan 503 hanya
+  // menyuruhnya menunggu. Yang bisa ditindaklanjuti disampaikan lebih dulu.
+  let keterangan = null;
+  let legacyTanpaKeterangan = false;
+
+  if (aksiMentah === mqttAlarm.PERINTAH.NYALA) {
+    // `keterangan` adalah nama baru; `message` diterima juga supaya klien yang
+    // sudah beredar tidak putus hanya karena berbeda nama field.
+    const hasil = validasiKeterangan(
+      req.body?.keterangan ?? req.body?.message
+    );
+
+    // ROLLOUT BERTAHAP. Keterangan yang TIDAK DIKIRIM SAMA SEKALI masih
+    // diterima selama Tahap 1, karena APK 1.1.0+3 yang beredar memang tidak
+    // mengirimnya — dan menolaknya berarti mematikan tombol darurat di setiap
+    // ponsel yang belum diperbarui.
+    //
+    // Yang TIDAK ikut dilonggarkan: keterangan yang dikirim tetapi melanggar
+    // batas panjang. Itu bukan klien lama, melainkan klien baru yang mengirim
+    // data buruk, dan menerimanya diam-diam akan menyimpan potongan kalimat ke
+    // riwayat darurat.
+    const bolehLewat =
+      hasil.kosong === true && !WAJIBKAN_KETERANGAN_DARURAT;
+
+    if (!hasil.ok && !bolehLewat) {
+      await logActivity(
+        req,
+        TIPE.DARURAT,
+        `Gagal menyalakan alarm — keterangan kejadian tidak sah (${hasil.pesan})`
+      );
+      return res.status(400).json({ success: false, message: hasil.pesan });
+    }
+
+    if (hasil.ok) {
+      keterangan = hasil.nilai;
+    } else {
+      // Ditandai apa adanya, bukan dikarang. Menuliskan kalimat yang terdengar
+      // manusiawi akan tampil di Riwayat Darurat seolah-olah pelapor benar-benar
+      // mengetiknya — memalsukan catatan yang justru paling tidak boleh dipalsukan.
+      keterangan = PENANDA_LEGACY;
+      legacyTanpaKeterangan = true;
+      catatDaruratTanpaKeterangan(req);
+    }
+  }
+
   // Broker belum disetel → 503 yang MENYEBUT sebabnya. Bukan 500 yang
   // membiarkan orang menebak, dan bukan diam-diam sukses.
   if (!mqttAlarm.terkonfigurasi()) {
@@ -473,8 +593,12 @@ async function kendaliAlarm(req, res) {
     });
   }
 
+  // Keterangan dioper sebagai argumen, bukan dibaca ulang dari `req.body` di
+  // dalam `nyalakanDarurat`. Membacanya dua kali berarti ada dua tempat yang
+  // bisa berbeda pendapat tentang nilai mana yang sah, dan yang di dalam
+  // transaksi akan melewatkan validasi di atas.
   return aksiMentah === mqttAlarm.PERINTAH.NYALA
-    ? nyalakanDarurat(req, res)
+    ? nyalakanDarurat(req, res, keterangan, legacyTanpaKeterangan)
     : matikanDarurat(req, res);
 }
 
@@ -509,14 +633,15 @@ async function kendaliAlarm(req, res) {
  * daripada tidak ada riwayat sama sekali: ia membuat orang mengira sistemnya
  * bekerja.
  */
-async function nyalakanDarurat(req, res) {
+async function nyalakanDarurat(req, res, keterangan, legacyTanpaKeterangan = false) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     await client.query('SELECT pg_advisory_xact_lock($1)', [KUNCI_DARURAT]);
 
     const aktif = await client.query(
-      `SELECT id, user_id, created_at::timestamptz AS created_at FROM emergency_alerts
+      `SELECT id, user_id, message, created_at::timestamptz AS created_at
+       FROM emergency_alerts
        WHERE status = 'active' ORDER BY created_at DESC LIMIT 1 FOR UPDATE`
     );
 
@@ -526,14 +651,21 @@ async function nyalakanDarurat(req, res) {
     if (aktif.rows.length > 0) {
       // IDEMPOTEN. Tekan dua kali, coba ulang setelah jaringan putus, atau dua
       // orang menekan bersamaan — semuanya menunjuk kejadian yang SAMA.
+      //
+      // Keterangan yang baru dikirim SENGAJA DIABAIKAN, bukan ditimpakan.
+      // Kejadian ini sudah punya pelapor dan ceritanya sendiri; menimpanya
+      // berarti orang kedua bisa menghapus keterangan orang pertama hanya
+      // dengan menekan NYALAKAN — dan pemiliknya tetap tercatat orang pertama,
+      // sehingga riwayat akan memasangkan nama satu orang dengan kalimat orang
+      // lain. Mengubah keterangan menuntut alur suntingnya sendiri.
       kejadian = aktif.rows[0];
       baru = false;
     } else {
       const dibuat = await client.query(
         `INSERT INTO emergency_alerts (user_id, message, status)
          VALUES ($1, $2, 'active')
-         RETURNING id, user_id, created_at::timestamptz AS created_at`,
-        [req.user.id, (req.body?.message || 'Alarm darurat dinyalakan dari dasbor').toString().slice(0, 500)]
+         RETURNING id, user_id, message, created_at::timestamptz AS created_at`,
+        [req.user.id, keterangan]
       );
       kejadian = dibuat.rows[0];
       baru = true;
@@ -550,8 +682,13 @@ async function nyalakanDarurat(req, res) {
       req,
       TIPE.DARURAT,
       baru
-        ? `MENYALAKAN alarm darurat lewat tombol dasbor (kejadian ${kejadian.id})`
-        : `Menekan NYALAKAN saat kejadian ${kejadian.id} masih aktif — tidak membuat kejadian baru`
+        ? (legacyTanpaKeterangan
+            // Jejaknya menyebut penyebabnya, bukan sekadar mencatat kejadian.
+            // Inilah yang membedakan "warga tidak mengisi" dari "aplikasinya
+            // memang belum bisa mengisi" saat kelak riwayatnya dibaca.
+            ? `MENYALAKAN alarm darurat (kejadian ${kejadian.id}) TANPA keterangan — klien lama (legacy_without_keterangan)`
+            : `MENYALAKAN alarm darurat lewat tombol dasbor (kejadian ${kejadian.id}) — "${ringkas(kejadian.message, 80)}"`)
+        : `Menekan NYALAKAN saat kejadian ${kejadian.id} masih aktif — tidak membuat kejadian baru, keterangan asli dipertahankan`
     );
 
     return res.status(baru ? 201 : 200).json({
@@ -564,6 +701,14 @@ async function nyalakanDarurat(req, res) {
         topik: mqttAlarm.TOPIK_ALARM,
         kejadian_baru: baru,
         emergency_id: kejadian.id,
+        // Keterangan yang BERLAKU pada kejadian, bukan yang barusan dikirim.
+        // Pada penekanan kedua keduanya berbeda, dan yang berhak tampil di
+        // layar adalah milik kejadian yang benar-benar aktif.
+        keterangan: kejadian.message,
+        // Dibaca dari isi kejadian, bukan dari argumen: pada penekanan kedua
+        // yang menentukan adalah kejadian yang sudah ada, bukan permintaan
+        // yang barusan datang.
+        legacy_without_keterangan: kejadian.message === PENANDA_LEGACY,
       },
     });
   } catch (err) {
@@ -655,7 +800,7 @@ async function matikanDarurat(req, res) {
       `UPDATE emergency_alerts
        SET status = 'dismissed', dismissed_by = $1, dismissed_at = NOW()
        WHERE id = $2 AND status = 'active'
-       RETURNING id, user_id,
+       RETURNING id, user_id, message,
                  created_at::timestamptz AS created_at,
                  dismissed_at::timestamptz AS dismissed_at`,
       [req.user.id, kejadian.id]
@@ -686,6 +831,9 @@ async function matikanDarurat(req, res) {
         topik: mqttAlarm.TOPIK_ALARM,
         emergency_id: ditutup.rows[0].id,
         kejadian_ditutup: true,
+        // Keterangan kejadian yang baru saja ditutup. Sama barisnya, bukan
+        // baris baru — OFF memperbarui kejadian yang sama menjadi selesai.
+        keterangan: ditutup.rows[0].message,
       },
     });
   } catch (err) {
