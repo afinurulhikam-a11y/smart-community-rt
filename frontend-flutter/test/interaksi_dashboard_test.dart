@@ -37,12 +37,18 @@ void main() {
     expect(tester.takeException(), isNull, reason: 'dasbor gagal dirender');
   }
 
+  Future<void> bukaProfil(WidgetTester tester) async {
+    await tester.tap(find.byTooltip('Menu Akun'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Profil Saya'));
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('menekan avatar profil di AppBar tidak melempar galat', (tester) async {
     await bukaDasbor(tester);
 
-    // Membuka Profil Saya (menu 81) lewat `_pilihMenu`.
-    await tester.tap(find.byTooltip('Profil Saya'));
-    await tester.pump();
+    // Membuka Profil Saya (menu 81) lewat Menu Akun popup.
+    await bukaProfil(tester);
 
     expect(tester.takeException(), isNull);
   });
@@ -52,12 +58,11 @@ void main() {
 
     // Dari Dashboard, tombol kirinya adalah menu — jadi pindah dulu ke layar
     // lain supaya panah kembali muncul.
-    await tester.tap(find.byTooltip('Profil Saya'));
-    await tester.pump();
+    await bukaProfil(tester);
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.byTooltip('Kembali'));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
   });
@@ -85,12 +90,11 @@ void main() {
     // pengulangan juga menangkap keadaan yang baru rusak setelah beberapa kali
     // pindah — misalnya FAB yang tertinggal dari layar sebelumnya.
     for (int i = 0; i < 3; i++) {
-      await tester.tap(find.byTooltip('Profil Saya'));
-      await tester.pump();
+      await bukaProfil(tester);
       expect(tester.takeException(), isNull, reason: 'gagal pada perpindahan ke-${i + 1}');
 
       await tester.tap(find.byTooltip('Kembali'));
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull, reason: 'gagal kembali pada putaran ke-${i + 1}');
     }
   });
