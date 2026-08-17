@@ -2699,19 +2699,25 @@ class _MainDashboardState extends State<MainDashboard> {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 _buildFinancialMiniStat(
-                  'Total Pemasukan $_chartSelectedYear',
+                  _chartDataSource == 'Dana BOP'
+                      ? 'Pencairan BOP $_chartSelectedYear'
+                      : 'Total Pemasukan $_chartSelectedYear',
                   _formatRupiah(totalPemasukanTahun),
                   const Color(0xFF0D9488),
                   Icons.arrow_downward_rounded,
                 ),
                 _buildFinancialMiniStat(
-                  'Total Pengeluaran $_chartSelectedYear',
+                  _chartDataSource == 'Dana BOP'
+                      ? 'Belanja BOP $_chartSelectedYear'
+                      : 'Total Pengeluaran $_chartSelectedYear',
                   _formatRupiah(totalPengeluaranTahun),
                   const Color(0xFFEF4444),
                   Icons.arrow_upward_rounded,
                 ),
                 _buildFinancialMiniStat(
-                  selisihBersih >= 0 ? 'Surplus Kas' : 'Defisit Kas',
+                  _chartDataSource == 'Dana BOP'
+                      ? (selisihBersih >= 0 ? 'Surplus BOP' : 'Defisit BOP')
+                      : (selisihBersih >= 0 ? 'Surplus Kas' : 'Defisit Kas'),
                   _formatRupiah(selisihBersih.abs()),
                   selisihBersih >= 0 ? const Color(0xFF059669) : const Color(0xFFDC2626),
                   selisihBersih >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
