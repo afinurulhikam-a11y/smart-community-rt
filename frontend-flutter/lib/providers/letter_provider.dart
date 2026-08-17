@@ -11,6 +11,7 @@ class LetterProvider extends ChangeNotifier {
   int _currentPage = 1;
   int _totalPages = 1;
   int _totalData = 0;
+  String? _lastStatus;
 
   List<LetterModel> get letters => _letters;
   bool get isLoading => _isLoading;
@@ -23,13 +24,15 @@ class LetterProvider extends ChangeNotifier {
   List<LetterModel> get pendingLetters => _letters.where((l) => l.isPending).toList();
 
   Future<void> fetchLetters({String? status, int page = 1, bool silent = false}) async {
+    _lastStatus = status;
+    _currentPage = page;
+
     if (!silent) {
       _isLoading = true;
       notifyListeners();
     }
-    _currentPage = page;
     final queryParams = <String, String>{};
-    if (status != null) queryParams['status'] = status;
+    if (status != null && status.isNotEmpty) queryParams['status'] = status;
     queryParams['page'] = page.toString();
     queryParams['limit'] = '25';
     final response = await ApiService.get(
@@ -63,7 +66,7 @@ class LetterProvider extends ChangeNotifier {
     );
     _isLoading = false;
     if (response['success'] == true) {
-      await fetchLetters();
+      await fetchLetters(status: _lastStatus, page: 1);
       return true;
     } else {
       _errorMessage = response['message'] as String?;
@@ -81,7 +84,7 @@ class LetterProvider extends ChangeNotifier {
     );
     _isLoading = false;
     if (response['success'] == true) {
-      await fetchLetters();
+      await fetchLetters(status: _lastStatus, page: _currentPage);
       return true;
     } else {
       _errorMessage = response['message'] as String?;
@@ -104,6 +107,7 @@ class LetterProvider extends ChangeNotifier {
     _currentPage = 1;
     _totalPages = 1;
     _totalData = 0;
+    _lastStatus = null;
     notifyListeners();
   }
 

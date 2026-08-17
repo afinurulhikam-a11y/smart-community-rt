@@ -128,11 +128,7 @@ class BopProvider extends ChangeNotifier {
   }
 
   /// Muat ulang dengan filter DAN halaman yang sedang aktif.
-  ///
-  /// Halamannya ikut dipertahankan: setelah menyunting satu transaksi di
-  /// halaman 3, dilempar kembali ke halaman 1 membuat orang kehilangan tempat
-  /// dan harus menelusuri ulang.
-  Future<void> refresh() => fetchTransactions(
+  Future<void> refresh({int? page}) => fetchTransactions(
     tipe: _filterAktif['tipe'],
     bulan: _filterAktif['bulan'],
     tahun: _filterAktif['tahun'],
@@ -140,7 +136,7 @@ class BopProvider extends ChangeNotifier {
         ? null
         : int.tryParse(_filterAktif['kategori_id']!),
     search: _filterAktif['search'],
-    page: _currentPage,
+    page: page ?? _currentPage,
   );
 
   Future<Map<String, dynamic>> createTransaction({
@@ -160,7 +156,7 @@ class BopProvider extends ChangeNotifier {
         if (tanggal != null && tanggal.isNotEmpty) 'tanggal': tanggal,
       },
     );
-    if (response['success'] == true) await refresh();
+    if (response['success'] == true) await refresh(page: 1);
     return response;
   }
 
@@ -182,13 +178,18 @@ class BopProvider extends ChangeNotifier {
         if (tanggal != null && tanggal.isNotEmpty) 'tanggal': tanggal,
       },
     );
-    if (response['success'] == true) await refresh();
+    if (response['success'] == true) await refresh(page: _currentPage);
     return response;
   }
 
   Future<Map<String, dynamic>> deleteTransaction(String id) async {
     final response = await ApiService.delete(ApiConstants.bopById(id));
-    if (response['success'] == true) await refresh();
+    if (response['success'] == true) {
+      final targetPage = (_transactions.length == 1 && _currentPage > 1)
+          ? _currentPage - 1
+          : _currentPage;
+      await refresh(page: targetPage);
+    }
     return response;
   }
 

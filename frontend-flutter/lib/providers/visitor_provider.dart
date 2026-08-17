@@ -18,6 +18,11 @@ class VisitorProvider extends ChangeNotifier {
   int _totalData = 0;
   int _perPage = 10;
 
+  String? _lastStatus;
+  String? _lastTipe;
+  String? _lastSearch;
+  String? _lastTanggal;
+
   List<Map<String, dynamic>> get visitors => _visitors;
   Map<String, dynamic> get stats => _stats;
   bool get isLoading => _isLoading;
@@ -36,6 +41,12 @@ class VisitorProvider extends ChangeNotifier {
     int page = 1,
     bool silent = false,
   }) async {
+    _lastStatus = status;
+    _lastTipe = tipe;
+    _lastSearch = search;
+    _lastTanggal = tanggal;
+    _currentPage = page;
+
     if (!silent) {
       _isLoading = true;
       notifyListeners();
@@ -44,10 +55,10 @@ class VisitorProvider extends ChangeNotifier {
       'page': page.toString(),
       'limit': '10',
     };
-    if (status != null) queryParams['status'] = status;
-    if (tipe != null) queryParams['tipe'] = tipe;
-    if (search != null) queryParams['search'] = search;
-    if (tanggal != null) queryParams['tanggal'] = tanggal;
+    if (status != null && status.isNotEmpty) queryParams['status'] = status;
+    if (tipe != null && tipe.isNotEmpty) queryParams['tipe'] = tipe;
+    if (search != null && search.isNotEmpty) queryParams['search'] = search;
+    if (tanggal != null && tanggal.isNotEmpty) queryParams['tanggal'] = tanggal;
     final response = await ApiService.get(
       ApiConstants.visitors,
       queryParams: queryParams.isNotEmpty ? queryParams : null,
@@ -109,7 +120,13 @@ class VisitorProvider extends ChangeNotifier {
     );
     _isLoading = false;
     if (response['success'] == true) {
-      await fetchVisitors(page: _currentPage);
+      await fetchVisitors(
+        status: _lastStatus,
+        tipe: _lastTipe,
+        search: _lastSearch,
+        tanggal: _lastTanggal,
+        page: 1,
+      );
       await fetchStats();
       return true;
     } else {
@@ -122,7 +139,13 @@ class VisitorProvider extends ChangeNotifier {
   Future<bool> checkoutVisitor(int id) async {
     final response = await ApiService.put(ApiConstants.visitorCheckout(id));
     if (response['success'] == true) {
-      await fetchVisitors(page: _currentPage);
+      await fetchVisitors(
+        status: _lastStatus,
+        tipe: _lastTipe,
+        search: _lastSearch,
+        tanggal: _lastTanggal,
+        page: _currentPage,
+      );
       await fetchStats();
       return true;
     }
@@ -132,7 +155,16 @@ class VisitorProvider extends ChangeNotifier {
   Future<bool> deleteVisitor(int id) async {
     final response = await ApiService.delete('${ApiConstants.visitors}/$id');
     if (response['success'] == true) {
-      await fetchVisitors(page: _currentPage);
+      final targetPage = (_visitors.length == 1 && _currentPage > 1)
+          ? _currentPage - 1
+          : _currentPage;
+      await fetchVisitors(
+        status: _lastStatus,
+        tipe: _lastTipe,
+        search: _lastSearch,
+        tanggal: _lastTanggal,
+        page: targetPage,
+      );
       await fetchStats();
       return true;
     }
@@ -146,9 +178,12 @@ class VisitorProvider extends ChangeNotifier {
     _totalPages = 1;
     _totalData = 0;
     _perPage = 10;
+    _lastStatus = null;
+    _lastTipe = null;
+    _lastSearch = null;
+    _lastTanggal = null;
     _isLoading = false;
     _errorMessage = null;
     notifyListeners();
   }
-
 }

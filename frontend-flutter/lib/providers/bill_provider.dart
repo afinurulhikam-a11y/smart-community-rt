@@ -140,7 +140,7 @@ class BillProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> refresh() => fetchBills(
+  Future<void> refresh({int? page}) => fetchBills(
     status: _filterAktif['status'],
     bulan: _filterAktif['bulan'],
     tahun: _filterAktif['tahun'],
@@ -148,7 +148,7 @@ class BillProvider extends ChangeNotifier {
         ? null
         : int.tryParse(_filterAktif['jenis_iuran_id']!),
     search: _filterAktif['search'],
-    page: _currentPage,
+    page: page ?? _currentPage,
   );
 
   Future<Map<String, dynamic>> createBill({
@@ -177,13 +177,13 @@ class BillProvider extends ChangeNotifier {
         if (jatuhTempo != null && jatuhTempo.isNotEmpty) 'jatuh_tempo': jatuhTempo,
       },
     );
-    if (response['success'] == true) await refresh();
+    if (response['success'] == true) await refresh(page: 1);
     return response;
   }
 
   /// Ubah tagihan yang belum lunas: nominal, keterangan, jatuh tempo, meteran.
   Future<Map<String, dynamic>> updateBill(
-    String id, {
+    String billId, {
     double? nominal,
     String? keterangan,
     String? jatuhTempo,
@@ -192,7 +192,7 @@ class BillProvider extends ChangeNotifier {
     String? alasan,
   }) async {
     final response = await ApiService.put(
-      ApiConstants.bill(id),
+      ApiConstants.bill(billId),
       body: {
         if (nominal != null) 'nominal': nominal,
         if (meteranLalu != null) 'meteran_lalu': meteranLalu,
@@ -202,7 +202,7 @@ class BillProvider extends ChangeNotifier {
         if (alasan != null && alasan.isNotEmpty) 'alasan': alasan,
       },
     );
-    if (response['success'] == true) await refresh();
+    if (response['success'] == true) await refresh(page: _currentPage);
     return response;
   }
 
@@ -243,7 +243,7 @@ class BillProvider extends ChangeNotifier {
       body: {'metode_bayar': metodeBayar},
     );
     if (response['success'] == true) {
-      await refresh();
+      await refresh(page: _currentPage);
       return true;
     }
     _errorMessage = response['message'] as String?;
@@ -264,7 +264,7 @@ class BillProvider extends ChangeNotifier {
     );
 
     if (response['success'] == true) {
-      await refresh();
+      await refresh(page: _currentPage);
     } else {
       _isLoading = false;
       _errorMessage = response['message'] as String?;
@@ -275,7 +275,12 @@ class BillProvider extends ChangeNotifier {
 
   Future<Map<String, dynamic>> deleteBill(String billId) async {
     final response = await ApiService.delete(ApiConstants.bill(billId));
-    if (response['success'] == true) await refresh();
+    if (response['success'] == true) {
+      final targetPage = (_bills.length == 1 && _currentPage > 1)
+          ? _currentPage - 1
+          : _currentPage;
+      await refresh(page: targetPage);
+    }
     return response;
   }
 
