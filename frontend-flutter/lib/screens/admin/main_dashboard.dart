@@ -361,135 +361,305 @@ class _MainDashboardState extends State<MainDashboard> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         backgroundColor: Colors.transparent,
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 460),
+          constraints: const BoxConstraints(maxWidth: 440),
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: const Color(0xFFDC2626),
+            color: context.latarKartu,
             borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: const Color(0xFFEF4444).withValues(alpha: 0.4),
+              width: 1.5,
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.red.shade900.withValues(alpha: 0.5),
+                color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+                blurRadius: 28,
+                spreadRadius: 2,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
                 blurRadius: 20,
-                spreadRadius: 5,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.warning_amber_rounded,
-                  color: Colors.white,
-                  size: 48,
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                '🚨 PERINGATAN DARURAT AKTIF 🚨',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: context.latarKartu,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.person,
-                          size: 18,
-                          color: Color(0xFFDC2626),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Pelapor: $sender',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                              color: context.teksUtama,
-                            ),
-                          ),
-                        ),
-                      ],
+              // Header Row with Icon & Title & Status Badge
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: const Color(0xFFEF4444).withValues(alpha: 0.3),
+                      ),
                     ),
-                    const SizedBox(height: 6),
-                    Row(
+                    child: const Icon(
+                      Icons.campaign_rounded,
+                      color: Color(0xFFEF4444),
+                      size: 26,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(
-                          Icons.phone,
-                          size: 18,
-                          color: Color(0xFFDC2626),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Peringatan Darurat Aktif',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: context.teksUtama,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEF4444).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color(0xFFEF4444).withValues(alpha: 0.4),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFEF4444),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  const Text(
+                                    'AKTIF',
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFFEF4444),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(height: 3),
                         Text(
-                          'No HP: $phone',
+                          'Sirene bahaya RT sedang menyala dan membutuhkan respon segera.',
                           style: TextStyle(
-                            fontSize: 13,
+                            fontSize: 12,
+                            height: 1.35,
                             color: context.teksKedua,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 18),
+
+              // Detail Information Container
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: _gelap
+                      ? const Color(0xFF0F172A)
+                      : const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: context.garis),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Reporter Name
                     Row(
                       children: [
-                        const Icon(
-                          Icons.home,
-                          size: 18,
-                          color: Color(0xFFDC2626),
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.person_rounded,
+                            size: 15,
+                            color: Color(0xFF2563EB),
+                          ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Pelapor: ',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: context.teksKedua,
+                          ),
+                        ),
                         Expanded(
                           child: Text(
-                            'Alamat: $address',
+                            sender,
                             style: TextStyle(
                               fontSize: 13,
-                              color: context.teksKedua,
+                              fontWeight: FontWeight.w700,
+                              color: context.teksUtama,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     ),
-                    const Divider(height: 16),
+                    const SizedBox(height: 10),
+
+                    // Phone & Address in two rows
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF059669).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.phone_rounded,
+                            size: 15,
+                            color: Color(0xFF059669),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'No HP: ',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: context.teksKedua,
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            phone,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: context.teksUtama,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFD97706).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.location_on_rounded,
+                            size: 15,
+                            color: Color(0xFFD97706),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Alamat: ',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: context.teksKedua,
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            address,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: context.teksUtama,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 10),
+                      child: Divider(height: 1),
+                    ),
+
+                    // Message Box
                     Text(
                       'Pesan / Detail Kejadian:',
                       style: TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: context.teksKedua,
+                        fontWeight: FontWeight.w700,
+                        color: context.teksTersier,
+                        letterSpacing: 0.2,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      message,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: context.teksUtama,
+                    const SizedBox(height: 6),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEF4444).withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border(
+                          left: const BorderSide(
+                            color: Color(0xFFEF4444),
+                            width: 3,
+                          ),
+                          top: BorderSide(
+                            color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+                          ),
+                          right: BorderSide(
+                            color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+                          ),
+                          bottom: BorderSide(
+                            color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+                          ),
+                        ),
+                      ),
+                      child: Text(
+                        message,
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.4,
+                          fontWeight: FontWeight.w600,
+                          color: context.teksUtama,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
+
               const SizedBox(height: 20),
+
+              // Action Buttons
               Builder(
                 builder: (ctx) {
                   final izin = context.read<PermissionProvider>();
@@ -498,6 +668,7 @@ class _MainDashboardState extends State<MainDashboard> {
                   if (!bisaKelola) {
                     return SizedBox(
                       width: double.infinity,
+                      height: 42,
                       child: ElevatedButton(
                         onPressed: () {
                           if (alertId != null) {
@@ -507,13 +678,19 @@ class _MainDashboardState extends State<MainDashboard> {
                           Navigator.pop(ctx);
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFFDC2626),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          backgroundColor: const Color(0xFFEF4444),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                         child: const Text(
                           'Saya Mengerti',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     );
@@ -522,36 +699,60 @@ class _MainDashboardState extends State<MainDashboard> {
                   return Row(
                     children: [
                       Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {
-                            if (alertId != null) {
-                              _dismissedPopupAlertIds.add(alertId);
-                            }
-                            _isEmergencyDialogShowing = false;
-                            Navigator.pop(ctx);
-                          },
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            side: const BorderSide(color: Colors.white),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: SizedBox(
+                          height: 42,
+                          child: OutlinedButton(
+                            onPressed: () {
+                              if (alertId != null) {
+                                _dismissedPopupAlertIds.add(alertId);
+                              }
+                              _isEmergencyDialogShowing = false;
+                              Navigator.pop(ctx);
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: context.teksUtama,
+                              side: BorderSide(color: context.garis),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: const Text(
+                              'Tutup Popup',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
-                          child: const Text('Tutup Popup'),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            _showResolvePinModal(alertId, ctx);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: const Color(0xFFDC2626),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                          child: const Text(
-                            'Selesaikan Alarm',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                        child: SizedBox(
+                          height: 42,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              _showResolvePinModal(alertId, ctx);
+                            },
+                            icon: const Icon(
+                              Icons.notifications_off_rounded,
+                              size: 16,
+                            ),
+                            label: const Text(
+                              'Selesaikan Alarm',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFEF4444),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -613,7 +814,7 @@ class _MainDashboardState extends State<MainDashboard> {
                               color: context.teksUtama,
                             ),
                           ),
-                          SizedBox(height: 2),
+                          const SizedBox(height: 2),
                           Text(
                             'Konfirmasi Penutupan Alarm Darurat',
                             style: TextStyle(
@@ -628,7 +829,7 @@ class _MainDashboardState extends State<MainDashboard> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Masukkan PIN Keamanan (Default: 1234):',
+                  'Masukkan PIN Keamanan:',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
