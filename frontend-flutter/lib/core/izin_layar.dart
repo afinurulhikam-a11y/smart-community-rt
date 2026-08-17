@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import 'theme/app_theme.dart';
+import 'theme/warna_konteks.dart';
 
 /// Getter izin untuk sebuah layar bermodul.
 ///
@@ -64,26 +65,47 @@ Future<bool> konfirmasiHapus(
   final hasil = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
+      backgroundColor: ctx.latarKartu,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusL)),
       title: Row(
         children: [
           const Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444)),
           const SizedBox(width: AppTheme.spasiS),
-          Expanded(child: Text(judul)),
+          Expanded(
+            child: Text(
+              judul,
+              style: TextStyle(
+                color: ctx.teksUtama,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
         ],
       ),
-      content: Text(pesan),
+      content: Text(
+        pesan,
+        style: TextStyle(color: ctx.teksKedua),
+      ),
       actions: [
-        // Batal SELALU di kiri dan tanpa warna, tindakan merusak SELALU di
-        // kanan dan merah. Urutannya tidak boleh berubah antar layar.
+        // Batal SELALU di kiri dan dinamis warna konteks (hitam/gelap di mode terang, putih/terang di mode gelap)
         TextButton(
           onPressed: () => Navigator.pop(ctx, false),
-          child: const Text('Batal'),
+          style: TextButton.styleFrom(
+            foregroundColor: ctx.teksKedua,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          child: const Text('Batal', style: TextStyle(fontWeight: FontWeight.w600)),
         ),
-        FilledButton(
+        ElevatedButton(
           onPressed: () => Navigator.pop(ctx, true),
-          style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
-          child: Text(labelAksi),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFEF4444),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          child: Text(labelAksi, style: const TextStyle(fontWeight: FontWeight.w600)),
         ),
       ],
     ),
