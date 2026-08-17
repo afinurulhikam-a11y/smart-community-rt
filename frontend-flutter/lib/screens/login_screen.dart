@@ -72,39 +72,43 @@ class _LoginScreenState extends State<LoginScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth > 800;
 
-    if (!isDesktop) return _tampilanPonsel(auth);
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFE6F4F1),
-      body: Center(
-        child: SingleChildScrollView(
-          physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(24),
-          child: Container(
-            width: 800,
-            height: 580,
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 40,
-                  offset: const Offset(0, 15),
+    return Title(
+      title: 'Masuk | Auto RT',
+      color: const Color(0xFF1B7A6A),
+      child: isDesktop
+          ? Scaffold(
+              backgroundColor: const Color(0xFFE6F4F1),
+              body: Center(
+                child: SingleChildScrollView(
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(24),
+                  child: Container(
+                    width: 800,
+                    height: 580,
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 40,
+                          offset: const Offset(0, 15),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(flex: 5, child: _buildLeftPanel(true)),
+                        Expanded(flex: 6, child: _buildRightPanel(auth, true)),
+                      ],
+                    ),
+                  ),
                 ),
-              ],
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(flex: 5, child: _buildLeftPanel(true)),
-                Expanded(flex: 6, child: _buildRightPanel(auth, true)),
-              ],
-            ),
-          ),
-        ),
-      ),
+              ),
+            )
+          : _tampilanPonsel(auth),
     );
   }
 
