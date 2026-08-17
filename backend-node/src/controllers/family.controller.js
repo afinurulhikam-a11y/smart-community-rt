@@ -32,12 +32,9 @@ const KOLOM_KK = [
   { header: 'NO KK', key: 'no_kk', width: 22 },
   { header: 'KEPALA KELUARGA', key: 'kepala_keluarga', width: 26 },
   { header: 'ALAMAT & BLOK', key: 'alamat', width: 30 },
-  { header: 'RT', key: 'rt', width: 8 },
-  { header: 'RW', key: 'rw', width: 8 },
-  { header: 'KELURAHAN', key: 'kelurahan', width: 18 },
-  { header: 'KECAMATAN', key: 'kecamatan', width: 18 },
   { header: 'JUMLAH ANGGOTA', key: 'jumlah_anggota', width: 16 },
-  { header: 'STATUS RUMAH', key: 'status_rumah', width: 16 },
+  { header: 'STATUS RUMAH', key: 'status_rumah', width: 18 },
+  { header: 'LANGGANAN SAMPAH', key: 'langganan_sampah', width: 22 },
 ];
 
 function toRowKK(kk, index) {
@@ -46,12 +43,9 @@ function toRowKK(kk, index) {
     no_kk: kk.no_kk || '-',
     kepala_keluarga: kk.kepala_keluarga || '-',
     alamat: kk.alamat || '-',
-    rt: kk.rt || '-',
-    rw: kk.rw || '-',
-    kelurahan: kk.kelurahan || '-',
-    kecamatan: kk.kecamatan || '-',
     jumlah_anggota: kk.jumlah_anggota != null ? `${kk.jumlah_anggota} Orang` : '0 Orang',
     status_rumah: kk.status_rumah || '-',
+    langganan_sampah: kk.langganan_sampah === true ? '✓ Berlangganan Sampah' : '✗ Tidak Berlangganan',
   };
 }
 
@@ -227,10 +221,30 @@ async function createFamily(req, res) {
 async function updateFamily(req, res) {
   try {
     const { id } = req.params;
-    const { kepala_keluarga, alamat, rt, rw, kelurahan, kecamatan } = req.body;
+    const { kepala_keluarga, alamat, rt, rw, kelurahan, kecamatan, status_rumah, langganan_sampah } = req.body;
     const result = await pool.query(
-      `UPDATE keluarga SET kepala_keluarga = COALESCE($1, kepala_keluarga), alamat = COALESCE($2, alamat), rt = COALESCE($3, rt), rw = COALESCE($4, rw), kelurahan = COALESCE($5, kelurahan), kecamatan = COALESCE($6, kecamatan), updated_at = NOW() WHERE id = $7 RETURNING *`,
-      [kepala_keluarga, alamat, rt, rw, kelurahan, kecamatan, id]
+      `UPDATE keluarga SET 
+         kepala_keluarga = COALESCE($1, kepala_keluarga), 
+         alamat = COALESCE($2, alamat), 
+         rt = COALESCE($3, rt), 
+         rw = COALESCE($4, rw), 
+         kelurahan = COALESCE($5, kelurahan), 
+         kecamatan = COALESCE($6, kecamatan),
+         status_rumah = COALESCE($7, status_rumah),
+         langganan_sampah = COALESCE($8, langganan_sampah),
+         updated_at = NOW() 
+       WHERE id = $9 RETURNING *`,
+      [
+        kepala_keluarga !== undefined ? kepala_keluarga : null,
+        alamat !== undefined ? alamat : null,
+        rt !== undefined ? rt : null,
+        rw !== undefined ? rw : null,
+        kelurahan !== undefined ? kelurahan : null,
+        kecamatan !== undefined ? kecamatan : null,
+        status_rumah !== undefined ? status_rumah : null,
+        typeof langganan_sampah === 'boolean' ? langganan_sampah : null,
+        id,
+      ]
     );
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Kartu Keluarga tidak ditemukan.' });
     const kk = result.rows[0];
