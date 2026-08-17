@@ -249,7 +249,7 @@ class _StatusDaruratScreenState extends State<StatusDaruratScreen> {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Masukkan PIN Keamanan (Default: 1234):',
+                  'Masukkan PIN Keamanan:',
                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: context.teksKedua),
                 ),
                 const SizedBox(height: 6),
