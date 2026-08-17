@@ -100,12 +100,13 @@ Future<bool> konfirmasiHapus(
         ElevatedButton(
           onPressed: () => Navigator.pop(ctx, true),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFEF4444),
+            backgroundColor: AppTheme.dangerColor,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            elevation: 0,
           ),
-          child: Text(labelAksi, style: const TextStyle(fontWeight: FontWeight.w600)),
+          child: Text(labelAksi, style: const TextStyle(fontWeight: FontWeight.bold)),
         ),
       ],
     ),
