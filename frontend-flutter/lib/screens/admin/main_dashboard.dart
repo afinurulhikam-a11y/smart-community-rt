@@ -752,150 +752,155 @@ class _MainDashboardState extends State<MainDashboard> {
     final warga = auth.userRole == 'warga';
     final izin = context.watch<PermissionProvider>();
     final tujuan = tujuanNavigasi(warga: warga, izin: izin);
+    final namaMenu = judulMenu(_selectedMenuIndex, warga: warga);
 
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: context.latarHalaman,
+    return Title(
+      title: '$namaMenu | Auto RT',
+      color: const Color(0xFF1B7A6A),
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: context.latarHalaman,
 
-      // AppBar sungguhan, bukan Row buatan sendiri. Ini yang memberi judul
-      // halaman, tombol kembali, dan bayangan-saat-digulir seperti aplikasi
-      // Android lain — semuanya dulu tidak ada.
-      appBar: isDesktop ? null : _appBar(auth, warga),
+        // AppBar sungguhan, bukan Row buatan sendiri. Ini yang memberi judul
+        // halaman, tombol kembali, dan bayangan-saat-digulir seperti aplikasi
+        // Android lain — semuanya dulu tidak ada.
+        appBar: isDesktop ? null : _appBar(auth, warga),
 
-      // FAB hanya di ponsel. Di desktop tombolnya sudah ada di bilah layar,
-      // dan tombol mengambang di sudut layar lebar justru mengganggu.
-      floatingActionButton: isDesktop ? null : _fab(),
+        // FAB hanya di ponsel. Di desktop tombolnya sudah ada di bilah layar,
+        // dan tombol mengambang di sudut layar lebar justru mengganggu.
+        floatingActionButton: isDesktop ? null : _fab(),
 
-      // Navigasi bawah hanya di ponsel; di desktop sidebar yang berperan.
-      bottomNavigationBar: isDesktop
-          ? null
-          : NavigasiBawah(
-              tujuan: tujuan,
-              indeksMenuTerpilih: _selectedMenuIndex,
-              onPilihMenu: (i) => _pilihMenu(i),
-              onBukaLaci: () => _scaffoldKey.currentState?.openDrawer(),
-            ),
-
-      drawer: isDesktop
-          ? null
-          : Drawer(
-              child: SidebarMenu(
-                selectedIndex: _selectedMenuIndex,
-                role: auth.userRole,
-                onItemSelected: (index) {
-                  _pilihMenu(index);
-                  Navigator.pop(context); // Close drawer
-                },
-                onLogout: () => _konfirmasiKeluar(auth),
+        // Navigasi bawah hanya di ponsel; di desktop sidebar yang berperan.
+        bottomNavigationBar: isDesktop
+            ? null
+            : NavigasiBawah(
+                tujuan: tujuan,
+                indeksMenuTerpilih: _selectedMenuIndex,
+                onPilihMenu: (i) => _pilihMenu(i),
+                onBukaLaci: () => _scaffoldKey.currentState?.openDrawer(),
               ),
-            ),
-      body: Column(
-        children: [
-          Builder(
-            builder: (context) {
-              // Builder memberi BuildContext-nya sendiri, jadi watch di sini
-              // membatasi pembangunan ulang pada subtree ini saja.
-              final ws = context.watch<WebSocketService>();
-              final activeFromWs = ws.hasActiveAlarm;
-              final activeAlertObj = emergency.activeAlert;
-              final hasActive = activeFromWs || activeAlertObj != null;
 
-              final alertId =
-                  activeAlertObj?.id ??
-                  ws.lastAlarm?['alert_id']?.toString() ??
-                  ws.lastAlarm?['id']?.toString();
-              final isDismissed =
-                  alertId != null &&
-                  (_dismissedPopupAlertIds.contains(alertId) ||
-                      _dismissingAlertIds.contains(alertId));
+        drawer: isDesktop
+            ? null
+            : Drawer(
+                child: SidebarMenu(
+                  selectedIndex: _selectedMenuIndex,
+                  role: auth.userRole,
+                  onItemSelected: (index) {
+                    _pilihMenu(index);
+                    Navigator.pop(context); // Close drawer
+                  },
+                  onLogout: () => _konfirmasiKeluar(auth),
+                ),
+              ),
+        body: Column(
+          children: [
+            Builder(
+              builder: (context) {
+                // Builder memberi BuildContext-nya sendiri, jadi watch di sini
+                // membatasi pembangunan ulang pada subtree ini saja.
+                final ws = context.watch<WebSocketService>();
+                final activeFromWs = ws.hasActiveAlarm;
+                final activeAlertObj = emergency.activeAlert;
+                final hasActive = activeFromWs || activeAlertObj != null;
 
-              if (hasActive && !isDismissed && !_isEmergencyDialogShowing) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted && !_isEmergencyDialogShowing) {
-                    final currentAlertId =
-                        emergency.activeAlert?.id ??
-                        ws.lastAlarm?['alert_id']?.toString() ??
-                        ws.lastAlarm?['id']?.toString();
-                    if (currentAlertId != null &&
-                        (_dismissedPopupAlertIds.contains(currentAlertId) ||
-                            _dismissingAlertIds.contains(currentAlertId))) {
-                      return;
+                final alertId =
+                    activeAlertObj?.id ??
+                    ws.lastAlarm?['alert_id']?.toString() ??
+                    ws.lastAlarm?['id']?.toString();
+                final isDismissed =
+                    alertId != null &&
+                    (_dismissedPopupAlertIds.contains(alertId) ||
+                        _dismissingAlertIds.contains(alertId));
+
+                if (hasActive && !isDismissed && !_isEmergencyDialogShowing) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && !_isEmergencyDialogShowing) {
+                      final currentAlertId =
+                          emergency.activeAlert?.id ??
+                          ws.lastAlarm?['alert_id']?.toString() ??
+                          ws.lastAlarm?['id']?.toString();
+                      if (currentAlertId != null &&
+                          (_dismissedPopupAlertIds.contains(currentAlertId) ||
+                              _dismissingAlertIds.contains(currentAlertId))) {
+                        return;
+                      }
+                      _showEmergencyPopup(ws.lastAlarm, activeAlertObj);
                     }
-                    _showEmergencyPopup(ws.lastAlarm, activeAlertObj);
-                  }
-                });
-              }
+                  });
+                }
 
-              return const SizedBox.shrink();
-            },
-          ),
-          Expanded(
-            child: Row(
-              children: [
-                // Sidebar (only on desktop)
-                if (isDesktop)
-                  SidebarMenu(
-                    selectedIndex: _selectedMenuIndex,
-                    role: auth.userRole,
-                    onItemSelected: (index) {
-                      _pilihMenu(index);
-                    },
-                    onLogout: () => _konfirmasiKeluar(auth),
-                  ),
+                return const SizedBox.shrink();
+              },
+            ),
+            Expanded(
+              child: Row(
+                children: [
+                  // Sidebar (only on desktop)
+                  if (isDesktop)
+                    SidebarMenu(
+                      selectedIndex: _selectedMenuIndex,
+                      role: auth.userRole,
+                      onItemSelected: (index) {
+                        _pilihMenu(index);
+                      },
+                      onLogout: () => _konfirmasiKeluar(auth),
+                    ),
 
-                // Main Content
-                Expanded(
-                  child: Column(
-                    children: [
-                      // Bilah judul lama hanya untuk desktop; di ponsel
-                      // digantikan AppBar milik Scaffold.
-                      if (isDesktop) _buildHeaderBar(auth),
+                  // Main Content
+                  Expanded(
+                    child: Column(
+                      children: [
+                        // Bilah judul lama hanya untuk desktop; di ponsel
+                        // digantikan AppBar milik Scaffold.
+                        if (isDesktop) _buildHeaderBar(auth),
 
-                      // Scrollable Content
-                      //
-                      // Tidak ada lagi pembungkus `Theme()` di sini. Temanya
-                      // dipasang di akar `MaterialApp`, sehingga AppBar, laci,
-                      // navigasi bawah, dan setiap dialog ikut menggelap —
-                      // dulu semuanya tertinggal terang karena berada di LUAR
-                      // pembungkus ini.
-                      Expanded(
-                        // Tarik-untuk-muat-ulang: gerakan yang dicoba orang
-                        // secara refleks di aplikasi Android, dan sebelumnya
-                        // tidak melakukan apa pun di sini.
-                        child: RefreshIndicator(
-                          onRefresh: _muatUlangLayarAktif,
-                          child: SingleChildScrollView(
-                            // Selalu bisa digulir, walau isinya pendek —
-                            // kalau tidak, gerakan tariknya tidak tertangkap
-                            // di layar yang isinya sedikit.
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: EdgeInsets.all(paddingKonten(context)),
-                            // Pita status jaringan di ATAS setiap layar.
-                            //
-                            // Cache dan antrean offline membuat aplikasi tetap
-                            // berguna tanpa sinyal, tetapi keduanya berbahaya
-                            // bila bekerja diam-diam: data lama tampak persis
-                            // seperti data baru, dan pengaduan yang masih di
-                            // antrean tampak sudah terkirim. Aplikasi boleh
-                            // menolong tanpa diminta, tidak boleh diam soal
-                            // keadaan datanya.
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const BannerOffline(),
-                                _buildBody(auth),
-                              ],
+                        // Scrollable Content
+                        //
+                        // Tidak ada lagi pembungkus `Theme()` di sini. Temanya
+                        // dipasang di akar `MaterialApp`, sehingga AppBar, laci,
+                        // navigasi bawah, dan setiap dialog ikut menggelap —
+                        // dulu semuanya tertinggal terang karena berada di LUAR
+                        // pembungkus ini.
+                        Expanded(
+                          // Tarik-untuk-muat-ulang: gerakan yang dicoba orang
+                          // secara refleks di aplikasi Android, dan sebelumnya
+                          // tidak melakukan apa pun di sini.
+                          child: RefreshIndicator(
+                            onRefresh: _muatUlangLayarAktif,
+                            child: SingleChildScrollView(
+                              // Selalu bisa digulir, walau isinya pendek —
+                              // kalau tidak, gerakan tariknya tidak tertangkap
+                              // di layar yang isinya sedikit.
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: EdgeInsets.all(paddingKonten(context)),
+                              // Pita status jaringan di ATAS setiap layar.
+                              //
+                              // Cache dan antrean offline membuat aplikasi tetap
+                              // berguna tanpa sinyal, tetapi keduanya berbahaya
+                              // bila bekerja diam-diam: data lama tampak persis
+                              // seperti data baru, dan pengaduan yang masih di
+                              // antrean tampak sudah terkirim. Aplikasi boleh
+                              // menolong tanpa diminta, tidak boleh diam soal
+                              // keadaan datanya.
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const BannerOffline(),
+                                  _buildBody(auth),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
