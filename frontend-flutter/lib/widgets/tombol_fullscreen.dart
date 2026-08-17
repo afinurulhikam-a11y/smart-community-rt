@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/services/fullscreen_service.dart';
 import '../core/theme/warna_konteks.dart';
-import '../core/theme/app_theme.dart';
 
 /// Tombol untuk beralih antara mode normal dan mode layar penuh (fullscreen) di peramban web.
 class TombolFullscreen extends StatefulWidget {
@@ -54,12 +53,7 @@ class _TombolFullscreenState extends State<TombolFullscreen> {
         }
       },
       tooltip: _isFullscreen ? 'Keluar layar penuh (Esc)' : 'Layar penuh',
-      style: IconButton.styleFrom(
-        backgroundColor: context.latarLembut,
-        shape: RoundedRectangleBorder(
-          borderRadius: AppTheme.borderRadiusS,
-        ),
-      ),
+      padding: widget.padding,
       icon: Icon(
         _isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
         color: context.teksKedua,
