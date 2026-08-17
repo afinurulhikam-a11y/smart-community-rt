@@ -42,10 +42,12 @@ class ComplaintProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> fetchComplaints({String? status, String? search, int page = 1}) async {
-    _isLoading = true;
+  Future<void> fetchComplaints({String? status, String? search, int page = 1, bool silent = false}) async {
+    if (!silent) {
+      _isLoading = true;
+      notifyListeners();
+    }
     _currentPage = page;
-    notifyListeners();
     fetchStats();
     final queryParams = <String, String>{};
     if (status != null) queryParams['status'] = status;
