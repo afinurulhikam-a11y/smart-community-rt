@@ -102,21 +102,19 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
   bool get _bolehHapus =>
       context.watch<PermissionProvider>().bolehHapus(_kodeIzin);
 
-  String _selectedTahun = 'Semua';
+  String _selectedTahun = 'Semua Tahun';
   String _jenisBantuan = 'Semua Jenis';
   String _status = 'Semua Status';
   String _searchQuery = '';
 
   final TextEditingController _searchController = TextEditingController();
   final List<String> _tahunList = [
-    'Semua',
+    'Semua Tahun',
     '2026',
-    '2025',
-    '2024',
-    '2023',
-    '2022',
-    '2021',
-    '2020',
+    '2027',
+    '2028',
+    '2029',
+    '2030',
   ];
 
   @override
@@ -133,9 +131,9 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
     super.dispose();
   }
 
-  void _resetSemuaFilter() {
+  void _resetFilter() {
     setState(() {
-      _selectedTahun = 'Semua';
+      _selectedTahun = 'Semua Tahun';
       _jenisBantuan = 'Semua Jenis';
       _status = 'Semua Status';
       _searchQuery = '';
@@ -151,7 +149,8 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
     final hasil = await ApiService.unduhDenganTiket(
       'bansos.export',
       parameter: {
-        if (_selectedTahun != 'Semua') 'tahun': _selectedTahun,
+        if (_selectedTahun != 'Semua Tahun' && _selectedTahun != 'Semua')
+          'tahun': _selectedTahun,
         if (_jenisBantuan != 'Semua Jenis') 'jenis_bantuan': _jenisBantuan,
         if (_status != 'Semua Status') 'status': _status,
         if (_searchQuery.isNotEmpty) 'search': _searchQuery,
@@ -161,7 +160,10 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
 
     if (hasil['success'] != true) {
       if (mounted) {
-        pesanGagal(context, hasil['message']?.toString() ?? 'Gagal mengunduh file');
+        pesanGagal(
+          context,
+          hasil['message']?.toString() ?? 'Gagal mengunduh file',
+        );
       }
     }
   }
@@ -171,7 +173,9 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
     provider.fetchStats();
     provider.fetchWargaList();
     provider.fetchBantuanSosial(
-      tahun: _selectedTahun == 'Semua' ? null : _selectedTahun,
+      tahun: (_selectedTahun == 'Semua Tahun' || _selectedTahun == 'Semua')
+          ? null
+          : _selectedTahun,
       jenisBantuan: _jenisBantuan == 'Semua Jenis' ? null : _jenisBantuan,
       status: _status == 'Semua Status' ? null : _status,
       search: _searchQuery.isNotEmpty ? _searchQuery : null,
@@ -191,7 +195,8 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
           child: Wrap(
             alignment: WrapAlignment.spaceBetween,
             crossAxisAlignment: WrapCrossAlignment.center,
-            runSpacing: 16,
+            spacing: 12,
+            runSpacing: 12,
             children: [
               if (!pakaiKartu(context))
                 Row(
@@ -206,7 +211,7 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(
-                        Icons.monitor_heart_outlined,
+                        Icons.favorite_border_rounded,
                         color: Color(0xFF1B7A6A),
                         size: 20,
                       ),
@@ -225,9 +230,16 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                   ],
                 ),
               Wrap(
-                spacing: 12,
-                runSpacing: 8,
+                spacing: AppTheme.spasiS,
+                runSpacing: AppTheme.spasiS,
                 children: [
+                  if (_bolehTambah)
+                    _buildActionButton(
+                      Icons.person_add,
+                      'Tambah Penerima',
+                      const Color(0xFF1B7A6A),
+                      onTap: () => _showFormDialog(),
+                    ),
                   _buildActionButton(
                     Icons.description,
                     'Export Excel',
@@ -240,20 +252,13 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                     const Color(0xFFDC2626),
                     onTap: () => _exportData('pdf'),
                   ),
-                  if (_bolehTambah)
-                    _buildActionButton(
-                      Icons.person_add,
-                      'Tambah Penerima',
-                      const Color(0xFF1B7A6A),
-                      onTap: () => _showFormDialog(),
-                    ),
                 ],
               ),
             ],
           ),
         ),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
 
         // Stat Cards
         Consumer<BantuanSosialProvider>(
@@ -261,7 +266,8 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
             final stats = provider.stats;
             return LayoutBuilder(
               builder: (context, c) {
-                final kolom = c.maxWidth > 900 ? 4 : (c.maxWidth > 500 ? 2 : 1);
+                final kolom =
+                    c.maxWidth > 900 ? 4 : (c.maxWidth > 500 ? 2 : 1);
                 final lebar = (c.maxWidth - (12 * (kolom - 1))) / kolom;
                 final kartu = [
                   _buildStatCard(
@@ -305,44 +311,52 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
           },
         ),
 
-        const SizedBox(height: 24),
-
-        // Filters - Tahun Chips
-        Row(
-          children: [
-            Icon(Icons.calendar_month, size: 16, color: context.teksKedua),
-            const SizedBox(width: 8),
-            Text(
-              'Tahun:',
-              style: TextStyle(fontSize: 13, color: context.teksKedua),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: _tahunList
-                      .map(
-                        (t) => Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: _buildTahunChip(t),
-                        ),
-                      )
-                      .toList(),
-                ),
-              ),
-            ),
-          ],
-        ),
-
         const SizedBox(height: 16),
 
-        // Filters - Row 2
+        // Filters: Tahun -> Jenis Bantuan -> Status
         Wrap(
           spacing: 12,
           runSpacing: 12,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
+            SizedBox(
+              width: lebarKolomFilter(context, maksimal: 160),
+              height: AppTheme.sasaranSentuh,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: context.garis),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedTahun,
+                    isExpanded: true,
+                    icon: Icon(
+                      Icons.keyboard_arrow_down,
+                      size: 16,
+                      color: context.teksKedua,
+                    ),
+                    style: TextStyle(fontSize: 13, color: context.teksUtama),
+                    items: _tahunList
+                        .map(
+                          (v) => DropdownMenuItem<String>(
+                            value: v,
+                            child: Text(v, overflow: TextOverflow.ellipsis),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) {
+                      if (v != null) {
+                        setState(() => _selectedTahun = v);
+                        _loadData();
+                      }
+                    },
+                  ),
+                ),
+              ),
+            ),
+
             SizedBox(
               width: lebarKolomFilter(context, maksimal: 220),
               height: AppTheme.sasaranSentuh,
@@ -362,34 +376,35 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                       color: context.teksKedua,
                     ),
                     style: TextStyle(fontSize: 13, color: context.teksUtama),
-                    items:
-                        [
-                              'Semua Jenis',
-                              'Program Sembako (BPNT)',
-                              'PKH',
-                              'PBI-JK',
-                              'BLT Desa',
-                              'Bantuan Kesehatan',
-                              'Bantuan Pendidikan',
-                              'Bantuan Perumahan',
-                              'Bantuan Tunai/Lainnya',
-                              'Sembako',
-                              'BLT',
-                              'BPNT',
-                              'BST',
-                              'PBI-JKN',
-                              'Lainnya',
-                            ]
-                            .map(
-                              (v) => DropdownMenuItem<String>(
-                                value: v,
-                                child: Text(v, overflow: TextOverflow.ellipsis),
-                              ),
-                            )
-                            .toList(),
+                    items: [
+                      'Semua Jenis',
+                      'Program Sembako (BPNT)',
+                      'PKH',
+                      'PBI-JK',
+                      'BLT Desa',
+                      'Bantuan Kesehatan',
+                      'Bantuan Pendidikan',
+                      'Bantuan Perumahan',
+                      'Bantuan Tunai/Lainnya',
+                      'Sembako',
+                      'BLT',
+                      'BPNT',
+                      'BST',
+                      'PBI-JKN',
+                      'Lainnya',
+                    ]
+                        .map(
+                          (v) => DropdownMenuItem<String>(
+                            value: v,
+                            child: Text(v, overflow: TextOverflow.ellipsis),
+                          ),
+                        )
+                        .toList(),
                     onChanged: (v) {
-                      setState(() => _jenisBantuan = v!);
-                      _loadData();
+                      if (v != null) {
+                        setState(() => _jenisBantuan = v);
+                        _loadData();
+                      }
                     },
                   ),
                 ),
@@ -424,67 +439,11 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                         )
                         .toList(),
                     onChanged: (v) {
-                      setState(() => _status = v!);
-                      _loadData();
+                      if (v != null) {
+                        setState(() => _status = v);
+                        _loadData();
+                      }
                     },
-                  ),
-                ),
-              ),
-            ),
-
-            SizedBox(
-              width: lebarKolomFilter(context, maksimal: 260),
-              height: AppTheme.sasaranSentuh,
-              child: Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: context.garis),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: TextField(
-                  controller: _searchController,
-                  onChanged: (v) => setState(() => _searchQuery = v),
-                  onSubmitted: (_) => _loadData(),
-                  decoration: InputDecoration(
-                    hintText: 'Cari nama atau NIK..',
-                    hintStyle: TextStyle(
-                      fontSize: 13,
-                      color: context.teksTersier,
-                    ),
-                    prefixIcon: Icon(
-                      Icons.search,
-                      size: 18,
-                      color: context.teksTersier,
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                  ),
-                  style: const TextStyle(fontSize: 13),
-                ),
-              ),
-            ),
-
-            SizedBox(
-              height: AppTheme.sasaranSentuh,
-              child: OutlinedButton.icon(
-                onPressed: _resetSemuaFilter,
-                icon: Icon(Icons.refresh, size: 16, color: context.teksKedua),
-                label: Text(
-                  'Reset',
-                  style: TextStyle(color: context.teksKedua, fontSize: 13),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: context.garis),
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  minimumSize: const Size(0, AppTheme.sasaranSentuh),
-                  maximumSize: const Size(
-                    double.infinity,
-                    AppTheme.sasaranSentuh,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
               ),
@@ -492,321 +451,434 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
           ],
         ),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
 
-        // Data Section
-        Consumer<BantuanSosialProvider>(
-          builder: (context, provider, _) {
-            if (provider.isLoading && provider.bantuanList.isEmpty) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(40),
-                  child: CircularProgressIndicator(),
-                ),
-              );
-            }
-
-            return Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: context.latarKartu,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: context.garis),
-              ),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 16,
+        // SECTION: DATA TABLE
+        Container(
+          padding: EdgeInsets.all(paddingKartu(context)),
+          decoration: BoxDecoration(
+            color: context.latarKartu,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: context.garis),
+          ),
+          child: Column(
+            children: [
+              Center(
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  children: [
+                    const Icon(
+                      Icons.list_alt,
+                      color: Color(0xFF1B7A6A),
                     ),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 12,
-                        runSpacing: 12,
-                        children: [
-                          Wrap(
-                            children: [
-                              const Icon(
-                                Icons.list_alt,
-                                color: Color(0xFF10B981),
-                                size: 18,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Data Penerima Bantuan',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                  color: context.teksUtama,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Text(
-                            '${provider.totalData} data',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: context.teksKedua,
-                            ),
-                          ),
-                        ],
+                    Text(
+                      'Data Penerima Bantuan',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: context.teksUtama,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 12,
+                runSpacing: 8,
+                children: [
+                  Text(
+                    'Pencarian',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: context.teksKedua,
+                    ),
+                  ),
+                  SizedBox(
+                    width: 280,
+                    child: TextField(
+                      controller: _searchController,
+                      style: TextStyle(color: context.teksUtama, fontSize: 13),
+                      textInputAction: TextInputAction.search,
+                      onSubmitted: (val) {
+                        _searchQuery = val.trim();
+                        _loadData();
+                      },
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: context.latarLembut,
+                        hintStyle: TextStyle(
+                          color: context.teksTersier,
+                          fontSize: 12,
+                        ),
+                        hintText: 'Cari nama atau NIK..',
+                        prefixIcon: Icon(
+                          Icons.search,
+                          size: 18,
+                          color: context.teksKedua,
+                        ),
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.arrow_forward, size: 16),
+                          tooltip: 'Cari',
+                          onPressed: () {
+                            _searchQuery = _searchController.text.trim();
+                            _loadData();
+                          },
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: context.garis),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: context.garis),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xFF1B7A6A)),
+                        ),
                       ),
                     ),
                   ),
-                  const Divider(height: 1),
-
-                  if (provider.bantuanList.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 80),
-                      child: Center(
-                        child: Column(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(24),
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFF0FDF4),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.monitor_heart_outlined,
-                                size: 40,
-                                color: Color(0xFF10B981),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            Text(
-                              'Belum Ada Data',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: context.teksUtama,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Tambahkan data penerima bantuan sosial warga RT.',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: context.teksTersier,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  else
-                    Padding(
-                      padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
-                      child: TabelResponsif(
-                        labelAksi: 'Aksi',
-                        kolom: const [
-                          'No',
-                          'Nama Warga',
-                          'NIK',
-                          'Jenis Bantuan',
-                          'Bentuk & Sumber',
-                          'Tanggal / Periode',
-                          'Nilai Bantuan',
-                          'Status',
-                          'Keterangan',
-                        ],
-                        baris: provider.bantuanList.asMap().entries.map((
-                          entry,
-                        ) {
-                          final index = entry.key;
-                          final b = entry.value;
-                          final nomor =
-                              ((provider.currentPage - 1) * provider.perPage) +
-                              index +
-                              1;
-                          final nomVal =
-                              double.tryParse(
-                                b['nominal']?.toString() ?? '0',
-                              ) ??
-                              0;
-                          final nomStr = nomVal > 0
-                              ? 'Rp ${nomVal.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}'
-                              : '-';
-                          final bentukSumber =
-                              '${b['bentuk_bantuan'] ?? 'Tunai'} • ${b['sumber_bantuan'] ?? 'Pemerintah Pusat'}';
-
-                          return BarisTabel(
-                            sel: [
-                              SelTabel.teks(
-                                'No',
-                                '$nomor',
-                                sembunyiDiKartu: true,
-                              ),
-                              SelTabel.teks(
-                                'Nama Warga',
-                                b['nama_warga'] ?? '-',
-                                utama: true,
-                              ),
-                              SelTabel.teks('NIK', b['nik_warga'] ?? '-'),
-                              SelTabel.teks(
-                                'Jenis Bantuan',
-                                b['jenis_bantuan'] ?? '-',
-                              ),
-                              SelTabel.teks('Bentuk & Sumber', bentukSumber),
-                              SelTabel.teks(
-                                'Tanggal / Periode',
-                                formatPeriodeBansos(b),
-                              ),
-                              SelTabel.teks('Nilai Bantuan', nomStr),
-                              SelTabel(
-                                'Status',
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: b['status'] == 'Aktif'
-                                        ? const Color(0xFFD1FAE5)
-                                        : const Color(0xFFF3F4F6),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    b['status'] ?? '-',
-                                    style: TextStyle(
-                                      color: b['status'] == 'Aktif'
-                                          ? const Color(0xFF10B981)
-                                          : const Color(0xFF6B7280),
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              SelTabel.teks(
-                                'Keterangan',
-                                b['keterangan'] ?? '-',
-                              ),
-                            ],
-                            aksi: Transform.translate(
-                              offset: const Offset(geserAksiTabel, 0),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (_bolehUbah)
-                                    IconButton(
-                                      tooltip: 'Edit',
-                                      icon: const Icon(
-                                        Icons.edit_outlined,
-                                        color: Color(0xFF0F766E),
-                                        size: 20,
-                                      ),
-                                      style: gayaAksiTabel(
-                                        const Color(0xFF0F766E),
-                                      ),
-                                      onPressed: () => _showFormDialog(data: b),
-                                    ),
-                                  if (_bolehHapus)
-                                    IconButton(
-                                      tooltip: 'Hapus',
-                                      icon: const Icon(
-                                        Icons.delete_outline,
-                                        color: Color(0xFFEF4444),
-                                        size: 20,
-                                      ),
-                                      style: gayaAksiTabel(
-                                        const Color(0xFFEF4444),
-                                      ),
-                                      onPressed: () async {
-                                        final conf = await showDialog<bool>(
-                                          context: context,
-                                          builder: (c) => AlertDialog(
-                                            title: const Text('Hapus'),
-                                            content: const Text(
-                                              'Yakin hapus data ini?',
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(c, false),
-                                                child: const Text('Batal'),
-                                              ),
-                                              TextButton(
-                                                onPressed: () =>
-                                                    Navigator.pop(c, true),
-                                                child: const Text(
-                                                  'Hapus',
-                                                  style: TextStyle(
-                                                    color: Colors.red,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                        if (conf == true && mounted) {
-                                          final ok = await provider
-                                              .deleteBantuanSosial(b['id']);
-                                          if (!context.mounted) return;
-                                          if (ok) {
-                                            pesanSukses(
-                                              context,
-                                              'Data berhasil dihapus',
-                                            );
-                                          } else {
-                                            pesanGagal(
-                                              context,
-                                              provider.errorMessage ??
-                                                  'Gagal menghapus data',
-                                            );
-                                          }
-                                        }
-                                      },
-                                    ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                        currentPage: provider.currentPage,
-                        totalPages: provider.totalPages,
-                        totalData: provider.totalData,
-                        perPage: provider.perPage,
-                        onPageChanged: (page) => _loadData(page: page),
+                  OutlinedButton.icon(
+                    onPressed: _resetFilter,
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: const Text(
+                      'Reset',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: context.teksKedua,
+                      side: BorderSide(color: context.garis),
+                      visualDensity: VisualDensity.standard,
+                      minimumSize: const Size(0, AppTheme.sasaranSentuh),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 0,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
                 ],
               ),
-            );
-          },
+              const SizedBox(height: 16),
+
+              // Tabel di dalam container bergaris (seragam dengan Data Warga & Data KK)
+              Consumer<BantuanSosialProvider>(
+                builder: (context, provider, _) {
+                  return Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: context.latarKartu,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: context.garis),
+                    ),
+                    child: Column(
+                      children: [
+                        Container(
+                          constraints: pakaiKartu(context)
+                              ? const BoxConstraints()
+                              : const BoxConstraints(minHeight: 560),
+                          child: provider.isLoading && provider.bantuanList.isEmpty
+                              ? const Padding(
+                                  padding: EdgeInsets.all(40),
+                                  child: Center(child: CircularProgressIndicator()),
+                                )
+                              : _buildBansosTable(provider),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildTahunChip(String label) {
-    bool isSelected = _selectedTahun == label;
-    return InkWell(
-      onTap: () {
-        setState(() => _selectedTahun = label);
-        _loadData();
-      },
-      borderRadius: BorderRadius.circular(24),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF1B7A6A) : Colors.transparent,
-          border: Border.all(
-            color: isSelected ? const Color(0xFF1B7A6A) : context.garis,
+  Widget _buildBansosTable(BantuanSosialProvider provider) {
+    if (provider.bantuanList.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 80),
+        child: Center(
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF0FDF4),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.favorite_border_rounded,
+                  size: 40,
+                  color: Color(0xFF10B981),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Belum Ada Data',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: context.teksUtama,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Tambahkan data penerima bantuan sosial warga RT.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: context.teksTersier,
+                ),
+              ),
+            ],
           ),
-          borderRadius: BorderRadius.circular(24),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected ? Colors.white : context.teksKedua,
-          ),
-        ),
+      );
+    }
+
+    return Padding(
+      padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
+      child: TabelResponsif(
+        tinggiBarisMin: 50,
+        tinggiBarisMaks: 50,
+        labelAksi: 'Aksi',
+        kolom: const [
+          'No',
+          'Nama Warga',
+          'NIK',
+          'Jenis Bantuan',
+          'Bentuk & Sumber',
+          'Tanggal / Periode',
+          'Nilai Bantuan',
+          'Status',
+          'Keterangan',
+        ],
+        baris: provider.bantuanList.asMap().entries.map((
+          entry,
+        ) {
+          final index = entry.key;
+          final b = entry.value;
+          final nomor =
+              ((provider.currentPage - 1) * provider.perPage) +
+              index +
+              1;
+          final nomVal =
+              double.tryParse(
+                b['nominal']?.toString() ?? '0',
+              ) ??
+              0;
+          final nomStr = nomVal > 0
+              ? 'Rp ${nomVal.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]}.')}'
+              : '-';
+          final bentukSumber =
+              '${b['bentuk_bantuan'] ?? 'Tunai'} • ${b['sumber_bantuan'] ?? 'Pemerintah Pusat'}';
+
+          return BarisTabel(
+            sel: [
+              SelTabel.teks(
+                'No',
+                '$nomor',
+                sembunyiDiKartu: true,
+              ),
+              SelTabel.teks(
+                'Nama Warga',
+                b['nama_warga'] ?? '-',
+                utama: true,
+              ),
+              SelTabel.teks('NIK', b['nik_warga'] ?? '-'),
+              SelTabel(
+                'Jenis Bantuan',
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1B7A6A).withValues(
+                      alpha: 0.1,
+                    ),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    b['jenis_bantuan'] ?? '-',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF1B7A6A),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              SelTabel.teks('Bentuk & Sumber', bentukSumber),
+              SelTabel.teks(
+                'Tanggal / Periode',
+                formatPeriodeBansos(b),
+              ),
+              SelTabel.teks(
+                'Nilai Bantuan',
+                nomStr,
+                gaya: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF059669),
+                ),
+              ),
+              SelTabel(
+                'Status',
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: b['status'] == 'Aktif'
+                        ? const Color(0xFFDCFCE7)
+                        : const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    b['status'] ?? 'Aktif',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: b['status'] == 'Aktif'
+                          ? const Color(0xFF15803D)
+                          : const Color(0xFFB45309),
+                    ),
+                  ),
+                ),
+              ),
+              SelTabel.teks(
+                'Keterangan',
+                b['keterangan'] ?? '-',
+              ),
+            ],
+            aksi: Transform.translate(
+              offset: const Offset(geserAksiTabel, 0),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_bolehUbah)
+                    IconButton(
+                      tooltip: 'Edit',
+                      icon: const Icon(
+                        Icons.edit_outlined,
+                        color: Color(0xFF0F766E),
+                        size: 20,
+                      ),
+                      style: gayaAksiTabel(
+                        const Color(0xFF0F766E),
+                      ),
+                      onPressed: () => _showFormDialog(data: b),
+                    ),
+                  if (_bolehHapus)
+                    IconButton(
+                      tooltip: 'Hapus',
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        color: Color(0xFFEF4444),
+                        size: 20,
+                      ),
+                      style: gayaAksiTabel(
+                        const Color(0xFFEF4444),
+                      ),
+                      onPressed: () async {
+                        final conf = await showDialog<bool>(
+                          context: context,
+                          builder: (c) => AlertDialog(
+                            backgroundColor: c.latarKartu,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            title: Text(
+                              'Hapus Penerima Bantuan?',
+                              style: TextStyle(
+                                color: c.teksUtama,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            content: Text(
+                              'Apakah Anda yakin ingin menghapus data penerima bantuan untuk ${b['nama_warga'] ?? 'warga ini'}?',
+                              style: TextStyle(color: c.teksKedua),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(c, false),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 14,
+                                  ),
+                                  foregroundColor: c.teksKedua,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Batal',
+                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFEF4444),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                onPressed: () => Navigator.pop(c, true),
+                                child: const Text('Hapus'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (conf == true && mounted) {
+                          final ok =
+                              await provider.deleteBantuanSosial(b['id']);
+                          if (!mounted) return;
+                          if (ok) {
+                            pesanSukses(context, 'Data berhasil dihapus');
+                          } else {
+                            pesanGagal(
+                              context,
+                              provider.errorMessage ?? 'Gagal menghapus data',
+                            );
+                          }
+                        }
+                      },
+                    ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+        currentPage: provider.currentPage,
+        totalPages: provider.totalPages,
+        totalData: provider.totalData,
+        perPage: provider.perPage,
+        onPageChanged: (page) => _loadData(page: page),
       ),
     );
   }
