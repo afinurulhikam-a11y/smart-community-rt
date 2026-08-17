@@ -88,14 +88,31 @@ class _DataKkScreenState extends State<DataKkScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: ctx.latarKartu,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radiusL),
+            borderRadius: BorderRadius.circular(20),
           ),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.house_rounded, color: AppTheme.primaryColor),
-              SizedBox(width: 8),
-              Text('Tambah Kartu Keluarga Baru'),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1B7A6A).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.house_rounded, color: Color(0xFF1B7A6A)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Tambah Kartu Keluarga Baru',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                    color: ctx.teksUtama,
+                  ),
+                ),
+              ),
             ],
           ),
           content: SizedBox(
@@ -182,6 +199,8 @@ class _DataKkScreenState extends State<DataKkScreen> {
                     const SizedBox(height: AppTheme.spasiM),
                     DropdownButtonFormField<String>(
                       initialValue: statusRumah,
+                      dropdownColor: ctx.latarKartu,
+                      borderRadius: BorderRadius.circular(12),
                       decoration: const InputDecoration(
                         labelText: 'Status Kepemilikan Rumah',
                         prefixIcon: Icon(Icons.home_work_rounded),
@@ -211,14 +230,20 @@ class _DataKkScreenState extends State<DataKkScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Batal'),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                foregroundColor: ctx.teksKedua,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Batal', style: TextStyle(fontWeight: FontWeight.w600)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
+                backgroundColor: const Color(0xFF1B7A6A),
                 foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
               onPressed: () async {
@@ -277,10 +302,33 @@ class _DataKkScreenState extends State<DataKkScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: ctx.latarKartu,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radiusL),
+            borderRadius: BorderRadius.circular(20),
           ),
-          title: Text('Edit Data KK #${kk['no_kk']}'),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1B7A6A).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.edit_note_rounded, color: Color(0xFF1B7A6A)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Edit Data KK #${kk['no_kk']}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                    color: ctx.teksUtama,
+                  ),
+                ),
+              ),
+            ],
+          ),
           content: SizedBox(
             width: lebarDialog(ctx, maksimal: 500),
             child: SingleChildScrollView(
@@ -341,6 +389,8 @@ class _DataKkScreenState extends State<DataKkScreen> {
                     const SizedBox(height: AppTheme.spasiM),
                     DropdownButtonFormField<String>(
                       initialValue: statusRumah,
+                      dropdownColor: ctx.latarKartu,
+                      borderRadius: BorderRadius.circular(12),
                       decoration: const InputDecoration(
                         labelText: 'Status Kepemilikan Rumah',
                         prefixIcon: Icon(Icons.home_work_rounded),
@@ -370,14 +420,20 @@ class _DataKkScreenState extends State<DataKkScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Batal'),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                foregroundColor: ctx.teksKedua,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Batal', style: TextStyle(fontWeight: FontWeight.w600)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
+                backgroundColor: const Color(0xFF1B7A6A),
                 foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
               onPressed: () async {
@@ -421,22 +477,31 @@ class _DataKkScreenState extends State<DataKkScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: ctx.latarKartu,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.radiusL),
+          borderRadius: BorderRadius.circular(20),
         ),
         title: Row(
           children: [
-            const Icon(
-              Icons.family_restroom_rounded,
-              color: AppTheme.primaryColor,
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1B7A6A).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.family_restroom_rounded,
+                color: Color(0xFF1B7A6A),
+              ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 'Detail KK: $noKk',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
+                  color: ctx.teksUtama,
                 ),
               ),
             ),
@@ -516,23 +581,27 @@ class _DataKkScreenState extends State<DataKkScreen> {
                         dense: true,
                         contentPadding: EdgeInsets.zero,
                         leading: CircleAvatar(
-                          backgroundColor: AppTheme.primaryColor.withValues(
+                          backgroundColor: const Color(0xFF1B7A6A).withValues(
                             alpha: 0.1,
                           ),
                           child: Icon(
                             a['status_keluarga'] == 'Kepala Keluarga'
                                 ? Icons.person_pin_rounded
                                 : Icons.person_outline_rounded,
-                            color: AppTheme.primaryColor,
+                            color: const Color(0xFF1B7A6A),
                             size: 20,
                           ),
                         ),
                         title: Text(
                           a['nama']?.toString() ?? '-',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: ctx.teksUtama,
+                          ),
                         ),
                         subtitle: Text(
                           'NIK: ${a['nik'] ?? '-'} • ${a['status_keluarga'] ?? 'Anggota'}',
+                          style: TextStyle(color: ctx.teksKedua),
                         ),
                         trailing: Chip(
                           label: Text(
@@ -556,7 +625,12 @@ class _DataKkScreenState extends State<DataKkScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Tutup'),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              foregroundColor: ctx.teksKedua,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Tutup', style: TextStyle(fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -588,19 +662,39 @@ class _DataKkScreenState extends State<DataKkScreen> {
     final setuju = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Hapus Kartu Keluarga?'),
+        backgroundColor: ctx.latarKartu,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: Text(
+          'Hapus Kartu Keluarga?',
+          style: TextStyle(
+            color: ctx.teksUtama,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         content: Text(
           'Apakah Anda yakin ingin menghapus KK $noKk? Data keluarga ini akan dinonaktifkan.',
+          style: TextStyle(color: ctx.teksKedua),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Batal'),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              foregroundColor: ctx.teksKedua,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Batal', style: TextStyle(fontWeight: FontWeight.w600)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFEF4444),
               foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Hapus'),
@@ -629,333 +723,292 @@ class _DataKkScreenState extends State<DataKkScreen> {
 
     final daftarKK = prov.families;
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.zero,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header Bar
-          SizedBox(
-            width: double.infinity,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            if (widget.onBack != null)
+              TombolKembali(onPressed: widget.onBack!)
+            else
+              const SizedBox.shrink(),
+            if (permission.bolehTambah(_kodeIzin))
+              ElevatedButton.icon(
+                icon: const Icon(Icons.add_rounded, size: 20),
+                label: const Text('Tambah KK Baru'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                  ),
+                ),
+                onPressed: () => _bukaFormTambah(context),
+              ),
+          ],
+        ),
+        const SizedBox(height: AppTheme.spasiM),
+
+        BannerLihatSaja(kode: _kodeIzin),
+
+        // Search Card
+        Container(
+          padding: EdgeInsets.all(paddingKartu(context)),
+          decoration: BoxDecoration(
+            color: context.latarKartu,
+            borderRadius: BorderRadius.circular(AppTheme.radiusL),
+            border: Border.all(color: context.garis),
+          ),
+          child: Center(
             child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
+              alignment: WrapAlignment.center,
               crossAxisAlignment: WrapCrossAlignment.center,
               spacing: 12,
-              runSpacing: 12,
+              runSpacing: 8,
               children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (widget.onBack != null) ...[
-                      TombolKembali(onPressed: widget.onBack),
-                      const SizedBox(width: 10),
-                    ],
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.house_rounded,
-                        color: AppTheme.primaryColor,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Kependudukan / Data KK',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: context.teksKedua,
-                      ),
-                    ),
-                  ],
+                Text(
+                  'Pencarian',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: context.teksKedua,
+                  ),
                 ),
-                if (isBolehUbah)
-                  ElevatedButton.icon(
-                    onPressed: () => _bukaFormTambah(context),
-                    icon: const Icon(Icons.add_home_rounded, size: 18),
-                    label: const Text('Tambah KK'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
+                SizedBox(
+                  width: 280,
+                  child: TextField(
+                    controller: _ctlCari,
+                    style: TextStyle(color: context.teksUtama, fontSize: 13),
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: (_) {
+                      _halaman = 1;
+                      _muatData();
+                    },
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: context.latarLembut,
+                      hintStyle: TextStyle(color: context.teksTersier, fontSize: 12),
+                      hintText: 'Cari No KK, Kepala Keluarga, Alamat...',
+                      prefixIcon: Icon(Icons.search, size: 18, color: context.teksKedua),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.arrow_forward, size: 16),
+                        onPressed: () {
+                          _halaman = 1;
+                          _muatData();
+                        },
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: context.garis),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: context.garis),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFF1B7A6A), width: 1.5),
                       ),
                     ),
                   ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _resetFilter,
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const Text(
+                    'Reset',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: context.teksKedua,
+                    side: BorderSide(color: context.garis),
+                    visualDensity: VisualDensity.standard,
+                    minimumSize: const Size(0, AppTheme.sasaranSentuh),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 0,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-          const SizedBox(height: AppTheme.spasiL),
+        ),
+        const SizedBox(height: AppTheme.spasiL),
 
-          BannerLihatSaja(kode: _kodeIzin),
+        // Tabel Responsif KK
+        TabelResponsif(
+          kolom: const [
+            'NO',
+            'NO KK',
+            'KEPALA KELUARGA',
+            'ALAMAT & BLOK',
+            'ANGGOTA',
+            'STATUS RUMAH',
+          ],
+          labelAksi: 'AKSI',
+          currentPage: prov.currentPage,
+          totalPages: prov.totalPages,
+          totalData: prov.totalData,
+          perPage: prov.perPage,
+          onPageChanged: (hal) {
+            _halaman = hal;
+            _muatData();
+          },
+          baris: daftarKK.asMap().entries.map((ent) {
+            final idx = ent.key;
+            final item = ent.value;
+            final noKk = item['no_kk']?.toString() ?? '-';
+            final id = item['id'] as int;
+            final alamat = item['alamat']?.toString() ?? '-';
+            final kepala = item['kepala_keluarga']?.toString() ?? '-';
+            final statusRumah =
+                item['status_rumah']?.toString() ?? 'Milik Sendiri';
+            final jumlahAnggota = item['jumlah_anggota'] as int? ?? 0;
+            final terkonfirmasi = item['terkonfirmasi'] == true;
 
-          // Search Card
-          Container(
-            padding: EdgeInsets.all(paddingKartu(context)),
-            decoration: BoxDecoration(
-              color: context.latarKartu,
-              borderRadius: BorderRadius.circular(AppTheme.radiusL),
-              border: Border.all(color: context.garis),
-            ),
-            child: Center(
-              child: Wrap(
-                alignment: WrapAlignment.center,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 12,
-                runSpacing: 8,
-                children: [
-                  Text(
-                    'Pencarian',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: context.teksKedua,
-                    ),
+            return BarisTabel(
+              sel: [
+                SelTabel.teks(
+                  'NO',
+                  (((_halaman - 1) * 10) + idx + 1).toString(),
+                  sembunyiDiKartu: true,
+                ),
+                SelTabel.teks(
+                  'NO KK',
+                  noKk,
+                  gaya: const TextStyle(
+                    color: Color(0xFF059669),
+                    fontWeight: FontWeight.w600,
                   ),
-                  SizedBox(
-                    width: 280,
-                    child: TextField(
-                      controller: _ctlCari,
-                      style: TextStyle(color: context.teksUtama, fontSize: 13),
-                      textInputAction: TextInputAction.search,
-                      onSubmitted: (_) {
-                        _halaman = 1;
-                        _muatData();
-                      },
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: context.latarLembut,
-                        hintStyle: TextStyle(color: context.teksTersier, fontSize: 12),
-                        hintText: 'Cari No KK, Kepala Keluarga, Alamat...',
-                        prefixIcon: Icon(Icons.search, size: 18, color: context.teksKedua),
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.arrow_forward, size: 16),
-                          onPressed: () {
-                            _halaman = 1;
-                            _muatData();
-                          },
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: context.garis),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: context.garis),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Color(0xFF1B7A6A), width: 1.5),
-                        ),
-                      ),
-                    ),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: _resetFilter,
-                    icon: const Icon(Icons.refresh, size: 16),
-                    label: const Text(
-                      'Reset',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: context.teksKedua,
-                      side: BorderSide(color: context.garis),
-                      visualDensity: VisualDensity.standard,
-                      minimumSize: const Size(0, AppTheme.sasaranSentuh),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 0,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: AppTheme.spasiL),
-
-          // Tabel Responsif KK
-          TabelResponsif(
-            kolom: const [
-              'NO',
-              'NO KK',
-              'KEPALA KELUARGA',
-              'ALAMAT & BLOK',
-              'ANGGOTA',
-              'STATUS RUMAH',
-            ],
-            labelAksi: 'AKSI',
-            currentPage: prov.currentPage,
-            totalPages: prov.totalPages,
-            totalData: prov.totalData,
-            perPage: 10,
-            onPageChanged: (h) {
-              setState(() => _halaman = h);
-              _muatData();
-            },
-            baris: daftarKK.asMap().entries.map((entry) {
-              final idx = entry.key;
-              final item = entry.value;
-              final id = item['id'] as int;
-              final noKk = item['no_kk']?.toString() ?? '-';
-              final kepala = item['kepala_keluarga']?.toString() ?? '-';
-              final alamat = item['alamat']?.toString() ?? '-';
-              final jumlahAnggota = item['jumlah_anggota'] ?? 0;
-              final statusRumah =
-                  item['status_rumah']?.toString() ?? 'Milik Sendiri';
-              final terkonfirmasi = item['kepala_terkonfirmasi'] == true;
-
-              return BarisTabel(
-                sel: [
-                  SelTabel.teks(
-                    'NO',
-                    '${((prov.currentPage - 1) * 10) + idx + 1}',
-                    sembunyiDiKartu: true,
-                  ),
-                  SelTabel.teks(
-                    'NO KK',
-                    noKk,
-                    utama: true,
-                    gaya: TextStyle(
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.bold,
-                      color: context.teksUtama,
-                    ),
-                  ),
-                  SelTabel(
-                    'KEPALA KELUARGA',
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            kepala,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        if (!terkonfirmasi)
-                          Tooltip(
-                            message: 'Nama Kepala Keluarga belum terkonfirmasi',
-                            child: Icon(
-                              Icons.info_outline_rounded,
-                              size: 14,
-                              color: Colors.amber[700],
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  SelTabel.teks('ALAMAT & BLOK', alamat),
-                  SelTabel(
-                    'ANGGOTA',
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: jumlahAnggota == 0
-                            ? const Color(0xFFFEF3C7)
-                            : AppTheme.primaryColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        jumlahAnggota == 0
-                            ? '0 Orang (KK Kosong)'
-                            : '$jumlahAnggota Orang',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: jumlahAnggota == 0
-                              ? const Color(0xFFD97706)
-                              : AppTheme.primaryColor,
-                        ),
-                      ),
-                    ),
-                  ),
-                  SelTabel(
-                    'STATUS RUMAH',
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: statusRumah == 'Milik Sendiri'
-                            ? const Color(0xFF10B981).withValues(alpha: 0.1)
-                            : const Color(0xFFF59E0B).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        statusRumah,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: statusRumah == 'Milik Sendiri'
-                              ? const Color(0xFF10B981)
-                              : const Color(0xFFF59E0B),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-                aksi: Transform.translate(
-                  offset: const Offset(_geserAksiTabel, 0),
-                  child: Row(
+                ),
+                SelTabel(
+                  'KEPALA KELUARGA',
+                  Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton(
-                        tooltip: 'Lihat Detail & Anggota KK',
-                        icon: const Icon(Icons.visibility_outlined, size: 18),
-                        color: AppTheme.primaryColor,
-                        style: _gayaAksiTabel(AppTheme.primaryColor),
-                        onPressed: () => _bukaDetailKk(context, id, noKk),
+                      Text(
+                        kepala,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
-                      if (isBolehUbah) ...[
-                        const SizedBox(width: 4),
-                        IconButton(
-                          tooltip: 'Edit KK',
-                          icon: const Icon(Icons.edit_outlined, size: 18),
-                          color: Colors.blue[600],
-                          style: _gayaAksiTabel(Colors.blue[600]!),
-                          onPressed: () => _bukaFormEdit(context, item),
-                        ),
-                      ],
-                      if (isAdmin) ...[
-                        const SizedBox(width: 4),
-                        IconButton(
-                          tooltip: 'Hapus KK',
-                          icon: const Icon(
-                            Icons.delete_outline_rounded,
-                            size: 18,
+                      const SizedBox(width: 4),
+                      if (!terkonfirmasi)
+                        Tooltip(
+                          message: 'Nama Kepala Keluarga belum terkonfirmasi',
+                          child: Icon(
+                            Icons.info_outline_rounded,
+                            size: 14,
+                            color: Colors.amber[700],
                           ),
-                          color: Colors.red[600],
-                          style: _gayaAksiTabel(Colors.red[600]!),
-                          onPressed: () => _hapusKk(context, id, noKk),
                         ),
-                      ],
                     ],
                   ),
                 ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
+                SelTabel.teks('ALAMAT & BLOK', alamat),
+                SelTabel(
+                  'ANGGOTA',
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: jumlahAnggota == 0
+                          ? const Color(0xFFFEF3C7)
+                          : AppTheme.primaryColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      jumlahAnggota == 0
+                          ? '0 Orang (KK Kosong)'
+                          : '$jumlahAnggota Orang',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: jumlahAnggota == 0
+                            ? const Color(0xFFD97706)
+                            : AppTheme.primaryColor,
+                      ),
+                    ),
+                  ),
+                ),
+                SelTabel(
+                  'STATUS RUMAH',
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusRumah == 'Milik Sendiri'
+                          ? const Color(0xFF10B981).withValues(alpha: 0.1)
+                          : const Color(0xFFF59E0B).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      statusRumah,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: statusRumah == 'Milik Sendiri'
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFF59E0B),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              aksi: Transform.translate(
+                offset: const Offset(_geserAksiTabel, 0),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: 'Lihat Detail & Anggota KK',
+                      icon: const Icon(Icons.visibility_outlined, size: 20),
+                      color: const Color(0xFF3B82F6),
+                      style: _gayaAksiTabel(const Color(0xFF3B82F6)),
+                      onPressed: () => _bukaDetailKk(context, id, noKk),
+                    ),
+                    if (isBolehUbah) ...[
+                      const SizedBox(width: 4),
+                      IconButton(
+                        tooltip: 'Edit KK',
+                        icon: const Icon(Icons.edit_outlined, size: 20),
+                        color: const Color(0xFF0F766E),
+                        style: _gayaAksiTabel(const Color(0xFF0F766E)),
+                        onPressed: () => _bukaFormEdit(context, item),
+                      ),
+                    ],
+                    if (isAdmin) ...[
+                      const SizedBox(width: 4),
+                      IconButton(
+                        tooltip: 'Hapus KK',
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          size: 20,
+                        ),
+                        color: const Color(0xFFEF4444),
+                        style: _gayaAksiTabel(const Color(0xFFEF4444)),
+                        onPressed: () => _hapusKk(context, id, noKk),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 }
