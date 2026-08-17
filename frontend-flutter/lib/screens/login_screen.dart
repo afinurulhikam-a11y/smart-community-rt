@@ -52,16 +52,19 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _sedangMasuk = true);
+    // Beri tahu browser & engine autofill bahwa form login sedang dikirim
+    // selagi elemen input DOM masih terpasang dan aktif di layar.
+    TextInput.finishAutofillContext(shouldSave: true);
+
     final auth = context.read<AuthService>();
     try {
       final success = await auth.login(_emailController.text.trim(), _passwordController.text);
-      if (success) {
-        // Sinyalkan konteks autofill sukses sehingga peramban web (Chrome/Edge)
-        // dan pengelola kata sandi OS (Google Password Manager/Keychain)
-        // memunculkan dialog tawaran simpan sandi otomatis.
-        TextInput.finishAutofillContext(shouldSave: true);
-      } else if (mounted) {
-        pesanGagal(context, auth.errorMessage ?? 'Login gagal');
+      if (!success) {
+        // Jika kredensial salah, batalkan sesi penyimpanan autofill
+        TextInput.finishAutofillContext(shouldSave: false);
+        if (mounted) {
+          pesanGagal(context, auth.errorMessage ?? 'Login gagal');
+        }
       }
     } finally {
       // Saat login berhasil, AuthGate menukar layar ini sehingga State-nya
@@ -356,10 +359,7 @@ class _LoginScreenState extends State<LoginScreen> {
               TextFormField(
                 controller: _emailController,
                 keyboardType: TextInputType.text,
-                autofillHints: const [
-                  AutofillHints.username,
-                  AutofillHints.telephoneNumber,
-                ],
+                autofillHints: const [AutofillHints.username],
                 // Enter di kolom ini mengirim form, sama seperti menekan tombol
                 // "Masuk ke Sistem". `TextInputAction.go` dipilih, bukan `.next`:
                 // label "berikutnya" pada papan tombol ponsel menjanjikan
@@ -423,7 +423,7 @@ class _LoginScreenState extends State<LoginScreen> {
               TextFormField(
                 controller: _passwordController,
                 obscureText: _obscurePassword,
-                keyboardType: TextInputType.visiblePassword,
+                keyboardType: TextInputType.text,
                 autofillHints: const [AutofillHints.password],
                 textInputAction: TextInputAction.go,
                 onFieldSubmitted: (_) => _handleLogin(),
