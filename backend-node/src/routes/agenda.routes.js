@@ -9,21 +9,22 @@ const agendaCreateSchema = Joi.object({
   judul: Joi.string().required(),
   deskripsi: Joi.string().allow('', null),
   tipe: Joi.string().allow('', null),
-  tanggal: Joi.date().iso().required(),
-  waktu_mulai: Joi.string().pattern(/^([01]\d|2[0-3]):?([0-5]\d)$/).allow('', null),
-  waktu_selesai: Joi.string().pattern(/^([01]\d|2[0-3]):?([0-5]\d)$/).allow('', null),
-  lokasi: Joi.string().allow('', null)
+  tanggal: Joi.alternatives().try(Joi.date().iso(), Joi.string().pattern(/^\d{4}-\d{2}-\d{2}/)).required(),
+  waktu_mulai: Joi.string().pattern(/^([01]?\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/).allow('', null),
+  waktu_selesai: Joi.string().pattern(/^([01]?\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/).allow('', null),
+  lokasi: Joi.string().allow('', null),
+  status: Joi.string().valid('Akan Datang', 'Terjadwal', 'Berjalan', 'Selesai', 'Batal').allow('', null),
 }).unknown(true);
 
 const agendaUpdateSchema = Joi.object({
   judul: Joi.string().allow('', null),
   deskripsi: Joi.string().allow('', null),
   tipe: Joi.string().allow('', null),
-  tanggal: Joi.date().iso().allow('', null),
-  waktu_mulai: Joi.string().pattern(/^([01]\d|2[0-3]):?([0-5]\d)$/).allow('', null),
-  waktu_selesai: Joi.string().pattern(/^([01]\d|2[0-3]):?([0-5]\d)$/).allow('', null),
+  tanggal: Joi.alternatives().try(Joi.date().iso(), Joi.string().pattern(/^\d{4}-\d{2}-\d{2}/)).allow('', null),
+  waktu_mulai: Joi.string().pattern(/^([01]?\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/).allow('', null),
+  waktu_selesai: Joi.string().pattern(/^([01]?\d|2[0-3]):([0-5]\d)(:[0-5]\d)?$/).allow('', null),
   lokasi: Joi.string().allow('', null),
-  status: Joi.string().valid('Terjadwal', 'Berjalan', 'Selesai', 'Batal').allow('', null),
+  status: Joi.string().valid('Akan Datang', 'Terjadwal', 'Berjalan', 'Selesai', 'Batal').allow('', null),
   notulen_url: Joi.string().allow('', null)
 }).unknown(true);
 
