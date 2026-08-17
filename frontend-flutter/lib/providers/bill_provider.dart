@@ -65,9 +65,12 @@ class BillProvider extends ChangeNotifier {
     int? jenisIuranId,
     String? search,
     int page = 1,
+    bool silent = false,
   }) async {
-    _isLoading = true;
-    notifyListeners();
+    if (!silent) {
+      _isLoading = true;
+      notifyListeners();
+    }
 
     _filterAktif = _susunFilter(
       status: status,

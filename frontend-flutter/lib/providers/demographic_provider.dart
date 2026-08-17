@@ -12,10 +12,12 @@ class DemographicProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  Future<void> fetchDemographics() async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
+  Future<void> fetchDemographics({bool silent = false}) async {
+    if (!silent) {
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
+    }
 
     try {
       final response = await ApiService.get(ApiConstants.demographicsSummary);

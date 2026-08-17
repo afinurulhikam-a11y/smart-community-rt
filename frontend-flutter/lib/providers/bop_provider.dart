@@ -50,10 +50,13 @@ class BopProvider extends ChangeNotifier {
     String? search,
     int page = 1,
     int limit = 25,
+    bool silent = false,
   }) async {
-    _isLoading = true;
+    if (!silent) {
+      _isLoading = true;
+      notifyListeners();
+    }
     _currentPage = page;
-    notifyListeners();
 
     // `page` dan `limit` sengaja TIDAK masuk `_filterAktif`. Peta itu dipakai
     // ulang oleh ringkasan dan export, dan keduanya harus mencakup seluruh

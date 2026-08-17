@@ -22,10 +22,12 @@ class LetterProvider extends ChangeNotifier {
   int get pendingCount => _letters.where((l) => l.isPending).length;
   List<LetterModel> get pendingLetters => _letters.where((l) => l.isPending).toList();
 
-  Future<void> fetchLetters({String? status, int page = 1}) async {
-    _isLoading = true;
+  Future<void> fetchLetters({String? status, int page = 1, bool silent = false}) async {
+    if (!silent) {
+      _isLoading = true;
+      notifyListeners();
+    }
     _currentPage = page;
-    notifyListeners();
     final queryParams = <String, String>{};
     if (status != null) queryParams['status'] = status;
     queryParams['page'] = page.toString();

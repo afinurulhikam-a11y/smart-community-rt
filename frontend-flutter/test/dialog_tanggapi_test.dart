@@ -36,7 +36,7 @@ import 'bantuan_uji.dart';
 /// Persis jebakan yang sudah terjadi di uji kartu meteran.
 class _PengaduanTanpaJaringan extends ComplaintProvider {
   @override
-  Future<void> fetchComplaints({String? status, String? search, int page = 1}) async {}
+  Future<void> fetchComplaints({String? status, String? search, int page = 1, bool silent = false}) async {}
 
   @override
   Future<void> fetchStats() async {}

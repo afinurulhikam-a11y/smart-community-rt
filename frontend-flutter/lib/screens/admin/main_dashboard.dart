@@ -134,24 +134,24 @@ class _MainDashboardState extends State<MainDashboard> {
   void _startAutoRefresh() {
     _autoRefreshTimer?.cancel();
     // Melakukan polling background otomatis setiap 12 detik agar data dashboard
-    // selalu terkini tanpa memerlukan refresh halaman manual.
+    // selalu terkini tanpa merusak posisi scroll (silent refresh).
     _autoRefreshTimer = Timer.periodic(const Duration(seconds: 12), (_) {
-      _loadDataAsync();
+      _loadDataAsync(silent: true);
     });
   }
 
   void _onWebSocketUpdate() {
     if (!mounted) return;
     // Saat menerima siaran real-time dari WebSocket (misal alarm darurat atau pesan data),
-    // data dashboard langsung diperbarui otomatis tanpa menantikan interval timer berikutnya.
-    _loadDataAsync();
+    // data dashboard langsung diperbarui otomatis di latar belakang.
+    _loadDataAsync(silent: true);
   }
 
   void _loadData() {
-    _loadDataAsync();
+    _loadDataAsync(silent: false);
   }
 
-  Future<void> _loadDataAsync() async {
+  Future<void> _loadDataAsync({bool silent = false}) async {
     if (!mounted || _isRefreshing) return;
     _isRefreshing = true;
 
@@ -168,35 +168,35 @@ class _MainDashboardState extends State<MainDashboard> {
 
       if (izin.bolehLihat('keuangan.iuran', userRole: userRole)) {
         final billP = context.read<BillProvider>();
-        futures.add(billP.fetchBills());
+        futures.add(billP.fetchBills(silent: silent));
         futures.add(billP.fetchStatsBulanIni());
       }
       if (izin.bolehLihat('keuangan.kas', userRole: userRole)) {
         final finP = context.read<FinanceProvider>();
-        futures.add(finP.fetchTransactions());
+        futures.add(finP.fetchTransactions(silent: silent));
         futures.add(finP.fetchSummary(bulan: null, sumber: null));
         futures.add(finP.fetchBulanan(tahun: _chartSelectedYear));
       }
       if (userRole == 'warga' || izin.bolehLihat('layanan.surat', userRole: userRole)) {
-        futures.add(context.read<LetterProvider>().fetchLetters());
+        futures.add(context.read<LetterProvider>().fetchLetters(silent: silent));
       }
       if (izin.bolehLihat('aspirasi.darurat', userRole: userRole)) {
         futures.add(context.read<EmergencyProvider>().fetchAlerts());
       }
       if (izin.bolehLihat('aspirasi.pengaduan', userRole: userRole)) {
         final compP = context.read<ComplaintProvider>();
-        futures.add(compP.fetchComplaints());
+        futures.add(compP.fetchComplaints(silent: silent));
         futures.add(compP.fetchStats());
       }
       if (izin.bolehLihat('keuangan.bop', userRole: userRole)) {
         final bopP = context.read<BopProvider>();
         futures.add(bopP.fetchSummary());
-        futures.add(bopP.fetchTransactions());
+        futures.add(bopP.fetchTransactions(silent: silent));
         futures.add(bopP.fetchBulanan(tahun: _chartSelectedYear));
       }
       if (izin.bolehLihat('kependudukan.statistik', userRole: userRole) ||
           izin.bolehLihat('kependudukan.warga', userRole: userRole)) {
-        futures.add(context.read<DemographicProvider>().fetchDemographics());
+        futures.add(context.read<DemographicProvider>().fetchDemographics(silent: silent));
       }
       if (izin.bolehLihat('kegiatan.agenda', userRole: userRole)) {
         final agendaP = context.read<AgendaProvider>();
@@ -871,6 +871,7 @@ class _MainDashboardState extends State<MainDashboard> {
                           child: RefreshIndicator(
                             onRefresh: _muatUlangLayarAktif,
                             child: SingleChildScrollView(
+                              key: const PageStorageKey<String>('main_dashboard_scroll_view'),
                               // Selalu bisa digulir, walau isinya pendek —
                               // kalau tidak, gerakan tariknya tidak tertangkap
                               // di layar yang isinya sedikit.
@@ -2081,7 +2082,7 @@ class _MainDashboardState extends State<MainDashboard> {
 
               const SizedBox(height: 16),
 
-              if (complaintProvider.isLoading)
+              if (complaintProvider.isLoading && activeComplaints.isEmpty)
                 const Center(
                   child: Padding(
                     padding: EdgeInsets.all(20.0),
@@ -2420,7 +2421,7 @@ class _MainDashboardState extends State<MainDashboard> {
 
           const SizedBox(height: 16),
 
-          if (letterProvider.isLoading)
+          if (letterProvider.isLoading && pendingLetters.isEmpty)
             const Center(
               child: Padding(
                 padding: EdgeInsets.all(20.0),

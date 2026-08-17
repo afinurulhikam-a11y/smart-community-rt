@@ -42,10 +42,13 @@ class FinanceProvider extends ChangeNotifier {
     int? kategoriId,
     String? search,
     int page = 1,
+    bool silent = false,
   }) async {
-    _isLoading = true;
+    if (!silent) {
+      _isLoading = true;
+      notifyListeners();
+    }
     _currentPage = page;
-    notifyListeners();
 
     _filterAktif = {
       if (tipe != null && tipe.isNotEmpty) 'tipe': tipe,
