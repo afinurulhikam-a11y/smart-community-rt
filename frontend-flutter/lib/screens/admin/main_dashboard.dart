@@ -1559,7 +1559,7 @@ class _MainDashboardState extends State<MainDashboard> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
-                      Icons.trending_up_rounded,
+                      Icons.receipt_long_rounded,
                       color: Color(0xFF2563EB),
                       size: 18,
                     ),
@@ -1752,9 +1752,7 @@ class _MainDashboardState extends State<MainDashboard> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
-                      hasActive
-                          ? Icons.warning_amber_rounded
-                          : Icons.shield_rounded,
+                      Icons.crisis_alert,
                       color: hasActive
                           ? const Color(0xFFEF4444)
                           : const Color(0xFF059669),
