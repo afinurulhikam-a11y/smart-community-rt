@@ -1,4 +1,7 @@
 require('dotenv').config();
+const { assertCanRunTest } = require('./src/config/db-guard');
+assertCanRunTest('test-polling-vote');
+
 const { pool } = require('./src/config/database');
 const { getPolling, vote } = require('./src/controllers/polling.controller');
 

@@ -11,6 +11,9 @@
  *   node migration_v27_bantuan_sosial_administrasi.js
  */
 require('dotenv').config();
+const { assertCanRunMigration } = require('./src/config/db-guard');
+assertCanRunMigration('migration_v27');
+
 const { pool } = require('./src/config/database');
 
 const KOLOM_BARU = [

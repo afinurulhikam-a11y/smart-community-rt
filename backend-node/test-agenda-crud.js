@@ -1,4 +1,7 @@
 require('dotenv').config();
+const { assertCanRunTest } = require('./src/config/db-guard');
+assertCanRunTest('test-agenda-crud');
+
 const { pool } = require('./src/config/database');
 const { getAgenda, createAgenda, updateAgenda, deleteAgenda } = require('./src/controllers/agenda.controller');
 

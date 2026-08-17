@@ -7,9 +7,14 @@
     "prestart": "kill-port 3001 || exit 0",
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
+    "test": "node test-db-guard.js && node test-auth-logout.js && node test-agenda-crud.js && node test-emergency-broadcast.js && node test-emergency-keterangan.js && node test-emergency-timezone.js && node test-menu-akses.js && node test-polling-vote.js && node audit-statistik.js && node bukti-total-warga.js",
+    "test:guard": "node test-db-guard.js",
+    "test:backend": "node test-db-guard.js && node test-auth-logout.js && node test-agenda-crud.js && node test-emergency-broadcast.js && node test-emergency-keterangan.js && node test-emergency-timezone.js && node test-menu-akses.js && node test-polling-vote.js && node audit-statistik.js && node bukti-total-warga.js",
     "db:init": "node init-db.js",
     "db:seed": "node seed-master.js",
+    "db:seed:demo": "node seed-demo-lengkap.js",
     "db:setup": "node init-db.js && node seed-master.js",
+    "db:kosongkan": "node kosongkan-data.js",
     "lint": "eslint src/"
   },
   "keywords": [

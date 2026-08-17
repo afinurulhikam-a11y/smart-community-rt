@@ -1,4 +1,7 @@
 require('dotenv').config();
+const { assertCanRunTest } = require('./src/config/db-guard');
+assertCanRunTest('test-bansos-crud');
+
 const http = require('http');
 const { pool } = require('./src/config/database');
 

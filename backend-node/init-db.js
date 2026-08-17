@@ -1,4 +1,7 @@
 require('dotenv').config();
+const { assertCanRunDestructive } = require('./src/config/db-guard');
+assertCanRunDestructive('init-db');
+
 const { Client } = require('pg');
 const fs = require('fs');
 const path = require('path');

@@ -13,6 +13,9 @@
  * Jalankan: node bukti-total-warga.js
  */
 require('dotenv').config();
+const { assertCanRunTest } = require('./src/config/db-guard');
+assertCanRunTest('bukti-total-warga');
+
 const { pool } = require('./src/config/database');
 const { getWarga } = require('./src/controllers/warga.controller');
 const { getDemographicsSummary } = require('./src/controllers/demographics.controller');

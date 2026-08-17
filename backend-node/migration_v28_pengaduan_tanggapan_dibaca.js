@@ -42,6 +42,9 @@
  *   node migration_v28_pengaduan_tanggapan_dibaca.js
  */
 require('dotenv').config();
+const { assertCanRunMigration } = require('./src/config/db-guard');
+assertCanRunMigration('migration_v28');
+
 const { pool } = require('./src/config/database');
 
 const TABEL = 'complaints';

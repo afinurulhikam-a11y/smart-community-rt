@@ -47,6 +47,8 @@
  * `src/config/permissions.js` — dan `dashboard` sudah tidak ada di sana.
  */
 require('dotenv').config();
+const { assertCanRunMigration } = require('./src/config/db-guard');
+assertCanRunMigration('migration_v31');
 
 const { pool } = require('./src/config/database');
 const { MENU_ITEMS } = require('./src/config/permissions');

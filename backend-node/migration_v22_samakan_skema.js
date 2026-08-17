@@ -32,6 +32,9 @@
  * termasuk Railway.
  */
 require('dotenv').config();
+const { assertCanRunMigration } = require('./src/config/db-guard');
+assertCanRunMigration('migration_v22');
+
 const { pool } = require('./src/config/database');
 
 /** Tabel yang memakai soft delete, sesuai dua skrip migrasi aslinya. */

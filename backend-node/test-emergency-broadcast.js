@@ -25,6 +25,8 @@
  * sungguhan: transaksi, kunci penasihat, validasi, dan otorisasi.
  */
 require('dotenv').config();
+const { assertCanRunTest } = require('./src/config/db-guard');
+assertCanRunTest('test-emergency-broadcast');
 
 const assert = require('assert');
 const { pool } = require('./src/config/database');

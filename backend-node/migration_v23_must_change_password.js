@@ -19,6 +19,9 @@
  * database yang sudah ada (termasuk Railway).
  */
 require('dotenv').config();
+const { assertCanRunMigration } = require('./src/config/db-guard');
+assertCanRunMigration('migration_v23');
+
 const { pool } = require('./src/config/database');
 
 async function jalankan() {

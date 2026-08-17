@@ -40,6 +40,8 @@
  * tampil sesuai urutan registry.
  */
 require('dotenv').config();
+const { assertCanRunMigration } = require('./src/config/db-guard');
+assertCanRunMigration('migration_v32');
 
 const { pool } = require('./src/config/database');
 const { MENU_ITEMS, DEFAULT_PERMISSIONS, ROLES } = require('./src/config/permissions');

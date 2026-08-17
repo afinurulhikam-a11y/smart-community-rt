@@ -1,4 +1,7 @@
 require('dotenv').config();
+const { assertCanRunMigration } = require('../../src/config/db-guard');
+assertCanRunMigration('migration_v11_hak_akses');
+
 const { pool } = require('../../src/config/database');
 const { MENU_ITEMS, DEFAULT_PERMISSIONS } = require('./src/config/permissions');
 

@@ -12,6 +12,9 @@
  *   node migration_v26_bantuan_sosial_tanggal.js
  */
 require('dotenv').config();
+const { assertCanRunMigration } = require('./src/config/db-guard');
+assertCanRunMigration('migration_v26');
+
 const { pool } = require('./src/config/database');
 
 const KOLOM_BARU = [

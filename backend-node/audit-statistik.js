@@ -12,6 +12,9 @@
  *   node audit-statistik.js
  */
 require('dotenv').config();
+const { assertCanRunTest } = require('./src/config/db-guard');
+assertCanRunTest('audit-statistik');
+
 const { pool } = require('./src/config/database');
 const { getDemographicsSummary } = require('./src/controllers/demographics.controller');
 

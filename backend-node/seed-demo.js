@@ -1,4 +1,7 @@
 require('dotenv').config();
+const { assertCanRunDestructive } = require('./src/config/db-guard');
+assertCanRunDestructive('seed-demo');
+
 const bcrypt = require('bcryptjs');
 const { pool } = require('./src/config/database');
 

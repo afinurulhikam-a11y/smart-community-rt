@@ -1,4 +1,7 @@
 require('dotenv').config();
+const { assertCanRunTest } = require('./src/config/db-guard');
+assertCanRunTest('test-iuran-air-phase1');
+
 const jwt = require('jsonwebtoken');
 const { pool } = require('./src/config/database');
 

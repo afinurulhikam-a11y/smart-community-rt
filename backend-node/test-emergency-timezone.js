@@ -33,6 +33,8 @@
  * pun lulus. Justru anak TZ=UTC-lah yang membuat uji ini bergigi.
  */
 require('dotenv').config();
+const { assertCanRunTest } = require('./src/config/db-guard');
+assertCanRunTest('test-emergency-timezone');
 
 const { spawnSync } = require('child_process');
 const assert = require('assert');

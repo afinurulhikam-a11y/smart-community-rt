@@ -28,6 +28,8 @@
  * dikembalikan persis di akhir, termasuk bila ada assert yang gagal di tengah.
  */
 require('dotenv').config();
+const { assertCanRunTest } = require('./src/config/db-guard');
+assertCanRunTest('test-menu-akses');
 
 const assert = require('assert');
 const { pool } = require('./src/config/database');
