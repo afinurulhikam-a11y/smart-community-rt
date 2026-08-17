@@ -138,7 +138,7 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
         // Polling Cards
         Consumer<PollingProvider>(
           builder: (context, provider, _) {
-            if (provider.isLoading) {
+            if (provider.isLoading && provider.pollingList.isEmpty) {
               return const Center(child: CircularProgressIndicator());
             }
 

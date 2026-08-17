@@ -125,7 +125,7 @@ class _DaruratTersinkron extends EmergencyProvider {
   }
 
   @override
-  Future<void> fetchAlerts({String? status, int page = 1, int limit = 10}) async {
+  Future<void> fetchAlerts({String? status, int page = 1, int limit = 10, bool silent = false}) async {
     backend.bacaDaftar++;
     _daftar = backend.idKejadian == null
         ? []

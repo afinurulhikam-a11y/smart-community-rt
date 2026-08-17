@@ -605,7 +605,7 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
               ),
             ),
           ),
-          if (provider.isLoading)
+          if (provider.isLoading && semua.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 40),
               child: Center(child: CircularProgressIndicator()),

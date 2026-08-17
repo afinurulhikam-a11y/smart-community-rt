@@ -193,7 +193,7 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
         // Content
         Consumer<AgendaProvider>(
           builder: (context, provider, _) {
-            if (provider.isLoading) {
+            if (provider.isLoading && provider.agendaList.isEmpty) {
               return const Padding(
                 padding: EdgeInsets.all(40),
                 child: Center(child: CircularProgressIndicator()),

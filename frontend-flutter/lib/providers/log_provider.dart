@@ -49,9 +49,12 @@ class LogProvider extends ChangeNotifier {
     String? tipe,
     DateTime? dari,
     DateTime? sampai,
+    bool silent = false,
   }) async {
-    _isLoading = true;
-    notifyListeners();
+    if (!silent) {
+      _isLoading = true;
+      notifyListeners();
+    }
 
     final queryParams = <String, String>{
       'limit': limit.toString(),

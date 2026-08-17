@@ -194,7 +194,7 @@ class _LetterRequestScreenState extends State<LetterRequestScreen> {
         const SizedBox(height: 16),
 
         // Content
-        letterProvider.isLoading
+        (letterProvider.isLoading && letterProvider.letters.isEmpty)
             ? const Padding(
                 padding: EdgeInsets.symmetric(vertical: 60),
                 child: Center(child: CircularProgressIndicator()),

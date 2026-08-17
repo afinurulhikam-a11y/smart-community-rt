@@ -34,10 +34,13 @@ class BantuanSosialProvider extends ChangeNotifier {
     String? status,
     String? search,
     int page = 1,
+    bool silent = false,
   }) async {
-    _isLoading = true;
+    if (!silent) {
+      _isLoading = true;
+      notifyListeners();
+    }
     _currentPage = page;
-    notifyListeners();
     final queryParams = <String, String>{
       'page': page.toString(),
       'limit': '10',

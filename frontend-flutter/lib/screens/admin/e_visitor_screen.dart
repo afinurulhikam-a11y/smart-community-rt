@@ -235,7 +235,7 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
         // Data Table
         Consumer<VisitorProvider>(
           builder: (context, provider, _) {
-            if (provider.isLoading) {
+            if (provider.isLoading && provider.visitors.isEmpty) {
               return const Center(
                 child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()),
               );

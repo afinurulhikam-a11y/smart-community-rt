@@ -12,10 +12,12 @@ class PollingProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  Future<void> fetchPolling({String? status}) async {
+  Future<void> fetchPolling({String? status, bool silent = false}) async {
     _currentStatusFilter = status;
-    _isLoading = true;
-    notifyListeners();
+    if (!silent) {
+      _isLoading = true;
+      notifyListeners();
+    }
     final queryParams = <String, String>{};
     if (_currentStatusFilter != null && _currentStatusFilter != 'Semua') {
       queryParams['status'] = _currentStatusFilter!;

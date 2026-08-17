@@ -549,7 +549,7 @@ class _KasRtScreenState extends State<KasRtScreen> {
               ),
             ),
           ),
-          if (provider.isLoading)
+          if (provider.isLoading && halamanIni.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 40),
               child: Center(child: CircularProgressIndicator()),

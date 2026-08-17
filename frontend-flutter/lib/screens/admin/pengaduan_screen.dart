@@ -604,7 +604,7 @@ class _PengaduanScreenState extends State<PengaduanScreen> {
               // The Table
               Consumer<ComplaintProvider>(
                 builder: (context, provider, _) {
-                  if (provider.isLoading) {
+                  if (provider.isLoading && provider.complaints.isEmpty) {
                     return const Padding(
                       padding: EdgeInsets.all(40),
                       child: Center(child: CircularProgressIndicator()),

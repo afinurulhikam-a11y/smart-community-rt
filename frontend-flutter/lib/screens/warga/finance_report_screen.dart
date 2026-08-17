@@ -27,7 +27,7 @@ class _FinanceReportScreenState extends State<FinanceReportScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
 
-        if (finance.isLoading)
+        if (finance.isLoading && finance.transactions.isEmpty && finance.summary == null)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 60),
             child: Center(child: CircularProgressIndicator()),

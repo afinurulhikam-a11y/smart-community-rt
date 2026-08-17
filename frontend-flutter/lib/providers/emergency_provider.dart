@@ -402,13 +402,15 @@ class EmergencyProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> fetchAlerts({String? status, int page = 1, int limit = 10}) async {
-    _isLoading = true;
+  Future<void> fetchAlerts({String? status, int page = 1, int limit = 10, bool silent = false}) async {
+    if (!silent) {
+      _isLoading = true;
+      notifyListeners();
+    }
     _currentPage = page;
     _perPage = limit;
     // Diingat supaya `segarkanDarurat()` memuat ulang daftar yang sama.
     _filterStatus = status;
-    notifyListeners();
 
     final queryParams = <String, String>{
       'page': page.toString(),

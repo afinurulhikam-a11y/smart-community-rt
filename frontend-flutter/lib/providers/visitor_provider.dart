@@ -34,9 +34,12 @@ class VisitorProvider extends ChangeNotifier {
     String? search,
     String? tanggal,
     int page = 1,
+    bool silent = false,
   }) async {
-    _isLoading = true;
-    notifyListeners();
+    if (!silent) {
+      _isLoading = true;
+      notifyListeners();
+    }
     final queryParams = <String, String>{
       'page': page.toString(),
       'limit': '10',

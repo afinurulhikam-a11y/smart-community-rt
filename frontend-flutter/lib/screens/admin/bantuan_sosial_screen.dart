@@ -497,7 +497,7 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
         // Data Section
         Consumer<BantuanSosialProvider>(
           builder: (context, provider, _) {
-            if (provider.isLoading) {
+            if (provider.isLoading && provider.bantuanList.isEmpty) {
               return const Center(
                 child: Padding(
                   padding: EdgeInsets.all(40),

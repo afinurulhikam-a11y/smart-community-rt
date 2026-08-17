@@ -461,7 +461,7 @@ class _StatusDaruratScreenState extends State<StatusDaruratScreen> {
               // Table
               Consumer<EmergencyProvider>(
                 builder: (context, emergency, child) {
-                  if (emergency.isLoading) {
+                  if (emergency.isLoading && emergency.alerts.isEmpty) {
                     return const Padding(
                       padding: EdgeInsets.all(40),
                       child: Center(child: CircularProgressIndicator(color: Color(0xFFEF4444))),

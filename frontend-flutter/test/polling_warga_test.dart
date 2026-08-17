@@ -11,7 +11,7 @@ import 'bantuan_uji.dart';
 
 class _PollingTanpaJaringan extends PollingProvider {
   @override
-  Future<void> fetchPolling({String? status}) async {}
+  Future<void> fetchPolling({String? status, bool silent = false}) async {}
 }
 
 Map<String, dynamic> _pollingFixture({

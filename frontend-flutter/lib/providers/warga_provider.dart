@@ -22,9 +22,11 @@ class WargaProvider extends ChangeNotifier {
   int get totalData => _totalData;
   int get perPage => _perPage;
 
-  Future<void> fetchWarga({String? search, int page = 1}) async {
-    _isLoading = true;
-    notifyListeners();
+  Future<void> fetchWarga({String? search, int page = 1, bool silent = false}) async {
+    if (!silent) {
+      _isLoading = true;
+      notifyListeners();
+    }
     final queryParams = <String, String>{
       'page': page.toString(),
       'limit': '10',
