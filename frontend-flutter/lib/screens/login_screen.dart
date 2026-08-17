@@ -358,6 +358,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 8),
               TextFormField(
                 controller: _emailController,
+                textAlignVertical: TextAlignVertical.center,
                 keyboardType: TextInputType.text,
                 autofillHints: const [AutofillHints.username],
                 // Enter di kolom ini mengirim form, sama seperti menekan tombol
@@ -376,12 +377,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 // non-NIK.
                 inputFormatters: [LengthLimitingTextInputFormatter(16)],
                 decoration: InputDecoration(
+                  isDense: true,
                   hintText: 'Masukkan NIK atau Username',
                   hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                  prefixIconConstraints: const BoxConstraints(minWidth: 46, minHeight: 46),
                   prefixIcon: const Icon(
-                    Icons.person_outline,
+                    Icons.person_outline_rounded,
                     color: Color(0xFF64748B),
-                    size: 20,
+                    size: 21,
                   ),
                   filled: true,
                   fillColor: const Color(0xFFF8FAFC),
@@ -397,7 +400,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     borderRadius: BorderRadius.circular(12),
                     borderSide: const BorderSide(color: Color(0xFF1B7A6A), width: 1.5),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
                 style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
                 validator: (v) {
@@ -422,20 +425,30 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 8),
               TextFormField(
                 controller: _passwordController,
+                textAlignVertical: TextAlignVertical.center,
                 obscureText: _obscurePassword,
                 keyboardType: TextInputType.text,
                 autofillHints: const [AutofillHints.password],
                 textInputAction: TextInputAction.go,
                 onFieldSubmitted: (_) => _handleLogin(),
                 decoration: InputDecoration(
+                  isDense: true,
                   hintText: 'Masukkan password',
                   hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-                  prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF64748B), size: 20),
+                  prefixIconConstraints: const BoxConstraints(minWidth: 46, minHeight: 46),
+                  prefixIcon: const Icon(
+                    Icons.lock_outline_rounded,
+                    color: Color(0xFF64748B),
+                    size: 20,
+                  ),
+                  suffixIconConstraints: const BoxConstraints(minWidth: 46, minHeight: 46),
                   suffixIcon: IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 46, minHeight: 46),
                     icon: Icon(
                       _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                       color: const Color(0xFF64748B),
-                      size: 18,
+                      size: 20,
                     ),
                     onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                   ),
@@ -453,7 +466,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     borderRadius: BorderRadius.circular(12),
                     borderSide: const BorderSide(color: Color(0xFF1B7A6A), width: 1.5),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
                 style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
                 validator: (v) {
