@@ -2407,7 +2407,22 @@ class _MainDashboardState extends State<MainDashboard> {
                         helperText: 'Wajib diisi',
                         errorText: galatKeterangan,
                         alignLabelWithHint: true,
-                        prefixIcon: const Icon(Icons.notes_rounded),
+                        prefixIcon: Align(
+                          alignment: Alignment.topCenter,
+                          widthFactor: 1.0,
+                          heightFactor: 1.0,
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 12, right: 8),
+                            child: Transform.translate(
+                              offset: const Offset(0, -4),
+                              child: const Icon(Icons.notes_rounded, size: 20),
+                            ),
+                          ),
+                        ),
+                        prefixIconConstraints: const BoxConstraints(
+                          minWidth: 40,
+                          minHeight: 0,
+                        ),
                       ),
                       onChanged: (v) {
                         if (galatKeterangan != null &&
