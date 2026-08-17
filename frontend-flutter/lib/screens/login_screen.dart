@@ -55,7 +55,12 @@ class _LoginScreenState extends State<LoginScreen> {
     final auth = context.read<AuthService>();
     try {
       final success = await auth.login(_emailController.text.trim(), _passwordController.text);
-      if (!success && mounted) {
+      if (success) {
+        // Sinyalkan konteks autofill sukses sehingga peramban web (Chrome/Edge)
+        // dan pengelola kata sandi OS (Google Password Manager/Keychain)
+        // memunculkan dialog tawaran simpan sandi otomatis.
+        TextInput.finishAutofillContext(shouldSave: true);
+      } else if (mounted) {
         pesanGagal(context, auth.errorMessage ?? 'Login gagal');
       }
     } finally {
@@ -309,216 +314,225 @@ class _LoginScreenState extends State<LoginScreen> {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: isDesktop ? 48 : 24, vertical: isDesktop ? 40 : 8),
       color: Colors.white,
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (isDesktop) ...[
+      child: AutofillGroup(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (isDesktop) ...[
+                const Text(
+                  'Selamat Datang',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1E293B),
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Masukkan Akun Anda untuk melanjutkan',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+                const SizedBox(height: 36),
+              ],
+
+              // Username Field
               const Text(
-                'Selamat Datang',
+                'USERNAME (NIK)',
                 style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1E293B),
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Masukkan Akun Anda untuk melanjutkan',
-                style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
                   color: Color(0xFF64748B),
+                  letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(height: 36),
-            ],
-
-            // Username Field
-            const Text(
-              'USERNAME (NIK)',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF64748B),
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _emailController,
-              // Enter di kolom ini mengirim form, sama seperti menekan tombol
-              // "Masuk ke Sistem". `TextInputAction.go` dipilih, bukan `.next`:
-              // label "berikutnya" pada papan tombol ponsel menjanjikan
-              // perpindahan fokus yang tidak terjadi — tombolnya tetap
-              // mengirim, karena keduanya sama-sama memicu `onFieldSubmitted`.
-              textInputAction: TextInputAction.go,
-              onFieldSubmitted: (_) => _handleLogin(),
-              // Batasi maksimal 16 karakter — NIK warga selalu 16 digit.
-              // `LengthLimitingTextInputFormatter` berlaku saat mengetik maupun
-              // menempel (paste), dan memotong kelebihan sebelum validator
-              // berjalan. `FilteringTextInputFormatter.digitsOnly` SENGAJA tidak
-              // dipakai: field ini juga menerima username/email pengurus yang
-              // mengandung huruf, jadi memaksa digit saja akan memutus login
-              // non-NIK.
-              inputFormatters: [LengthLimitingTextInputFormatter(16)],
-              decoration: InputDecoration(
-                hintText: 'Masukkan NIK atau Username',
-                hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-                prefixIcon: const Icon(
-                  Icons.person_outline,
-                  color: Color(0xFF64748B),
-                  size: 20,
-                ),
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF1B7A6A), width: 1.5),
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-              style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
-              validator: (v) {
-                if (v == null || v.isEmpty) return 'Username wajib diisi';
-                if (v.length > 16) return 'Maksimal 16 karakter';
-                return null;
-              },
-            ),
-
-            const SizedBox(height: 20),
-
-            // Password Field
-            const Text(
-              'PASSWORD',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF64748B),
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _passwordController,
-              obscureText: _obscurePassword,
-              textInputAction: TextInputAction.go,
-              onFieldSubmitted: (_) => _handleLogin(),
-              decoration: InputDecoration(
-                hintText: 'Masukkan password',
-                hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
-                prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF64748B), size: 20),
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                    color: const Color(0xFF64748B),
-                    size: 18,
-                  ),
-                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                ),
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF1B7A6A), width: 1.5),
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-              style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
-              validator: (v) {
-                if (v == null || v.isEmpty) return 'Password wajib diisi';
-                return null;
-              },
-            ),
-
-            SizedBox(height: isDesktop ? 32 : 20),
-
-            // Login Button
-            SizedBox(
-              width: double.infinity,
-              height: 44,
-              child: ElevatedButton.icon(
-                // `_sedangMasuk` ikut dibaca supaya tombol dan spinner berubah
-                // pada frame yang sama dengan pemicuannya. Bila hanya
-                // `auth.isLoading`, menekan Enter tidak memberi tanda apa pun
-                // sampai `notifyListeners()` sempat membangun ulang — dan diam
-                // sesaat itulah yang membuat orang menekan Enter sekali lagi.
-                onPressed: sedangProses ? null : _handleLogin,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1B7A6A),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 0,
-                ),
-                icon: sedangProses ? const SizedBox() : const Icon(Icons.login_rounded, size: 18),
-                label: sedangProses
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                      )
-                    : const Text(
-                        'Masuk',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-              ),
-            ),
-
-            if (isDesktop) const Spacer() else const SizedBox(height: 16),
-
-            Center(
-              child: Wrap(
-                alignment: WrapAlignment.center,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Text(
-                    'Butuh bantuan ? Hubungi ',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: const Color(0xFF64748B).withValues(alpha: 0.9),
-                    ),
-                  ),
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: GestureDetector(
-                      onTap: _bukaBantuanWhatsApp,
-                      child: const Text(
-                        'pengurus RT',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF1B7A6A),
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    ),
-                  ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.text,
+                autofillHints: const [
+                  AutofillHints.username,
+                  AutofillHints.telephoneNumber,
                 ],
+                // Enter di kolom ini mengirim form, sama seperti menekan tombol
+                // "Masuk ke Sistem". `TextInputAction.go` dipilih, bukan `.next`:
+                // label "berikutnya" pada papan tombol ponsel menjanjikan
+                // perpindahan fokus yang tidak terjadi — tombolnya tetap
+                // mengirim, karena keduanya sama-sama memicu `onFieldSubmitted`.
+                textInputAction: TextInputAction.go,
+                onFieldSubmitted: (_) => _handleLogin(),
+                // Batasi maksimal 16 karakter — NIK warga selalu 16 digit.
+                // `LengthLimitingTextInputFormatter` berlaku saat mengetik maupun
+                // menempel (paste), dan memotong kelebihan sebelum validator
+                // berjalan. `FilteringTextInputFormatter.digitsOnly` SENGAJA tidak
+                // dipakai: field ini juga menerima username/email pengurus yang
+                // mengandung huruf, jadi memaksa digit saja akan memutus login
+                // non-NIK.
+                inputFormatters: [LengthLimitingTextInputFormatter(16)],
+                decoration: InputDecoration(
+                  hintText: 'Masukkan NIK atau Username',
+                  hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                  prefixIcon: const Icon(
+                    Icons.person_outline,
+                    color: Color(0xFF64748B),
+                    size: 20,
+                  ),
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF1B7A6A), width: 1.5),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Username wajib diisi';
+                  if (v.length > 16) return 'Maksimal 16 karakter';
+                  return null;
+                },
               ),
-            ),
-          ],
+
+              const SizedBox(height: 20),
+
+              // Password Field
+              const Text(
+                'PASSWORD',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF64748B),
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _passwordController,
+                obscureText: _obscurePassword,
+                keyboardType: TextInputType.visiblePassword,
+                autofillHints: const [AutofillHints.password],
+                textInputAction: TextInputAction.go,
+                onFieldSubmitted: (_) => _handleLogin(),
+                decoration: InputDecoration(
+                  hintText: 'Masukkan password',
+                  hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                  prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF64748B), size: 20),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      color: const Color(0xFF64748B),
+                      size: 18,
+                    ),
+                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  ),
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF1B7A6A), width: 1.5),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Password wajib diisi';
+                  return null;
+                },
+              ),
+
+              SizedBox(height: isDesktop ? 32 : 20),
+
+              // Login Button
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: ElevatedButton.icon(
+                  // `_sedangMasuk` ikut dibaca supaya tombol dan spinner berubah
+                  // pada frame yang sama dengan pemicuannya. Bila hanya
+                  // `auth.isLoading`, menekan Enter tidak memberi tanda apa pun
+                  // sampai `notifyListeners()` sempat membangun ulang — dan diam
+                  // sesaat itulah yang membuat orang menekan Enter sekali lagi.
+                  onPressed: sedangProses ? null : _handleLogin,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1B7A6A),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                  icon: sedangProses ? const SizedBox() : const Icon(Icons.login_rounded, size: 18),
+                  label: sedangProses
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                        )
+                      : const Text(
+                          'Masuk',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                ),
+              ),
+
+              if (isDesktop) const Spacer() else const SizedBox(height: 16),
+
+              Center(
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      'Butuh bantuan ? Hubungi ',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: const Color(0xFF64748B).withValues(alpha: 0.9),
+                      ),
+                    ),
+                    MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: GestureDetector(
+                        onTap: _bukaBantuanWhatsApp,
+                        child: const Text(
+                          'pengurus RT',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1B7A6A),
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
