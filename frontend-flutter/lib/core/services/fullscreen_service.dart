@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'fullscreen_stub.dart'
-    if (dart.library.html) 'fullscreen_web.dart' as impl;
+    if (dart.library.js_interop) 'fullscreen_web.dart' as impl;
 
 /// Layanan untuk mengendalikan mode layar penuh (fullscreen) pada web/browser.
 class FullscreenService {
