@@ -2150,10 +2150,10 @@ class _MainDashboardState extends State<MainDashboard> {
                   ),
                 ),
               ] else ...[
-                // Calm state
+                // Calm state (Opsi A: Centered)
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
                   decoration: BoxDecoration(
                     color: _gelap
                         ? const Color(0xFF059669).withValues(alpha: 0.06)
@@ -2163,38 +2163,36 @@ class _MainDashboardState extends State<MainDashboard> {
                       color: const Color(0xFF059669).withValues(alpha: 0.15),
                     ),
                   ),
-                  child: Row(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Icon(
-                        Icons.verified_rounded,
-                        size: 24,
-                        color: const Color(0xFF059669).withValues(alpha: 0.8),
+                        Icons.verified_user_rounded,
+                        size: 32,
+                        color: const Color(0xFF059669).withValues(alpha: 0.85),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Lingkungan Aman & Siaga',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: _gelap
-                                    ? Colors.white70
-                                    : const Color(0xFF166534),
-                              ),
-                            ),
-                            Text(
-                              'Tidak ada laporan bahaya / insiden aktif',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: _gelap
-                                    ? Colors.white38
-                                    : const Color(0xFF4ADE80),
-                              ),
-                            ),
-                          ],
+                      const SizedBox(height: 6),
+                      Text(
+                        'Lingkungan Aman & Siaga',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: _gelap
+                              ? Colors.white70
+                              : const Color(0xFF166534),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Tidak ada laporan bahaya / insiden aktif',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: _gelap
+                              ? Colors.white38
+                              : const Color(0xFF4ADE80),
                         ),
                       ),
                     ],
