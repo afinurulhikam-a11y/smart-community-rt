@@ -1988,191 +1988,25 @@ class _MainDashboardState extends State<MainDashboard> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Header
-          Row(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: menyala
-                      ? const Color(0xFFEF4444).withValues(alpha: 0.12)
-                      : const Color(0xFF059669).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.crisis_alert,
-                  color: menyala
-                      ? const Color(0xFFEF4444)
-                      : const Color(0xFF059669),
-                  size: 18,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Status & Kendali Darurat',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: context.teksUtama,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Monitoring & sirene bahaya RT',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: context.teksTersier,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              // Status badge
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: menyala
-                      ? const Color(0xFFEF4444).withValues(alpha: 0.12)
-                      : const Color(0xFF059669).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: menyala
-                        ? const Color(0xFFEF4444).withValues(alpha: 0.4)
-                        : const Color(0xFF059669).withValues(alpha: 0.4),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: menyala
-                            ? const Color(0xFFEF4444)
-                            : const Color(0xFF059669),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      menyala ? 'AKTIF' : 'SIAGA',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: menyala
-                            ? const Color(0xFFEF4444)
-                            : const Color(0xFF059669),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 14),
-
-          // Content
-          if (menyala) ...[
-            // Active alert details
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEF4444).withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFFEF4444).withValues(alpha: 0.25),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              // Header
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.campaign_rounded,
-                        size: 16,
-                        color: Color(0xFFEF4444),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          emergency.namaPengaktif.isNotEmpty
-                              ? 'Aktif oleh ${emergency.namaPengaktif}'
-                              : (activeAlerts.isNotEmpty
-                                    ? (activeAlerts.first.namaWarga ??
-                                          'Warga RT')
-                                    : 'Sirene Darurat Aktif'),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: context.teksUtama,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (activeAlerts.isNotEmpty)
-                        Text(
-                          DateFormat(
-                            'HH:mm',
-                          ).format(activeAlerts.first.createdAt),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: context.teksTersier,
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    emergency.keteranganKejadianTampil.isNotEmpty
-                        ? emergency.keteranganKejadianTampil
-                        : (activeAlerts.isNotEmpty
-                              ? activeAlerts.first.message
-                              : 'Perintah menyalakan sirene lingkungan sedang aktif.'),
-                    style: TextStyle(
-                      fontSize: 12,
-                      height: 1.35,
-                      color: context.teksUtama,
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ] else ...[
-            // Calm state
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-              decoration: BoxDecoration(
-                color: _gelap
-                    ? const Color(0xFF059669).withValues(alpha: 0.06)
-                    : const Color(0xFFF0FDF4),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFF059669).withValues(alpha: 0.15),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.verified_rounded,
-                    size: 24,
-                    color: const Color(0xFF059669).withValues(alpha: 0.8),
+                    child: const Icon(
+                      Icons.crisis_alert,
+                      color: Color(0xFF2563EB),
+                      size: 18,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -2180,22 +2014,63 @@ class _MainDashboardState extends State<MainDashboard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Lingkungan Aman & Siaga',
+                          'Status & Kendali Darurat',
                           style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: _gelap
-                                ? Colors.white70
-                                : const Color(0xFF166534),
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: context.teksUtama,
                           ),
                         ),
+                        const SizedBox(height: 2),
                         Text(
-                          'Tidak ada laporan bahaya / insiden aktif',
+                          'Monitoring & sirene bahaya RT',
                           style: TextStyle(
                             fontSize: 11,
-                            color: _gelap
-                                ? Colors.white38
-                                : const Color(0xFF4ADE80),
+                            color: context.teksTersier,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Status badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: menyala
+                          ? const Color(0xFFEF4444).withValues(alpha: 0.12)
+                          : const Color(0xFF059669).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: menyala
+                            ? const Color(0xFFEF4444).withValues(alpha: 0.4)
+                            : const Color(0xFF059669).withValues(alpha: 0.4),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: menyala
+                                ? const Color(0xFFEF4444)
+                                : const Color(0xFF059669),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          menyala ? 'AKTIF' : 'SIAGA',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: menyala
+                                ? const Color(0xFFEF4444)
+                                : const Color(0xFF059669),
                           ),
                         ),
                       ],
@@ -2203,10 +2078,133 @@ class _MainDashboardState extends State<MainDashboard> {
                   ),
                 ],
               ),
-            ),
-          ],
 
-          const SizedBox(height: 12),
+              const SizedBox(height: 16),
+
+              // Content / Status Banner
+              if (menyala) ...[
+                // Active alert details
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFFEF4444).withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.campaign_rounded,
+                            size: 16,
+                            color: Color(0xFFEF4444),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              emergency.namaPengaktif.isNotEmpty
+                                  ? 'Aktif oleh ${emergency.namaPengaktif}'
+                                  : (activeAlerts.isNotEmpty
+                                      ? (activeAlerts.first.namaWarga ?? 'Warga RT')
+                                      : 'Sirene Darurat Aktif'),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: context.teksUtama,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (activeAlerts.isNotEmpty)
+                            Text(
+                              DateFormat('HH:mm').format(activeAlerts.first.createdAt),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: context.teksTersier,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        emergency.keteranganKejadianTampil.isNotEmpty
+                            ? emergency.keteranganKejadianTampil
+                            : (activeAlerts.isNotEmpty
+                                ? activeAlerts.first.message
+                                : 'Perintah menyalakan sirene lingkungan sedang aktif.'),
+                        style: TextStyle(
+                          fontSize: 12,
+                          height: 1.35,
+                          color: context.teksUtama,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                // Calm state
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: _gelap
+                        ? const Color(0xFF059669).withValues(alpha: 0.06)
+                        : const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFF059669).withValues(alpha: 0.15),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.verified_rounded,
+                        size: 24,
+                        color: const Color(0xFF059669).withValues(alpha: 0.8),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Lingkungan Aman & Siaga',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: _gelap
+                                    ? Colors.white70
+                                    : const Color(0xFF166534),
+                              ),
+                            ),
+                            Text(
+                              'Tidak ada laporan bahaya / insiden aktif',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: _gelap
+                                    ? Colors.white38
+                                    : const Color(0xFF4ADE80),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+
+          const SizedBox(height: 14),
 
           // Action Buttons
           LayoutBuilder(
