@@ -59,6 +59,14 @@ class _DataKkScreenState extends State<DataKkScreen> {
     );
   }
 
+  void _resetFilter() {
+    setState(() {
+      _ctlCari.clear();
+      _halaman = 1;
+    });
+    _muatData();
+  }
+
 
   void _pesan(String teks, {bool sukses = true}) {
     if (!mounted) return;
@@ -698,54 +706,81 @@ class _DataKkScreenState extends State<DataKkScreen> {
               border: Border.all(color: context.garis),
             ),
             child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 460),
-                child: Row(
-                  children: [
-                    Text(
-                      'Pencarian',
-                      style: TextStyle(fontSize: 13, color: context.teksKedua),
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 12,
+                runSpacing: 8,
+                children: [
+                  Text(
+                    'Pencarian',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: context.teksKedua,
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _ctlCari,
-                        onSubmitted: (_) {
-                          _halaman = 1;
-                          _muatData();
-                        },
-                        decoration: InputDecoration(
-                          hintText: 'Cari No KK, Kepala Keluarga, Alamat...',
-                          hintStyle: TextStyle(fontSize: 12, color: context.teksTersier),
-                          prefixIcon: Icon(Icons.search, size: 18, color: context.teksKedua),
-                          suffixIcon: IconButton(
-                            icon: const Icon(Icons.arrow_forward, size: 16),
-                            onPressed: () {
-                              _halaman = 1;
-                              _muatData();
-                            },
-                          ),
-                          filled: true,
-                          fillColor: context.latarLembut,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: context.garis),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: context.garis),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(color: Color(0xFF1B7A6A), width: 1.5),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                  ),
+                  SizedBox(
+                    width: 280,
+                    child: TextField(
+                      controller: _ctlCari,
+                      style: TextStyle(color: context.teksUtama, fontSize: 13),
+                      textInputAction: TextInputAction.search,
+                      onSubmitted: (_) {
+                        _halaman = 1;
+                        _muatData();
+                      },
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: context.latarLembut,
+                        hintStyle: TextStyle(color: context.teksTersier, fontSize: 12),
+                        hintText: 'Cari No KK, Kepala Keluarga, Alamat...',
+                        prefixIcon: Icon(Icons.search, size: 18, color: context.teksKedua),
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.arrow_forward, size: 16),
+                          onPressed: () {
+                            _halaman = 1;
+                            _muatData();
+                          },
                         ),
-                        style: const TextStyle(fontSize: 13),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: context.garis),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: context.garis),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(color: Color(0xFF1B7A6A), width: 1.5),
+                        ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _resetFilter,
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: const Text(
+                      'Reset',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: context.teksKedua,
+                      side: BorderSide(color: context.garis),
+                      visualDensity: VisualDensity.standard,
+                      minimumSize: const Size(0, AppTheme.sasaranSentuh),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 0,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
