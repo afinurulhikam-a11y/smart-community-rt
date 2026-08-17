@@ -1016,6 +1016,7 @@ class _MainDashboardState extends State<MainDashboard> {
             ),
       title: Text(judulMenu(_selectedMenuIndex, warga: warga)),
       actions: [
+        const TombolFullscreen(size: 18),
         IconButton(
           tooltip: _gelap ? 'Mode terang' : 'Mode gelap',
           icon: Icon(
@@ -1023,7 +1024,6 @@ class _MainDashboardState extends State<MainDashboard> {
           ),
           onPressed: _gantiTema,
         ),
-        const TombolFullscreen(size: 18),
         PopupMenuButton<String>(
           tooltip: 'Menu Akun',
           offset: const Offset(0, 48),
@@ -1127,6 +1127,10 @@ class _MainDashboardState extends State<MainDashboard> {
               ],
             ),
           ),
+
+          // Tombol layar penuh (fullscreen)
+          const TombolFullscreen(),
+          SizedBox(width: sempit ? 8 : 12),
 
           // Tombol mode gelap.
           //
@@ -1241,8 +1245,6 @@ class _MainDashboardState extends State<MainDashboard> {
               ),
             ),
           ),
-          SizedBox(width: sempit ? 8 : 12),
-          const TombolFullscreen(),
         ],
       ),
     );
