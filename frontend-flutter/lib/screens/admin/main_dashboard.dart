@@ -1713,13 +1713,13 @@ class _MainDashboardState extends State<MainDashboard> {
 
         const SizedBox(height: 24),
 
-        // === BARIS 2: STATUS DARURAT + PENGADUAN WARGA ===
+        // === BARIS 2: PENGADUAN WARGA + STATUS DARURAT ===
         if (pakaiKartu(context)) ...[
-          if (izin.bolehLihat('aspirasi.darurat')) _buildStatusDaruratCard(),
-          if (izin.bolehLihat('aspirasi.darurat') &&
-              izin.bolehLihat('aspirasi.pengaduan'))
-            const SizedBox(height: 16),
           if (izin.bolehLihat('aspirasi.pengaduan')) _buildPengaduanCard(),
+          if (izin.bolehLihat('aspirasi.pengaduan') &&
+              izin.bolehLihat('aspirasi.darurat'))
+            const SizedBox(height: 16),
+          if (izin.bolehLihat('aspirasi.darurat')) _buildStatusDaruratCard(),
         ] else ...[
           IntrinsicHeight(
             child: Row(
