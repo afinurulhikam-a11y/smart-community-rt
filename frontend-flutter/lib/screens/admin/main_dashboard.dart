@@ -78,6 +78,8 @@ class _MainDashboardState extends State<MainDashboard> {
   int _selectedMenuIndex = 0;
   final List<int> _menuHistory = [];
   String _chartDataSource = 'Kas RT';
+  int _chartSelectedYear = 2026;
+  static const List<int> _chartYearOptions = [2026, 2027, 2028, 2029, 2030];
   bool _isEmergencyDialogShowing = false;
   final Set<String> _dismissedPopupAlertIds = {};
   final Set<String> _dismissingAlertIds = {};
@@ -173,7 +175,7 @@ class _MainDashboardState extends State<MainDashboard> {
         final finP = context.read<FinanceProvider>();
         futures.add(finP.fetchTransactions());
         futures.add(finP.fetchSummary(bulan: null, sumber: null));
-        futures.add(finP.fetchBulanan());
+        futures.add(finP.fetchBulanan(tahun: _chartSelectedYear));
       }
       if (userRole == 'warga' || izin.bolehLihat('layanan.surat', userRole: userRole)) {
         futures.add(context.read<LetterProvider>().fetchLetters());
@@ -190,7 +192,7 @@ class _MainDashboardState extends State<MainDashboard> {
         final bopP = context.read<BopProvider>();
         futures.add(bopP.fetchSummary());
         futures.add(bopP.fetchTransactions());
-        futures.add(bopP.fetchBulanan());
+        futures.add(bopP.fetchBulanan(tahun: _chartSelectedYear));
       }
       if (izin.bolehLihat('kependudukan.statistik', userRole: userRole) ||
           izin.bolehLihat('kependudukan.warga', userRole: userRole)) {
@@ -265,10 +267,10 @@ class _MainDashboardState extends State<MainDashboard> {
         await tagihan.fetchStatsBulanIni();
       case 22:
         await kas.refresh();
-        await kas.fetchBulanan();
+        await kas.fetchBulanan(tahun: _chartSelectedYear);
       case 23:
         await bop.refresh();
-        await bop.fetchBulanan();
+        await bop.fetchBulanan(tahun: _chartSelectedYear);
       case 31:
       case 32:
         await inventaris.fetchInventory();
@@ -2561,40 +2563,38 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   Widget _buildFinancialChart(List<Map<String, dynamic>> bulanan) {
-    // Agregat per bulan datang dari backend (GET /finances/bulanan dan
-    // /bop/bulanan), dijumlahkan di SQL atas SEMUA baris. Dulu chart ini
-    // dibangun dari daftar transaksi yang ter-paginate — hanya halaman pertama
-    // — sehingga bulan-bulan di luar halaman itu dilaporkan nol padahal datanya
-    // ada.
-    final now = DateTime.now();
+    // Agregat 12 bulan (Januari s.d. Desember) untuk tahun yang dipilih
     final List<Map<String, dynamic>> monthlyData = [];
 
-    // Enam bulan dengan label "Agu 2026" membutuhkan sekitar 55px per label,
-    // sedangkan di ponsel hanya tersedia ~222px untuk keenamnya — barisnya
-    // meluber dan sebagian bulan terpotong. Di layar sempit grafiknya karena
-    // itu menampilkan empat bulan terakhir dengan label bulan saja.
-    final sempit = pakaiKartu(context);
-    final jumlahBulan = sempit ? 4 : 6;
-    final polaLabel = sempit ? 'MMM' : 'MMM yyyy';
+    const namaBulan = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+    ];
 
-    // Backend hanya mengembalikan bulan yang MEMILIKI transaksi; bulan kosong
-    // diisi nol di sini agar sumbu tetap utuh dan tidak melompat-lompat.
     final perBulan = <String, Map<String, dynamic>>{
       for (final b in bulanan) b['bulan'].toString(): b,
     };
 
-    for (int i = jumlahBulan - 1; i >= 0; i--) {
-      final month = DateTime(now.year, now.month - i, 1);
-      final monthLabel = DateFormat(polaLabel, 'id_ID').format(month);
-      final monthKey = DateFormat('yyyy-MM').format(month);
+    double totalPemasukanTahun = 0;
+    double totalPengeluaranTahun = 0;
 
-      final data = perBulan[monthKey];
+    for (int i = 1; i <= 12; i++) {
+      final bulanKey = '$_chartSelectedYear-${i.toString().padLeft(2, '0')}';
+      final data = perBulan[bulanKey];
+      final masuk = (data?['pemasukan'] as num?)?.toDouble() ?? 0;
+      final keluar = (data?['pengeluaran'] as num?)?.toDouble() ?? 0;
+
+      totalPemasukanTahun += masuk;
+      totalPengeluaranTahun += keluar;
+
       monthlyData.add({
-        'label': monthLabel,
-        'pemasukan': (data?['pemasukan'] as num?)?.toDouble() ?? 0,
-        'pengeluaran': (data?['pengeluaran'] as num?)?.toDouble() ?? 0,
+        'label': namaBulan[i - 1],
+        'pemasukan': masuk,
+        'pengeluaran': keluar,
       });
     }
+
+    final double selisihBersih = totalPemasukanTahun - totalPengeluaranTahun;
 
     // Calculate max value for scaling
     double maxValue = 0;
@@ -2602,10 +2602,10 @@ class _MainDashboardState extends State<MainDashboard> {
       maxValue = math.max(maxValue, (d['pemasukan'] as double));
       maxValue = math.max(maxValue, (d['pengeluaran'] as double));
     }
-    if (maxValue == 0) maxValue = 1000000; // Default scale if no data
+    if (maxValue == 0) maxValue = 1000000;
 
-    // Round up maxValue to a nice number
     final double niceMax = _niceMaxValue(maxValue);
+    final bool isMobile = pakaiKartu(context);
 
     return Container(
       width: double.infinity,
@@ -2627,14 +2627,8 @@ class _MainDashboardState extends State<MainDashboard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
-          //
-          // Di ponsel judul dan pemilih sumber data DITUMPUK, tidak sebaris.
-          // Sebaris, pemilihnya memakan ~120px dan ikonnya ~48px, menyisakan
-          // sekitar 130px untuk judul — "Pemasukan vs Pengeluaran" dan
-          // keterangannya sama-sama terpotong elipsis. Ditumpuk, judulnya
-          // mendapat lebar penuh dan terbaca utuh.
-          if (pakaiKartu(context)) ...[
+          // Header Controls
+          if (isMobile) ...[
             Row(
               children: [
                 Container(
@@ -2643,9 +2637,9 @@ class _MainDashboardState extends State<MainDashboard> {
                     color: const Color(0xFF0D9488).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.bar_chart_rounded,
-                    color: const Color(0xFF0D9488),
+                    color: Color(0xFF0D9488),
                     size: 20,
                   ),
                 ),
@@ -2654,9 +2648,12 @@ class _MainDashboardState extends State<MainDashboard> {
               ],
             ),
             const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: _pemilihSumberGrafik(),
+            Row(
+              children: [
+                Expanded(child: _pemilihSumberGrafik()),
+                const SizedBox(width: 8),
+                _pemilihTahunGrafik(),
+              ],
             ),
           ] else
             Row(
@@ -2667,9 +2664,9 @@ class _MainDashboardState extends State<MainDashboard> {
                     color: const Color(0xFF0D9488).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.bar_chart_rounded,
-                    color: const Color(0xFF0D9488),
+                    color: Color(0xFF0D9488),
                     size: 20,
                   ),
                 ),
@@ -2677,86 +2674,142 @@ class _MainDashboardState extends State<MainDashboard> {
                 Expanded(child: _judulGrafik()),
                 const SizedBox(width: 12),
                 _pemilihSumberGrafik(),
+                const SizedBox(width: 8),
+                _pemilihTahunGrafik(),
               ],
             ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
-          // Chart Area
-          SizedBox(
-            height: 260,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+          // Ringkasan Finansial Tahunan
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: _gelap
+                  ? const Color(0xFF1E293B).withValues(alpha: 0.5)
+                  : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: context.garis),
+            ),
+            child: Wrap(
+              spacing: 20,
+              runSpacing: 10,
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                // Y-axis labels
-                SizedBox(
-                  width: 50,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: List.generate(5, (i) {
-                      final val = niceMax - (niceMax / 4 * i);
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: Text(
-                          _formatChartValue(val),
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: context.teksTersier,
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
+                _buildFinancialMiniStat(
+                  'Total Pemasukan $_chartSelectedYear',
+                  _formatRupiah(totalPemasukanTahun),
+                  const Color(0xFF0D9488),
+                  Icons.arrow_downward_rounded,
                 ),
-
-                // Chart body
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      return CustomPaint(
-                        painter: _BarChartPainter(
-                          data: monthlyData,
-                          maxValue: niceMax,
-                          isDarkMode: _gelap,
-                        ),
-                        child: const SizedBox.expand(),
-                      );
-                    },
-                  ),
+                _buildFinancialMiniStat(
+                  'Total Pengeluaran $_chartSelectedYear',
+                  _formatRupiah(totalPengeluaranTahun),
+                  const Color(0xFFEF4444),
+                  Icons.arrow_upward_rounded,
+                ),
+                _buildFinancialMiniStat(
+                  selisihBersih >= 0 ? 'Surplus Kas' : 'Defisit Kas',
+                  _formatRupiah(selisihBersih.abs()),
+                  selisihBersih >= 0 ? const Color(0xFF059669) : const Color(0xFFDC2626),
+                  selisihBersih >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
                 ),
               ],
             ),
           ),
 
-          const SizedBox(height: 8),
+          const SizedBox(height: 20),
 
-          // X-axis labels
-          //
-          // Tiap label diberi jatah selebar satu kolom grafik lewat Expanded.
-          // Dengan Row spaceAround, label yang lebih lebar dari jatahnya
-          // mendorong tetangganya sampai meluber — itulah yang terjadi pada
-          // label "Agu 2026". Sekarang jatahnya pasti sama rata dan teks yang
-          // tidak muat dipotong dengan elipsis, bukan meluber.
-          Padding(
-            padding: const EdgeInsets.only(left: 50),
-            child: Row(
-              children: monthlyData.map((d) {
-                return Expanded(
-                  child: Text(
-                    d['label'] as String,
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: context.teksKedua,
+          // Chart Area (12 Bulan)
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final bool butuhScroll = constraints.maxWidth < 460;
+              final double chartWidth = butuhScroll ? 460 : constraints.maxWidth;
+
+              final Widget chartWidget = SizedBox(
+                width: chartWidth,
+                child: Column(
+                  children: [
+                    SizedBox(
+                      height: 240,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Y-axis labels
+                          SizedBox(
+                            width: 50,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: List.generate(5, (i) {
+                                final val = niceMax - (niceMax / 4 * i);
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: Text(
+                                    _formatChartValue(val),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: context.teksTersier,
+                                    ),
+                                  ),
+                                );
+                              }),
+                            ),
+                          ),
+
+                          // Chart body
+                          Expanded(
+                            child: CustomPaint(
+                              painter: _BarChartPainter(
+                                data: monthlyData,
+                                maxValue: niceMax,
+                                isDarkMode: _gelap,
+                              ),
+                              child: const SizedBox.expand(),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+
+                    const SizedBox(height: 8),
+
+                    // X-axis labels (12 bulan)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 50),
+                      child: Row(
+                        children: monthlyData.map((d) {
+                          return Expanded(
+                            child: Text(
+                              d['label'] as String,
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w500,
+                                color: context.teksKedua,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+
+              if (butuhScroll) {
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: chartWidget,
                 );
-              }).toList(),
-            ),
+              }
+              return chartWidget;
+            },
           ),
 
           const SizedBox(height: 20),
@@ -2775,11 +2828,52 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
+  Widget _buildFinancialMiniStat(
+    String label,
+    String value,
+    Color color,
+    IconData icon,
+  ) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(5),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(icon, size: 14, color: color),
+        ),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                color: context.teksTersier,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 1),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   /// Judul dan keterangan kartu grafik.
-  ///
-  /// Tanpa `overflow: ellipsis` di sini — pemanggilnya sudah memastikan
-  /// lebarnya cukup, dan elipsis justru menyembunyikan judul yang seharusnya
-  /// terbaca utuh. Keterangannya boleh turun ke baris kedua.
   Widget _judulGrafik() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2794,17 +2888,86 @@ class _MainDashboardState extends State<MainDashboard> {
         ),
         const SizedBox(height: 2),
         Text(
-          'Perbandingan uang masuk dan keluar per bulan',
+          'Perbandingan uang masuk & keluar tahun $_chartSelectedYear',
           style: TextStyle(fontSize: 12, color: context.teksTersier),
         ),
       ],
     );
   }
 
+  void _ubahTahunGrafik(int tahun) {
+    if (_chartSelectedYear == tahun) return;
+    setState(() => _chartSelectedYear = tahun);
+    if (_chartDataSource == 'Kas RT') {
+      context.read<FinanceProvider>().fetchBulanan(tahun: tahun);
+    } else {
+      context.read<BopProvider>().fetchBulanan(tahun: tahun);
+    }
+  }
+
+  void _ubahSumberGrafik(String sumber) {
+    if (_chartDataSource == sumber) return;
+    setState(() => _chartDataSource = sumber);
+    if (sumber == 'Kas RT') {
+      context.read<FinanceProvider>().fetchBulanan(tahun: _chartSelectedYear);
+    } else {
+      context.read<BopProvider>().fetchBulanan(tahun: _chartSelectedYear);
+    }
+  }
+
+  Widget _pemilihTahunGrafik() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: context.latarKartu,
+        border: Border.all(color: context.garis),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<int>(
+          value: _chartSelectedYear,
+          isDense: true,
+          icon: Icon(Icons.arrow_drop_down, color: context.teksKedua),
+          dropdownColor: context.latarKartu,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: context.teksUtama,
+          ),
+          items: _chartYearOptions.map((th) {
+            return DropdownMenuItem<int>(
+              value: th,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.calendar_today_rounded,
+                    size: 13,
+                    color: th == _chartSelectedYear
+                        ? const Color(0xFF0D9488)
+                        : context.teksTersier,
+                  ),
+                  const SizedBox(width: 6),
+                  Text('$th'),
+                ],
+              ),
+            );
+          }).toList(),
+          onChanged: (val) {
+            if (val != null) {
+              _ubahTahunGrafik(val);
+            }
+          },
+        ),
+      ),
+    );
+  }
+
   Widget _pemilihSumberGrafik() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
+        color: context.latarKartu,
         border: Border.all(color: context.garis),
         borderRadius: BorderRadius.circular(8),
       ),
@@ -2814,14 +2977,18 @@ class _MainDashboardState extends State<MainDashboard> {
           isDense: true,
           icon: Icon(Icons.arrow_drop_down, color: context.teksKedua),
           dropdownColor: context.latarKartu,
-          style: TextStyle(fontSize: 13, color: context.teksUtama),
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: context.teksUtama,
+          ),
           items: const [
             DropdownMenuItem(value: 'Kas RT', child: Text('Lihat: Kas RT')),
             DropdownMenuItem(value: 'Dana BOP', child: Text('Lihat: Dana BOP')),
           ],
           onChanged: (val) {
             if (val != null) {
-              setState(() => _chartDataSource = val);
+              _ubahSumberGrafik(val);
             }
           },
         ),
@@ -2919,13 +3086,11 @@ class _BarChartPainter extends CustomPainter {
     if (count == 0) return;
 
     final double sectionWidth = size.width / count;
-    final double barWidth = math.min(sectionWidth * 0.28, 32);
-    final double barGap = 4;
+    final double barWidth = math.min(math.max(sectionWidth * 0.30, 4.0), 16.0);
+    final double barGap = math.min(math.max(barWidth * 0.25, 2.0), 4.0);
 
     // Draw horizontal grid lines
     final gridPaint = Paint()
-      // CustomPainter tidak punya `context`, jadi warnanya tetap ditulis
-      // eksplisit dan dipilih lewat `isDarkMode` yang diteruskan pemanggil.
       ..color = isDarkMode
           ? const Color(0xFF334155).withAlpha(120)
           : const Color(0xFFE2E8F0)
@@ -2965,8 +3130,8 @@ class _BarChartPainter extends CustomPainter {
             barWidth,
             pemasukanHeight,
           ),
-          topLeft: const Radius.circular(4),
-          topRight: const Radius.circular(4),
+          topLeft: const Radius.circular(3),
+          topRight: const Radius.circular(3),
         );
 
         final pemasukanPaint = Paint()
@@ -2988,8 +3153,8 @@ class _BarChartPainter extends CustomPainter {
             barWidth,
             pengeluaranHeight,
           ),
-          topLeft: const Radius.circular(4),
-          topRight: const Radius.circular(4),
+          topLeft: const Radius.circular(3),
+          topRight: const Radius.circular(3),
         );
 
         final pengeluaranPaint = Paint()

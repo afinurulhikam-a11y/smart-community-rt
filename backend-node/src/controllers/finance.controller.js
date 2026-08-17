@@ -206,7 +206,24 @@ async function getSummary(req, res) {
  */
 async function getBulanan(req, res) {
   try {
-    const rentang = parseInt(req.query.rentang, 10) || 6;
+    const tahun = parseInt(req.query.tahun, 10);
+    if (tahun && tahun >= 2000 && tahun <= 2100) {
+      const result = await pool.query(`
+        SELECT
+          to_char(f.tanggal, 'YYYY-MM') AS bulan,
+          COALESCE(SUM(CASE WHEN f.tipe = 'pemasukan' THEN f.jumlah ELSE 0 END), 0)::float8 AS pemasukan,
+          COALESCE(SUM(CASE WHEN f.tipe = 'pengeluaran' THEN f.jumlah ELSE 0 END), 0)::float8 AS pengeluaran
+        FROM finances f
+        WHERE f.deleted_at IS NULL
+          AND EXTRACT(YEAR FROM f.tanggal) = $1
+        GROUP BY 1
+        ORDER BY 1
+      `, [tahun]);
+
+      return res.status(200).json({ success: true, data: result.rows });
+    }
+
+    const rentang = parseInt(req.query.rentang, 10) || 12;
     const dibatasi = Math.min(Math.max(rentang, 1), 24);
 
     const result = await pool.query(`

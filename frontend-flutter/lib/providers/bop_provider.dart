@@ -107,10 +107,16 @@ class BopProvider extends ChangeNotifier {
   }
 
   /// Agregat pemasukan/pengeluaran per bulan untuk grafik dashboard BOP.
-  Future<void> fetchBulanan({int rentang = 6}) async {
+  Future<void> fetchBulanan({int rentang = 12, int? tahun}) async {
+    final query = <String, String>{
+      if (tahun != null)
+        'tahun': tahun.toString()
+      else
+        'rentang': rentang.toString(),
+    };
     final response = await ApiService.get(
       ApiConstants.bopBulanan,
-      queryParams: {'rentang': rentang.toString()},
+      queryParams: query,
     );
     if (response['success'] == true) {
       _bulanan = List<Map<String, dynamic>>.from(response['data'] ?? []);
