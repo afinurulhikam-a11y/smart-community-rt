@@ -1756,237 +1756,208 @@ class _MainDashboardState extends State<MainDashboard> {
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               // Header
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: pendingLetters.isNotEmpty
-                              ? const Color(0xFF3B82F6).withValues(alpha: 0.1)
-                              : const Color(0xFF059669).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: pendingLetters.isNotEmpty
+                          ? const Color(0xFF3B82F6).withValues(alpha: 0.1)
+                          : const Color(0xFF059669).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      pendingLetters.isNotEmpty
+                          ? Icons.mark_email_unread_rounded
+                          : Icons.mark_email_read_rounded,
+                      color: pendingLetters.isNotEmpty
+                          ? const Color(0xFF3B82F6)
+                          : const Color(0xFF059669),
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Permohonan Surat',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: context.teksUtama,
+                          ),
                         ),
-                        child: Icon(
-                          pendingLetters.isNotEmpty
-                              ? Icons.mark_email_unread_rounded
-                              : Icons.mark_email_read_rounded,
-                          color: pendingLetters.isNotEmpty
-                              ? const Color(0xFF3B82F6)
-                              : const Color(0xFF059669),
-                          size: 18,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Permohonan Surat',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: context.teksUtama,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Surat warga yang perlu diproses',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: context.teksTersier,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Status badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: pendingLetters.isNotEmpty
-                              ? const Color(0xFF3B82F6).withValues(alpha: 0.1)
-                              : const Color(0xFF059669).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          pendingLetters.isNotEmpty
-                              ? '⏳ ${letterProvider.pendingCount} Menunggu'
-                              : '✓ Selesai',
+                        const SizedBox(height: 2),
+                        Text(
+                          'Surat warga yang perlu diproses',
                           style: TextStyle(
                             fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: pendingLetters.isNotEmpty
-                                ? const Color(0xFF3B82F6)
-                                : const Color(0xFF059669),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Content List (Maksimal 2 item)
-                  if (letterProvider.isLoading && pendingLetters.isEmpty)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    )
-                  else if (pendingLetters.isEmpty)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 20),
-                      decoration: BoxDecoration(
-                        color: _gelap
-                            ? const Color(0xFF64748B).withValues(alpha: 0.05)
-                            : context.latarLembut,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.mark_email_read_rounded,
-                            size: 32,
                             color: context.teksTersier,
                           ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Semua Surat Diproses',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
-                              color: context.teksKedua,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Tidak ada permohonan surat baru',
-                            style: TextStyle(fontSize: 11, color: context.teksTersier),
-                          ),
-                        ],
-                      ),
-                    )
-                  else ...[
-                    // Item list (max 2)
-                    ...pendingLetters.take(2).map(
-                      (surat) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: _gelap
-                                ? const Color(0xFF3B82F6).withValues(alpha: 0.05)
-                                : const Color(0xFFEFF6FF),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: const Color(
-                                0xFF3B82F6,
-                              ).withValues(alpha: 0.12),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 15,
-                                backgroundColor: const Color(
-                                  0xFF3B82F6,
-                                ).withValues(alpha: 0.15),
-                                child: Text(
-                                  (surat.namaPemohon ?? '?')[0].toUpperCase(),
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF3B82F6),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      surat.jenisSurat,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: context.teksUtama,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    Text(
-                                      surat.namaPemohon ?? '-',
-                                      style: TextStyle(
-                                        fontSize: 10.5,
-                                        color: context.teksTersier,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
                         ),
+                      ],
+                    ),
+                  ),
+                  // Status badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: pendingLetters.isNotEmpty
+                          ? const Color(0xFF3B82F6).withValues(alpha: 0.1)
+                          : const Color(0xFF059669).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      pendingLetters.isNotEmpty
+                          ? '⏳ ${letterProvider.pendingCount} Menunggu'
+                          : '✓ Selesai',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: pendingLetters.isNotEmpty
+                            ? const Color(0xFF3B82F6)
+                            : const Color(0xFF059669),
                       ),
                     ),
-                    // Jika data cuma 1, sediakan slot kosong agar layout tetap stabil & seimbang
-                    if (pendingLetters.length == 1)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Container(
-                          height: 52,
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            color: Colors.transparent,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                  ],
+                  ),
                 ],
               ),
 
-              // Bottom link
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+              const SizedBox(height: 16),
+
+              // Content List (Maksimal 2 item)
+              if (letterProvider.isLoading && pendingLetters.isEmpty)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              else if (pendingLetters.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  decoration: BoxDecoration(
+                    color: _gelap
+                        ? const Color(0xFF64748B).withValues(alpha: 0.05)
+                        : context.latarLembut,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
                     children: [
+                      Icon(
+                        Icons.mark_email_read_rounded,
+                        size: 32,
+                        color: context.teksTersier,
+                      ),
+                      const SizedBox(height: 6),
                       Text(
-                        'Buka Layanan Surat',
+                        'Semua Surat Diproses',
                         style: TextStyle(
-                          fontSize: 11.5,
+                          fontSize: 12.5,
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xFF2563EB),
+                          color: context.teksKedua,
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        Icons.arrow_forward_rounded,
-                        size: 13,
-                        color: const Color(0xFF2563EB),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Tidak ada permohonan surat baru',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: context.teksTersier,
+                        ),
                       ),
                     ],
                   ),
+                )
+              else ...[
+                // Item list (max 2)
+                ...pendingLetters.take(2).map(
+                  (surat) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _gelap
+                            ? const Color(0xFF3B82F6).withValues(alpha: 0.05)
+                            : const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(0xFF3B82F6).withValues(alpha: 0.12),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 15,
+                            backgroundColor: const Color(
+                              0xFF3B82F6,
+                            ).withValues(alpha: 0.15),
+                            child: Text(
+                              (surat.namaPemohon ?? '?')[0].toUpperCase(),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF3B82F6),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  surat.jenisSurat,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: context.teksUtama,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  surat.namaPemohon ?? '-',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    color: context.teksTersier,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                // Jika data cuma 1, sediakan slot kosong agar layout tetap stabil & seimbang
+                if (pendingLetters.length == 1)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Container(
+                      height: 52,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+              ],
             ],
           ),
         ),
@@ -2831,22 +2802,6 @@ class _MainDashboardState extends State<MainDashboard> {
                   ),
                 ],
               ),
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: TextButton(
-                  onPressed: () {
-                    _pilihMenu(61);
-                  },
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size.fromHeight(40),
-                    foregroundColor: const Color(0xFFD97706),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: Text('Lihat Semua Pengaduan ($totalAktif)'),
-                ),
-              ),
             ],
           ),
         ),
@@ -2895,7 +2850,6 @@ class _MainDashboardState extends State<MainDashboard> {
       ),
     );
   }
-
 
   String _formatRupiah(double amount) {
     if (amount == 0) return 'Rp 0';
