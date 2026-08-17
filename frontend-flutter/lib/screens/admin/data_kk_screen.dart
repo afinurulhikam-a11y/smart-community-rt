@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/responsif.dart';
 import '../../providers/family_provider.dart';
+import '../../providers/warga_provider.dart';
 import '../../providers/permission_provider.dart';
 import '../../widgets/banner_lihat_saja.dart';
 import '../../widgets/tabel_responsif.dart';
@@ -15,6 +16,61 @@ const String _kodeIzin = 'kependudukan.warga';
 const double _ukuranHoverAksi = 30;
 const double _geserAksiTabel =
     -(kMinInteractiveDimension - _ukuranHoverAksi) / 2;
+
+const List<String> _opsiStatusHubungan = [
+  'Istri',
+  'Anak',
+  'Kepala Keluarga',
+  'Suami',
+  'Orang Tua',
+  'Mertua',
+  'Menantu',
+  'Cucu',
+  'Famili Lain',
+  'Lainnya',
+];
+
+const List<String> _opsiStatusPerkawinan = [
+  'Belum Menikah',
+  'Menikah',
+  'Cerai Hidup',
+  'Cerai Mati',
+];
+
+const List<String> _opsiAgama = [
+  'Islam',
+  'Kristen',
+  'Katolik',
+  'Hindu',
+  'Buddha',
+  'Konghucu',
+  'Lainnya',
+];
+
+const List<String> _opsiPendidikan = [
+  'Tidak Sekolah',
+  'SD',
+  'SMP',
+  'SMA/SMK',
+  'D3',
+  'S1',
+  'S2',
+  'S3',
+];
+
+const List<String> _opsiPekerjaan = [
+  'PNS',
+  'TNI/Polri',
+  'Karyawan Swasta',
+  'Wiraswasta',
+  'Petani',
+  'Buruh',
+  'Ibu Rumah Tangga',
+  'Pelajar/Mahasiswa',
+  'Pensiunan',
+  'Pekerja Lepas',
+  'Belum/Tidak Bekerja',
+];
 
 ButtonStyle _gayaAksiTabel(Color warnaIkon) => IconButton.styleFrom(
   alignment: Alignment.center,
@@ -466,173 +522,701 @@ class _DataKkScreenState extends State<DataKkScreen> {
     await prov.fetchFamilyDetail(id);
 
     if (!context.mounted) return;
-    final detail = prov.selectedFamily;
-    if (detail == null) {
+    if (prov.selectedFamily == null) {
       _pesan('Gagal memuat detail Kartu Keluarga.', sukses: false);
       return;
     }
 
-    final anggota = List<Map<String, dynamic>>.from(detail['anggota'] ?? []);
+    final permission = context.read<PermissionProvider>();
+    final isBolehUbah =
+        permission.bolehUbah(_kodeIzin) || permission.bolehTambah(_kodeIzin);
 
-    showDialog(
+    await showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: ctx.latarKartu,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1B7A6A).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.family_restroom_rounded,
-                color: Color(0xFF1B7A6A),
-              ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDetailState) {
+          final detail = prov.selectedFamily ?? {};
+          final anggota =
+              List<Map<String, dynamic>>.from(detail['anggota'] ?? []);
+
+          return AlertDialog(
+            backgroundColor: ctx.latarKartu,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Detail KK: $noKk',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: ctx.teksUtama,
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1B7A6A).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.family_restroom_rounded,
+                    color: Color(0xFF1B7A6A),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Detail KK: $noKk',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: ctx.teksUtama,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: lebarDialog(ctx, maksimal: 700),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(AppTheme.spasiM),
+                      decoration: BoxDecoration(
+                        color: ctx.latarLembut,
+                        borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                        border: Border.all(color: ctx.garis),
+                      ),
+                      child: Column(
+                        children: [
+                          _barisDetail(
+                            ctx,
+                            'Kepala Keluarga',
+                            detail['kepala_keluarga']?.toString() ?? '-',
+                          ),
+                          _barisDetail(
+                            ctx,
+                            'Alamat',
+                            detail['alamat']?.toString() ?? '-',
+                          ),
+                          _barisDetail(ctx, 'RT / RW', '001 / 001'),
+                          _barisDetail(
+                            ctx,
+                            'Status Rumah',
+                            detail['status_rumah']?.toString() ?? 'Milik Sendiri',
+                          ),
+                          _barisDetail(
+                            ctx,
+                            'Langganan Sampah',
+                            detail['langganan_sampah'] == true
+                                ? 'Berlangganan (Ya)'
+                                : 'Tidak',
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: AppTheme.spasiL),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Anggota Keluarga (${anggota.length} Orang)',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: ctx.teksUtama,
+                            ),
+                          ),
+                        ),
+                        if (isBolehUbah)
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.person_add_rounded, size: 16),
+                            label: const Text(
+                              'Tambah Anggota',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF1B7A6A),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            onPressed: () => _bukaFormTambahAnggota(
+                              context,
+                              id,
+                              detail,
+                              () async {
+                                await prov.fetchFamilyDetail(id);
+                                if (ctx.mounted) setDetailState(() {});
+                                _muatData();
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: AppTheme.spasiM),
+                    if (anggota.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        child: Center(
+                          child: Text(
+                            'Belum ada anggota keluarga terdaftar.',
+                            style: TextStyle(color: ctx.teksKedua),
+                          ),
+                        ),
+                      )
+                    else
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: anggota.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (ctx, idx) {
+                          final a = anggota[idx];
+                          return ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            leading: CircleAvatar(
+                              backgroundColor: const Color(0xFF1B7A6A).withValues(
+                                alpha: 0.1,
+                              ),
+                              child: Icon(
+                                a['status_keluarga'] == 'Kepala Keluarga'
+                                    ? Icons.person_pin_rounded
+                                    : Icons.person_outline_rounded,
+                                color: const Color(0xFF1B7A6A),
+                                size: 20,
+                              ),
+                            ),
+                            title: Text(
+                              a['nama']?.toString() ?? '-',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: ctx.teksUtama,
+                              ),
+                            ),
+                            subtitle: Text(
+                              'NIK: ${a['nik'] ?? '-'} • ${a['status_keluarga'] ?? 'Anggota'}',
+                              style: TextStyle(color: ctx.teksKedua),
+                            ),
+                            trailing: Chip(
+                              label: Text(
+                                a['jenis_kelamin']?.toString() == 'L'
+                                    ? 'Laki-laki'
+                                    : 'Perempuan',
+                              ),
+                              backgroundColor: ctx.latarLembut,
+                              labelStyle: TextStyle(
+                                fontSize: 11,
+                                color: ctx.teksUtama,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                  ],
                 ),
               ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 14,
+                  ),
+                  foregroundColor: ctx.teksKedua,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Tutup',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _bukaFormTambahAnggota(
+    BuildContext context,
+    int keluargaId,
+    Map<String, dynamic> detailKk,
+    VoidCallback onSukses,
+  ) async {
+    final noKk = detailKk['no_kk']?.toString() ?? '';
+    final alamatKk = detailKk['alamat']?.toString() ?? '';
+    final statusRumahKk =
+        detailKk['status_rumah']?.toString() ?? 'Milik Sendiri';
+
+    final ctlNik = TextEditingController();
+    final ctlNama = TextEditingController();
+    final ctlHp = TextEditingController();
+    final ctlTanggalLahir = TextEditingController();
+    String jk = 'L';
+    String statusHubungan = 'Anak';
+    String statusPerkawinan = 'Belum Menikah';
+    String agama = 'Islam';
+    String pendidikan = 'SMA/SMK';
+    String pekerjaan = 'Belum/Tidak Bekerja';
+    bool hasKtp = true;
+    final formKey = GlobalKey<FormState>();
+    bool sedangSimpan = false;
+
+    await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => AlertDialog(
+          backgroundColor: ctx.latarKartu,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1B7A6A).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.person_add_alt_1_rounded,
+                  color: Color(0xFF1B7A6A),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Tambah Anggota Keluarga',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                        color: ctx.teksUtama,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'No KK: $noKk',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: ctx.teksKedua,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: lebarDialog(ctx, maksimal: 520),
+            child: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: ctx.latarLembut,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: ctx.garis),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.info_outline_rounded,
+                            size: 18,
+                            color: Color(0xFF1B7A6A),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Anggota ini akan otomatis terhubung ke KK #$noKk ($alamatKk)',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: ctx.teksKedua,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: ctlNik,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(16),
+                      ],
+                      decoration: const InputDecoration(
+                        labelText: 'Nomor Induk Kependudukan (NIK) *',
+                        prefixIcon: Icon(Icons.badge_outlined),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'NIK wajib diisi';
+                        }
+                        if (v.trim().length != 16) {
+                          return 'NIK harus 16 digit angka';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: ctlNama,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: const InputDecoration(
+                        labelText: 'Nama Lengkap *',
+                        prefixIcon: Icon(Icons.person_outline),
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Nama wajib diisi'
+                          : null,
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            initialValue: jk,
+                            dropdownColor: ctx.latarKartu,
+                            borderRadius: BorderRadius.circular(12),
+                            decoration: const InputDecoration(
+                              labelText: 'Jenis Kelamin *',
+                              prefixIcon: Icon(Icons.wc_outlined),
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'L',
+                                child: Text(
+                                  'Laki-laki',
+                                  style: TextStyle(fontSize: 14),
+                                ),
+                              ),
+                              DropdownMenuItem(
+                                value: 'P',
+                                child: Text(
+                                  'Perempuan',
+                                  style: TextStyle(fontSize: 14),
+                                ),
+                              ),
+                            ],
+                            onChanged: (v) {
+                              if (v != null) setModalState(() => jk = v);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextFormField(
+                            controller: ctlHp,
+                            keyboardType: TextInputType.phone,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(15),
+                            ],
+                            decoration: const InputDecoration(
+                              labelText: 'Nomor HP / WA *',
+                              prefixIcon: Icon(Icons.phone_outlined),
+                            ),
+                            validator: (v) {
+                              final teks = v?.trim() ?? '';
+                              if (teks.isEmpty) return 'Wajib diisi';
+                              if (teks.length < 10) return 'Minimal 10 digit';
+                              return null;
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      initialValue: statusHubungan,
+                      dropdownColor: ctx.latarKartu,
+                      borderRadius: BorderRadius.circular(12),
+                      decoration: const InputDecoration(
+                        labelText: 'Status Hubungan Keluarga *',
+                        prefixIcon: Icon(Icons.family_restroom_outlined),
+                      ),
+                      items: _opsiStatusHubungan
+                          .map(
+                            (s) => DropdownMenuItem(
+                              value: s,
+                              child: Text(
+                                s,
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) setModalState(() => statusHubungan = v);
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.insights_outlined,
+                          size: 16,
+                          color: Color(0xFF1B7A6A),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'DATA DEMOGRAFI (WAJIB DIISI)',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF1B7A6A),
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: ctlTanggalLahir,
+                      readOnly: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Tanggal Lahir *',
+                        prefixIcon: Icon(Icons.cake_outlined),
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? 'Tanggal lahir wajib diisi'
+                          : null,
+                      onTap: () async {
+                        final kini = DateTime.now();
+                        final dipilih = await showDatePicker(
+                          context: ctx,
+                          initialDate: DateTime(kini.year - 20),
+                          firstDate: DateTime(1900),
+                          lastDate: kini,
+                          helpText: 'Pilih Tanggal Lahir',
+                        );
+                        if (dipilih != null) {
+                          ctlTanggalLahir.text =
+                              '${dipilih.year.toString().padLeft(4, '0')}-${dipilih.month.toString().padLeft(2, '0')}-${dipilih.day.toString().padLeft(2, '0')}';
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      initialValue: statusPerkawinan,
+                      dropdownColor: ctx.latarKartu,
+                      borderRadius: BorderRadius.circular(12),
+                      decoration: const InputDecoration(
+                        labelText: 'Status Perkawinan *',
+                        prefixIcon: Icon(Icons.favorite_outline),
+                      ),
+                      items: _opsiStatusPerkawinan
+                          .map(
+                            (s) => DropdownMenuItem(
+                              value: s,
+                              child: Text(
+                                s,
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) {
+                          setModalState(() => statusPerkawinan = v);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      initialValue: agama,
+                      dropdownColor: ctx.latarKartu,
+                      borderRadius: BorderRadius.circular(12),
+                      decoration: const InputDecoration(
+                        labelText: 'Agama *',
+                        prefixIcon: Icon(Icons.mosque_outlined),
+                      ),
+                      items: _opsiAgama
+                          .map(
+                            (s) => DropdownMenuItem(
+                              value: s,
+                              child: Text(
+                                s,
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) setModalState(() => agama = v);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      initialValue: pendidikan,
+                      dropdownColor: ctx.latarKartu,
+                      borderRadius: BorderRadius.circular(12),
+                      decoration: const InputDecoration(
+                        labelText: 'Pendidikan Terakhir *',
+                        prefixIcon: Icon(Icons.school_outlined),
+                      ),
+                      items: _opsiPendidikan
+                          .map(
+                            (s) => DropdownMenuItem(
+                              value: s,
+                              child: Text(
+                                s,
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) setModalState(() => pendidikan = v);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      initialValue: pekerjaan,
+                      dropdownColor: ctx.latarKartu,
+                      borderRadius: BorderRadius.circular(12),
+                      decoration: const InputDecoration(
+                        labelText: 'Pekerjaan *',
+                        prefixIcon: Icon(Icons.work_outline),
+                      ),
+                      items: _opsiPekerjaan
+                          .map(
+                            (s) => DropdownMenuItem(
+                              value: s,
+                              child: Text(
+                                s,
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) setModalState(() => pekerjaan = v);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        'Sudah punya e-KTP?',
+                        style: TextStyle(fontSize: 14, color: ctx.teksKedua),
+                      ),
+                      value: hasKtp,
+                      activeTrackColor: const Color(0xFF1B7A6A),
+                      onChanged: (val) => setModalState(() => hasKtp = val),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: sedangSimpan ? null : () => Navigator.pop(ctx, false),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 14,
+                ),
+                foregroundColor: ctx.teksKedua,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Batal',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1B7A6A),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 14,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: sedangSimpan
+                  ? null
+                  : () async {
+                      if (!formKey.currentState!.validate()) return;
+                      setModalState(() => sedangSimpan = true);
+                      final provWarga = context.read<WargaProvider>();
+                      final result = await provWarga.tambahWargaLengkap({
+                        'nik': ctlNik.text.trim(),
+                        'nama': ctlNama.text.trim(),
+                        'no_kk': noKk,
+                        'no_hp': ctlHp.text.trim(),
+                        'alamat': alamatKk,
+                        'jenis_kelamin': jk,
+                        'status_keluarga': statusHubungan,
+                        'has_ktp': hasKtp,
+                        'tanggal_lahir': ctlTanggalLahir.text.trim(),
+                        'status_pernikahan': statusPerkawinan,
+                        'agama': agama,
+                        'pendidikan': pendidikan,
+                        'pekerjaan': pekerjaan,
+                        'status_rumah': statusRumahKk,
+                      });
+
+                      if (!ctx.mounted) return;
+                      setModalState(() => sedangSimpan = false);
+
+                      if (result['success'] == true) {
+                        Navigator.pop(ctx, true);
+                        onSukses();
+                        _pesan(
+                          'Anggota keluarga berhasil ditambahkan ke KK.',
+                          sukses: true,
+                        );
+                      } else {
+                        _pesan(
+                          result['message']?.toString() ??
+                              'Gagal menambahkan anggota keluarga.',
+                          sukses: false,
+                        );
+                      }
+                    },
+              child: sedangSimpan
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text('Simpan Anggota'),
             ),
           ],
         ),
-        content: SizedBox(
-          width: lebarDialog(ctx, maksimal: 700),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(AppTheme.spasiM),
-                  decoration: BoxDecoration(
-                    color: ctx.latarLembut,
-                    borderRadius: BorderRadius.circular(AppTheme.radiusM),
-                    border: Border.all(color: ctx.garis),
-                  ),
-                  child: Column(
-                    children: [
-                      _barisDetail(
-                        ctx,
-                        'Kepala Keluarga',
-                        detail['kepala_keluarga']?.toString() ?? '-',
-                      ),
-                      _barisDetail(
-                        ctx,
-                        'Alamat',
-                        detail['alamat']?.toString() ?? '-',
-                      ),
-                      _barisDetail(ctx, 'RT / RW', '001 / 001'),
-                      _barisDetail(
-                        ctx,
-                        'Status Rumah',
-                        detail['status_rumah']?.toString() ?? 'Milik Sendiri',
-                      ),
-                      _barisDetail(
-                        ctx,
-                        'Langganan Sampah',
-                        detail['langganan_sampah'] == true
-                            ? 'Berlangganan (Ya)'
-                            : 'Tidak',
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: AppTheme.spasiL),
-                Text(
-                  'Anggota Keluarga (${anggota.length} Orang)',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: ctx.teksUtama,
-                  ),
-                ),
-                const SizedBox(height: AppTheme.spasiM),
-                if (anggota.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 20),
-                    child: Center(
-                      child: Text(
-                        'Belum ada anggota keluarga terdaftar.',
-                        style: TextStyle(color: ctx.teksKedua),
-                      ),
-                    ),
-                  )
-                else
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: anggota.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (ctx, idx) {
-                      final a = anggota[idx];
-                      return ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        leading: CircleAvatar(
-                          backgroundColor: const Color(0xFF1B7A6A).withValues(
-                            alpha: 0.1,
-                          ),
-                          child: Icon(
-                            a['status_keluarga'] == 'Kepala Keluarga'
-                                ? Icons.person_pin_rounded
-                                : Icons.person_outline_rounded,
-                            color: const Color(0xFF1B7A6A),
-                            size: 20,
-                          ),
-                        ),
-                        title: Text(
-                          a['nama']?.toString() ?? '-',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: ctx.teksUtama,
-                          ),
-                        ),
-                        subtitle: Text(
-                          'NIK: ${a['nik'] ?? '-'} • ${a['status_keluarga'] ?? 'Anggota'}',
-                          style: TextStyle(color: ctx.teksKedua),
-                        ),
-                        trailing: Chip(
-                          label: Text(
-                            a['jenis_kelamin']?.toString() == 'L'
-                                ? 'Laki-laki'
-                                : 'Perempuan',
-                          ),
-                          backgroundColor: ctx.latarLembut,
-                          labelStyle: TextStyle(
-                            fontSize: 11,
-                            color: ctx.teksUtama,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              foregroundColor: ctx.teksKedua,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Text('Tutup', style: TextStyle(fontWeight: FontWeight.w600)),
-          ),
-        ],
       ),
     );
   }
