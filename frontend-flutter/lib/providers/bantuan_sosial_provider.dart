@@ -21,6 +21,13 @@ class BantuanSosialProvider extends ChangeNotifier {
   int _totalData = 0;
   int _perPage = 10;
 
+  String? _lastTahun;
+  String? _lastTanggalMulai;
+  String? _lastTanggalSelesai;
+  String? _lastJenisBantuan;
+  String? _lastStatus;
+  String? _lastSearch;
+
   int get currentPage => _currentPage;
   int get totalPages => _totalPages;
   int get totalData => _totalData;
@@ -36,21 +43,28 @@ class BantuanSosialProvider extends ChangeNotifier {
     int page = 1,
     bool silent = false,
   }) async {
+    _lastTahun = tahun;
+    _lastTanggalMulai = tanggalMulai;
+    _lastTanggalSelesai = tanggalSelesai;
+    _lastJenisBantuan = jenisBantuan;
+    _lastStatus = status;
+    _lastSearch = search;
+    _currentPage = page;
+
     if (!silent) {
       _isLoading = true;
       notifyListeners();
     }
-    _currentPage = page;
     final queryParams = <String, String>{
       'page': page.toString(),
       'limit': '10',
     };
-    if (tahun != null) queryParams['tahun'] = tahun;
-    if (tanggalMulai != null) queryParams['tanggal_mulai'] = tanggalMulai;
-    if (tanggalSelesai != null) queryParams['tanggal_selesai'] = tanggalSelesai;
-    if (jenisBantuan != null) queryParams['jenis_bantuan'] = jenisBantuan;
-    if (status != null) queryParams['status'] = status;
-    if (search != null) queryParams['search'] = search;
+    if (tahun != null && tahun.isNotEmpty) queryParams['tahun'] = tahun;
+    if (tanggalMulai != null && tanggalMulai.isNotEmpty) queryParams['tanggal_mulai'] = tanggalMulai;
+    if (tanggalSelesai != null && tanggalSelesai.isNotEmpty) queryParams['tanggal_selesai'] = tanggalSelesai;
+    if (jenisBantuan != null && jenisBantuan.isNotEmpty) queryParams['jenis_bantuan'] = jenisBantuan;
+    if (status != null && status.isNotEmpty) queryParams['status'] = status;
+    if (search != null && search.isNotEmpty) queryParams['search'] = search;
     final response = await ApiService.get(
       ApiConstants.bantuanSosial,
       queryParams: queryParams,
@@ -121,7 +135,15 @@ class BantuanSosialProvider extends ChangeNotifier {
     );
     _isLoading = false;
     if (response['success'] == true) {
-      await fetchBantuanSosial();
+      await fetchBantuanSosial(
+        tahun: _lastTahun,
+        tanggalMulai: _lastTanggalMulai,
+        tanggalSelesai: _lastTanggalSelesai,
+        jenisBantuan: _lastJenisBantuan,
+        status: _lastStatus,
+        search: _lastSearch,
+        page: 1,
+      );
       await fetchStats();
       return true;
     } else {
@@ -134,7 +156,15 @@ class BantuanSosialProvider extends ChangeNotifier {
   Future<bool> updateBantuanSosial(int id, Map<String, dynamic> data) async {
     final response = await ApiService.put('${ApiConstants.bantuanSosial}/$id', body: data);
     if (response['success'] == true) {
-      await fetchBantuanSosial();
+      await fetchBantuanSosial(
+        tahun: _lastTahun,
+        tanggalMulai: _lastTanggalMulai,
+        tanggalSelesai: _lastTanggalSelesai,
+        jenisBantuan: _lastJenisBantuan,
+        status: _lastStatus,
+        search: _lastSearch,
+        page: _currentPage,
+      );
       await fetchStats();
       return true;
     }
@@ -145,7 +175,18 @@ class BantuanSosialProvider extends ChangeNotifier {
   Future<bool> deleteBantuanSosial(int id) async {
     final response = await ApiService.delete('${ApiConstants.bantuanSosial}/$id');
     if (response['success'] == true) {
-      await fetchBantuanSosial();
+      final targetPage = (_bantuanList.length == 1 && _currentPage > 1)
+          ? _currentPage - 1
+          : _currentPage;
+      await fetchBantuanSosial(
+        tahun: _lastTahun,
+        tanggalMulai: _lastTanggalMulai,
+        tanggalSelesai: _lastTanggalSelesai,
+        jenisBantuan: _lastJenisBantuan,
+        status: _lastStatus,
+        search: _lastSearch,
+        page: targetPage,
+      );
       await fetchStats();
       return true;
     }

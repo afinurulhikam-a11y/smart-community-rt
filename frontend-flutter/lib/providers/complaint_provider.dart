@@ -10,6 +10,8 @@ class ComplaintProvider extends ChangeNotifier {
   int _currentPage = 1;
   int _totalPages = 1;
   int _totalData = 0;
+  String? _lastStatus;
+  String? _lastSearch;
 
   Map<String, int> _stats = {
     'pending': 0,
@@ -43,15 +45,18 @@ class ComplaintProvider extends ChangeNotifier {
   }
 
   Future<void> fetchComplaints({String? status, String? search, int page = 1, bool silent = false}) async {
+    _lastStatus = status;
+    _lastSearch = search;
+    _currentPage = page;
+
     if (!silent) {
       _isLoading = true;
       notifyListeners();
     }
-    _currentPage = page;
     fetchStats();
     final queryParams = <String, String>{};
-    if (status != null) queryParams['status'] = status;
-    if (search != null) queryParams['search'] = search;
+    if (status != null && status.isNotEmpty) queryParams['status'] = status;
+    if (search != null && search.isNotEmpty) queryParams['search'] = search;
     queryParams['page'] = page.toString();
     queryParams['limit'] = '25';
     final response = await ApiService.get(
@@ -90,7 +95,7 @@ class ComplaintProvider extends ChangeNotifier {
     );
     _isLoading = false;
     if (response['success'] == true) {
-      await fetchComplaints();
+      await fetchComplaints(page: 1);
       return true;
     } else {
       _errorMessage = response['message'] as String?;
@@ -115,7 +120,7 @@ class ComplaintProvider extends ChangeNotifier {
     );
     if (resp['success'] == true) {
       _errorMessage = null;
-      await fetchComplaints();
+      await fetchComplaints(status: _lastStatus, search: _lastSearch, page: _currentPage);
       return true;
     }
     _errorMessage = resp['message'] as String?;
@@ -165,7 +170,10 @@ class ComplaintProvider extends ChangeNotifier {
   Future<bool> deleteComplaint(int id) async {
     final response = await ApiService.delete('${ApiConstants.complaints}/$id');
     if (response['success'] == true) {
-      await fetchComplaints();
+      final targetPage = (_complaints.length == 1 && _currentPage > 1)
+          ? _currentPage - 1
+          : _currentPage;
+      await fetchComplaints(status: _lastStatus, search: _lastSearch, page: targetPage);
       return true;
     }
     return false;
