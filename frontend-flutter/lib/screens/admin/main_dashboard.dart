@@ -2414,7 +2414,7 @@ class _MainDashboardState extends State<MainDashboard> {
                           child: Padding(
                             padding: const EdgeInsets.only(left: 12, right: 8),
                             child: Transform.translate(
-                              offset: const Offset(0, -4),
+                              offset: const Offset(0, -12),
                               child: const Icon(Icons.notes_rounded, size: 20),
                             ),
                           ),
