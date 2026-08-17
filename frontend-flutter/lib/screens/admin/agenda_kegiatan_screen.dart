@@ -820,30 +820,39 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
             ElevatedButton(
               onPressed: () async {
-                if (judulController.text.isEmpty) {
+                final judul = judulController.text.trim();
+                if (judul.isEmpty) {
                   pesanGagal(context, 'Judul agenda tidak boleh kosong');
                   return;
                 }
                 final formattedDate =
                     '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
                 final formattedStart =
-                    '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}:00';
+                    '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}';
                 final formattedEnd =
-                    '${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}:00';
+                    '${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}';
 
-                final success = await context.read<AgendaProvider>().createAgenda(
-                  judul: judulController.text,
+                final provider = context.read<AgendaProvider>();
+                final success = await provider.createAgenda(
+                  judul: judul,
                   tanggal: formattedDate,
-                  deskripsi: deskripsiController.text,
+                  deskripsi: deskripsiController.text.trim(),
                   tipe: tipeNotifier.value,
                   waktuMulai: formattedStart,
                   waktuSelesai: formattedEnd,
-                  lokasi: lokasiController.text,
+                  lokasi: lokasiController.text.trim(),
                 );
 
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (success && mounted) {
-                  pesanSukses(context, 'Agenda berhasil dibuat!');
+                if (!ctx.mounted) return;
+                if (success) {
+                  Navigator.pop(ctx);
+                  if (mounted) {
+                    pesanSukses(context, 'Agenda berhasil dibuat!');
+                  }
+                } else {
+                  if (mounted) {
+                    pesanGagal(context, provider.errorMessage ?? 'Gagal membuat agenda');
+                  }
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -981,31 +990,40 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
             ElevatedButton(
               onPressed: () async {
-                if (judulController.text.isEmpty) {
+                final judul = judulController.text.trim();
+                if (judul.isEmpty) {
                   pesanGagal(context, 'Judul agenda tidak boleh kosong');
                   return;
                 }
                 final formattedDate =
                     '${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}';
                 final formattedStart =
-                    '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}:00';
+                    '${startTime.hour.toString().padLeft(2, '0')}:${startTime.minute.toString().padLeft(2, '0')}';
                 final formattedEnd =
-                    '${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}:00';
+                    '${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}';
 
-                final success = await context.read<AgendaProvider>().updateAgenda(event['id'], {
-                  'judul': judulController.text,
+                final provider = context.read<AgendaProvider>();
+                final success = await provider.updateAgenda(event['id'], {
+                  'judul': judul,
                   'tanggal': formattedDate,
-                  'deskripsi': deskripsiController.text,
+                  'deskripsi': deskripsiController.text.trim(),
                   'tipe': tipeNotifier.value,
                   'status': statusNotifier.value,
                   'waktu_mulai': formattedStart,
                   'waktu_selesai': formattedEnd,
-                  'lokasi': lokasiController.text,
+                  'lokasi': lokasiController.text.trim(),
                 });
 
-                if (ctx.mounted) Navigator.pop(ctx);
-                if (success && mounted) {
-                  pesanSukses(context, 'Agenda berhasil diubah!');
+                if (!ctx.mounted) return;
+                if (success) {
+                  Navigator.pop(ctx);
+                  if (mounted) {
+                    pesanSukses(context, 'Agenda berhasil diubah!');
+                  }
+                } else {
+                  if (mounted) {
+                    pesanGagal(context, provider.errorMessage ?? 'Gagal memperbarui agenda');
+                  }
                 }
               },
               style: ElevatedButton.styleFrom(

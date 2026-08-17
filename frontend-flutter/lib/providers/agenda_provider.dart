@@ -80,21 +80,35 @@ class AgendaProvider extends ChangeNotifier {
   }
 
   Future<bool> updateAgenda(int id, Map<String, dynamic> data) async {
+    _isLoading = true;
+    notifyListeners();
     final response = await ApiService.put('${ApiConstants.agenda}/$id', body: data);
+    _isLoading = false;
     if (response['success'] == true) {
+      _errorMessage = null;
       await fetchAgenda();
       return true;
+    } else {
+      _errorMessage = response['message'] as String? ?? 'Gagal memperbarui agenda';
+      notifyListeners();
+      return false;
     }
-    return false;
   }
 
   Future<bool> deleteAgenda(int id) async {
+    _isLoading = true;
+    notifyListeners();
     final response = await ApiService.delete('${ApiConstants.agenda}/$id');
+    _isLoading = false;
     if (response['success'] == true) {
+      _errorMessage = null;
       await fetchAgenda();
       return true;
+    } else {
+      _errorMessage = response['message'] as String? ?? 'Gagal menghapus agenda';
+      notifyListeners();
+      return false;
     }
-    return false;
   }
 
   /// Kosongkan seluruh state saat pengguna keluar.
