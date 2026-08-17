@@ -1,21 +1,35 @@
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 import 'package:flutter/foundation.dart';
 
+JSObject get _document => globalContext.getProperty('document'.toJS) as JSObject;
+
 bool isSupportedFullscreen() {
-  return html.document.fullscreenEnabled ?? false;
+  try {
+    return _document.hasProperty('fullscreenEnabled'.toJS).toDart;
+  } catch (_) {
+    return false;
+  }
 }
 
 bool isCurrentlyFullscreen() {
-  return html.document.fullscreenElement != null;
+  try {
+    final elem = _document.getProperty('fullscreenElement'.toJS);
+    return elem.isDefinedAndNotNull;
+  } catch (_) {
+    return false;
+  }
 }
 
 Future<void> toggleFullscreen() async {
   try {
-    if (html.document.fullscreenElement != null) {
-      html.document.exitFullscreen();
+    final doc = _document;
+    final elem = doc.getProperty('fullscreenElement'.toJS);
+    if (elem.isDefinedAndNotNull) {
+      doc.callMethod('exitFullscreen'.toJS);
     } else {
-      html.document.documentElement?.requestFullscreen();
+      final docElem = doc.getProperty('documentElement'.toJS) as JSObject?;
+      docElem?.callMethod('requestFullscreen'.toJS);
     }
   } catch (e) {
     debugPrint('Fullscreen error: $e');
@@ -25,7 +39,7 @@ Future<void> toggleFullscreen() async {
 final List<VoidCallback> _listeners = [];
 bool _listenerInitialized = false;
 
-void _onFullscreenChange(html.Event event) {
+void _onFullscreenChange(JSAny? event) {
   for (final cb in List.of(_listeners)) {
     cb();
   }
@@ -33,8 +47,14 @@ void _onFullscreenChange(html.Event event) {
 
 void addFullscreenListener(VoidCallback callback) {
   if (!_listenerInitialized) {
-    html.document.addEventListener('fullscreenchange', _onFullscreenChange);
-    _listenerInitialized = true;
+    try {
+      _document.callMethod(
+        'addEventListener'.toJS,
+        'fullscreenchange'.toJS,
+        _onFullscreenChange.toJS,
+      );
+      _listenerInitialized = true;
+    } catch (_) {}
   }
   _listeners.add(callback);
 }
