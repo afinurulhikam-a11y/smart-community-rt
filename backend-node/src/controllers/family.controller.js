@@ -1,35 +1,64 @@
+const ExcelJS = require('exceljs');
+const PDFDocument = require('pdfkit-table');
 const { pool } = require('../config/database');
 const { logActivity } = require('../services/log.service');
 const { jenisKelamin } = require('../utils/normalisasi');
 
+function buildFamilyQuery(req) {
+  const { search } = req.query;
+  let query = `SELECT k.*,
+      (SELECT COUNT(*)::int FROM anggota_keluarga ak WHERE ak.keluarga_id = k.id) AS jumlah_anggota,
+      (SELECT ak3.status_rumah FROM anggota_keluarga ak3 WHERE ak3.keluarga_id = k.id AND ak3.status_rumah IS NOT NULL LIMIT 1) AS status_rumah,
+      EXISTS (
+        SELECT 1 FROM anggota_keluarga ak2
+        WHERE ak2.keluarga_id = k.id AND ak2.status_keluarga = 'Kepala Keluarga'
+      ) AS kepala_terkonfirmasi
+    FROM keluarga k WHERE k.deleted_at IS NULL`;
+  const params = [];
+
+  if (req.user && req.user.role === 'warga') {
+    params.push(req.user.id);
+    query += ` AND k.no_kk = (SELECT no_kk FROM users WHERE id = $${params.length})`;
+  }
+
+  if (search) {
+    params.push(`%${search}%`);
+    query += ` AND (k.no_kk ILIKE $${params.length} OR k.kepala_keluarga ILIKE $${params.length} OR k.alamat ILIKE $${params.length})`;
+  }
+  return { query, params };
+}
+
+const KOLOM_KK = [
+  { header: 'NO', key: 'no', width: 6 },
+  { header: 'NO KK', key: 'no_kk', width: 22 },
+  { header: 'KEPALA KELUARGA', key: 'kepala_keluarga', width: 26 },
+  { header: 'ALAMAT & BLOK', key: 'alamat', width: 30 },
+  { header: 'RT', key: 'rt', width: 8 },
+  { header: 'RW', key: 'rw', width: 8 },
+  { header: 'KELURAHAN', key: 'kelurahan', width: 18 },
+  { header: 'KECAMATAN', key: 'kecamatan', width: 18 },
+  { header: 'JUMLAH ANGGOTA', key: 'jumlah_anggota', width: 16 },
+  { header: 'STATUS RUMAH', key: 'status_rumah', width: 16 },
+];
+
+function toRowKK(kk, index) {
+  return {
+    no: index + 1,
+    no_kk: kk.no_kk || '-',
+    kepala_keluarga: kk.kepala_keluarga || '-',
+    alamat: kk.alamat || '-',
+    rt: kk.rt || '-',
+    rw: kk.rw || '-',
+    kelurahan: kk.kelurahan || '-',
+    kecamatan: kk.kecamatan || '-',
+    jumlah_anggota: kk.jumlah_anggota != null ? `${kk.jumlah_anggota} Orang` : '0 Orang',
+    status_rumah: kk.status_rumah || '-',
+  };
+}
+
 async function getFamilies(req, res) {
   try {
-    const { search } = req.query;
-    let query = `SELECT k.*,
-        (SELECT COUNT(*)::int FROM anggota_keluarga ak WHERE ak.keluarga_id = k.id) AS jumlah_anggota,
-        -- false berarti nama kepala keluarga masih memakai nama anggota pertama
-        -- sebagai penanda sementara, bukan kepala keluarga sungguhan.
-        EXISTS (
-          SELECT 1 FROM anggota_keluarga ak2
-          WHERE ak2.keluarga_id = k.id AND ak2.status_keluarga = 'Kepala Keluarga'
-        ) AS kepala_terkonfirmasi
-      FROM keluarga k WHERE k.deleted_at IS NULL`;
-    const params = [];
-
-    // Penyempitan baris untuk warga — lapisan kedua, bukan yang pertama.
-    //
-    // Hari ini `kependudukan.warga` memang tertutup bagi warga di tabel izin,
-    // jadi klausa ini seolah tidak pernah terpakai. Tapi izin itu bisa diubah
-    // dari layar Menu & Akses, dan permintaan "biar warga bisa lihat direktori
-    // RT" sangat masuk akal untuk muncul suatu hari. Tanpa klausa ini, satu
-    // klik itu membuka NIK, no_kk, alamat, dan telepon SELURUH warga kepada
-    // setiap warga sekaligus. Pola yang sama sudah dipakai di bill.controller.
-    if (req.user.role === 'warga') {
-      params.push(req.user.id);
-      query += ` AND k.no_kk = (SELECT no_kk FROM users WHERE id = $${params.length})`;
-    }
-
-    if (search) { params.push(`%${search}%`); query += ` AND (k.no_kk ILIKE $${params.length} OR k.kepala_keluarga ILIKE $${params.length} OR k.alamat ILIKE $${params.length})`; }
+    const { query, params } = buildFamilyQuery(req);
     const countQuery = `SELECT COUNT(*) FROM (${query}) AS total`;
     const countResult = await pool.query(countQuery, params);
     const totalData = parseInt(countResult.rows[0].count);
@@ -39,10 +68,10 @@ async function getFamilies(req, res) {
     const offset = (page - 1) * limit;
     const totalPages = Math.ceil(totalData / limit);
 
-    query += ` ORDER BY k.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
-    params.push(limit, offset);
+    const finalQuery = `${query} ORDER BY k.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    const finalParams = [...params, limit, offset];
 
-    const result = await pool.query(query, params);
+    const result = await pool.query(finalQuery, finalParams);
     return res.status(200).json({ 
       success: true, 
       count: result.rows.length, 
@@ -57,6 +86,69 @@ async function getFamilies(req, res) {
   } catch (err) {
     console.error('GetFamilies Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
+async function exportFamiliesExcel(req, res) {
+  try {
+    const { query, params } = buildFamilyQuery(req);
+    const finalQuery = `${query} ORDER BY k.created_at DESC`;
+    const result = await pool.query(finalQuery, params);
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Data KK');
+    worksheet.columns = KOLOM_KK;
+
+    worksheet.getColumn('no').alignment = { horizontal: 'left' };
+
+    result.rows.forEach((kk, index) => worksheet.addRow(toRowKK(kk, index)));
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=Data_KK.xlsx');
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error('Export Families Excel Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat export excel.' });
+  }
+}
+
+async function exportFamiliesPdf(req, res) {
+  try {
+    const { query, params } = buildFamilyQuery(req);
+    const finalQuery = `${query} ORDER BY k.created_at DESC`;
+    const result = await pool.query(finalQuery, params);
+
+    const doc = new PDFDocument({ margin: 30, size: 'A4', layout: 'landscape' });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename=Data_KK.pdf');
+    doc.pipe(res);
+
+    doc.fontSize(18).text('Data Kartu Keluarga (KK) RT', { align: 'center' });
+    doc.moveDown();
+
+    const table = {
+      title: 'Rekapitulasi Kartu Keluarga',
+      headers: KOLOM_KK.map(k => k.header),
+      rows: result.rows.map((kk, index) => {
+        const row = toRowKK(kk, index);
+        return KOLOM_KK.map(k => (row[k.key] === '' ? '-' : row[k.key].toString()));
+      }),
+    };
+
+    await doc.table(table, {
+      prepareHeader: () => doc.font('Helvetica-Bold').fontSize(8),
+      prepareRow: () => doc.font('Helvetica').fontSize(7),
+    });
+
+    doc.end();
+  } catch (err) {
+    console.error('Export Families PDF Error:', err.message);
+    if (!res.headersSent) {
+      return res.status(500).json({ success: false, message: 'Terjadi kesalahan saat export PDF.' });
+    }
   }
 }
 
@@ -164,4 +256,12 @@ async function deleteFamily(req, res) {
   }
 }
 
-module.exports = { getFamilies, getFamilyDetail, createFamily, updateFamily, deleteFamily };
+module.exports = {
+  getFamilies,
+  getFamilyDetail,
+  createFamily,
+  updateFamily,
+  deleteFamily,
+  exportFamiliesExcel,
+  exportFamiliesPdf,
+};

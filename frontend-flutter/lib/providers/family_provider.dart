@@ -127,6 +127,15 @@ class FamilyProvider extends ChangeNotifier {
     return false;
   }
 
+  /// Lewat tiket sekali pakai — lihat [ApiService.unduhDenganTiket].
+  Future<Map<String, dynamic>> downloadExcel({String? search}) {
+    return ApiService.unduhDenganTiket('kk.excel', parameter: {'search': search ?? _lastSearch});
+  }
+
+  Future<Map<String, dynamic>> downloadPdf({String? search}) {
+    return ApiService.unduhDenganTiket('kk.pdf', parameter: {'search': search ?? _lastSearch});
+  }
+
   /// Kosongkan seluruh state saat pengguna keluar.
   ///
   /// Provider di aplikasi ini dibuat sekali di MultiProvider akar dan hidup

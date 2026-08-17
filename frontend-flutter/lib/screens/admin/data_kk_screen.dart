@@ -1152,6 +1152,28 @@ class _DataKkScreenState extends State<DataKkScreen> {
                     ),
                   ],
                 ),
+              Wrap(
+                spacing: AppTheme.spasiS,
+                runSpacing: AppTheme.spasiS,
+                children: [
+                  _buildActionButton(
+                    Icons.description,
+                    'Export Excel',
+                    const Color(0xFF059669),
+                    onTap: () {
+                      context.read<FamilyProvider>().downloadExcel();
+                    },
+                  ),
+                  _buildActionButton(
+                    Icons.picture_as_pdf,
+                    'Export PDF',
+                    const Color(0xFFDC2626),
+                    onTap: () {
+                      context.read<FamilyProvider>().downloadPdf();
+                    },
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -1168,47 +1190,42 @@ class _DataKkScreenState extends State<DataKkScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 16,
-                runSpacing: 16,
-                children: [
-                  Wrap(
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      const Icon(Icons.list_alt, color: Color(0xFF1B7A6A)),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Detail Data KK',
-                        style: TextStyle(
-                          fontSize: 16,
+              Center(
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: [
+                    const Icon(Icons.list_alt, color: Color(0xFF1B7A6A)),
+                    Text(
+                      'Detail Data KK',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: context.teksUtama,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD1FAE5),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${prov.totalData} KK',
+                        style: const TextStyle(
+                          color: Color(0xFF065F46),
+                          fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: context.teksUtama,
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFD1FAE5),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          '${prov.totalData} KK',
-                          style: const TextStyle(
-                            color: Color(0xFF065F46),
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 20),
 
@@ -1484,5 +1501,30 @@ class _DataKkScreenState extends State<DataKkScreen> {
         ),
       ],
     );
+  }
+
+  Widget _buildActionButton(IconData icon, String label, Color color, {VoidCallback? onTap}) {
+    final tombol = ElevatedButton.icon(
+      onPressed: onTap ?? () {},
+      icon: Icon(icon, size: 16),
+      label: Text(
+        label,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(horizontal: AppTheme.spasiL),
+        shape: RoundedRectangleBorder(borderRadius: AppTheme.borderRadiusS),
+      ),
+    );
+
+    if (!pakaiKartu(context)) return tombol;
+
+    final lebarLayar = MediaQuery.of(context).size.width;
+    final lebarTombol = (lebarLayar - paddingKonten(context) * 2 - AppTheme.spasiS) / 2;
+    return SizedBox(width: lebarTombol, child: tombol);
   }
 }
