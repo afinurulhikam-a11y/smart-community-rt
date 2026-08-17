@@ -1109,16 +1109,52 @@ class _DataKkScreenState extends State<DataKkScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (widget.onBack != null) ...[
-          Row(
+        const BannerLihatSaja(kode: _kodeIzin),
+
+        // Top Header and Breadcrumb
+        SizedBox(
+          width: double.infinity,
+          child: Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 12,
             children: [
-              TombolKembali(onPressed: widget.onBack!),
+              if (!pakaiKartu(context))
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TombolKembali(onPressed: widget.onBack),
+                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1B7A6A).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.family_restroom_rounded,
+                        color: Color(0xFF1B7A6A),
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        'Kependudukan / Data KK',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: context.teksKedua,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
-          const SizedBox(height: AppTheme.spasiM),
-        ],
-
-        BannerLihatSaja(kode: _kodeIzin),
+        ),
+        const SizedBox(height: AppTheme.spasiM),
 
         // Search Card
         Container(
