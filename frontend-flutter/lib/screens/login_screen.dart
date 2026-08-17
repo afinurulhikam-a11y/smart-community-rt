@@ -140,33 +140,34 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _kepalaPonsel() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: EdgeInsets.all(12),
-            decoration: BoxDecoration(
+            padding: const EdgeInsets.all(10),
+            decoration: const BoxDecoration(
               color: Color(0xFF1B7A6A),
-              borderRadius: BorderRadius.all(Radius.circular(16)),
+              borderRadius: BorderRadius.all(Radius.circular(14)),
             ),
-            child: Icon(Icons.home_rounded, color: Colors.white, size: 28),
+            child: const Icon(Icons.home_rounded, color: Colors.white, size: 26),
           ),
-          SizedBox(height: 16),
-          Text(
+          const SizedBox(height: 12),
+          const Text(
             'Sistem Informasi RT',
             style: TextStyle(
-              fontSize: 24,
+              fontSize: 22,
               fontWeight: FontWeight.bold,
               color: Color(0xFF1E293B),
             ),
           ),
-          SizedBox(height: 4),
-          Text(
-            'Masuk untuk melanjutkan',
+          const SizedBox(height: 4),
+          const Text(
+            'Kelola data warga, keuangan, dan layanan RT dalam satu platform',
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 12,
               color: Color(0xFF64748B),
+              height: 1.35,
             ),
           ),
         ],
@@ -434,7 +435,7 @@ class _LoginScreenState extends State<LoginScreen> {
               },
             ),
 
-            const SizedBox(height: 32),
+            SizedBox(height: isDesktop ? 32 : 20),
 
             // Login Button
             SizedBox(
@@ -461,7 +462,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
                       )
                     : const Text(
-                        'Masuk ke Sistem',
+                        'Masuk',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -471,7 +472,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
 
-            if (isDesktop) const Spacer() else const SizedBox(height: 32),
+            if (isDesktop) const Spacer() else const SizedBox(height: 16),
 
             Center(
               child: Text(

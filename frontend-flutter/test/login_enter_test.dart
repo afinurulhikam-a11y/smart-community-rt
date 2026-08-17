@@ -101,7 +101,7 @@ void main() {
     final lewatTombol = AuthPalsu();
     await bukaLogin(tester, lewatTombol);
     await isiKredensial(tester);
-    await tester.tap(find.text('Masuk ke Sistem'));
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Masuk'));
     await tester.pump();
     lewatTombol.lepaskan();
     await tester.pumpAndSettle();
@@ -192,7 +192,7 @@ void main() {
 
     expect(auth.jumlahPanggilan, 1);
 
-    await tester.tap(find.text('Masuk ke Sistem'));
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Masuk'));
     await tester.pump();
     expect(auth.jumlahPanggilan, 2, reason: 'layar terkunci setelah percobaan pertama gagal');
   });
