@@ -123,7 +123,6 @@ class _DataKkScreenState extends State<DataKkScreen> {
     _muatData();
   }
 
-
   void _pesan(String teks, {bool sukses = true}) {
     if (!mounted) return;
     tampilkanPesan(context, teks, sukses: sukses);
@@ -352,7 +351,7 @@ class _DataKkScreenState extends State<DataKkScreen> {
       statusRumah = 'Milik Sendiri';
     }
     final kunciForm = GlobalKey<FormState>();
-    final id = kk['id'] as int;
+    final id = int.tryParse(kk['id']?.toString() ?? '0') ?? 0;
 
     final hasil = await showDialog<bool>(
       context: context,
@@ -1452,13 +1451,16 @@ class _DataKkScreenState extends State<DataKkScreen> {
             final idx = ent.key;
             final item = ent.value;
             final noKk = item['no_kk']?.toString() ?? '-';
-            final id = item['id'] as int;
+            final id = int.tryParse(item['id']?.toString() ?? '0') ?? 0;
             final alamat = item['alamat']?.toString() ?? '-';
             final kepala = item['kepala_keluarga']?.toString() ?? '-';
             final statusRumah =
                 item['status_rumah']?.toString() ?? 'Milik Sendiri';
-            final jumlahAnggota = item['jumlah_anggota'] as int? ?? 0;
-            final terkonfirmasi = item['terkonfirmasi'] == true;
+            final jumlahAnggota =
+                int.tryParse(item['jumlah_anggota']?.toString() ?? '0') ?? 0;
+            final terkonfirmasi =
+                item['kepala_terkonfirmasi'] == true ||
+                item['terkonfirmasi'] == true;
 
             return BarisTabel(
               sel: [
