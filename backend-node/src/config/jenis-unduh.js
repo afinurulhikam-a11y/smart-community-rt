@@ -86,6 +86,20 @@ const JENIS_UNDUH = {
     fungsi: 'exportWargaPdf',
     paramJalur: [],
   },
+  'kk.excel': {
+    label: 'Ekspor Data KK (Excel)',
+    izin: { kode: 'kependudukan.kk', aksi: 'view' },
+    modul: '../controllers/family.controller',
+    fungsi: 'exportFamiliesExcel',
+    paramJalur: [],
+  },
+  'kk.pdf': {
+    label: 'Ekspor Data KK (PDF)',
+    izin: { kode: 'kependudukan.kk', aksi: 'view' },
+    modul: '../controllers/family.controller',
+    fungsi: 'exportFamiliesPdf',
+    paramJalur: [],
+  },
   'bansos.export': {
     label: 'Ekspor Bantuan Sosial',
     izin: { kode: 'kependudukan.bansos', aksi: 'view' },

@@ -1,6 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const { getFamilies, getFamilyDetail, createFamily, updateFamily, deleteFamily } = require('../controllers/family.controller');
+const {
+  getFamilies,
+  getFamilyDetail,
+  createFamily,
+  updateFamily,
+  deleteFamily,
+  exportFamiliesExcel,
+  exportFamiliesPdf,
+} = require('../controllers/family.controller');
 const { authMiddleware, roleGuard, requirePermission } = require('../middleware/auth.middleware');
 
 router.use(authMiddleware);
@@ -17,6 +25,8 @@ router.use(authMiddleware);
 // memegang minimal `view` di sini, kalau tidak daftar KK-nya gagal dimuat
 // walau izin iurannya penuh.
 router.get('/', requirePermission('kependudukan.kk', 'view'), getFamilies);
+router.get('/export/excel', requirePermission('kependudukan.kk', 'view'), exportFamiliesExcel);
+router.get('/export/pdf', requirePermission('kependudukan.kk', 'view'), exportFamiliesPdf);
 router.get('/:id', requirePermission('kependudukan.kk', 'view'), getFamilyDetail);
 router.post('/', requirePermission('kependudukan.kk', 'create'), createFamily);
 router.put('/:id', requirePermission('kependudukan.kk', 'update'), updateFamily);
