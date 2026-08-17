@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/services/auth_service.dart';
+import '../core/services/autofill_helper.dart';
 import '../core/pesan.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -59,7 +60,11 @@ class _LoginScreenState extends State<LoginScreen> {
     final auth = context.read<AuthService>();
     try {
       final success = await auth.login(_emailController.text.trim(), _passwordController.text);
-      if (!success) {
+      if (success) {
+        // Panggil Credential Management API untuk memicu prompt simpan sandi
+        // secara aktif (floating bubble) di Google Chrome & browser berbasis Chromium.
+        simpanKredensialWeb(_emailController.text.trim(), _passwordController.text);
+      } else {
         // Jika kredensial salah, batalkan sesi penyimpanan autofill
         TextInput.finishAutofillContext(shouldSave: false);
         if (mounted) {
