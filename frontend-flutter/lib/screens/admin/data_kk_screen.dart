@@ -59,11 +59,6 @@ class _DataKkScreenState extends State<DataKkScreen> {
     );
   }
 
-  void _resetFilter() {
-    _ctlCari.clear();
-    _halaman = 1;
-    _muatData();
-  }
 
   void _pesan(String teks, {bool sukses = true}) {
     if (!mounted) return;
@@ -696,70 +691,62 @@ class _DataKkScreenState extends State<DataKkScreen> {
 
           // Search Card
           Container(
-            padding: const EdgeInsets.all(AppTheme.spasiL),
+            padding: EdgeInsets.all(paddingKartu(context)),
             decoration: BoxDecoration(
               color: context.latarKartu,
               borderRadius: BorderRadius.circular(AppTheme.radiusL),
               border: Border.all(color: context.garis),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _ctlCari,
-                    onFieldSubmitted: (_) {
-                      _halaman = 1;
-                      _muatData();
-                    },
-                    decoration: InputDecoration(
-                      hintText:
-                          'Cari berdasarkan No KK, Kepala Keluarga, Alamat...',
-                      prefixIcon: const Icon(Icons.search_rounded),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 460),
+                child: Row(
+                  children: [
+                    Text(
+                      'Pencarian',
+                      style: TextStyle(fontSize: 13, color: context.teksKedua),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _ctlCari,
+                        onSubmitted: (_) {
+                          _halaman = 1;
+                          _muatData();
+                        },
+                        decoration: InputDecoration(
+                          hintText: 'Cari No KK, Kepala Keluarga, Alamat...',
+                          hintStyle: TextStyle(fontSize: 12, color: context.teksTersier),
+                          prefixIcon: Icon(Icons.search, size: 18, color: context.teksKedua),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.arrow_forward, size: 16),
+                            onPressed: () {
+                              _halaman = 1;
+                              _muatData();
+                            },
+                          ),
+                          filled: true,
+                          fillColor: context.latarLembut,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: context.garis),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: context.garis),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(color: Color(0xFF1B7A6A), width: 1.5),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                        ),
+                        style: const TextStyle(fontSize: 13),
                       ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(AppTheme.radiusM),
-                      ),
                     ),
-                  ),
+                  ],
                 ),
-                const SizedBox(width: AppTheme.spasiM),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    _halaman = 1;
-                    _muatData();
-                  },
-                  icon: const Icon(Icons.search_rounded, size: 18),
-                  label: const Text('Cari'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.radiusM),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppTheme.spasiS),
-                OutlinedButton(
-                  onPressed: _resetFilter,
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.radiusM),
-                    ),
-                  ),
-                  child: const Text('Reset'),
-                ),
-              ],
+              ),
             ),
           ),
           const SizedBox(height: AppTheme.spasiL),

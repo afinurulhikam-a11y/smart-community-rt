@@ -579,7 +579,7 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
     final akhir = (currentPage * perPage).clamp(0, totalData);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: EdgeInsets.all(paddingKartu(context)),
       child: Wrap(
         alignment: WrapAlignment.spaceBetween,
         crossAxisAlignment: WrapCrossAlignment.center,
@@ -588,21 +588,21 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
         children: [
           Text(
             totalData == 0
-                ? 'Tidak ada transaksi'
-                : 'Menampilkan $mulai - $akhir dari $totalData transaksi',
+                ? 'Tidak ada data'
+                : 'Menampilkan ${mulai + 1} – $akhir dari $totalData surat',
             style: TextStyle(fontSize: 13, color: context.teksKedua),
           ),
           Wrap(
             crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 6,
-            runSpacing: 6,
+            spacing: 4,
+            runSpacing: 4,
             children: [
               _pageBtn(
-                'Previous',
+                '<',
                 false,
                 currentPage > 1 ? () => _loadData(page: currentPage - 1) : null,
               ),
-              ...List.generate(totalPages.clamp(0, 10), (i) {
+              ...List.generate(totalPages.clamp(0, 5), (i) {
                 final n = i + 1;
                 return _pageBtn(
                   '$n',
@@ -611,7 +611,7 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
                 );
               }),
               _pageBtn(
-                'Next',
+                '>',
                 false,
                 currentPage < totalPages ? () => _loadData(page: currentPage + 1) : null,
               ),
@@ -630,8 +630,8 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: aktif ? const Color(0xFF1B7A6A) : (mati ? context.latarLembut : context.latarKartu),
-          border: Border.all(color: aktif ? const Color(0xFF1B7A6A) : context.garis),
+          color: aktif ? const Color(0xFF3B82F6) : (mati ? context.latarLembut : context.latarKartu),
+          border: Border.all(color: aktif ? const Color(0xFF3B82F6) : context.garis),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
@@ -639,7 +639,7 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
           style: TextStyle(
             fontSize: 13,
             color: aktif ? Colors.white : (mati ? context.teksTersier : context.teksKedua),
-            fontWeight: aktif ? FontWeight.bold : FontWeight.w500,
+            fontWeight: aktif ? FontWeight.bold : FontWeight.normal,
           ),
         ),
       ),

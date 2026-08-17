@@ -123,17 +123,6 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
 
   int _totalHalaman(int total) => total <= 0 ? 1 : ((total - 1) ~/ _limit) + 1;
 
-  /// "Menampilkan 1 – 25 dari 4.312 kejadian".
-  ///
-  /// Angka totalnya yang penting, bukan yang tampil: ia satu-satunya petunjuk
-  /// bahwa masih ada ribuan baris lain di belakang layar ini.
-  String _ringkasanBaris(int tampil, int total) {
-    if (total == 0) return 'Tidak ada kejadian yang cocok';
-    final mulai = (_halaman - 1) * _limit + 1;
-    final akhir = mulai + tampil - 1;
-    final akhiran = _adaPenyaring ? ' (tersaring)' : '';
-    return 'Menampilkan $mulai – $akhir dari $total kejadian$akhiran';
-  }
 
   void _bersihkanPenyaring() {
     _searchController.clear();
@@ -610,61 +599,16 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
                             ],
                           );
                         }).toList(),
+                        currentPage: _halaman,
+                        totalPages: _totalHalaman(provider.total),
+                        totalData: provider.total,
+                        perPage: 10,
+                        onPageChanged: (p) {
+                          setState(() => _halaman = p);
+                          _loadData();
+                        },
                       ),
                     ),
-
-                  Divider(height: 1, color: context.garis),
-
-                  // Footer Summary
-                  Padding(
-                    padding: EdgeInsets.all(paddingKartu(context)),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 12,
-                        runSpacing: 12,
-                        children: [
-                          Text(
-                            _ringkasanBaris(logs.length, provider.total),
-                            style: TextStyle(fontSize: 12, color: context.teksKedua),
-                          ),
-                          Wrap(
-                            spacing: 4,
-                            runSpacing: 4,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              IconButton(
-                                tooltip: 'Halaman sebelumnya',
-                                onPressed: _halaman > 1
-                                    ? () {
-                                        setState(() => _halaman--);
-                                        _loadData();
-                                      }
-                                    : null,
-                                icon: const Icon(Icons.chevron_left, size: 20),
-                              ),
-                              Text(
-                                'Hal. $_halaman / ${_totalHalaman(provider.total)}',
-                                style: TextStyle(fontSize: 12, color: context.teksKedua),
-                              ),
-                              IconButton(
-                                tooltip: 'Halaman berikutnya',
-                                onPressed: _halaman < _totalHalaman(provider.total)
-                                    ? () {
-                                        setState(() => _halaman++);
-                                        _loadData();
-                                      }
-                                    : null,
-                                icon: const Icon(Icons.chevron_right, size: 20),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
                 ],
               );
             },

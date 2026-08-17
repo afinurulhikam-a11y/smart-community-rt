@@ -640,6 +640,8 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
         }).toList(),
         currentPage: provider.currentPage,
         totalPages: provider.totalPages,
+        totalData: provider.totalData,
+        perPage: provider.perPage,
         onPageChanged: (page) {
           context.read<WargaProvider>().fetchWarga(search: _searchQuery, page: page);
         },

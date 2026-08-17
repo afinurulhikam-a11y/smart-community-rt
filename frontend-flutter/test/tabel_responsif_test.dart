@@ -177,8 +177,10 @@ void main() {
     await tester.pump();
 
     // Rentang dihitung dari halaman (11–20), bukan dari panjang baris.
-    expect(find.text('Menampilkan 11–20 dari 57 data'), findsOneWidget);
-    expect(find.text('Halaman 2 dari 6'), findsOneWidget);
+    expect(find.text('Menampilkan 11 – 20 dari 57 data'), findsOneWidget);
+    expect(find.widgetWithText(InkWell, '2'), findsOneWidget);
+    expect(find.text('<'), findsOneWidget);
+    expect(find.text('>'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -199,7 +201,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Menampilkan 1–3 dari 3 data'), findsOneWidget);
+    expect(find.text('Menampilkan 1 – 3 dari 3 data'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -222,9 +224,9 @@ void main() {
     );
     await tester.pump();
 
-    // "Menampilkan X–Y dari Z" disembunyikan, "Halaman X dari Y" tetap ada.
-    expect(find.text('Menampilkan 11–20 dari 57 data'), findsNothing);
-    expect(find.text('Halaman 2 dari 6'), findsOneWidget);
+    // "Menampilkan X–Y dari Z" disembunyikan, tombol halaman tetap ada.
+    expect(find.text('Menampilkan 11 – 20 dari 57 data'), findsNothing);
+    expect(find.widgetWithText(InkWell, '2'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
