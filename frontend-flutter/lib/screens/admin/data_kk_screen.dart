@@ -138,8 +138,6 @@ class _DataKkScreenState extends State<DataKkScreen> {
     final ctlAlamat = TextEditingController(
       text: kk['alamat']?.toString() ?? '',
     );
-    final ctlRt = TextEditingController(text: kk['rt']?.toString() ?? '001');
-    final ctlRw = TextEditingController(text: kk['rw']?.toString() ?? '001');
     String statusRumah = kk['status_rumah']?.toString() ?? 'Milik Sendiri';
     if (![
       'Milik Sendiri',
@@ -150,8 +148,10 @@ class _DataKkScreenState extends State<DataKkScreen> {
     ].contains(statusRumah)) {
       statusRumah = 'Milik Sendiri';
     }
+    bool langgananSampah = kk['langganan_sampah'] == true;
     final kunciForm = GlobalKey<FormState>();
     final id = int.tryParse(kk['id']?.toString() ?? '0') ?? 0;
+    final noKk = kk['no_kk']?.toString() ?? '-';
 
     final hasil = await showDialog<bool>(
       context: context,
@@ -173,13 +173,28 @@ class _DataKkScreenState extends State<DataKkScreen> {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  'Edit Data KK #${kk['no_kk']}',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 18,
-                    color: ctx.teksUtama,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Edit Data KK',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 18,
+                        color: ctx.teksUtama,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'No KK: $noKk',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: ctx.teksKedua,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -214,34 +229,6 @@ class _DataKkScreenState extends State<DataKkScreen> {
                           : null,
                     ),
                     const SizedBox(height: AppTheme.spasiM),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: ctlRt,
-                            decoration: const InputDecoration(
-                              labelText: 'RT *',
-                            ),
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'RT wajib diisi.'
-                                : null,
-                          ),
-                        ),
-                        const SizedBox(width: AppTheme.spasiM),
-                        Expanded(
-                          child: TextFormField(
-                            controller: ctlRw,
-                            decoration: const InputDecoration(
-                              labelText: 'RW *',
-                            ),
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'RW wajib diisi.'
-                                : null,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppTheme.spasiM),
                     DropdownButtonFormField<String>(
                       initialValue: statusRumah,
                       dropdownColor: ctx.latarKartu,
@@ -266,6 +253,43 @@ class _DataKkScreenState extends State<DataKkScreen> {
                       onChanged: (v) {
                         if (v != null) setDialogState(() => statusRumah = v);
                       },
+                    ),
+                    const SizedBox(height: AppTheme.spasiM),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: ctx.latarLembut,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: ctx.garis),
+                      ),
+                      child: SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          'Langganan Pengangkutan Sampah',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: ctx.teksUtama,
+                          ),
+                        ),
+                        subtitle: Text(
+                          langgananSampah
+                              ? '✓ Berlangganan Sampah'
+                              : '✗ Tidak Berlangganan',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: langgananSampah
+                                ? const Color(0xFF10B981)
+                                : const Color(0xFFEF4444),
+                          ),
+                        ),
+                        value: langgananSampah,
+                        activeTrackColor: const Color(0xFF1B7A6A),
+                        onChanged: (val) {
+                          setDialogState(() => langgananSampah = val);
+                        },
+                      ),
                     ),
                   ],
                 ),
@@ -298,9 +322,8 @@ class _DataKkScreenState extends State<DataKkScreen> {
                     .updateFamily(id, {
                       'kepala_keluarga': ctlKepala.text.trim(),
                       'alamat': ctlAlamat.text.trim(),
-                      'rt': ctlRt.text.trim(),
-                      'rw': ctlRw.text.trim(),
                       'status_rumah': statusRumah,
+                      'langganan_sampah': langgananSampah,
                     });
                 if (ctx.mounted) Navigator.pop(ctx, success);
               },
@@ -395,18 +418,49 @@ class _DataKkScreenState extends State<DataKkScreen> {
                             'Alamat',
                             detail['alamat']?.toString() ?? '-',
                           ),
-                          _barisDetail(ctx, 'RT / RW', '001 / 001'),
                           _barisDetail(
                             ctx,
                             'Status Rumah',
                             detail['status_rumah']?.toString() ?? 'Milik Sendiri',
                           ),
-                          _barisDetail(
-                            ctx,
-                            'Langganan Sampah',
-                            detail['langganan_sampah'] == true
-                                ? 'Berlangganan (Ya)'
-                                : 'Tidak',
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Langganan Sampah',
+                                  style: TextStyle(
+                                    color: ctx.teksKedua,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: detail['langganan_sampah'] == true
+                                        ? const Color(0xFFD1FAE5)
+                                        : const Color(0xFFFEE2E2),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    detail['langganan_sampah'] == true
+                                        ? '✓ Berlangganan Sampah'
+                                        : '✗ Tidak Berlangganan',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: detail['langganan_sampah'] == true
+                                          ? const Color(0xFF065F46)
+                                          : const Color(0xFF991B1B),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
