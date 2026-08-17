@@ -8,7 +8,6 @@ function buildFamilyQuery(req) {
   const { search } = req.query;
   let query = `SELECT k.*,
       (SELECT COUNT(*)::int FROM anggota_keluarga ak WHERE ak.keluarga_id = k.id) AS jumlah_anggota,
-      (SELECT ak3.status_rumah FROM anggota_keluarga ak3 WHERE ak3.keluarga_id = k.id AND ak3.status_rumah IS NOT NULL LIMIT 1) AS status_rumah,
       EXISTS (
         SELECT 1 FROM anggota_keluarga ak2
         WHERE ak2.keluarga_id = k.id AND ak2.status_keluarga = 'Kepala Keluarga'
