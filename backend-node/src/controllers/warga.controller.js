@@ -4,7 +4,6 @@ const bcrypt = require('bcryptjs');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit-table');
 const { jenisKelamin: normalJk, labelJenisKelamin } = require('../utils/normalisasi');
-const { SUMBER_WARGA } = require('../utils/lingkup-warga');
 
 /**
  * Tata letak kolom Excel/PDF. Export menulis dengan urutan ini dan import

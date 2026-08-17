@@ -6,7 +6,7 @@ async function getFamilies(req, res) {
   try {
     const { search } = req.query;
     let query = `SELECT k.*,
-        (SELECT COUNT(*) FROM anggota_keluarga ak WHERE ak.keluarga_id = k.id) AS jumlah_anggota,
+        (SELECT COUNT(*)::int FROM anggota_keluarga ak WHERE ak.keluarga_id = k.id) AS jumlah_anggota,
         -- false berarti nama kepala keluarga masih memakai nama anggota pertama
         -- sebagai penanda sementara, bukan kepala keluarga sungguhan.
         EXISTS (
