@@ -41,9 +41,7 @@ class _StatusDaruratScreenState extends State<StatusDaruratScreen> {
     final auth = context.read<AuthService>();
     if (auth.isPengurus) return true;
 
-    // `AuthService.userId` bertipe int sementara id pengguna adalah UUID, jadi
-    // nilainya dibaca langsung dari peta dan dibandingkan sebagai teks.
-    final idSaya = auth.user?['id']?.toString() ?? '';
+    final idSaya = auth.userId;
     return idSaya.isNotEmpty && idSaya == alert.userId;
   }
 

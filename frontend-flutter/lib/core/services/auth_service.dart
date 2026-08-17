@@ -16,7 +16,7 @@ class AuthService extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   String get userRole => _user?['role'] ?? '';
   String get userName => _user?['nama'] ?? '';
-  int get userId => _user?['id'] ?? 0;
+  String get userId => _user?['id']?.toString() ?? '';
 
   /// Role yang diterima endpoint berpenjaga `roleGuard('admin', 'pengurus_rt')`.
   ///
