@@ -112,7 +112,7 @@ class SmartCommunityApp extends StatelessWidget {
       // sini, bukan dari pembungkus di tengah pohon.
       child: Consumer<TemaProvider>(
         builder: (context, tema, _) => MaterialApp(
-          title: 'Smart Community RT',
+          title: 'Auto RT — Sistem Manajemen RT Terintegrasi',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
