@@ -39,8 +39,12 @@ const KOLOM = [
 const BASE_QUERY = `
   SELECT
     ak.*,
-    k.no_kk, k.alamat, k.rt, k.rw, k.kelurahan, k.kecamatan, k.status_rumah
-  ${SUMBER_WARGA}
+    k.no_kk, k.alamat, k.rt, k.rw, k.kelurahan, k.kecamatan, k.status_rumah,
+    COALESCE(u.role, 'warga') AS role
+  FROM anggota_keluarga ak
+  JOIN keluarga k ON ak.keluarga_id = k.id
+  LEFT JOIN users u ON (u.nik = ak.nik OR u.username = ak.nik) AND u.deleted_at IS NULL
+  WHERE k.deleted_at IS NULL
 `;
 
 /**
@@ -197,6 +201,7 @@ async function getWarga(req, res) {
       status_rumah: warga.status_rumah || '-',
       is_aktif: warga.is_aktif !== false,
       has_ktp: warga.has_ktp === true,
+      role: warga.role || 'warga',
     }));
     return res.status(200).json({
       success: true,

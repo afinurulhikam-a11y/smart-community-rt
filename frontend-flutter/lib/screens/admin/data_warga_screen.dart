@@ -635,6 +635,7 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
             tanggalLahir: item['tanggal_lahir']?.toString() ?? '-',
             statusPerkawinan: item['status_pernikahan']?.toString() ?? '-',
             agama: item['agama']?.toString() ?? '-',
+            role: item['role']?.toString() ?? 'warga',
             item: item,
           );
         }).toList(),
@@ -645,6 +646,65 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
         onPageChanged: (page) {
           context.read<WargaProvider>().fetchWarga(search: _searchQuery, page: page);
         },
+      ),
+    );
+  }
+
+  Widget _buildRoleBadge(BuildContext context, String rawRole) {
+    final role = rawRole.toLowerCase().trim();
+    final String initial;
+    final String label;
+    final Color color;
+
+    switch (role) {
+      case 'ketua_rt':
+        initial = 'K';
+        label = 'Ketua RT';
+        color = const Color(0xFF8B5CF6);
+        break;
+      case 'admin':
+        initial = 'A';
+        label = 'Administrator';
+        color = const Color(0xFFE11D48);
+        break;
+      case 'sekretaris':
+        initial = 'S';
+        label = 'Sekretaris';
+        color = const Color(0xFF0284C7);
+        break;
+      case 'bendahara':
+        initial = 'B';
+        label = 'Bendahara';
+        color = const Color(0xFF059669);
+        break;
+      case 'warga':
+      default:
+        initial = 'W';
+        label = 'Warga';
+        color = const Color(0xFF64748B);
+        break;
+    }
+
+    return Tooltip(
+      message: 'Role: $label',
+      child: Container(
+        width: 22,
+        height: 22,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: color.withValues(alpha: 0.12),
+          border: Border.all(color: color, width: 1.5),
+        ),
+        child: Text(
+          initial,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: color,
+            height: 1.1,
+          ),
+        ),
       ),
     );
   }
@@ -663,6 +723,7 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
     String tanggalLahir = '-',
     String statusPerkawinan = '-',
     String agama = '-',
+    String role = 'warga',
     // Data mentah dari backend, dipakai tombol Edit untuk mengisi dialog.
     Map<String, dynamic>? item,
   }) {
@@ -690,29 +751,39 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
         ),
         SelTabel(
           'NAMA LENGKAP',
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
+          Row(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Tooltip(
-                message: name,
-                child: SizedBox(
-                  // Pemotongan 120px hanya masuk akal di tabel; di kartu nama
-                  // memakai lebar yang tersedia.
-                  width: pakaiKartu(context) ? null : 120,
-                  child: Text(
-                    name,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: context.teksUtama,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+              _buildRoleBadge(context, role),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Tooltip(
+                      message: name,
+                      child: SizedBox(
+                        // Pemotongan 120px hanya masuk akal di tabel; di kartu nama
+                        // memakai lebar yang tersedia.
+                        width: pakaiKartu(context) ? null : 120,
+                        child: Text(
+                          name,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: context.teksUtama,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    Text(gender, style: TextStyle(fontSize: 11, color: context.teksTersier)),
+                  ],
                 ),
               ),
-              Text(gender, style: TextStyle(fontSize: 11, color: context.teksTersier)),
             ],
           ),
           utama: true,
