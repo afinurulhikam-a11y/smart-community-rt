@@ -228,7 +228,42 @@ class TabelResponsif extends StatelessWidget {
     return content;
   }
 
-Widget _buildFooter(BuildContext context) {
+  Widget _pageBtn(
+    BuildContext context,
+    String text,
+    bool aktif,
+    VoidCallback? onTap,
+  ) {
+    final mati = onTap == null;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: aktif
+              ? const Color(0xFF3B82F6)
+              : (mati ? context.latarLembut : context.latarKartu),
+          border: Border.all(
+            color: aktif ? const Color(0xFF3B82F6) : context.garis,
+          ),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 13,
+            color: aktif
+                ? Colors.white
+                : (mati ? context.teksTersier : context.teksKedua),
+            fontWeight: aktif ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFooter(BuildContext context) {
     final halaman = currentPage ?? 1;
     final totalHal = totalPages ?? 1;
     final per = perPage ?? 10;
@@ -239,30 +274,44 @@ Widget _buildFooter(BuildContext context) {
     final mulai = (halaman - 1) * per + 1;
     final akhir = (halaman * per) > total ? total : halaman * per;
 
-    // Pagination tunggal yang bisa dipakai ulang, dibungkus Row agar tombol
-    // Previous/Next di kiri & kanan dan "Halaman X dari Y" di tengah.
-    Widget pagination() => Row(
-      mainAxisSize: MainAxisSize.min,
+    int startPage = 1;
+    int endPage = totalHal;
+    if (totalHal > 5) {
+      if (halaman <= 3) {
+        startPage = 1;
+        endPage = 5;
+      } else if (halaman >= totalHal - 2) {
+        startPage = totalHal - 4;
+        endPage = totalHal;
+      } else {
+        startPage = halaman - 2;
+        endPage = halaman + 2;
+      }
+    }
+
+    Widget pagination() => Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        IconButton(
-          icon: const Icon(Icons.chevron_left),
-          visualDensity: VisualDensity.compact,
-          tooltip: 'Halaman sebelumnya',
-          onPressed: (halaman > 1)
-              ? () => onPageChanged?.call(halaman - 1)
-              : null,
+        _pageBtn(
+          context,
+          '<',
+          false,
+          halaman > 1 ? () => onPageChanged?.call(halaman - 1) : null,
         ),
-        Text(
-          'Halaman $halaman dari $totalHal',
-          style: TextStyle(fontSize: 12, color: context.teksKedua),
-        ),
-        IconButton(
-          icon: const Icon(Icons.chevron_right),
-          visualDensity: VisualDensity.compact,
-          tooltip: 'Halaman berikutnya',
-          onPressed: (halaman < totalHal)
-              ? () => onPageChanged?.call(halaman + 1)
-              : null,
+        for (int p = startPage; p <= endPage; p++)
+          _pageBtn(
+            context,
+            '$p',
+            p == halaman,
+            () => onPageChanged?.call(p),
+          ),
+        _pageBtn(
+          context,
+          '>',
+          false,
+          halaman < totalHal ? () => onPageChanged?.call(halaman + 1) : null,
         ),
       ],
     );
@@ -271,22 +320,24 @@ Widget _buildFooter(BuildContext context) {
     // berada di tengah baris.
     if (footerTerpusat) {
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         child: Center(child: pagination()),
       );
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: EdgeInsets.all(paddingKartu(context)),
       child: Wrap(
         alignment: WrapAlignment.spaceBetween,
         crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 12,
-        runSpacing: 4,
+        spacing: 16,
+        runSpacing: 12,
         children: [
           Text(
-            'Menampilkan $mulai–$akhir dari $total data',
-            style: TextStyle(fontSize: 12, color: context.teksKedua),
+            total == 0
+                ? 'Tidak ada data'
+                : 'Menampilkan $mulai – $akhir dari $total data',
+            style: TextStyle(fontSize: 13, color: context.teksKedua),
           ),
           pagination(),
         ],
@@ -295,23 +346,54 @@ Widget _buildFooter(BuildContext context) {
   }
 
   Widget _buildPagination(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        IconButton(
-          icon: const Icon(Icons.chevron_left),
-          onPressed: (currentPage != null && currentPage! > 1)
-              ? () => onPageChanged?.call(currentPage! - 1)
-              : null,
+    final halaman = currentPage ?? 1;
+    final totalHal = totalPages ?? 1;
+
+    int startPage = 1;
+    int endPage = totalHal;
+    if (totalHal > 5) {
+      if (halaman <= 3) {
+        startPage = 1;
+        endPage = 5;
+      } else if (halaman >= totalHal - 2) {
+        startPage = totalHal - 4;
+        endPage = totalHal;
+      } else {
+        startPage = halaman - 2;
+        endPage = halaman + 2;
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Center(
+        child: Wrap(
+          spacing: 4,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _pageBtn(
+              context,
+              '<',
+              false,
+              halaman > 1 ? () => onPageChanged?.call(halaman - 1) : null,
+            ),
+            for (int p = startPage; p <= endPage; p++)
+              _pageBtn(
+                context,
+                '$p',
+                p == halaman,
+                () => onPageChanged?.call(p),
+              ),
+            _pageBtn(
+              context,
+              '>',
+              false,
+              halaman < totalHal ? () => onPageChanged?.call(halaman + 1) : null,
+            ),
+          ],
         ),
-        Text('Halaman ${currentPage ?? 1} dari ${totalPages ?? 1}'),
-        IconButton(
-          icon: const Icon(Icons.chevron_right),
-          onPressed: (currentPage != null && totalPages != null && currentPage! < totalPages!)
-              ? () => onPageChanged?.call(currentPage! + 1)
-              : null,
-        ),
-      ],
+      ),
     );
   }
 

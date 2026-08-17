@@ -320,6 +320,8 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
                       }).toList(),
                       currentPage: provider.currentPage,
                       totalPages: provider.totalPages,
+                      totalData: provider.totalData,
+                      perPage: provider.perPage,
                       onPageChanged: (page) => _loadData(page: page),
                     ),
                   ),

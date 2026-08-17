@@ -899,11 +899,12 @@ class _PengaduanScreenState extends State<PengaduanScreen> {
     final mati = onTap == null;
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: aktif ? const Color(0xFF0F766E) : (mati ? context.latarLembut : context.latarKartu),
-          border: Border.all(color: aktif ? const Color(0xFF0F766E) : context.garis),
+          color: aktif ? const Color(0xFF3B82F6) : (mati ? context.latarLembut : context.latarKartu),
+          border: Border.all(color: aktif ? const Color(0xFF3B82F6) : context.garis),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
