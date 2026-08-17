@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../core/services/auth_service.dart';
 import '../core/pesan.dart';
 
@@ -63,6 +64,19 @@ class _LoginScreenState extends State<LoginScreen> {
       // melempar. Yang perlu dibuka kembali hanyalah kasus gagal, dan di situ
       // layarnya masih hidup.
       if (mounted) setState(() => _sedangMasuk = false);
+    }
+  }
+
+  Future<void> _bukaBantuanWhatsApp() async {
+    const pesan =
+        'Halo Pengurus RT, saya butuh bantuan terkait akun dan akses masuk aplikasi Auto RT.';
+    final uri = Uri.parse(
+      'https://wa.me/6289692216853?text=${Uri.encodeComponent(pesan)}',
+    );
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      debugPrint('Gagal membuka WhatsApp: $e');
     }
   }
 
@@ -475,12 +489,33 @@ class _LoginScreenState extends State<LoginScreen> {
             if (isDesktop) const Spacer() else const SizedBox(height: 16),
 
             Center(
-              child: Text(
-                'Butuh bantuan? Hubungi pengurus RT Anda',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: const Color(0xFF64748B).withValues(alpha: 0.9),
-                ),
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    'Butuh bantuan ? Hubungi ',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: const Color(0xFF64748B).withValues(alpha: 0.9),
+                    ),
+                  ),
+                  MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: _bukaBantuanWhatsApp,
+                      child: const Text(
+                        'pengurus RT',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF1B7A6A),
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
