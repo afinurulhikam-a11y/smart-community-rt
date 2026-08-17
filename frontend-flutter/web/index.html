@@ -48,6 +48,24 @@
         renderer: "html"
       }
     };
+    window.simpanKredensialWeb = function(username, password) {
+      try {
+        if (window.PasswordCredential && navigator.credentials && navigator.credentials.store) {
+          var cred = new PasswordCredential({
+            id: username,
+            password: password,
+            name: username
+          });
+          navigator.credentials.store(cred).then(function() {
+            console.log('[AutoRT] Kredensial berhasil diserahkan ke Credential Management API');
+          }).catch(function(err) {
+            console.warn('[AutoRT] Gagal menyimpan kredensial:', err);
+          });
+        }
+      } catch (err) {
+        console.warn('[AutoRT] Credential Management API tidak didukung:', err);
+      }
+    };
   </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
