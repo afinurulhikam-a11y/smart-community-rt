@@ -35,6 +35,9 @@
  * Menyasar database yang sama dengan aplikasi (DATABASE_URL atau DB_* di .env).
  */
 require('dotenv').config();
+const { assertCanRunDestructive } = require('./src/config/db-guard');
+assertCanRunDestructive('seed-demo-lengkap');
+
 const bcrypt = require('bcryptjs');
 const { pool } = require('./src/config/database');
 const { rincianTagihanAir } = require('./src/utils/tagihan-air');

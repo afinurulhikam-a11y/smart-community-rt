@@ -48,6 +48,9 @@
  * Idempoten: aman dijalankan berulang.
  */
 require('dotenv').config();
+const { assertCanRunMigration } = require('../../src/config/db-guard');
+assertCanRunMigration('migration_v20_log_lepas_fk_user');
+
 const { pool } = require('../../src/config/database');
 
 async function jalankan() {

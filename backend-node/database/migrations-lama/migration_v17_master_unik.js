@@ -1,4 +1,7 @@
 require('dotenv').config();
+const { assertCanRunMigration } = require('../../src/config/db-guard');
+assertCanRunMigration('migration_v17_master_unik');
+
 const { pool } = require('../../src/config/database');
 
 /**

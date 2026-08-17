@@ -45,6 +45,9 @@
  *   node migration_v24_iuran_meteran.js
  */
 require('dotenv').config();
+const { assertCanRunMigration } = require('./src/config/db-guard');
+assertCanRunMigration('migration_v24');
+
 const { pool } = require('./src/config/database');
 
 /** Kolom baru pada `jenis_iuran` — aturan tarif yang berlaku saat ini. */

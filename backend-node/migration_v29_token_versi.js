@@ -56,6 +56,9 @@
  *   node migration_v29_token_versi.js
  */
 require('dotenv').config();
+const { assertCanRunMigration } = require('./src/config/db-guard');
+assertCanRunMigration('migration_v29');
+
 const { pool } = require('./src/config/database');
 
 const TABEL = 'users';

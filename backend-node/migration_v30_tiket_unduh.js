@@ -58,6 +58,9 @@
  *   node migration_v30_tiket_unduh.js
  */
 require('dotenv').config();
+const { assertCanRunMigration } = require('./src/config/db-guard');
+assertCanRunMigration('migration_v30');
+
 const { pool } = require('./src/config/database');
 
 const TABEL = 'tiket_unduh';

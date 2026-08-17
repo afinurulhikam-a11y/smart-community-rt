@@ -19,6 +19,8 @@
  * memegang referensi ke modul mqtt saat dimuat.
  */
 require('dotenv').config();
+const { assertCanRunTest } = require('./src/config/db-guard');
+assertCanRunTest('test-emergency-keterangan');
 
 const assert = require('assert');
 const { spawnSync } = require('child_process');

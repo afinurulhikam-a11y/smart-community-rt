@@ -1,4 +1,7 @@
 require('dotenv').config();
+const { assertCanRunDestructive } = require('./src/config/db-guard');
+assertCanRunDestructive('seed_dummy_inventory');
+
 const { pool } = require('./src/config/database');
 
 const dummyItems = [

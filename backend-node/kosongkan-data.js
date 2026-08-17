@@ -1,4 +1,7 @@
 require('dotenv').config();
+const { assertCanRunDestructive } = require('./src/config/db-guard');
+assertCanRunDestructive('kosongkan-data');
+
 const { pool } = require('./src/config/database');
 const { GRUP_TOTAL, TABEL_DILINDUNGI } = require('./src/config/reset-groups');
 

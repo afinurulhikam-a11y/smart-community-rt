@@ -1,7 +1,10 @@
+require('dotenv').config();
+const { assertCanRunMigration } = require('../../src/config/db-guard');
+assertCanRunMigration('fix-db');
+
 const { Client } = require('pg');
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config();
 
 async function fixDB() {
   const client = new Client({

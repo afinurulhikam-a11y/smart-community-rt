@@ -1,4 +1,7 @@
 require('dotenv').config();
+const { assertCanRunTest } = require('./src/config/db-guard');
+assertCanRunTest('test-auth-logout');
+
 const jwt = require('jsonwebtoken');
 const { pool } = require('./src/config/database');
 const { logout, login } = require('./src/controllers/auth.controller');

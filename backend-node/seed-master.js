@@ -1,4 +1,7 @@
 require('dotenv').config();
+const { assertCanRunSeedMaster } = require('./src/config/db-guard');
+assertCanRunSeedMaster('seed-master');
+
 const bcrypt = require('bcryptjs');
 const { pool } = require('./src/config/database');
 const { MENU_ITEMS, DEFAULT_PERMISSIONS } = require('./src/config/permissions');

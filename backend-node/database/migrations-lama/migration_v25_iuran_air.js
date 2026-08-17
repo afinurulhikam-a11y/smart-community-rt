@@ -45,7 +45,10 @@
  *   node migration_v25_iuran_air.js
  */
 require('dotenv').config();
-const { pool } = require('./src/config/database');
+const { assertCanRunMigration } = require('../../src/config/db-guard');
+assertCanRunMigration('migration_v25_iuran_air');
+
+const { pool } = require('../../src/config/database');
 
 /** Kolom tambahan pada tabel yang sudah ada. */
 const KOLOM_TAMBAHAN = [
