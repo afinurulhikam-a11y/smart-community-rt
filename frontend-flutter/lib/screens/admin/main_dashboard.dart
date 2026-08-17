@@ -2404,14 +2404,10 @@ class _MainDashboardState extends State<MainDashboard> {
                       decoration: InputDecoration(
                         labelText: 'Keterangan Kejadian',
                         hintText: 'Contoh: Kebakaran di dapur rumah nomor 12',
-                        helperText:
-                            'Wajib diisi — dibaca pengurus di Riwayat Darurat',
+                        helperText: 'Wajib diisi',
                         errorText: galatKeterangan,
                         alignLabelWithHint: true,
-                        prefixIcon: const Padding(
-                          padding: EdgeInsets.only(bottom: 40),
-                          child: Icon(Icons.notes_rounded),
-                        ),
+                        prefixIcon: const Icon(Icons.notes_rounded),
                       ),
                       onChanged: (v) {
                         if (galatKeterangan != null &&

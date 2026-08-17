@@ -596,13 +596,10 @@ class _KartuAlarmDaruratState extends State<KartuAlarmDarurat>
                       decoration: InputDecoration(
                         labelText: 'Keterangan Kejadian',
                         hintText: 'Contoh: Ada warga jatuh dan membutuhkan bantuan',
-                        helperText: 'Wajib diisi — dibaca pengurus di Riwayat Darurat',
+                        helperText: 'Wajib diisi',
                         errorText: galatKeterangan,
                         alignLabelWithHint: true,
-                        prefixIcon: const Padding(
-                          padding: EdgeInsets.only(bottom: 40),
-                          child: Icon(Icons.notes_rounded),
-                        ),
+                        prefixIcon: const Icon(Icons.notes_rounded),
                       ),
                       onChanged: (v) {
                         // Galat dibersihkan begitu pemakai memperbaikinya, dan
