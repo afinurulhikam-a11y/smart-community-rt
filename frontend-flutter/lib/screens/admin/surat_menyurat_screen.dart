@@ -165,7 +165,7 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
         // Table
         Consumer<LetterProvider>(
           builder: (context, provider, _) {
-            if (provider.isLoading) {
+            if (provider.isLoading && provider.letters.isEmpty) {
               return const Center(child: CircularProgressIndicator());
             }
 
@@ -413,7 +413,7 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
 
         Consumer<LetterProvider>(
           builder: (context, provider, _) {
-            if (provider.isLoading) {
+            if (provider.isLoading && provider.letters.isEmpty) {
               return const Center(child: CircularProgressIndicator());
             }
 

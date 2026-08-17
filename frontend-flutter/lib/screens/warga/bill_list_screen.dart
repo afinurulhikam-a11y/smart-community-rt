@@ -343,7 +343,7 @@ class _BillListScreenState extends State<BillListScreen> with SingleTickerProvid
           ),
         ),
         const SizedBox(height: 16),
-        if (billProvider.isLoading)
+        if (billProvider.isLoading && billProvider.bills.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 60),
             child: Center(child: CircularProgressIndicator(color: _hijau)),

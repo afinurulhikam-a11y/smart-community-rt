@@ -544,7 +544,7 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                       // Kerangka di atasnya — termasuk kotak pencarian —
                       // tidak pernah dilepas, jadi fokus dan papan ketik
                       // bertahan selama data diambil.
-                      child: provider.isLoading
+                      child: provider.isLoading && provider.wargaList.isEmpty
                           ? const Padding(
                               padding: EdgeInsets.all(40),
                               child: Center(child: CircularProgressIndicator()),

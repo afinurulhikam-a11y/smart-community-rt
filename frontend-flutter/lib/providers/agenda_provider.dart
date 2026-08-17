@@ -18,10 +18,12 @@ class AgendaProvider extends ChangeNotifier {
   int get totalPages => _totalPages;
   int get totalData => _totalData;
 
-  Future<void> fetchAgenda({String? status, String? tipe, int page = 1}) async {
-    _isLoading = true;
+  Future<void> fetchAgenda({String? status, String? tipe, int page = 1, bool silent = false}) async {
+    if (!silent) {
+      _isLoading = true;
+      notifyListeners();
+    }
     _currentPage = page;
-    notifyListeners();
     final queryParams = <String, String>{};
     if (status != null) queryParams['status'] = status;
     if (tipe != null) queryParams['tipe'] = tipe;

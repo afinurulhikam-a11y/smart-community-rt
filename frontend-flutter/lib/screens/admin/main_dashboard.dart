@@ -181,7 +181,7 @@ class _MainDashboardState extends State<MainDashboard> {
         futures.add(context.read<LetterProvider>().fetchLetters(silent: silent));
       }
       if (izin.bolehLihat('aspirasi.darurat', userRole: userRole)) {
-        futures.add(context.read<EmergencyProvider>().fetchAlerts());
+        futures.add(context.read<EmergencyProvider>().fetchAlerts(silent: silent));
       }
       if (izin.bolehLihat('aspirasi.pengaduan', userRole: userRole)) {
         final compP = context.read<ComplaintProvider>();
@@ -200,7 +200,7 @@ class _MainDashboardState extends State<MainDashboard> {
       }
       if (izin.bolehLihat('kegiatan.agenda', userRole: userRole)) {
         final agendaP = context.read<AgendaProvider>();
-        futures.add(agendaP.fetchAgenda());
+        futures.add(agendaP.fetchAgenda(silent: silent));
       }
 
       if (futures.isNotEmpty) {

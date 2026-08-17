@@ -424,7 +424,7 @@ class WargaDashboardContent extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          if (agendaProvider.isLoading)
+          if (agendaProvider.isLoading && agendaList.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
               child: Center(child: CircularProgressIndicator()),

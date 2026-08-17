@@ -143,7 +143,7 @@ class _DaruratTerhitung extends EmergencyProvider {
   }
 
   @override
-  Future<void> fetchAlerts({String? status, int page = 1, int limit = 10}) async {
+  Future<void> fetchAlerts({String? status, int page = 1, int limit = 10, bool silent = false}) async {
     _daftar = [
       EmergencyModel.fromJson({
         'id': idKejadian,

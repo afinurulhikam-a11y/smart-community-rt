@@ -381,7 +381,7 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
   }
 
   Widget _buildTabel(InventoryProvider provider) {
-    if (provider.isLoading) {
+    if (provider.isLoading && provider.borrowings.isEmpty) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 60),
         child: Center(child: CircularProgressIndicator()),

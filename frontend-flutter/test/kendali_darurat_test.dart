@@ -51,7 +51,7 @@ class _DaruratPalsu extends EmergencyProvider {
   bool get mengirimAlarm => sedangMengirim;
 
   @override
-  Future<void> fetchAlerts({String? status, int page = 1, int limit = 10}) async {}
+  Future<void> fetchAlerts({String? status, int page = 1, int limit = 10, bool silent = false}) async {}
 
   @override
   Future<void> muatStatusAlarm() async {}

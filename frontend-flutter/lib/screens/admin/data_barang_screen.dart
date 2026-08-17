@@ -90,7 +90,7 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
         const SizedBox(height: 24),
         _buildFilters(),
         const SizedBox(height: 24),
-        if (provider.isLoading)
+        if (provider.isLoading && provider.items.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 60),
             child: Center(child: CircularProgressIndicator()),

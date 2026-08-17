@@ -51,9 +51,11 @@ class InventoryProvider extends ChangeNotifier {
 
   // ------------------------------------------------------------- inventaris
 
-  Future<void> fetchInventory({String? kategori, String? kondisi, String? search}) async {
-    _isLoading = true;
-    notifyListeners();
+  Future<void> fetchInventory({String? kategori, String? kondisi, String? search, bool silent = false}) async {
+    if (!silent) {
+      _isLoading = true;
+      notifyListeners();
+    }
 
     _filterBarang = {
       if (kategori != null && kategori.isNotEmpty) 'kategori': kategori,
@@ -155,9 +157,11 @@ class InventoryProvider extends ChangeNotifier {
 
   // ------------------------------------------------------------ peminjaman
 
-  Future<void> fetchBorrowings({String? status, int? inventoryId, String? search}) async {
-    _isLoading = true;
-    notifyListeners();
+  Future<void> fetchBorrowings({String? status, int? inventoryId, String? search, bool silent = false}) async {
+    if (!silent) {
+      _isLoading = true;
+      notifyListeners();
+    }
 
     _filterPinjam = {
       if (status != null && status.isNotEmpty) 'status': status,
