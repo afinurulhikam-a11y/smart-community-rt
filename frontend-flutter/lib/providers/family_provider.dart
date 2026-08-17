@@ -13,6 +13,7 @@ class FamilyProvider extends ChangeNotifier {
   int _totalPages = 1;
   int _totalData = 0;
   int _perPage = 10;
+  String? _lastSearch;
 
   List<Map<String, dynamic>> get families => _families;
   Map<String, dynamic>? get selectedFamily => _selectedFamily;
@@ -25,13 +26,15 @@ class FamilyProvider extends ChangeNotifier {
   int get perPage => _perPage;
 
   Future<void> fetchFamilies({String? search, int page = 1, int limit = 10}) async {
+    _lastSearch = search;
+    _currentPage = page;
     _isLoading = true;
     notifyListeners();
     final queryParams = <String, String>{
       'page': page.toString(),
       'limit': limit.toString(),
     };
-    if (search != null) queryParams['search'] = search;
+    if (search != null && search.isNotEmpty) queryParams['search'] = search;
     final response = await ApiService.get(
       ApiConstants.families,
       queryParams: queryParams.isNotEmpty ? queryParams : null,
@@ -94,7 +97,7 @@ class FamilyProvider extends ChangeNotifier {
     );
     _isLoading = false;
     if (response['success'] == true) {
-      await fetchFamilies();
+      await fetchFamilies(search: _lastSearch, page: 1, limit: _perPage);
       return true;
     } else {
       _errorMessage = response['message'] as String?;
@@ -106,7 +109,7 @@ class FamilyProvider extends ChangeNotifier {
   Future<bool> updateFamily(int id, Map<String, dynamic> data) async {
     final response = await ApiService.put('${ApiConstants.families}/$id', body: data);
     if (response['success'] == true) {
-      await fetchFamilies();
+      await fetchFamilies(search: _lastSearch, page: _currentPage, limit: _perPage);
       return true;
     }
     return false;
@@ -115,7 +118,10 @@ class FamilyProvider extends ChangeNotifier {
   Future<bool> deleteFamily(int id) async {
     final response = await ApiService.delete('${ApiConstants.families}/$id');
     if (response['success'] == true) {
-      await fetchFamilies();
+      final targetPage = (_families.length == 1 && _currentPage > 1)
+          ? _currentPage - 1
+          : _currentPage;
+      await fetchFamilies(search: _lastSearch, page: targetPage, limit: _perPage);
       return true;
     }
     return false;
@@ -131,6 +137,7 @@ class FamilyProvider extends ChangeNotifier {
   void bersihkan() {
     _families = [];
     _selectedFamily = null;
+    _lastSearch = null;
     _isLoading = false;
     _errorMessage = null;
     _currentPage = 1;

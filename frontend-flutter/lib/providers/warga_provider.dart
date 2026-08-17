@@ -12,6 +12,7 @@ class WargaProvider extends ChangeNotifier {
   int _totalPages = 1;
   int _totalData = 0;
   int _perPage = 10;
+  String? _lastSearch;
 
   List<Map<String, dynamic>> get wargaList => _wargaList;
   bool get isLoading => _isLoading;
@@ -23,6 +24,8 @@ class WargaProvider extends ChangeNotifier {
   int get perPage => _perPage;
 
   Future<void> fetchWarga({String? search, int page = 1, bool silent = false}) async {
+    _lastSearch = search;
+    _currentPage = page;
     if (!silent) {
       _isLoading = true;
       notifyListeners();
@@ -64,7 +67,7 @@ class WargaProvider extends ChangeNotifier {
 
       if (response['success'] == true) {
         // Refresh data
-        fetchWarga();
+        await fetchWarga(search: _lastSearch, page: 1);
         return response;
       } else {
         _errorMessage = response['message'] as String?;
@@ -95,7 +98,7 @@ class WargaProvider extends ChangeNotifier {
       notifyListeners();
 
       if (response['success'] == true) {
-        await fetchWarga();
+        await fetchWarga(search: _lastSearch, page: _currentPage, silent: true);
         return response;
       } else {
         _errorMessage = response['message'] as String?;
@@ -119,7 +122,10 @@ class WargaProvider extends ChangeNotifier {
       notifyListeners();
 
       if (response['success'] == true) {
-        await fetchWarga();
+        final targetPage = (_wargaList.length == 1 && _currentPage > 1)
+            ? _currentPage - 1
+            : _currentPage;
+        await fetchWarga(search: _lastSearch, page: targetPage);
         return response;
       } else {
         _errorMessage = response['message'] as String?;
