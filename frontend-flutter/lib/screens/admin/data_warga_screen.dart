@@ -407,20 +407,6 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                     child: TextField(
                       controller: _searchController,
                       style: TextStyle(color: context.teksUtama, fontSize: 13),
-                      // Mencari saat ENTER, bukan setiap huruf.
-                      //
-                      // Dulu `onChanged` menembakkan satu permintaan per
-                      // ketukan tombol: mengetik "Budi" berarti empat
-                      // panggilan ke server. `ApiService` mencoba ulang dua
-                      // kali saat gagal, jadi di jaringan buruk angkanya
-                      // berlipat — dan tanpa penomoran permintaan, jawaban
-                      // untuk "B" yang datang belakangan bisa menimpa hasil
-                      // "Budi" sehingga daftarnya tidak lagi cocok dengan
-                      // isi kotaknya.
-                      //
-                      // Kas RT, Log Aktivitas, Peminjaman, dan E-Visitor
-                      // sudah memakai pola ini; layar inilah yang berbeda
-                      // sendiri.
                       textInputAction: TextInputAction.search,
                       onSubmitted: (val) {
                         _searchQuery = val.trim();
@@ -431,16 +417,12 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                       },
                       decoration: InputDecoration(
                         filled: true,
-                        fillColor: context.latarKartu,
-                        hintStyle: TextStyle(color: context.teksTersier, fontSize: 13),
-                        hintText: 'Cari nama, NIK, KK — tekan Enter',
-                        // Ikonnya dibuat bisa ditekan, bukan sekadar hiasan:
-                        // di ponsel tombol Enter tidak selalu terlihat, dan
-                        // pencarian yang hanya bisa dijalankan lewat tombol
-                        // tak kasatmata sama saja dengan tidak ada.
-                        prefixIcon: IconButton(
-                          icon: const Icon(Icons.search, size: 18),
-                          color: context.teksUtama,
+                        fillColor: context.latarLembut,
+                        hintStyle: TextStyle(color: context.teksTersier, fontSize: 12),
+                        hintText: 'Cari nama, NIK, KK...',
+                        prefixIcon: Icon(Icons.search, size: 18, color: context.teksKedua),
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.arrow_forward, size: 16),
                           tooltip: 'Cari',
                           onPressed: () {
                             _searchQuery = _searchController.text.trim();
@@ -453,19 +435,15 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: context.garis,
-                          ),
+                          borderSide: BorderSide(color: context.garis),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: context.garis,
-                          ),
+                          borderSide: BorderSide(color: context.garis),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Color(0xFF1B7A6A)),
+                          borderSide: const BorderSide(color: Color(0xFF1B7A6A), width: 1.5),
                         ),
                       ),
                     ),
