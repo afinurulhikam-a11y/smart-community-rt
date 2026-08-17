@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../core/responsif.dart';
-import '../../widgets/kartu_alarm_darurat.dart';
+import '../../core/pesan.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/websocket_service.dart';
@@ -64,7 +64,6 @@ import '../warga/warga_dashboard_content.dart';
 import '../warga/bill_list_screen.dart';
 import '../warga/finance_report_screen.dart';
 import '../warga/letter_request_screen.dart';
-import '../../core/pesan.dart';
 
 class MainDashboard extends StatefulWidget {
   const MainDashboard({super.key});
@@ -177,11 +176,16 @@ class _MainDashboardState extends State<MainDashboard> {
         futures.add(finP.fetchSummary(bulan: null, sumber: null));
         futures.add(finP.fetchBulanan(tahun: _chartSelectedYear));
       }
-      if (userRole == 'warga' || izin.bolehLihat('layanan.surat', userRole: userRole)) {
-        futures.add(context.read<LetterProvider>().fetchLetters(silent: silent));
+      if (userRole == 'warga' ||
+          izin.bolehLihat('layanan.surat', userRole: userRole)) {
+        futures.add(
+          context.read<LetterProvider>().fetchLetters(silent: silent),
+        );
       }
       if (izin.bolehLihat('aspirasi.darurat', userRole: userRole)) {
-        futures.add(context.read<EmergencyProvider>().fetchAlerts(silent: silent));
+        futures.add(
+          context.read<EmergencyProvider>().fetchAlerts(silent: silent),
+        );
       }
       if (izin.bolehLihat('aspirasi.pengaduan', userRole: userRole)) {
         final compP = context.read<ComplaintProvider>();
@@ -196,7 +200,9 @@ class _MainDashboardState extends State<MainDashboard> {
       }
       if (izin.bolehLihat('kependudukan.statistik', userRole: userRole) ||
           izin.bolehLihat('kependudukan.warga', userRole: userRole)) {
-        futures.add(context.read<DemographicProvider>().fetchDemographics(silent: silent));
+        futures.add(
+          context.read<DemographicProvider>().fetchDemographics(silent: silent),
+        );
       }
       if (izin.bolehLihat('kegiatan.agenda', userRole: userRole)) {
         final agendaP = context.read<AgendaProvider>();
@@ -871,7 +877,9 @@ class _MainDashboardState extends State<MainDashboard> {
                           child: RefreshIndicator(
                             onRefresh: _muatUlangLayarAktif,
                             child: SingleChildScrollView(
-                              key: const PageStorageKey<String>('main_dashboard_scroll_view'),
+                              key: const PageStorageKey<String>(
+                                'main_dashboard_scroll_view',
+                              ),
                               // Selalu bisa digulir, walau isinya pendek —
                               // kalau tidak, gerakan tariknya tidak tertangkap
                               // di layar yang isinya sedikit.
@@ -921,7 +929,9 @@ class _MainDashboardState extends State<MainDashboard> {
       builder: (ctx) => AlertDialog(
         title: const Text('Keluar dari akun?'),
         content: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: lebarDialog(ctx, maksimal: 420)),
+          constraints: BoxConstraints(
+            maxWidth: lebarDialog(ctx, maksimal: 420),
+          ),
           child: const Text(
             'Anda akan keluar dari SEMUA PERANGKAT yang sedang masuk dengan akun ini.\n\n'
             'Jika perangkat ini sedang tidak terhubung ke server, Anda hanya keluar '
@@ -936,7 +946,9 @@ class _MainDashboardState extends State<MainDashboard> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.dangerColor),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.dangerColor,
+            ),
             child: const Text('Keluar'),
           ),
         ],
@@ -1052,7 +1064,11 @@ class _MainDashboardState extends State<MainDashboard> {
               value: 'profil',
               child: Row(
                 children: [
-                  Icon(Icons.person_outline_rounded, size: 18, color: context.teksUtama),
+                  Icon(
+                    Icons.person_outline_rounded,
+                    size: 18,
+                    color: context.teksUtama,
+                  ),
                   const SizedBox(width: 12),
                   Text(
                     'Profil Saya',
@@ -1070,7 +1086,11 @@ class _MainDashboardState extends State<MainDashboard> {
               value: 'keluar',
               child: Row(
                 children: const [
-                  Icon(Icons.logout_rounded, size: 18, color: Color(0xFFEF4444)),
+                  Icon(
+                    Icons.logout_rounded,
+                    size: 18,
+                    color: Color(0xFFEF4444),
+                  ),
                   SizedBox(width: 12),
                   Text(
                     'Keluar',
@@ -1183,7 +1203,11 @@ class _MainDashboardState extends State<MainDashboard> {
                 value: 'profil',
                 child: Row(
                   children: [
-                    Icon(Icons.person_outline_rounded, size: 18, color: context.teksUtama),
+                    Icon(
+                      Icons.person_outline_rounded,
+                      size: 18,
+                      color: context.teksUtama,
+                    ),
                     const SizedBox(width: 12),
                     Text(
                       'Profil Saya',
@@ -1201,7 +1225,11 @@ class _MainDashboardState extends State<MainDashboard> {
                 value: 'keluar',
                 child: Row(
                   children: const [
-                    Icon(Icons.logout_rounded, size: 18, color: Color(0xFFEF4444)),
+                    Icon(
+                      Icons.logout_rounded,
+                      size: 18,
+                      color: Color(0xFFEF4444),
+                    ),
                     SizedBox(width: 12),
                     Text(
                       'Keluar',
@@ -1509,11 +1537,6 @@ class _MainDashboardState extends State<MainDashboard> {
             ),
           ),
         ],
-
-        const SizedBox(height: 24),
-
-        // Panel Kendali Darurat (Paling Bawah)
-        const KartuAlarmDarurat(),
       ],
     );
   }
@@ -1713,51 +1736,214 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
-  // === STATUS DARURAT & PENGADUAN ===
+  // === STATUS & KENDALI DARURAT (KARTU TERPADU) ===
   Widget _buildStatusDaruratCard() {
     final emergency = context.watch<EmergencyProvider>();
     final activeAlerts = emergency.alerts.where((a) => a.isActive).toList();
-    final hasActive = activeAlerts.isNotEmpty;
+    final menyala = emergency.alarmMenyala || activeAlerts.isNotEmpty;
+    final sibuk = emergency.mengirimAlarm;
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: () {
-          _pilihMenu(60);
-        },
-        child: Container(
-          padding: EdgeInsets.all(paddingKartu(context)),
-          decoration: BoxDecoration(
-            color: context.latarKartu,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: hasActive
-                  ? const Color(0xFFEF4444).withValues(alpha: 0.5)
-                  : (context.garis),
-              width: hasActive ? 2 : 1,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      padding: EdgeInsets.all(paddingKartu(context)),
+      decoration: BoxDecoration(
+        color: menyala
+            ? const Color(0xFFEF4444).withValues(alpha: 0.04)
+            : context.latarKartu,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: menyala
+              ? const Color(0xFFEF4444).withValues(alpha: 0.5)
+              : context.garis,
+          width: menyala ? 1.5 : 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header
+          Row(
             children: [
-              // Header
-              Row(
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: menyala
+                      ? const Color(0xFFEF4444).withValues(alpha: 0.12)
+                      : const Color(0xFF059669).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.crisis_alert,
+                  color: menyala
+                      ? const Color(0xFFEF4444)
+                      : const Color(0xFF059669),
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Status & Kendali Darurat',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: context.teksUtama,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Monitoring & sirene bahaya RT',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: context.teksTersier,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Status badge
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: menyala
+                      ? const Color(0xFFEF4444).withValues(alpha: 0.12)
+                      : const Color(0xFF059669).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: menyala
+                        ? const Color(0xFFEF4444).withValues(alpha: 0.4)
+                        : const Color(0xFF059669).withValues(alpha: 0.4),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: menyala
+                            ? const Color(0xFFEF4444)
+                            : const Color(0xFF059669),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      menyala ? 'AKTIF' : 'SIAGA',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: menyala
+                            ? const Color(0xFFEF4444)
+                            : const Color(0xFF059669),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+
+          // Content
+          if (menyala) ...[
+            // Active alert details
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEF4444).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFFEF4444).withValues(alpha: 0.25),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: hasActive
-                          ? const Color(0xFFEF4444).withValues(alpha: 0.1)
-                          : const Color(0xFF059669).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.campaign_rounded,
+                        size: 16,
+                        color: Color(0xFFEF4444),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          emergency.namaPengaktif.isNotEmpty
+                              ? 'Aktif oleh ${emergency.namaPengaktif}'
+                              : (activeAlerts.isNotEmpty
+                                    ? (activeAlerts.first.namaWarga ??
+                                          'Warga RT')
+                                    : 'Sirene Darurat Aktif'),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: context.teksUtama,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (activeAlerts.isNotEmpty)
+                        Text(
+                          DateFormat(
+                            'HH:mm',
+                          ).format(activeAlerts.first.createdAt),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: context.teksTersier,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    emergency.keteranganKejadianTampil.isNotEmpty
+                        ? emergency.keteranganKejadianTampil
+                        : (activeAlerts.isNotEmpty
+                              ? activeAlerts.first.message
+                              : 'Perintah menyalakan sirene lingkungan sedang aktif.'),
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.35,
+                      color: context.teksUtama,
                     ),
-                    child: Icon(
-                      Icons.crisis_alert,
-                      color: hasActive
-                          ? const Color(0xFFEF4444)
-                          : const Color(0xFF059669),
-                      size: 18,
-                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            // Calm state
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+              decoration: BoxDecoration(
+                color: _gelap
+                    ? const Color(0xFF059669).withValues(alpha: 0.06)
+                    : const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF059669).withValues(alpha: 0.15),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.verified_rounded,
+                    size: 24,
+                    color: const Color(0xFF059669).withValues(alpha: 0.8),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -1765,193 +1951,312 @@ class _MainDashboardState extends State<MainDashboard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Status Darurat',
+                          'Lingkungan Aman & Siaga',
                           style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: context.teksUtama,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: _gelap
+                                ? Colors.white70
+                                : const Color(0xFF166534),
                           ),
                         ),
-                        const SizedBox(height: 2),
                         Text(
-                          'Laporan dan sinyal darurat warga',
+                          'Tidak ada laporan bahaya / insiden aktif',
                           style: TextStyle(
                             fontSize: 11,
-                            color: context.teksTersier,
+                            color: _gelap
+                                ? Colors.white38
+                                : const Color(0xFF4ADE80),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  // Status badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: hasActive
-                          ? const Color(0xFFEF4444).withValues(alpha: 0.1)
-                          : const Color(0xFF059669).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      hasActive ? '⚠ ${activeAlerts.length} Aktif' : '✓ Aman',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: hasActive
-                            ? const Color(0xFFEF4444)
-                            : const Color(0xFF059669),
-                      ),
-                    ),
-                  ),
                 ],
               ),
+            ),
+          ],
 
-              const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
-              // Content
-              if (hasActive) ...[
-                // Show list of active alerts
-                ...activeAlerts
-                    .take(3)
-                    .map(
-                      (alert) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(
-                              0xFFEF4444,
-                            ).withValues(alpha: 0.05),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: const Color(
-                                0xFFEF4444,
-                              ).withValues(alpha: 0.15),
-                            ),
+          // Action Buttons
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 280;
+
+              final btnAction = SizedBox(
+                height: 38,
+                child: ElevatedButton.icon(
+                  onPressed: sibuk
+                      ? null
+                      : () => _mintaPinAlarm(menyala ? 'OFF' : 'ON'),
+                  icon: sibuk
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
                           ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.crisis_alert,
-                                size: 16,
-                                color: Color(0xFFEF4444),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      alert.namaWarga ?? 'Warga',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: context.teksUtama,
-                                      ),
-                                    ),
-                                    Text(
-                                      alert.message,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: context.teksKedua,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Text(
-                                DateFormat('HH:mm').format(alert.createdAt),
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: context.teksTersier,
-                                ),
-                              ),
-                            ],
-                          ),
+                        )
+                      : Icon(
+                          menyala
+                              ? Icons.notifications_off_rounded
+                              : Icons.campaign_rounded,
+                          size: 16,
                         ),
-                      ),
+                  label: Text(
+                    menyala ? 'MATIKAN ALARM' : 'BUNYIKAN ALARM',
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.3,
                     ),
-              ] else ...[
-                // Calm state
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 24),
-                  decoration: BoxDecoration(
-                    color: _gelap
-                        ? const Color(0xFF059669).withValues(alpha: 0.05)
-                        : const Color(0xFFF0FDF4),
-                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Column(
-                    children: [
-                      Icon(
-                        Icons.verified_rounded,
-                        size: 36,
-                        color: const Color(0xFF059669).withValues(alpha: 0.6),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Lingkungan Aman & Kondusif',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: _gelap
-                              ? Colors.white70
-                              : const Color(0xFF166534),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Tidak ada laporan darurat aktif saat ini',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: _gelap
-                              ? Colors.white38
-                              : const Color(0xFF4ADE80),
-                        ),
-                      ),
-                    ],
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFEF4444),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              );
+
+              final btnDetail = SizedBox(
+                height: 38,
+                child: OutlinedButton.icon(
+                  onPressed: () => _pilihMenu(60),
+                  icon: const Icon(Icons.history_rounded, size: 16),
+                  label: const Text(
+                    'Riwayat',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: context.teksUtama,
+                    side: BorderSide(color: context.garis),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              );
+
+              if (isNarrow) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [btnAction, const SizedBox(height: 8), btnDetail],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(flex: 3, child: btnAction),
+                  const SizedBox(width: 8),
+                  Expanded(flex: 2, child: btnDetail),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Dialog konfirmasi PIN & Keterangan untuk memicu/menghentikan alarm
+  Future<void> _mintaPinAlarm(String aksi) async {
+    final nyala = aksi == 'ON';
+    final kontrolPin = TextEditingController();
+    final kontrolKeterangan = TextEditingController();
+    final darurat = context.read<EmergencyProvider>();
+
+    String? periksaKeterangan(String v) {
+      final t = v.trim();
+      if (t.isEmpty) return 'Keterangan kejadian wajib diisi';
+      if (t.length < EmergencyProvider.keteranganMin) {
+        return 'Terlalu pendek — minimal ${EmergencyProvider.keteranganMin} karakter';
+      }
+      if (t.length > EmergencyProvider.keteranganMaks) {
+        return 'Terlalu panjang — maksimal ${EmergencyProvider.keteranganMaks} karakter';
+      }
+      return null;
+    }
+
+    final hasil = await showDialog<Map<String, String>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        String? galatLokal;
+        String? galatKeterangan;
+
+        void kirim(StateSetter setLokal, BuildContext ctx) {
+          final ket = kontrolKeterangan.text;
+          final pin = kontrolPin.text.trim();
+
+          final galatKet = nyala ? periksaKeterangan(ket) : null;
+          final galatPin = pin.isEmpty ? 'PIN wajib diisi' : null;
+
+          if (galatKet != null || galatPin != null) {
+            setLokal(() {
+              galatKeterangan = galatKet;
+              galatLokal = galatPin;
+            });
+            return;
+          }
+
+          Navigator.pop(ctx, {'pin': pin, 'keterangan': ket.trim()});
+        }
+
+        return StatefulBuilder(
+          builder: (ctx, setLokal) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    nyala
+                        ? Icons.campaign_rounded
+                        : Icons.notifications_off_rounded,
+                    color: nyala ? const Color(0xFFEF4444) : ctx.teksKedua,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    nyala ? 'Nyalakan Alarm Bahaya?' : 'Matikan Alarm?',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
-
-              const SizedBox(height: 12),
-
-              // Summary row
-              Row(
+            ),
+            content: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: lebarDialog(ctx, maksimal: 400),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildAlertSummaryChip(
-                    Icons.crisis_alert,
-                    'Darurat',
-                    '${emergency.alerts.where((a) => a.isActive).length}',
-                    const Color(0xFFEF4444),
+                  Text(
+                    nyala
+                        ? 'Sirene akan berbunyi di lingkungan RT dan seluruh pengurus/warga akan diberi tahu seketika. '
+                              'Setiap penekanan tercatat di audit log sistem.'
+                        : 'Sirene darurat akan dinonaktifkan. Penekanan ini juga tercatat.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.4,
+                      color: ctx.teksKedua,
+                    ),
                   ),
-                  const SizedBox(width: 8),
-                  _buildAlertSummaryChip(
-                    Icons.history_rounded,
-                    'Selesai',
-                    '${emergency.alerts.where((a) => !a.isActive).length}',
-                    const Color(0xFF059669),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildAlertSummaryChip(
-                    Icons.bar_chart_rounded,
-                    'Total',
-                    '${emergency.alerts.length}',
-                    context.teksKedua,
+                  if (nyala) ...[
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: kontrolKeterangan,
+                      autofocus: true,
+                      minLines: 2,
+                      maxLines: 4,
+                      textCapitalization: TextCapitalization.sentences,
+                      maxLength: EmergencyProvider.keteranganMaks,
+                      maxLengthEnforcement: MaxLengthEnforcement.none,
+                      decoration: InputDecoration(
+                        labelText: 'Keterangan Kejadian',
+                        hintText: 'Contoh: Kebakaran di dapur rumah nomor 12',
+                        helperText:
+                            'Wajib diisi — dibaca pengurus di Riwayat Darurat',
+                        errorText: galatKeterangan,
+                        alignLabelWithHint: true,
+                        prefixIcon: const Padding(
+                          padding: EdgeInsets.only(bottom: 40),
+                          child: Icon(Icons.notes_rounded),
+                        ),
+                      ),
+                      onChanged: (v) {
+                        if (galatKeterangan != null &&
+                            periksaKeterangan(v) == null) {
+                          setLokal(() => galatKeterangan = null);
+                        }
+                      },
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: kontrolPin,
+                    autofocus: !nyala,
+                    obscureText: true,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: InputDecoration(
+                      labelText: 'PIN Darurat',
+                      hintText: 'Masukkan PIN',
+                      errorText: galatLokal,
+                      prefixIcon: const Icon(Icons.lock_outline_rounded),
+                    ),
+                    onSubmitted: (_) => kirim(setLokal, ctx),
                   ),
                 ],
               ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Batal'),
+              ),
+              ElevatedButton(
+                onPressed: () => kirim(setLokal, ctx),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: nyala
+                      ? const Color(0xFFEF4444)
+                      : const Color(0xFF1B7A6A),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text(nyala ? 'Nyalakan' : 'Matikan'),
+              ),
             ],
           ),
-        ),
-      ),
+        );
+      },
     );
+
+    if (hasil == null || !mounted) return;
+
+    final galat = await darurat.kendaliAlarm(
+      aksi,
+      hasil['pin'] ?? '',
+      keterangan: hasil['keterangan'],
+    );
+
+    if (!mounted) return;
+    if (galat != null) {
+      pesanGagal(context, galat);
+    } else {
+      pesanSukses(
+        context,
+        nyala
+            ? 'Alarm darurat berhasil dinyalakan'
+            : 'Alarm darurat dinonaktifkan',
+      );
+    }
   }
 
   // === PENGADUAN WARGA ===
@@ -2138,11 +2443,15 @@ class _MainDashboardState extends State<MainDashboard> {
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: _gelap
-                                ? const Color(0xFF3B82F6).withValues(alpha: 0.05)
+                                ? const Color(
+                                    0xFF3B82F6,
+                                  ).withValues(alpha: 0.05)
                                 : const Color(0xFFEFF6FF),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: const Color(0xFF3B82F6).withValues(alpha: 0.15),
+                              color: const Color(
+                                0xFF3B82F6,
+                              ).withValues(alpha: 0.15),
                             ),
                           ),
                           child: Row(
@@ -2566,8 +2875,18 @@ class _MainDashboardState extends State<MainDashboard> {
     final List<Map<String, dynamic>> monthlyData = [];
 
     const namaBulan = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
-      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'Mei',
+      'Jun',
+      'Jul',
+      'Agu',
+      'Sep',
+      'Okt',
+      'Nov',
+      'Des',
     ];
 
     final perBulan = <String, Map<String, dynamic>>{
@@ -2718,8 +3037,12 @@ class _MainDashboardState extends State<MainDashboard> {
                       ? (selisihBersih >= 0 ? 'Surplus BOP' : 'Defisit BOP')
                       : (selisihBersih >= 0 ? 'Surplus Kas' : 'Defisit Kas'),
                   _formatRupiah(selisihBersih.abs()),
-                  selisihBersih >= 0 ? const Color(0xFF059669) : const Color(0xFFDC2626),
-                  selisihBersih >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                  selisihBersih >= 0
+                      ? const Color(0xFF059669)
+                      : const Color(0xFFDC2626),
+                  selisihBersih >= 0
+                      ? Icons.trending_up_rounded
+                      : Icons.trending_down_rounded,
                 ),
               ],
             ),
@@ -2731,7 +3054,9 @@ class _MainDashboardState extends State<MainDashboard> {
           LayoutBuilder(
             builder: (context, constraints) {
               final bool butuhScroll = constraints.maxWidth < 460;
-              final double chartWidth = butuhScroll ? 460 : constraints.maxWidth;
+              final double chartWidth = butuhScroll
+                  ? 460
+                  : constraints.maxWidth;
 
               final Widget chartWidget = SizedBox(
                 width: chartWidth,
