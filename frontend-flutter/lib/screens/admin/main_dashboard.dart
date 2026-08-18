@@ -33,6 +33,7 @@ import '../../providers/family_provider.dart';
 import '../../providers/log_provider.dart';
 import '../../providers/reset_provider.dart';
 import '../../providers/notification_provider.dart';
+import '../../core/services/notification_data_refresher.dart';
 import '../../widgets/navigasi_bawah.dart';
 import '../../widgets/sidebar_menu.dart';
 import '../../widgets/gradient_stat_card.dart';
@@ -977,6 +978,11 @@ class _MainDashboardState extends State<MainDashboard> {
             _pilihMenu(
               currentIntent.targetMenuIndex,
               tabIndex: currentIntent.targetTabIndex,
+            );
+            // Segarkan data spesifik untuk intent notifikasi yang dibuka
+            NotificationDataRefresher.instance.refreshDataUntukIntent(
+              context,
+              currentIntent,
             );
           }
         }
