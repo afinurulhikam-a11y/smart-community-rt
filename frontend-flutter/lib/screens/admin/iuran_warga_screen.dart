@@ -148,7 +148,7 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                     color: _hijau.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(Icons.monetization_on_outlined, color: _hijau, size: 20),
+                  child: Icon(Icons.receipt_long_rounded, color: _hijau, size: 20),
                 ),
                 const SizedBox(width: 10),
                 Flexible(
