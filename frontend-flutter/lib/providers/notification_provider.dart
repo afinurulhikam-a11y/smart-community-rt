@@ -2,13 +2,15 @@ import 'package:flutter/foundation.dart';
 import '../models/notification_intent.dart';
 
 /// Provider dan router terpusat untuk memproses, memvalidasi, dan mengarahkan
-/// notifikasi FCM ke menu/layar target di dalam aplikasi.
+/// notifikasi FCM ke menu/layar target di dalam aplikasi, serta mengelola
+/// in-app foreground notification banner yang konsisten dengan desain UI.
 ///
 /// Dirancang bersih tanpa dependensi pada `BuildContext` dan sepenuhnya
 /// dapat diuji (testable) secara terisolasi.
 class NotificationProvider extends ChangeNotifier {
   NotificationIntent? _pendingIntent;
   NotificationIntent? _activeIntent;
+  NotificationIntent? _foregroundNotification;
 
   /// Cache deduplikasi berbasis signature pesan yang baru saja diproses.
   final Set<String> _processedKeys = {};
@@ -18,16 +20,22 @@ class NotificationProvider extends ChangeNotifier {
 
   NotificationIntent? get pendingIntent => _pendingIntent;
   NotificationIntent? get activeIntent => _activeIntent;
+  NotificationIntent? get foregroundNotification => _foregroundNotification;
+
   bool get hasPendingIntent => _pendingIntent != null;
   bool get hasActiveIntent => _activeIntent != null;
+  bool get hasForegroundNotification => _foregroundNotification != null;
 
-  /// Mem-parse dan memvalidasi `RemoteMessage.data` menjadi [NotificationIntent].
+  /// Mem-parse dan memvalidasi `RemoteMessage.data` (serta optional notification block)
+  /// menjadi [NotificationIntent].
   ///
   /// Mengembalikan `null` secara aman jika payload tidak valid, tipe entitas
   /// tidak dikenal, atau struktur data rusak.
   NotificationIntent? parsePayload(
     Map<String, dynamic>? data, {
     String? messageId,
+    String? title,
+    String? body,
     DateTime? now,
   }) {
     if (data == null || data.isEmpty) return null;
@@ -119,6 +127,18 @@ class NotificationProvider extends ChangeNotifier {
         return null;
     }
 
+    final finalTitle = (title != null && title.trim().isNotEmpty)
+        ? title.trim()
+        : (data['title']?.toString().trim().isNotEmpty == true
+            ? data['title'].toString().trim()
+            : NotificationIntent.generateFallbackTitle(rawType, action));
+
+    final finalBody = (body != null && body.trim().isNotEmpty)
+        ? body.trim()
+        : (data['body']?.toString().trim().isNotEmpty == true
+            ? data['body'].toString().trim()
+            : NotificationIntent.generateFallbackBody(rawType, action, data));
+
     return NotificationIntent(
       entityType: rawType,
       action: action,
@@ -126,6 +146,8 @@ class NotificationProvider extends ChangeNotifier {
       targetMenuIndex: targetMenuIndex,
       targetTabIndex: targetTabIndex,
       messageId: messageId,
+      title: finalTitle,
+      body: finalBody,
       rawPayload: Map<String, dynamic>.from(data),
       timestamp: now ?? DateTime.now(),
     );
@@ -144,18 +166,20 @@ class NotificationProvider extends ChangeNotifier {
     _processedKeys.add(intent.deduplicationKey);
   }
 
-  /// Menangani payload notifikasi FCM dari berbagai siklus hidup (Foreground,
-  /// Background Tap `onMessageOpenedApp`, Terminated `getInitialMessage`).
+  /// Menangani payload notifikasi FCM dari berbagai siklus hidup (Background Tap `onMessageOpenedApp`,
+  /// Terminated `getInitialMessage`).
   ///
   /// [isLoggedIn] menentukan apakah intent langsung diarahkan ke layar aktif
   /// atau ditahan sebagai pending intent hingga proses login/bootstrap selesai.
   NotificationIntent? handleNotificationPayload(
     Map<String, dynamic>? data, {
+    String? title,
+    String? body,
     String? messageId,
     required bool isLoggedIn,
     bool bypassDeduplication = false,
   }) {
-    final intent = parsePayload(data, messageId: messageId);
+    final intent = parsePayload(data, messageId: messageId, title: title, body: body);
     if (intent == null) return null;
 
     if (!bypassDeduplication && isDuplicate(intent)) {
@@ -176,6 +200,58 @@ class NotificationProvider extends ChangeNotifier {
     }
 
     return intent;
+  }
+
+  /// Menangani pesan FCM yang masuk saat aplikasi sedang dibuka/aktif (Foreground Notification).
+  ///
+  /// Menampilkan in-app notification banner dan tidak langsung menavigasi paksa,
+  /// agar user tidak kehilangan konteks pekerjaan yang sedang dibuka.
+  NotificationIntent? handleForegroundMessage(
+    Map<String, dynamic>? data, {
+    String? title,
+    String? body,
+    String? messageId,
+    required bool isLoggedIn,
+    bool bypassDeduplication = false,
+  }) {
+    final intent = parsePayload(data, messageId: messageId, title: title, body: body);
+    if (intent == null) return null;
+
+    if (!bypassDeduplication && isDuplicate(intent)) {
+      debugPrint('NotificationProvider: Pesan foreground duplikat diabaikan: ${intent.deduplicationKey}');
+      return null;
+    }
+
+    recordProcessed(intent);
+
+    if (isLoggedIn) {
+      _foregroundNotification = intent;
+      notifyListeners();
+    } else {
+      _pendingIntent = intent;
+      notifyListeners();
+    }
+
+    return intent;
+  }
+
+  /// Menanggapi aksi "Buka" dari in-app notification banner:
+  /// Menghilangkan banner dan memicu navigasi terpusat ke target menu dan tab.
+  void bukaForegroundNotification() {
+    final intent = _foregroundNotification;
+    if (intent != null) {
+      _foregroundNotification = null;
+      _activeIntent = intent;
+      notifyListeners();
+    }
+  }
+
+  /// Menutup in-app notification banner saat pengguna menekan tombol tutup atau timer habis.
+  void tutupForegroundNotification() {
+    if (_foregroundNotification != null) {
+      _foregroundNotification = null;
+      notifyListeners();
+    }
   }
 
   /// Mengonsumsi dan mengeksekusi pending intent setelah pengguna berhasil masuk (login).
@@ -205,6 +281,7 @@ class NotificationProvider extends ChangeNotifier {
 
   /// Membersihkan seluruh state saat sesi pengguna berakhir (logout).
   void bersihkan() {
+    _foregroundNotification = null;
     _pendingIntent = null;
     _activeIntent = null;
     _processedKeys.clear();

@@ -39,6 +39,7 @@ import '../../widgets/gradient_stat_card.dart';
 import '../../widgets/responsive_layout.dart';
 import '../../widgets/banner_offline.dart';
 import '../../widgets/tombol_fullscreen.dart';
+import '../../widgets/in_app_notification_banner.dart';
 import 'data_warga_screen.dart';
 import 'data_kk_screen.dart';
 import 'bantuan_sosial_screen.dart';
@@ -1085,6 +1086,9 @@ class _MainDashboardState extends State<MainDashboard> {
                         // Bilah judul lama hanya untuk desktop; di ponsel
                         // digantikan AppBar milik Scaffold.
                         if (isDesktop) _buildHeaderBar(auth),
+
+                        // Banner notifikasi in-app ketika menerima pesan FCM saat aktif di foreground
+                        const InAppNotificationBanner(),
 
                         // Scrollable Content
                         //
