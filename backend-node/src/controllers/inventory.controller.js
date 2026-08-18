@@ -271,7 +271,7 @@ async function getInventoryStats(req, res) {
 async function getInventoryDetail(req, res) {
   try {
     const { id } = req.params;
-    const barang = await pool.query(`${SELECT_BARANG} WHERE i.id = $1`, [id]);
+    const barang = await pool.query(`${SELECT_BARANG} WHERE i.id = $1 AND i.deleted_at IS NULL`, [id]);
     if (barang.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Barang tidak ditemukan.' });
     }
@@ -524,7 +524,7 @@ async function hitungTersedia(client, inventoryId, kecualikanBorrowingId = null)
       WHERE b.inventory_id = i.id AND b.status = $2
         AND ($3::int IS NULL OR b.id <> $3::int)
     ), 0) AS tersedia, i.nama_barang
-    FROM inventory i WHERE i.id = $1
+    FROM inventory i WHERE i.id = $1 AND i.deleted_at IS NULL
   `, [inventoryId, STATUS_DIPINJAM, kecualikanBorrowingId]);
   return r.rows[0] || null;
 }
@@ -546,7 +546,7 @@ async function getBarangTersedia(req, res) {
              ${DIPINJAM_SUBQUERY} AS sedang_dipinjam,
              (i.jumlah - ${DIPINJAM_SUBQUERY}) AS tersedia
       FROM inventory i
-      WHERE (i.jumlah - ${DIPINJAM_SUBQUERY}) > 0
+      WHERE i.deleted_at IS NULL AND (i.jumlah - ${DIPINJAM_SUBQUERY}) > 0
       ORDER BY i.nama_barang ASC
     `);
     return res.status(200).json({ success: true, count: result.rowCount, data: result.rows });
@@ -582,7 +582,7 @@ async function createBorrowing(req, res) {
     await client.query('BEGIN');
 
     // Mengunci baris inventory untuk mencegah race condition (Stok Minus) jika ada request bersamaan
-    const lock = await client.query('SELECT id FROM inventory WHERE id = $1 FOR UPDATE', [inventory_id]);
+    const lock = await client.query('SELECT id FROM inventory WHERE id = $1 AND deleted_at IS NULL FOR UPDATE', [inventory_id]);
     if (lock.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ success: false, message: 'Barang tidak ditemukan.' });
