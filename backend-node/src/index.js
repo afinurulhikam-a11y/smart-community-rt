@@ -212,6 +212,7 @@ app.use('/api/notifications', notificationRoutes);
 app.get('/api/health', async (req, res) => {
   const { getConnectedClients } = require('./config/websocket');
   const { pool } = require('./config/database');
+  const { getFirebaseDiagnostic } = require('./config/firebase');
 
   let database = 'ok';
   let sehat = true;
@@ -231,6 +232,7 @@ app.get('/api/health', async (req, res) => {
       : 'Backend hidup, tetapi database tidak dapat dihubungi.',
     database,
     websocket_clients: getConnectedClients(),
+    firebase: getFirebaseDiagnostic(),
     timestamp: new Date().toISOString(),
   });
 });
