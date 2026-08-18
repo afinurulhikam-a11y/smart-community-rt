@@ -99,7 +99,7 @@ async function meteranSaya(req, res) {
 
     const periode = req.query.periode || periodeDari();
     const bacaan = await pool.query(
-      `SELECT pm.*, b.status AS status_tagihan, b.total AS nominal, b.biaya_sampah AS bill_biaya_sampah, b.langganan_sampah AS bill_langganan_sampah
+      `SELECT pm.*, b.status AS status_tagihan, b.nominal, b.biaya_sampah AS bill_biaya_sampah, b.langganan_sampah AS bill_langganan_sampah
        FROM pembacaan_meteran pm
        LEFT JOIN bills b ON (b.id = pm.bill_id OR (b.keluarga_id = pm.keluarga_id AND b.bulan = pm.periode))
        WHERE pm.keluarga_id = $1 AND pm.periode = $2
