@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getLetters, createLetter, updateLetterStatus } = require('../controllers/letter.controller');
+const { getLetters, createLetter, updateLetterStatus, deleteLetter } = require('../controllers/letter.controller');
 const { authMiddleware, requirePermission } = require('../middleware/auth.middleware');
 const { validate } = require('../middleware/validate.middleware');
 const Joi = require('joi');
@@ -20,5 +20,6 @@ router.use(authMiddleware);
 router.get('/', requirePermission('layanan.surat', 'view'), getLetters);
 router.post('/', requirePermission('layanan.surat', 'create'), validate(letterCreateSchema), createLetter);
 router.put('/:id/approve', requirePermission('layanan.surat', 'update'), validate(letterUpdateSchema), updateLetterStatus);
+router.delete('/:id', deleteLetter);
 
 module.exports = router;

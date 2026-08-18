@@ -93,6 +93,21 @@ class LetterProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> deleteLetter(String id) async {
+    _isLoading = true;
+    notifyListeners();
+    final response = await ApiService.delete('${ApiConstants.letters}/$id');
+    _isLoading = false;
+    if (response['success'] == true) {
+      await fetchLetters(status: _lastStatus, page: _currentPage);
+      return true;
+    } else {
+      _errorMessage = response['message'] as String?;
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// Kosongkan seluruh state saat pengguna keluar.
   ///
   /// Provider di aplikasi ini dibuat sekali di MultiProvider akar dan hidup

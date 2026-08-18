@@ -309,10 +309,50 @@ async function updateLetterStatus(req, res) {
   }
 }
 
+async function deleteLetter(req, res) {
+  try {
+    const { id } = req.params;
+    const letterRes = await pool.query('SELECT * FROM letters WHERE id = $1', [id]);
+    if (letterRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Surat tidak ditemukan.' });
+    }
+
+    const letter = letterRes.rows[0];
+    const status = (letter.status || '').toLowerCase();
+    const isOwner = letter.user_id === req.user.id;
+
+    // Warga hanya boleh menghapus surat miliknya sendiri
+    if (req.user.role === 'warga' && !isOwner) {
+      return res.status(403).json({ success: false, message: 'Anda tidak memiliki izin menghapus surat ini.' });
+    }
+
+    // Surat yang sudah disetujui (terbit nomor surat resmi) tidak boleh dihapus demi integritas arsip
+    if (status === 'disetujui' || status === 'approved') {
+      return res.status(409).json({
+        success: false,
+        message: 'Surat yang sudah disetujui tidak dapat dihapus karena telah menjadi arsip kependudukan resmi.',
+      });
+    }
+
+    await pool.query('DELETE FROM letters WHERE id = $1', [id]);
+    await logActivity(
+      req,
+      TIPE.DELETE,
+      `Menghapus/membatalkan permohonan surat #${id} ("${ringkas(letter.jenis_surat)}") status: ${letter.status}`
+    );
+
+    return res.status(200).json({ success: true, message: 'Permohonan surat berhasil dibatalkan/dihapus.' });
+  } catch (err) {
+    console.error('DeleteLetter Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+}
+
 module.exports = {
   getLetters,
   createLetter,
   updateLetterStatus,
+  deleteLetter,
   sendNewLetterPushNotification,
   sendLetterStatusPushNotification,
 };
