@@ -486,6 +486,7 @@ class _StatusDaruratScreenState extends State<StatusDaruratScreen> {
                       baris: emergency.alerts.map((alert) {
                         final isActive = alert.isActive;
                         return BarisTabel(
+                          onTap: () => _showDetailDialog(alert),
                           sel: [
                             SelTabel.teks(
                               'Waktu',
@@ -595,10 +596,6 @@ class _StatusDaruratScreenState extends State<StatusDaruratScreen> {
                                   spacing: 6,
                                   runSpacing: 6,
                                   children: [
-                                    // Detail selalu tersedia untuk semua orang.
-                                    // Melihat apa yang terjadi bukan wewenang
-                                    // yang perlu dibatasi; MENUTUP kejadiannya
-                                    // yang perlu.
                                     OutlinedButton.icon(
                                       onPressed: () => _showDetailDialog(alert),
                                       icon: const Icon(Icons.info_outline, size: 14),
@@ -610,10 +607,6 @@ class _StatusDaruratScreenState extends State<StatusDaruratScreen> {
                                         ),
                                       ),
                                     ),
-                                    // Tombolnya DIHILANGKAN, bukan dinonaktifkan,
-                                    // bagi yang tidak berwenang — tombol mati
-                                    // tetap mengundang orang menekannya lalu
-                                    // menyimpulkan aplikasinya rusak.
                                     if (_bolehMenyelesaikan(alert))
                                       ElevatedButton.icon(
                                         onPressed: () => _showResolveDialog(alert.id),
@@ -631,41 +624,59 @@ class _StatusDaruratScreenState extends State<StatusDaruratScreen> {
                                       ),
                                   ],
                                 )
-                              : Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: context.latarLembut,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: context.garis),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.verified, size: 15, color: Color(0xFF059669)),
-                                      const SizedBox(width: 8),
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                              : Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    OutlinedButton.icon(
+                                      onPressed: () => _showDetailDialog(alert),
+                                      icon: const Icon(Icons.info_outline, size: 14),
+                                      label: const Text('Detail', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: context.latarLembut,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: context.garis),
+                                      ),
+                                      child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Text(
-                                            'Selesai oleh:',
-                                            style: TextStyle(fontSize: 10, color: context.teksKedua, fontWeight: FontWeight.w500),
-                                          ),
-                                          Text(
-                                            (alert.dismissedByNama != null && alert.dismissedByNama!.trim().isNotEmpty && alert.dismissedByNama != '-')
-                                                ? alert.dismissedByNama!
-                                                : 'Pengurus RT',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                              color: context.teksUtama,
-                                            ),
+                                          const Icon(Icons.verified, size: 15, color: Color(0xFF059669)),
+                                          const SizedBox(width: 8),
+                                          Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                'Selesai oleh:',
+                                                style: TextStyle(fontSize: 10, color: context.teksKedua, fontWeight: FontWeight.w500),
+                                              ),
+                                              Text(
+                                                (alert.dismissedByNama != null && alert.dismissedByNama!.trim().isNotEmpty && alert.dismissedByNama != '-')
+                                                    ? alert.dismissedByNama!
+                                                    : 'Pengurus RT',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: context.teksUtama,
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ],
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
                         );
                       }).toList(),
