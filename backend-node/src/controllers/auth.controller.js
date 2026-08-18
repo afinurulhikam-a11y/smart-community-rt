@@ -223,7 +223,10 @@ async function getMe(req, res) {
 async function getProfilLengkap(req, res) {
   try {
     const result = await pool.query(
-      `SELECT id, username, nama, email, no_hp, no_kk, nik, alamat, no_rt, role,
+      `SELECT id, username, nama,
+              CASE WHEN email = nik OR email = username THEN NULL ELSE email END AS email,
+              CASE WHEN no_hp = '0000000000000000' OR no_hp = '0' THEN NULL ELSE no_hp END AS no_hp,
+              no_kk, nik, alamat, no_rt, role,
               is_active, must_change_password, created_at
        FROM users WHERE id = $1`,
       [req.user.id]
@@ -256,15 +259,19 @@ async function updateProfile(req, res) {
     );
     const sebelum = cekLama.rows[0] || {};
 
-    if (email) {
-      const checkEmail = await pool.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1) AND id != $2', [email, userId]);
+    const cleanEmail = email && email.trim() !== '' ? email.trim() : null;
+    const cleanNoHp = no_hp && no_hp.trim() !== '' ? no_hp.trim() : null;
+    const cleanUsername = username && username.trim() !== '' ? username.trim() : null;
+
+    if (cleanEmail) {
+      const checkEmail = await pool.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1) AND id != $2', [cleanEmail, userId]);
       if (checkEmail.rows.length > 0) {
         return res.status(409).json({ success: false, message: 'Email sudah digunakan oleh akun lain.' });
       }
     }
 
-    if (username) {
-      const checkUsername = await pool.query('SELECT id FROM users WHERE LOWER(username) = LOWER($1) AND id != $2', [username, userId]);
+    if (cleanUsername) {
+      const checkUsername = await pool.query('SELECT id FROM users WHERE LOWER(username) = LOWER($1) AND id != $2', [cleanUsername, userId]);
       if (checkUsername.rows.length > 0) {
         return res.status(409).json({ success: false, message: 'Username sudah digunakan oleh akun lain.' });
       }
@@ -273,12 +280,12 @@ async function updateProfile(req, res) {
     const result = await pool.query(
       `UPDATE users 
        SET nama = $1, 
-           email = COALESCE($2, email), 
+           email = $2, 
            no_hp = $3, 
            username = COALESCE($4, username) 
        WHERE id = $5 
        RETURNING id, nama, email, username, no_hp, no_kk, alamat, no_rt, role, is_active`,
-      [nama, email || null, no_hp || null, username || null, userId]
+      [nama.trim(), cleanEmail, cleanNoHp, cleanUsername, userId]
     );
 
     if (result.rows.length === 0) {
