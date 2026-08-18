@@ -201,6 +201,29 @@ async function autoSetupCloud() {
   } catch (e) {
     console.log('ℹ️ Catatan Master Categories:', e.message);
   }
+
+  // 6. Seed Akun Pengurus Bawaan (Ketua RT, Sekretaris, Bendahara)
+  try {
+    const { PENGURUS_AWAL } = require('./master-data');
+    for (const p of PENGURUS_AWAL) {
+      const ada = await pool.query(
+        'SELECT 1 FROM users WHERE username = $1 OR email = $2',
+        [p.username, p.email]
+      );
+      if (ada.rowCount === 0) {
+        const hash = await bcrypt.hash(p.password, 10);
+        await pool.query(
+          `INSERT INTO users (nama, email, username, password_hash, role, is_active)
+           VALUES ($1, $2, $3, $4, $5, true)
+           ON CONFLICT (username) DO NOTHING`,
+          [p.nama, p.email, p.username, hash, p.role]
+        );
+        console.log(`✅ Akun default ${p.role} (${p.username}) dibuat.`);
+      }
+    }
+  } catch (e) {
+    console.log('ℹ️ Catatan Akun Pengurus:', e.message);
+  }
 }
 
 module.exports = { autoSetupCloud };
