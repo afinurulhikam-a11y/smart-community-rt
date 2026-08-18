@@ -712,7 +712,7 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
           final barangDipilih = barangList.where((b) => b.id == barangId).firstOrNull;
           return AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: Text(existing == null ? 'Catat Peminjaman' : 'Ubah Peminjaman'),
+            title: Text(existing == null ? (_sebagaiWarga ? 'Ajukan Peminjaman' : 'Catat Peminjaman') : 'Ubah Peminjaman'),
             content: SizedBox(
               width: lebarDialog(context, maksimal: 460),
               child: SingleChildScrollView(
@@ -728,13 +728,59 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
                           .map(
                             (b) => DropdownMenuItem(
                               value: b.id,
-                              child: Text(
-                                '${b.namaBarang} — tersedia ${b.tersedia}',
-                                overflow: TextOverflow.ellipsis,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      b.namaBarang,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: (b.tersedia > 0 ? const Color(0xFF059669) : Colors.grey)
+                                          .withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      'Stok: ${b.tersedia}',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: b.tersedia > 0 ? const Color(0xFF059669) : Colors.grey,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           )
                           .toList(),
+                      selectedItemBuilder: (context) => barangList.map((b) {
+                        return Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                b.namaBarang,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '(Stok: ${b.tersedia})',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF059669),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        );
+                      }).toList(),
                       onChanged: existing == null ? (v) => setLocal(() => barangId = v) : null,
                     ),
                     const SizedBox(height: 12),
