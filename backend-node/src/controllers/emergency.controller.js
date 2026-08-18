@@ -596,13 +596,22 @@ async function getAlerts(req, res) {
     const totalData = parseInt(countResult.rows[0].count, 10);
 
     let query = `SELECT ${KOLOM_ALERT},
-      COALESCE(u.nama, 'Administrator') AS nama_warga,
-      COALESCE(u.alamat, '') AS alamat, 
-      u.no_hp, 
+      COALESCE(ak.nama, u.nama, 'Administrator') AS nama_warga,
+      COALESCE(
+        NULLIF(TRIM(u.alamat), ''),
+        NULLIF(TRIM(k.alamat), ''),
+        CASE WHEN k.blok IS NOT NULL AND TRIM(k.blok) != '' THEN CONCAT('Blok ', k.blok, COALESCE(CONCAT(' No. ', NULLIF(TRIM(k.nomor_rumah), '')), '')) ELSE NULL END,
+        'Alamat tidak tercatat'
+      ) AS alamat,
+      COALESCE(NULLIF(TRIM(u.no_hp), ''), NULLIF(TRIM(ak.no_hp), ''), NULLIF(TRIM(k.no_telp), ''), '-') AS no_hp,
+      k.no_kk,
+      k.blok,
       COALESCE(d.nama, CASE WHEN ea.dismissed_by IS NOT NULL THEN 'Pengurus RT' ELSE NULL END) AS dismissed_by_nama
       FROM emergency_alerts ea 
       LEFT JOIN users u ON ea.user_id = u.id 
       LEFT JOIN users d ON ea.dismissed_by = d.id 
+      LEFT JOIN anggota_keluarga ak ON (u.nik IS NOT NULL AND u.nik = ak.nik)
+      LEFT JOIN keluarga k ON (k.id = ak.keluarga_id OR (u.no_kk IS NOT NULL AND k.no_kk = u.no_kk))
       ${whereClause}
       ORDER BY ea.created_at DESC`;
 
