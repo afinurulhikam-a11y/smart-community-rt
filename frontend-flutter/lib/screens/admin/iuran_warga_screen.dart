@@ -508,162 +508,205 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
     int totalHalaman,
   ) {
     return Container(
+      padding: EdgeInsets.all(paddingKartu(context)),
       decoration: BoxDecoration(
         color: context.latarKartu,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: context.garis),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: SizedBox(
-              width: double.infinity,
-              child: Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.list_alt, color: Color(0xFF10B981), size: 20),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          'Semua Data Iuran',
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: context.teksUtama,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    '${provider.totalData} data',
-                    style: TextStyle(fontSize: 12, color: context.teksKedua),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const Divider(height: 1),
-          Padding(
-            padding: EdgeInsets.all(paddingKartu(context)),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 460),
-                child: Row(
+          SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      'Pencarian',
-                      style: TextStyle(fontSize: 13, color: context.teksKedua),
-                    ),
+                    const Icon(Icons.list_alt, color: Color(0xFF10B981), size: 20),
                     const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _searchController,
-                        onSubmitted: (v) {
-                          _searchQuery = v;
-                          _loadData();
-                        },
-                        decoration: InputDecoration(
-                          hintText: 'Cari nama, no KK, alamat...',
-                          hintStyle: TextStyle(fontSize: 13, color: context.teksTersier),
-                          prefixIcon: Icon(Icons.search, size: 18, color: context.teksKedua),
-                          suffixIcon: IconButton(
-                            icon: const Icon(Icons.arrow_forward, size: 16),
-                            onPressed: () {
-                              _searchQuery = _searchController.text;
-                              _loadData();
-                            },
-                          ),
-                          filled: true,
-                          fillColor: context.latarLembut,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: context.garis),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: context.garis),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(color: Color(0xFF1B7A6A), width: 1.5),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                    Flexible(
+                      child: Text(
+                        'Semua Data Iuran',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: context.teksUtama,
                         ),
                       ),
                     ),
                   ],
                 ),
-              ),
+                Text(
+                  '${provider.totalData} data',
+                  style: TextStyle(fontSize: 12, color: context.teksKedua),
+                ),
+              ],
             ),
           ),
-          if (provider.isLoading && semua.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 40),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (semua.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 40),
-              child: Center(
-                child: Column(
-                  children: [
-                    Icon(Icons.receipt_long_outlined, size: 40, color: context.garis),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Belum ada data iuran',
-                      style: TextStyle(color: context.teksTersier, fontSize: 13),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Gunakan tombol "Generate Tagihan" untuk membuat tagihan satu periode.',
-                      style: TextStyle(color: context.garis, fontSize: 11),
-                    ),
-                  ],
+          const SizedBox(height: 20),
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              Text(
+                'Pencarian',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: context.teksKedua,
                 ),
               ),
-            )
-          else
-            Builder(builder: (context) {
-              final adaMeteran = halamanIni.any((b) => b.pakaiMeteran);
-              return Padding(
-                padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
-                child: TabelResponsif(
-                  tinggiBarisMaks: 70,
-                  kolom: [
-                    'NO',
-                    'KEPALA KELUARGA',
-                    'MASTER IURAN',
-                    'PERIODE',
-                    if (adaMeteran) ...['METERAN LALU', 'METERAN KINI', 'TERPAKAI'],
-                    'NOMINAL',
-                    'STATUS',
-                    'TGL BAYAR',
-                  ],
-                  baris: List.generate(halamanIni.length, (i) {
-                    final b = halamanIni[i];
-                    return _buildRow(
-                      b,
-                      ((provider.currentPage - 1) * provider.perPage) + i + 1,
-                      adaMeteran,
-                    );
-                  }),
-                  currentPage: provider.currentPage,
-                  totalPages: provider.totalPages,
-                  totalData: provider.totalData,
-                  perPage: provider.perPage,
-                  onPageChanged: (page) => _loadData(page: page),
+              SizedBox(
+                width: 280,
+                child: TextField(
+                  controller: _searchController,
+                  style: TextStyle(color: context.teksUtama, fontSize: 13),
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (v) {
+                    _searchQuery = v.trim();
+                    _loadData();
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Cari nama, no KK, alamat...',
+                    hintStyle: TextStyle(fontSize: 12, color: context.teksTersier),
+                    prefixIcon: Icon(Icons.search, size: 18, color: context.teksKedua),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.arrow_forward, size: 16),
+                      tooltip: 'Cari',
+                      onPressed: () {
+                        _searchQuery = _searchController.text.trim();
+                        _loadData();
+                      },
+                    ),
+                    filled: true,
+                    fillColor: context.latarLembut,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: context.garis),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: context.garis),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFF1B7A6A), width: 1.5),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                  ),
                 ),
-              );
-            }),
+              ),
+              OutlinedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _searchQuery = '';
+                    _searchController.clear();
+                  });
+                  _loadData();
+                },
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text(
+                  'Reset',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: context.teksKedua,
+                  side: BorderSide(color: context.garis),
+                  visualDensity: VisualDensity.standard,
+                  minimumSize: const Size(0, AppTheme.sasaranSentuh),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Tabel di dalam container bergaris (seragam dengan Data Warga & Data KK)
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: context.latarKartu,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: context.garis),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  constraints: pakaiKartu(context)
+                      ? const BoxConstraints()
+                      : const BoxConstraints(minHeight: 560),
+                  child: provider.isLoading && semua.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 40),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      : (semua.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 40),
+                              child: Center(
+                                child: Column(
+                                  children: [
+                                    Icon(Icons.receipt_long_outlined, size: 40, color: context.garis),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      'Belum ada data iuran',
+                                      style: TextStyle(color: context.teksTersier, fontSize: 13),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Gunakan tombol "Terbitkan Tagihan" untuk membuat tagihan satu periode.',
+                                      style: TextStyle(color: context.garis, fontSize: 11),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          : Builder(builder: (context) {
+                              final adaMeteran = halamanIni.any((b) => b.pakaiMeteran);
+                              return Padding(
+                                padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
+                                child: TabelResponsif(
+                                  tinggiBarisMaks: 70,
+                                  kolom: [
+                                    'NO',
+                                    'KEPALA KELUARGA',
+                                    'MASTER IURAN',
+                                    'PERIODE',
+                                    if (adaMeteran) ...['METERAN LALU', 'METERAN KINI', 'TERPAKAI'],
+                                    'NOMINAL',
+                                    'STATUS',
+                                    'TGL BAYAR',
+                                  ],
+                                  baris: List.generate(halamanIni.length, (i) {
+                                    final b = halamanIni[i];
+                                    return _buildRow(
+                                      b,
+                                      ((provider.currentPage - 1) * provider.perPage) + i + 1,
+                                      adaMeteran,
+                                    );
+                                  }),
+                                  currentPage: provider.currentPage,
+                                  totalPages: provider.totalPages,
+                                  totalData: provider.totalData,
+                                  perPage: provider.perPage,
+                                  onPageChanged: (page) => _loadData(page: page),
+                                ),
+                              );
+                            })),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -871,7 +914,13 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
           'sebesar ${_rupiah(b.nominal)} sebagai LUNAS?',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Batal')),
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            style: TextButton.styleFrom(
+              foregroundColor: c.gelap ? Colors.white : Colors.black,
+            ),
+            child: const Text('Batal'),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(c, true),
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF059669)),
@@ -900,7 +949,13 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
           'atas nama ${b.kepalaKeluarga}?',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Batal')),
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            style: TextButton.styleFrom(
+              foregroundColor: c.gelap ? Colors.white : Colors.black,
+            ),
+            child: const Text('Batal'),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(c, true),
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
@@ -1080,7 +1135,7 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
             onPressed: () => Navigator.pop(c),
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              foregroundColor: context.teksKedua,
+              foregroundColor: c.gelap ? Colors.white : Colors.black,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             child: const Text('Batal', style: TextStyle(fontWeight: FontWeight.w600)),
@@ -1349,7 +1404,15 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                   ],
                 ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('Tutup'))],
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            style: TextButton.styleFrom(
+              foregroundColor: c.gelap ? Colors.white : Colors.black,
+            ),
+            child: const Text('Tutup'),
+          ),
+        ],
       ),
     );
   }
@@ -1424,15 +1487,6 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (j.isAktif)
-                              IconButton(
-                                icon: const Icon(Icons.bolt_outlined, size: 18, color: Color(0xFF8B5CF6)),
-                                tooltip: 'Terbitkan Tagihan Ini',
-                                onPressed: () {
-                                  Navigator.pop(c);
-                                  _showGenerateTagihanDialog(j);
-                                },
-                              ),
                             IconButton(
                               icon: const Icon(Icons.edit_outlined, size: 18),
                               onPressed: () => _showFormJenis(j),
@@ -1480,7 +1534,15 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                     },
                   ),
           ),
-          actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('Tutup'))],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c),
+              style: TextButton.styleFrom(
+                foregroundColor: c2.gelap ? Colors.white : Colors.black,
+              ),
+              child: const Text('Tutup'),
+            ),
+          ],
         ),
       ),
     );
@@ -1613,6 +1675,9 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(c),
+                style: TextButton.styleFrom(
+                  foregroundColor: c.gelap ? Colors.white : Colors.black,
+                ),
                 child: const Text('Batal'),
               ),
               ElevatedButton.icon(
@@ -1791,7 +1856,13 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(c), child: const Text('Batal')),
+              TextButton(
+                onPressed: () => Navigator.pop(c),
+                style: TextButton.styleFrom(
+                  foregroundColor: c.gelap ? Colors.white : Colors.black,
+                ),
+                child: const Text('Batal'),
+              ),
               ElevatedButton(
                 onPressed: () async {
                   if (namaCtrl.text.trim().isEmpty) {
