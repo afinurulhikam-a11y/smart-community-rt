@@ -447,6 +447,7 @@ class _TabelResponsifState extends State<TabelResponsif> {
               child: ConstrainedBox(
                 constraints: BoxConstraints(minWidth: targetWidth),
                 child: DataTable(
+                  showCheckboxColumn: false,
                   dataRowMinHeight: widget.tinggiBarisMin,
                   dataRowMaxHeight: widget.tinggiBarisMaks,
                   headingTextStyle: TabelResponsif._gayaJudulKolom(context),
