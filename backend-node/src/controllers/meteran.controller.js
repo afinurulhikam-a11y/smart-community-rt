@@ -55,10 +55,9 @@ async function meteranPeriodeSebelumnya(db, keluargaId, periode) {
   return r.rows[0]?.meteran_sekarang ?? null;
 }
 
-/** Langsung menerbitkan tagihan untuk akun tester Afi Nurul Hikam tanpa menunggu tanggal 25. */
+/** Menerbitkan tagihan saat pengujian otomatis atau mode test. */
 async function cobaTerbitkanTagihanTester(req, kkId, periode) {
-  const isTester = (req?.user?.nama || req?.user?.email || '').toString().toLowerCase().includes('afi nurul hikam');
-  if (!isTester) return;
+  if (process.env.NODE_ENV !== 'test' && process.env.AUTO_GENERATE_TEST_BILL !== 'true') return;
 
   const client = await pool.connect();
   try {
@@ -100,7 +99,11 @@ async function meteranSaya(req, res) {
 
     const periode = req.query.periode || periodeDari();
     const bacaan = await pool.query(
-      'SELECT * FROM pembacaan_meteran WHERE keluarga_id = $1 AND periode = $2',
+      `SELECT pm.*, b.status AS status_tagihan, b.total AS nominal, b.biaya_sampah AS bill_biaya_sampah, b.langganan_sampah AS bill_langganan_sampah
+       FROM pembacaan_meteran pm
+       LEFT JOIN bills b ON (b.id = pm.bill_id OR (b.keluarga_id = pm.keluarga_id AND b.bulan = pm.periode))
+       WHERE pm.keluarga_id = $1 AND pm.periode = $2
+       ORDER BY pm.id DESC LIMIT 1`,
       [kk.id, periode]
     );
     const sebelumnya = await meteranPeriodeSebelumnya(pool, kk.id, periode);

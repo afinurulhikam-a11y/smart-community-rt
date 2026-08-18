@@ -136,11 +136,12 @@ function periodeSebelum(periode) {
  * yang harus menunggu tanggal 6 tidak akan pernah dijalankan siapa pun.
  */
 function bolehIsiMeteran(tanggal = new Date(), user = null) {
-  if (user) {
-    const namaUser = (user.nama || user.nama_lengkap || user.email || '').toString().toLowerCase();
-    if (namaUser.includes('afi nurul hikam')) {
-      return true;
-    }
+  // Pengurus RT (admin, ketua_rt, sekretaris, bendahara) atau mode testing diizinkan mengisi kapan saja
+  if (user && (user.role === 'admin' || user.role === 'ketua_rt' || user.role === 'sekretaris' || user.role === 'bendahara')) {
+    return true;
+  }
+  if (process.env.NODE_ENV === 'test' || process.env.BYPASS_BATAS_METERAN === 'true') {
+    return true;
   }
   const d = tanggal instanceof Date ? tanggal : new Date(tanggal);
   const batas = parseInt(process.env.BATAS_INPUT_METERAN, 10) || TANGGAL_TUTUP_METERAN;
