@@ -1,5 +1,6 @@
 const { pool } = require('../config/database');
 const { logActivity, rupiah, bandingkan, TIPE } = require('../services/log.service');
+const dispatcher = require('../services/notification.dispatcher');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit-table');
 
@@ -49,6 +50,114 @@ function formatPeriodeBansos(row) {
     return String(row.tahun);
   }
   return '-';
+}
+
+/**
+ * Mengirim notifikasi push FCM ke penerima manfaat saat status bantuan sosial aktif, disalurkan, atau diperbarui.
+ *
+ * Menggunakan Durable Database Idempotency (bantuan_sosial.fcm_last_status_dispatch).
+ * Bersifat fail-safe & non-blocking: kegagalan FCM tidak membatalkan operasi bansos.
+ */
+async function sendBansosStatusPushNotification(bansos) {
+  if (!bansos || !bansos.id) {
+    return { skipped: true, reason: 'invalid_bansos' };
+  }
+
+  const targetStatus = bansos.status || 'Aktif';
+
+  try {
+    // 1. Klaim atomik status dispatch (Race Condition & Durable Idempotency Guard)
+    const claimResult = await pool.query(
+      `UPDATE bantuan_sosial
+       SET fcm_last_status_dispatch = $1
+       WHERE id = $2
+         AND (fcm_last_status_dispatch IS NULL OR fcm_last_status_dispatch != $1)
+       RETURNING id, user_id, jenis_bantuan, bentuk_bantuan, sumber_bantuan, no_sk,
+                 tanggal_bantuan::text AS tanggal_bantuan,
+                 tanggal_mulai::text AS tanggal_mulai,
+                 tanggal_selesai::text AS tanggal_selesai,
+                 tahun, nominal, status, keterangan`,
+      [targetStatus, bansos.id]
+    );
+
+    if (claimResult.rows.length === 0) {
+      console.log(`ℹ️ [FCM Bansos] Status Bantuan Sosial #${bansos.id} sudah pernah dikirim (${targetStatus}) atau tidak berubah, push dilewati.`);
+      return { skipped: true, reason: 'already_sent_or_unchanged' };
+    }
+
+    const currentBansos = claimResult.rows[0];
+
+    // 2. Ambil data user penerima manfaat yang aktif
+    if (!currentBansos.user_id) {
+      console.log(`ℹ️ [FCM Bansos] Bantuan Sosial #${bansos.id} tidak memiliki user_id penerima, push dilewati.`);
+      return { skipped: true, reason: 'missing_user_id' };
+    }
+
+    const userRes = await pool.query(
+      `SELECT id, nama, is_active FROM users WHERE id = $1`,
+      [currentBansos.user_id]
+    );
+
+    if (userRes.rows.length === 0 || !userRes.rows[0].is_active) {
+      console.log(`ℹ️ [FCM Bansos] Penerima bansos #${bansos.id} tidak ditemukan atau nonaktif, push dilewati.`);
+      return { skipped: true, reason: 'inactive_or_missing_user' };
+    }
+
+    const recipientUser = userRes.rows[0];
+    const namaProgram = currentBansos.jenis_bantuan || 'Bantuan Sosial';
+    const descPeriode = formatPeriodeBansos(currentBansos);
+
+    let title = `🎁 Bantuan Sosial: ${namaProgram}`;
+    let body = `Anda terdaftar sebagai penerima program bantuan sosial "${namaProgram}" (${descPeriode}). Status: ${currentBansos.status}.`;
+
+    if (targetStatus.toLowerCase() === 'selesai') {
+      title = `✅ Bantuan Sosial Disalurkan: ${namaProgram}`;
+      body = `Penyaluran bantuan sosial "${namaProgram}" (${descPeriode}) telah selesai disalurkan.`;
+    } else if (targetStatus.toLowerCase() === 'dibatalkan') {
+      title = `ℹ️ Status Bantuan Sosial: ${namaProgram}`;
+      body = `Status kepesertaan bantuan sosial "${namaProgram}" (${descPeriode}) telah diperbarui menjadi Dibatalkan.`;
+    }
+
+    const pushResult = await dispatcher.sendToUser(recipientUser.id, {
+      title,
+      body,
+      data: {
+        entity_type: 'bansos',
+        entity_id: String(currentBansos.id),
+        action: 'BANSOS_STATUS_UPDATE',
+        status: String(currentBansos.status || 'Aktif'),
+        nama_program: String(namaProgram),
+        periode: String(descPeriode),
+        bentuk_bantuan: String(currentBansos.bentuk_bantuan || 'Tunai'),
+        sumber_bantuan: String(currentBansos.sumber_bantuan || 'Pemerintah Pusat'),
+        nominal: String(currentBansos.nominal || '0'),
+      },
+      priority: 'normal',
+      collapseKey: `bansos_status_${currentBansos.id}`,
+    });
+
+    if (pushResult.success === false && !pushResult.simulated) {
+      // Revert status claim on failure so retry can happen
+      await pool.query('UPDATE bantuan_sosial SET fcm_last_status_dispatch = NULL WHERE id = $1', [currentBansos.id]).catch(() => {});
+      console.error(`⚠️ [FCM Bansos] Gagal mengirim push status bansos #${currentBansos.id}:`, pushResult.error);
+      return pushResult;
+    }
+
+    console.log(
+      `🔔 [FCM Bansos] Notifikasi Status Bansos #${currentBansos.id} [${namaProgram} -> ${targetStatus}]:\n` +
+      `   - Target Penerima : ${recipientUser.nama} (${recipientUser.id})\n` +
+      `   - Total Token     : ${pushResult.tokensCount || 0} perangkat aktif\n` +
+      `   - Berhasil        : ${pushResult.successCount ?? (pushResult.simulated ? pushResult.tokensCount : 0)}\n` +
+      `   - Gagal           : ${pushResult.failureCount ?? 0}\n` +
+      `   - Mode            : ${pushResult.simulated ? 'Simulasi' : 'Live'}`
+    );
+
+    return pushResult;
+  } catch (err) {
+    await pool.query('UPDATE bantuan_sosial SET fcm_last_status_dispatch = NULL WHERE id = $1', [bansos.id]).catch(() => {});
+    console.error(`⚠️ [FCM Bansos] Gagal memproses dispatch bansos #${bansos.id}:`, err.message);
+    return { error: err.message };
+  }
 }
 
 function buildDateFilter(tahun, start, end, params) {
@@ -286,6 +395,9 @@ async function createBantuanSosial(req, res) {
         `${jenis_bantuan} (${descPeriode}), ${bBantuan === 'Tunai' ? rupiah(nominalAngka) : bBantuan}`
     );
 
+    // Siaran push notifikasi FCM penerimaan bansos secara non-blocking
+    dispatcher.dispatchAsync(() => sendBansosStatusPushNotification(rowBaru), 'BansosNew');
+
     return res.status(201).json({ success: true, message: 'Penerima bantuan berhasil ditambahkan.', data: rowBaru });
   } catch (err) {
     console.error('CreateBantuanSosial Error:', err.message);
@@ -414,6 +526,11 @@ async function updateBantuanSosial(req, res) {
       );
     }
 
+    // Siaran push notifikasi jika status bansos diperbarui
+    if (status && old.status !== status) {
+      dispatcher.dispatchAsync(() => sendBansosStatusPushNotification(result.rows[0]), 'BansosStatusUpdate');
+    }
+
     return res.status(200).json({ success: true, message: 'Data bantuan berhasil diperbarui.', data: result.rows[0] });
   } catch (err) {
     console.error('UpdateBantuanSosial Error:', err.message);
@@ -455,24 +572,24 @@ async function deleteBantuanSosial(req, res) {
       return res.status(400).json({ success: false, message: 'ID Bantuan Sosial tidak valid.' });
     }
 
-    const sebelum = await pool.query(
+    const item = await pool.query(
       'SELECT bs.*, u.nama FROM bantuan_sosial bs JOIN users u ON bs.user_id = u.id WHERE bs.id = $1',
       [numId]
     );
+    if (item.rows.length === 0) return res.status(404).json({ success: false, message: 'Data bantuan tidak ditemukan.' });
 
     const result = await pool.query('DELETE FROM bantuan_sosial WHERE id = $1 RETURNING id', [numId]);
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Data bantuan tidak ditemukan.' });
 
-    const b = sebelum.rows[0] || {};
-    const periodeDesc = formatPeriodeBansos(b);
+    const d = item.rows[0];
+    const descPeriode = formatPeriodeBansos(d);
     await logActivity(
       req,
       TIPE.DELETE,
-      `Menghapus data bantuan sosial ${b.nama || id} — ${b.jenis_bantuan || '-'} (${periodeDesc}), ` +
-        `${rupiah(b.nominal || 0)}, status ${b.status || '-'}`
+      `Menghapus data bantuan sosial: ${d.nama || numId} — ${d.jenis_bantuan} (${descPeriode})`
     );
 
-    return res.status(200).json({ success: true, message: 'Data bantuan berhasil dihapus.', data: result.rows[0] });
+    return res.status(200).json({ success: true, message: 'Data bantuan sosial berhasil dihapus.' });
   } catch (err) {
     console.error('DeleteBantuanSosial Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
@@ -481,35 +598,46 @@ async function deleteBantuanSosial(req, res) {
 
 async function exportBantuanSosial(req, res) {
   try {
-    const { tahun, tanggal_mulai, tanggal_selesai, jenis_bantuan, status, search, format } = req.query;
-    let query = `SELECT bs.*, u.nama AS nama_warga, COALESCE(u.nik, u.username) AS nik_warga, c.nama AS created_by_nama FROM bantuan_sosial bs JOIN users u ON bs.user_id = u.id LEFT JOIN users c ON bs.created_by = c.id WHERE 1=1`;
+    const { tahun, tanggal_mulai, tanggal_selesai, jenis_bantuan, status, search, format = 'excel' } = req.query;
+    let where = '';
     const params = [];
+
+    const dateClause = buildDateFilter(tahun, tanggal_mulai, tanggal_selesai, params);
+    where += dateClause;
+
+    if (jenis_bantuan && jenis_bantuan !== 'Semua Jenis') { params.push(jenis_bantuan); where += ` AND bs.jenis_bantuan = $${params.length}`; }
+    if (status && status !== 'Semua Status') { params.push(status); where += ` AND bs.status = $${params.length}`; }
+    if (search) {
+      params.push(`%${search}%`);
+      where += ` AND (u.nama ILIKE $${params.length} OR u.nik ILIKE $${params.length} OR u.username ILIKE $${params.length} OR bs.jenis_bantuan ILIKE $${params.length} OR bs.no_sk ILIKE $${params.length})`;
+    }
 
     if (req.user.role === 'warga') {
       params.push(req.user.id);
-      query += ` AND bs.user_id = $${params.length}`;
+      where += ` AND bs.user_id = $${params.length}`;
     }
 
-    query += buildDateFilter(tahun, tanggal_mulai, tanggal_selesai, params);
-    if (jenis_bantuan && jenis_bantuan !== 'Semua Jenis') { params.push(jenis_bantuan); query += ` AND bs.jenis_bantuan = $${params.length}`; }
-    if (status && status !== 'Semua Status') { params.push(status); query += ` AND bs.status = $${params.length}`; }
-    if (search) { params.push(`%${search}%`); query += ` AND (u.nama ILIKE $${params.length} OR COALESCE(u.nik, u.username) ILIKE $${params.length})`; }
-    query += ' ORDER BY bs.created_at DESC';
+    let query = `SELECT bs.*, u.nama AS nama_warga, COALESCE(u.nik, u.username) AS nik_warga, c.nama AS created_by_nama FROM bantuan_sosial bs JOIN users u ON bs.user_id = u.id LEFT JOIN users c ON bs.created_by = c.id WHERE 1=1`;
+    query += where;
+    query += ' ORDER BY COALESCE(bs.tanggal_bantuan, bs.tanggal_mulai) DESC, bs.id DESC';
+
     const result = await pool.query(query, params);
     const data = result.rows;
 
     if (format === 'pdf') {
-      const doc = new PDFDocument({ margin: 30, size: 'A4' });
+      const doc = new PDFDocument({ margin: 30, size: 'A4', layout: 'landscape' });
+      res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-disposition', 'attachment; filename=Data_Bantuan_Sosial.pdf');
-      res.setHeader('Content-type', 'application/pdf');
       doc.pipe(res);
 
-      doc.fontSize(16).text('Laporan Data Bantuan Sosial', { align: 'center' }).moveDown();
+      doc.fontSize(16).text('Laporan Data Bantuan Sosial RT', { align: 'center' });
+      doc.fontSize(10).text(`Dicetak pada: ${new Date().toLocaleString('id-ID')}`, { align: 'center' });
+      doc.moveDown(2);
 
-      const table = {
-        headers: ['No', 'Nama Warga', 'NIK', 'Jenis Bantuan', 'Bentuk', 'Sumber', 'No. SK', 'Tanggal / Periode', 'Status', 'Nominal', 'Keterangan'],
+      const tableData = {
+        headers: ['No', 'Nama Penerima', 'NIK / ID', 'Jenis Bantuan', 'Bentuk', 'Sumber', 'No. SK', 'Tanggal/Periode', 'Status', 'Nominal'],
         rows: data.map((d, i) => [
-          (i + 1).toString(),
+          i + 1,
           d.nama_warga || '-',
           d.nik_warga || '-',
           d.jenis_bantuan || '-',
@@ -517,26 +645,31 @@ async function exportBantuanSosial(req, res) {
           d.sumber_bantuan || 'Pemerintah Pusat',
           d.no_sk || '-',
           formatPeriodeBansos(d),
-          d.status || '-',
-          d.nominal && Number(d.nominal) > 0 ? `Rp ${parseInt(d.nominal, 10).toLocaleString('id-ID')}` : '-',
-          d.keterangan || '-'
+          d.status || 'Aktif',
+          d.nominal ? rupiah(d.nominal) : '-'
         ])
       };
 
-      await doc.table(table, {
-        prepareHeader: () => doc.font('Helvetica-Bold').fontSize(8),
-        prepareRow: () => doc.font('Helvetica').fontSize(8)
+      await doc.table(tableData, {
+        prepareHeader: () => doc.fontSize(8).font('Helvetica-Bold'),
+        prepareRow: (row, indexColumn, indexRow, rectRow, rectCell) => {
+          doc.fontSize(8).font('Helvetica');
+          if (indexRow % 2 === 0) {
+            doc.addBackground(rectCell, '#f9fafb', 1);
+          }
+        },
       });
+
       doc.end();
     } else {
       const workbook = new ExcelJS.Workbook();
-      const sheet = workbook.addWorksheet('Data Bantuan');
+      const sheet = workbook.addWorksheet('Data Bansos');
 
       sheet.columns = [
         { header: 'No', key: 'no', width: 5 },
-        { header: 'Nama Warga', key: 'nama', width: 25 },
-        { header: 'NIK', key: 'nik', width: 20 },
-        { header: 'Jenis Bantuan', key: 'jenis', width: 25 },
+        { header: 'Nama Penerima', key: 'nama', width: 25 },
+        { header: 'NIK / ID', key: 'nik', width: 20 },
+        { header: 'Jenis Bantuan', key: 'jenis', width: 20 },
         { header: 'Bentuk Bantuan', key: 'bentuk', width: 18 },
         { header: 'Sumber Bantuan', key: 'sumber', width: 22 },
         { header: 'No. SK / Ref', key: 'no_sk', width: 20 },
@@ -573,4 +706,13 @@ async function exportBantuanSosial(req, res) {
   }
 }
 
-module.exports = { getBantuanSosial, getBantuanSosialStats, createBantuanSosial, updateBantuanSosial, deleteBantuanSosial, exportBantuanSosial, getBantuanSosialHistory };
+module.exports = {
+  getBantuanSosial,
+  getBantuanSosialStats,
+  createBantuanSosial,
+  updateBantuanSosial,
+  deleteBantuanSosial,
+  exportBantuanSosial,
+  getBantuanSosialHistory,
+  sendBansosStatusPushNotification,
+};

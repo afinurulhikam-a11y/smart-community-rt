@@ -4,6 +4,8 @@
          tetapi APK rilis tidak bisa mengakses jaringan sama sekali. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:label="Auto RT"

@@ -4,6 +4,7 @@ const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit-table');
 const { generatePaymentPDF } = require('../utils/pdf-generator');
 const { logActivity, rupiah, bandingkan } = require('../services/log.service');
+const dispatcher = require('../services/notification.dispatcher');
 const {
   rincianTagihanAir, pakaiMeteran, bolehIsiMeteran, TANGGAL_TUTUP_METERAN,
   bolehTerbitkanTagihan, TANGGAL_TERBIT_TAGIHAN, TIPE_METERAN, periodeDari,
@@ -13,6 +14,113 @@ const { terbitkanTagihanPeriode } = require('../services/tagihan-air.service');
 
 const STATUS_BELUM = 'unpaid';
 const STATUS_LUNAS = 'lunas';
+
+/**
+ * Mengirim notifikasi push FCM ke penerima tagihan (anggota / kepala keluarga pemilik tagihan).
+ *
+ * Menggunakan Durable Database Idempotency (bills.fcm_dispatch_status).
+ * Mencegah siaran ganda jika pembuatan tagihan dipanggil berulang atau dieksekusi secara batch.
+ */
+async function sendNewBillPushNotification(bill) {
+  if (!bill || !bill.id || !bill.keluarga_id) {
+    return { skipped: true, reason: 'invalid_bill' };
+  }
+
+  try {
+    // 1. Klaim atomik status dispatch tagihan
+    const claimResult = await pool.query(
+      `UPDATE bills
+       SET fcm_dispatch_status = 'pending'
+       WHERE id = $1
+         AND (fcm_dispatch_status = 'unsent' OR fcm_dispatch_status = 'failed' OR fcm_dispatch_status IS NULL)
+       RETURNING id, fcm_dispatch_status`,
+      [bill.id]
+    );
+
+    if (claimResult.rows.length === 0) {
+      const check = await pool.query(`SELECT fcm_dispatch_status FROM bills WHERE id = $1`, [bill.id]);
+      const curStatus = check.rows[0]?.fcm_dispatch_status || 'unknown';
+      console.log(`ℹ️ [FCM Bill] Tagihan #${bill.id} tidak dapat diklaim (status: '${curStatus}'), siaran duplikat dicegah.`);
+      return { skipped: true, reason: curStatus === 'sent' ? 'already_sent' : 'already_processing' };
+    }
+
+    // 2. Ambil seluruh akun user aktif dari keluarga terkait
+    const userRows = await pool.query(
+      `SELECT DISTINCT u.id, u.nama, u.is_active
+       FROM users u
+       LEFT JOIN anggota_keluarga ak ON ak.nik = u.nik
+       LEFT JOIN keluarga k ON k.id = ak.keluarga_id OR k.no_kk = u.no_kk
+       WHERE k.id = $1 AND u.is_active = true`,
+      [bill.keluarga_id]
+    );
+    const targetUserIds = userRows.rows.map((r) => r.id);
+
+    if (targetUserIds.length === 0) {
+      console.log(`ℹ️ [FCM Bill] Tidak ada user aktif pada keluarga #${bill.keluarga_id} untuk menerima notifikasi tagihan #${bill.id}.`);
+      await pool.query(
+        `UPDATE bills SET fcm_dispatch_status = 'sent' WHERE id = $1`,
+        [bill.id]
+      );
+      return { skipped: true, reason: 'no_active_family_users' };
+    }
+
+    const jenisNama = bill.jenis_tagihan || bill.nama_iuran || 'Iuran RT';
+    const periodeBulan = bill.bulan || '-';
+    const nominalAngka = Number(bill.nominal || 0);
+
+    const title = `💳 Tagihan Iuran Baru: ${periodeBulan}`;
+    const body = `Tagihan ${jenisNama} untuk periode ${periodeBulan} sebesar ${rupiah(nominalAngka)} telah diterbitkan.`;
+
+    const pushResult = await dispatcher.sendToUsers(targetUserIds, {
+      title,
+      body,
+      data: {
+        entity_type: 'bill',
+        entity_id: String(bill.id),
+        periode: String(periodeBulan),
+        nominal: String(nominalAngka),
+        action: 'NEW_BILL',
+        created_at: bill.created_at
+          ? new Date(bill.created_at).toISOString()
+          : new Date().toISOString(),
+      },
+      priority: 'normal',
+      collapseKey: `bill_new_${bill.id}`,
+    });
+
+    if (pushResult.success === false && !pushResult.simulated) {
+      await pool.query(
+        `UPDATE bills SET fcm_dispatch_status = 'failed' WHERE id = $1`,
+        [bill.id]
+      );
+      console.error(`⚠️ [FCM Bill] Gagal mengirim push tagihan #${bill.id}:`, pushResult.error);
+      return pushResult;
+    }
+
+    await pool.query(
+      `UPDATE bills SET fcm_dispatch_status = 'sent' WHERE id = $1`,
+      [bill.id]
+    );
+
+    console.log(
+      `🔔 [FCM Bill] Notifikasi Tagihan Baru #${bill.id} [${jenisNama} - ${periodeBulan}]:\n` +
+      `   - Target Keluarga : ${bill.keluarga_id} (${targetUserIds.length} user aktif)\n` +
+      `   - Total Token     : ${pushResult.tokensCount || 0} perangkat aktif\n` +
+      `   - Berhasil        : ${pushResult.successCount ?? (pushResult.simulated ? pushResult.tokensCount : 0)}\n` +
+      `   - Gagal           : ${pushResult.failureCount ?? 0}\n` +
+      `   - Mode            : ${pushResult.simulated ? 'Simulasi' : 'Live'}`
+    );
+
+    return pushResult;
+  } catch (err) {
+    await pool.query(
+      `UPDATE bills SET fcm_dispatch_status = 'failed' WHERE id = $1`,
+      [bill.id]
+    ).catch(() => {});
+    console.error('⚠️ [FCM Bill] Error dispatch tagihan baru:', err.message);
+    return { error: err.message };
+  }
+}
 
 /**
  * Angka meteran terakhir yang tercatat untuk satu KK pada satu jenis iuran.
@@ -486,6 +594,10 @@ async function createBill(req, res) {
       `Membuat tagihan ${tagihanBaru.jenis_tagihan} periode ${tagihanBaru.bulan} ` +
         `sebesar ${rupiah(tagihanBaru.nominal)}`
     );
+
+    // Siaran push notifikasi FCM ke keluarga penerima tagihan secara non-blocking
+    dispatcher.dispatchAsync(() => sendNewBillPushNotification(tagihanBaru), 'BillNew');
+
     return res.status(201).json({ success: true, message: 'Tagihan berhasil dibuat.', data: tagihanBaru });
   } catch (err) {
     console.error('CreateBill Error:', err.message);
@@ -649,7 +761,20 @@ async function generateBills(req, res) {
           });
         }
       }
-    })().catch((e) => console.log('\u2139\ufe0f Catatan WA Tagihan:', e.message));
+    })().catch((e) => console.log('ℹ️ Catatan WA Tagihan:', e.message));
+
+    // Siaran push notifikasi FCM ke seluruh keluarga penerima tagihan baru secara non-blocking
+    dispatcher.dispatchAsync(async () => {
+      if (dibuat > 0) {
+        const newBills = await pool.query(
+          `SELECT * FROM bills WHERE bulan = $1 AND jenis_iuran_id = $2 AND (fcm_dispatch_status = 'unsent' OR fcm_dispatch_status IS NULL)`,
+          [bulan, jenis_iuran_id]
+        );
+        for (const b of newBills.rows) {
+          await sendNewBillPushNotification(b);
+        }
+      }
+    }, 'BillBatchGenerate');
 
     return res.status(201).json({
       success: true,
@@ -891,6 +1016,16 @@ async function payBill(req, res) {
       `Menerima pembayaran iuran ${bill.bulan} ${rupiah(bill.nominal)} ` +
         `(${metode_bayar || 'tunai'}) — invoice ${invoiceNumber}`
     );
+
+    // Siaran push notifikasi FCM pembayaran sukses secara non-blocking
+    const { sendPaymentSuccessPushNotification } = require('./payment.controller');
+    dispatcher.dispatchAsync(() => sendPaymentSuccessPushNotification({
+      id: paymentResult.rows[0].id,
+      user_id: req.user.id,
+      gross_amount: bill.nominal,
+      order_id: invoiceNumber,
+    }, [bill]), 'PaymentManual');
+
     return res.status(200).json({
       success: true,
       message: 'Pembayaran berhasil.',
@@ -925,6 +1060,7 @@ async function payBillsBulk(req, res) {
     let berhasil = 0;
     let dilewati = 0;
     const invoices = [];
+    const lunasBills = [];
 
     for (const bill of tagihan.rows) {
       if (bill.status === STATUS_LUNAS) { dilewati++; continue; }
@@ -941,6 +1077,7 @@ async function payBillsBulk(req, res) {
       );
       await catatKeKasRt(client, { payment: bayar.rows[0], bill, userId: req.user.id });
       invoices.push(invoiceNumber);
+      lunasBills.push({ ...bill, payment_id: bayar.rows[0].id, invoice_number: invoiceNumber });
       berhasil++;
     }
 
@@ -954,6 +1091,19 @@ async function payBillsBulk(req, res) {
         `Menerima pembayaran ${berhasil} tagihan iuran sekaligus` +
           (dilewati > 0 ? ` (${dilewati} dilewati karena sudah lunas)` : '')
       );
+
+      // Siaran push notifikasi FCM pembayaran sukses massal secara non-blocking
+      const { sendPaymentSuccessPushNotification } = require('./payment.controller');
+      dispatcher.dispatchAsync(async () => {
+        for (const lb of lunasBills) {
+          await sendPaymentSuccessPushNotification({
+            id: lb.payment_id,
+            user_id: req.user.id,
+            gross_amount: lb.nominal,
+            order_id: lb.invoice_number,
+          }, [lb]);
+        }
+      }, 'PaymentBulk');
     }
     return res.status(200).json({
       success: true,
@@ -1263,4 +1413,5 @@ module.exports = {
   catatKeKasRt,
   STATUS_BELUM,
   STATUS_LUNAS,
+  sendNewBillPushNotification,
 };

@@ -14,7 +14,12 @@ const String _kodeIzin = 'kegiatan.agenda';
 
 class AgendaKegiatanScreen extends StatefulWidget {
   final VoidCallback? onBack;
-  const AgendaKegiatanScreen({super.key, this.onBack});
+  final int initialTabIndex;
+  const AgendaKegiatanScreen({
+    super.key,
+    this.onBack,
+    this.initialTabIndex = 0,
+  });
 
   @override
   State<AgendaKegiatanScreen> createState() => _AgendaKegiatanScreenState();
@@ -25,7 +30,7 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
   bool get _bolehUbah => context.watch<PermissionProvider>().bolehUbah(_kodeIzin);
   bool get _bolehHapus => context.watch<PermissionProvider>().bolehHapus(_kodeIzin);
 
-  int _selectedTabIndex = 0;
+  late int _selectedTabIndex;
 
   List<String> get _tabs => const ['Semua Agenda', 'Akan Datang', 'Selesai'];
 
@@ -104,6 +109,7 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedTabIndex = widget.initialTabIndex.clamp(0, _tabs.length - 1);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
     });

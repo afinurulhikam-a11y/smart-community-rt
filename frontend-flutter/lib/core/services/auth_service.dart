@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/api_constants.dart';
 import 'api_service.dart';
+import 'fcm_service.dart';
 
 class AuthService extends ChangeNotifier {
   Map<String, dynamic>? _user;
@@ -94,6 +95,7 @@ class AuthService extends ChangeNotifier {
     // Sesi dari cache sudah cukup untuk membuka aplikasi; hasil pemeriksaannya
     // baru berpengaruh bila server benar-benar MENOLAK token.
     unawaited(_periksaSesiDiLatar(prefs));
+    unawaited(FCMService.instance.sinkronkanTokenKeBackend());
     return true;
   }
 
@@ -186,6 +188,7 @@ class AuthService extends ChangeNotifier {
       await _simpanProfil(prefs);
       _errorMessage = null;
       notifyListeners();
+      unawaited(FCMService.instance.sinkronkanTokenKeBackend());
       return true;
     } else {
       _errorMessage = response['message'] as String? ?? 'Login gagal';
@@ -366,9 +369,13 @@ class AuthService extends ChangeNotifier {
   /// menolak sesinya (401/403); memanggilnya di sana hanya akan ditolak lagi.
   Future<void> logout({bool panggilServer = true}) async {
     if (panggilServer) {
+      // Cabut token FCM perangkat ini dari backend sebelum sesi dibersihkan
+      unawaited(FCMService.instance.cabutTokenDariBackend());
       // Hasilnya sengaja tidak diperiksa. Berhasil atau gagal, langkah
       // berikutnya sama: bersihkan perangkat ini.
       await ApiService.post(ApiConstants.logout, body: {});
+    } else {
+      FCMService.instance.resetTokenLokal();
     }
     _user = null;
     // Profil lengkap ikut dibuang. Ia hanya di memori, tetapi provider ini hidup

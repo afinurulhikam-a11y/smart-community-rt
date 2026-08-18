@@ -2,6 +2,7 @@ const { pool } = require('../config/database');
 const { logActivity, ringkas, TIPE } = require('../services/log.service');
 const { broadcast } = require('../config/websocket');
 const mqttAlarm = require('../config/mqtt');
+const dispatcher = require('../services/notification.dispatcher');
 const {
   WAJIBKAN_KETERANGAN_DARURAT,
   PENANDA_LEGACY,
@@ -167,6 +168,144 @@ function siarkanPerubahanDarurat(muatan, muatanPerangkat) {
   }
 }
 
+function resetSentEmergencyIds() {
+  // Status idempotensi kini tersimpan secara durable di tabel emergency_alerts (PostgreSQL)
+}
+
+/**
+ * Mengirim notifikasi push FCM ke seluruh warga/pengurus aktif saat alarm darurat menyala.
+ *
+ * ===================================================================
+ * Durable Database-Backed Idempotency & Multi-Instance Safety
+ * ===================================================================
+ *
+ * Idempotensi dikunci secara atomik pada tingkat database (PostgreSQL):
+ * - Status: 'unsent' -> 'pending' -> 'sent' (atau 'failed' bila terjadi error).
+ * - Transisi 'pending' menggunakan UPDATE atomik bersyarat:
+ *   UPDATE emergency_alerts SET fcm_dispatch_status = 'pending'
+ *   WHERE id = $1 AND (fcm_dispatch_status = 'unsent' OR fcm_dispatch_status = 'failed' OR fcm_dispatch_status IS NULL)
+ *
+ * Aman dari process restart dan race condition pada deployment multi-instance.
+ * Bila pengiriman FCM gagal, status ditandai 'failed' sehingga mekanisme retry
+ * tetap dapat mencoba mengirim ulang tanpa terkunci permanen.
+ *
+ * Bersifat non-blocking & fail-safe: kegagalan FCM tidak membatalkan proses darurat,
+ * aktivasi sirene MQTT, maupun siaran WebSocket.
+ */
+async function sendEmergencyPushNotification(alert, user = {}) {
+  if (!alert || !alert.id) {
+    console.log('ℹ️ [FCM Emergency] Alert tidak valid, push notifikasi dilewati.');
+    return { skipped: true, reason: 'invalid_alert' };
+  }
+
+  if (alert.status && alert.status !== 'active') {
+    console.log(`ℹ️ [FCM Emergency] Alert #${alert.id} bukan alert aktif (status: ${alert.status}), push notifikasi dilewati.`);
+    return { skipped: true, reason: 'not_active' };
+  }
+
+  try {
+    // Klaim dispatch secara atomik pada baris emergency_alerts (Race Condition Guard)
+    const claimResult = await pool.query(
+      `UPDATE emergency_alerts
+       SET fcm_dispatch_status = 'pending'
+       WHERE id = $1
+         AND (fcm_dispatch_status = 'unsent' OR fcm_dispatch_status = 'failed' OR fcm_dispatch_status IS NULL)
+       RETURNING id, fcm_dispatch_status`,
+      [alert.id]
+    );
+
+    if (claimResult.rows.length === 0) {
+      const checkStatus = await pool.query(
+        `SELECT fcm_dispatch_status FROM emergency_alerts WHERE id = $1`,
+        [alert.id]
+      );
+      const currentStatus = checkStatus.rows[0]?.fcm_dispatch_status || 'unknown';
+      console.log(`ℹ️ [FCM Emergency] Alert #${alert.id} tidak dapat diklaim (status dispatch: '${currentStatus}'), siaran duplikat dicegah.`);
+      return {
+        skipped: true,
+        reason: currentStatus === 'sent' ? 'already_sent' : 'already_processing_or_not_eligible',
+      };
+    }
+
+    const userName = user.nama || 'Warga';
+    const userAlamat = user.alamat && user.alamat !== '-' ? ` di ${user.alamat}` : '';
+    const alertMessage = alert.message || 'Sinyal Darurat Panic Button';
+
+    const title = '🚨 PERINGATAN DARURAT RT!';
+    const body = `${userName}${userAlamat} membutuhkan bantuan segera! Pesan: "${alertMessage}"`;
+
+    const pushResult = await dispatcher.sendToAllActive({
+      title,
+      body,
+      data: {
+        entity_type: 'emergency',
+        entity_id: String(alert.id),
+        action: 'ALARM_TRIGGERED',
+        status: 'active',
+        user_id: String(alert.user_id || user.id || ''),
+        message: String(alertMessage),
+        latitude: String(alert.latitude || ''),
+        longitude: String(alert.longitude || ''),
+        created_at: alert.created_at
+          ? new Date(alert.created_at).toISOString()
+          : new Date().toISOString(),
+      },
+      priority: 'high',
+      collapseKey: 'emergency_alarm',
+    });
+
+    if (pushResult.skipped && pushResult.reason === 'no_active_users') {
+      console.log('ℹ️ [FCM Emergency] Tidak ada user aktif untuk menerima notifikasi darurat.');
+      await pool.query(
+        `UPDATE emergency_alerts
+         SET fcm_dispatch_status = 'sent', fcm_dispatched_at = CURRENT_TIMESTAMP, fcm_dispatch_error = NULL
+         WHERE id = $1`,
+        [alert.id]
+      );
+      return pushResult;
+    }
+
+    if (pushResult.success === false && !pushResult.simulated) {
+      const errMsg = pushResult.error || 'FCM dispatch failure';
+      await pool.query(
+        `UPDATE emergency_alerts
+         SET fcm_dispatch_status = 'failed', fcm_dispatch_error = $2
+         WHERE id = $1`,
+        [alert.id, errMsg]
+      );
+      console.error(`⚠️ [FCM Emergency] Dispatch FCM untuk Alert #${alert.id} gagal:`, errMsg);
+      return pushResult;
+    }
+
+    // Tandai BERHASIL secara persisten
+    await pool.query(
+      `UPDATE emergency_alerts
+       SET fcm_dispatch_status = 'sent', fcm_dispatched_at = CURRENT_TIMESTAMP, fcm_dispatch_error = NULL
+       WHERE id = $1`,
+      [alert.id]
+    );
+
+    console.log(
+      `🚨 [FCM Emergency] Hasil Siaran Darurat #${alert.id}:\n` +
+      `   - Total Token : ${pushResult.tokensCount || 0} perangkat aktif\n` +
+      `   - Berhasil    : ${pushResult.successCount ?? (pushResult.simulated ? pushResult.tokensCount : 0)}\n` +
+      `   - Gagal       : ${pushResult.failureCount ?? 0}\n` +
+      `   - Mode        : ${pushResult.simulated ? 'Simulasi' : 'Live'}`
+    );
+
+    return pushResult;
+  } catch (err) {
+    await pool.query(
+      `UPDATE emergency_alerts
+       SET fcm_dispatch_status = 'failed', fcm_dispatch_error = $2
+       WHERE id = $1`,
+      [alert.id, err.message]
+    ).catch(() => {});
+    console.error('⚠️ [FCM Emergency] Gagal mengirim push notification darurat:', err.message);
+    return { error: err.message };
+  }
+}
+
 /**
  * PIN darurat yang berlaku. Satu tempat, dipakai seluruh endpoint darurat.
  *
@@ -311,6 +450,9 @@ async function triggerAlarm(req, res) {
       noHp: user.no_hp,
       tipeEmergency: message || 'Sinyal Darurat Panic Button',
     }).catch((e) => console.log('ℹ️ Catatan WA Alarm:', e.message));
+
+    // Siaran push notifikasi FCM secara non-blocking di latar
+    dispatcher.dispatchAsync(() => sendEmergencyPushNotification(alert, user), 'Emergency');
 
     // Alarm palsu maupun sungguhan sama-sama harus berjejak: yang pertama
     // untuk menindak penyalahgunaan tombol panik, yang kedua sebagai bukti
@@ -742,6 +884,11 @@ async function nyalakanDarurat(req, res, keterangan, legacyTanpaKeterangan = fal
       timestamp: kejadian.created_at,
     });
 
+    // Siaran push notifikasi FCM hanya untuk kejadian baru (mencegah duplikasi pada re-trigger)
+    if (baru) {
+      dispatcher.dispatchAsync(() => sendEmergencyPushNotification(kejadian, req.user), 'Emergency');
+    }
+
     await logActivity(
       req,
       TIPE.DARURAT,
@@ -1003,5 +1150,12 @@ async function statusAlarm(req, res) {
 }
 
 module.exports = {
-  triggerAlarm, dismissAlarm, getAlerts, getActiveAlerts, kendaliAlarm, statusAlarm,
+  triggerAlarm,
+  dismissAlarm,
+  getAlerts,
+  getActiveAlerts,
+  kendaliAlarm,
+  statusAlarm,
+  sendEmergencyPushNotification,
+  resetSentEmergencyIds,
 };

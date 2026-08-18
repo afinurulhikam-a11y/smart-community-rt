@@ -79,7 +79,8 @@ CREATE TABLE public.agenda (
     created_by uuid,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    deleted_at timestamp without time zone
+    deleted_at timestamp without time zone,
+    fcm_dispatch_status character varying(20) DEFAULT 'unsent'::character varying
 );
 
 
@@ -242,6 +243,7 @@ CREATE TABLE public.bantuan_sosial (
     bentuk_bantuan character varying(50) DEFAULT 'Tunai'::character varying,
     sumber_bantuan character varying(100) DEFAULT 'Pemerintah Pusat'::character varying,
     no_sk character varying(100),
+    fcm_last_status_dispatch character varying(50),
     CONSTRAINT bantuan_sosial_tanggal_valid CHECK (((tanggal_selesai IS NULL) OR (tanggal_mulai IS NULL) OR (tanggal_selesai >= tanggal_mulai)))
 );
 
@@ -312,7 +314,8 @@ CREATE TABLE public.bill_payments (
     jumlah_bayar numeric NOT NULL,
     metode_bayar character varying(50) NOT NULL,
     invoice_number character varying(100) NOT NULL,
-    paid_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    paid_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    fcm_dispatch_status character varying(20) DEFAULT 'unsent'::character varying
 );
 
 
@@ -340,6 +343,7 @@ CREATE TABLE public.bills (
     abondement integer,
     biaya_sampah integer,
     langganan_sampah boolean,
+    fcm_dispatch_status character varying(20) DEFAULT 'unsent'::character varying,
     CONSTRAINT bills_meteran_maju CHECK (((meteran_lalu IS NULL) OR (meteran_sekarang IS NULL) OR (meteran_sekarang >= meteran_lalu)))
 );
 
@@ -379,7 +383,8 @@ CREATE TABLE public.borrowings (
     tanggal_rencana_kembali date,
     dicatat_oleh uuid,
     nama_peminjam character varying(255),
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    fcm_last_status_dispatch character varying(50)
 );
 
 
@@ -420,7 +425,9 @@ CREATE TABLE public.complaints (
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     deleted_at timestamp without time zone,
-    tanggapan_dibaca_pada timestamp without time zone
+    tanggapan_dibaca_pada timestamp without time zone,
+    fcm_dispatch_status character varying(20) DEFAULT 'unsent'::character varying,
+    fcm_last_response_dispatch text
 );
 
 
@@ -457,7 +464,10 @@ CREATE TABLE public.emergency_alerts (
     status character varying(20) DEFAULT 'active'::character varying,
     dismissed_by uuid,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    dismissed_at timestamp without time zone
+    dismissed_at timestamp without time zone,
+    fcm_dispatch_status character varying(20) DEFAULT 'unsent'::character varying,
+    fcm_dispatched_at timestamp with time zone,
+    fcm_dispatch_error text
 );
 
 
@@ -687,7 +697,9 @@ CREATE TABLE public.letters (
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     response_note text,
     tanggal_respon timestamp without time zone,
-    deleted_at timestamp without time zone
+    deleted_at timestamp without time zone,
+    fcm_dispatch_status character varying(20) DEFAULT 'unsent'::character varying,
+    fcm_last_status_dispatch text
 );
 
 
@@ -756,7 +768,8 @@ CREATE TABLE public.payment_transactions (
     midtrans_payload jsonb,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    settled_at timestamp without time zone
+    settled_at timestamp without time zone,
+    fcm_dispatch_status character varying(20) DEFAULT 'unsent'::character varying
 );
 
 
@@ -796,7 +809,8 @@ CREATE TABLE public.polling (
     tanggal_selesai date NOT NULL,
     created_by uuid,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    fcm_dispatch_status character varying(20) DEFAULT 'unsent'::character varying
 );
 
 
@@ -1052,7 +1066,8 @@ CREATE TABLE public.visitors (
     jam_keluar timestamp without time zone,
     status character varying(20) DEFAULT 'Di Dalam'::character varying,
     created_by uuid,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    fcm_dispatch_status character varying(20) DEFAULT 'unsent'::character varying
 );
 
 

@@ -1,5 +1,107 @@
 const { pool } = require('../config/database');
 const { logActivity, ringkas, TIPE } = require('../services/log.service');
+const dispatcher = require('../services/notification.dispatcher');
+
+/**
+ * Mengirim notifikasi push FCM ke warga tujuan saat tamu tiba / dicatat di pos keamanan.
+ *
+ * Menggunakan Durable Database Idempotency (visitors.fcm_dispatch_status).
+ * Bersifat fail-safe & non-blocking: kegagalan FCM tidak membatalkan registrasi tamu.
+ */
+async function sendVisitorArrivalPushNotification(visitor, options = {}) {
+  if (!visitor || !visitor.id) {
+    return { skipped: true, reason: 'invalid_visitor' };
+  }
+
+  try {
+    // 1. Klaim atomik status dispatch (Race Condition & Durable Idempotency Guard)
+    const claimResult = await pool.query(
+      `UPDATE visitors
+       SET fcm_dispatch_status = 'pending'
+       WHERE id = $1
+         AND (fcm_dispatch_status = 'unsent' OR fcm_dispatch_status = 'failed' OR fcm_dispatch_status IS NULL)
+       RETURNING id, nama_tamu, blok_tujuan, tipe_keperluan, detail_keperluan, plat_nomor, jenis_kendaraan, jam_masuk, created_by`,
+      [visitor.id]
+    );
+
+    if (claimResult.rows.length === 0) {
+      console.log(`ℹ️ [FCM Visitor] Kedatangan Tamu #${visitor.id} sudah pernah dikirim atau sedang diproses, siaran duplikat dicegah.`);
+      return { skipped: true, reason: 'already_sent_or_pending' };
+    }
+
+    const currentVisitor = claimResult.rows[0];
+    const targetUserId = options.target_user_id || options.user_id || currentVisitor.created_by;
+
+    if (!targetUserId) {
+      await pool.query(`UPDATE visitors SET fcm_dispatch_status = 'failed' WHERE id = $1`, [visitor.id]).catch(() => {});
+      console.log(`ℹ️ [FCM Visitor] Warga tujuan untuk tamu #${visitor.id} tidak terdefinisi, push dilewati.`);
+      return { skipped: true, reason: 'missing_target_user' };
+    }
+
+    // 2. Ambil informasi warga tujuan yang aktif
+    const userRes = await pool.query(
+      `SELECT id, nama, is_active FROM users WHERE id = $1`,
+      [targetUserId]
+    );
+
+    if (userRes.rows.length === 0 || !userRes.rows[0].is_active) {
+      await pool.query(`UPDATE visitors SET fcm_dispatch_status = 'failed' WHERE id = $1`, [visitor.id]).catch(() => {});
+      console.log(`ℹ️ [FCM Visitor] Warga tujuan untuk tamu #${visitor.id} tidak ditemukan atau nonaktif, push dilewati.`);
+      return { skipped: true, reason: 'inactive_or_missing_user' };
+    }
+
+    const hostUser = userRes.rows[0];
+    const namaTamu = currentVisitor.nama_tamu || 'Tamu';
+    const kendaraan = currentVisitor.plat_nomor
+      ? ` (${currentVisitor.plat_nomor})`
+      : (currentVisitor.jenis_kendaraan ? ` (${currentVisitor.jenis_kendaraan})` : '');
+    const keperluan = currentVisitor.tipe_keperluan || 'Kunjungan';
+
+    const title = `🚗 Tamu Tiba di Pos Keamanan: ${namaTamu}`;
+    const body = `Tamu atas nama ${namaTamu}${kendaraan} telah tercatat tiba di pos keamanan untuk keperluan ${keperluan}.`;
+
+    const pushResult = await dispatcher.sendToUser(hostUser.id, {
+      title,
+      body,
+      data: {
+        entity_type: 'visitor',
+        entity_id: String(visitor.id),
+        action: 'VISITOR_ARRIVED',
+        nama_tamu: String(namaTamu),
+        kendaraan: String(currentVisitor.plat_nomor || currentVisitor.jenis_kendaraan || '-'),
+        blok_tujuan: String(currentVisitor.blok_tujuan || '-'),
+        tipe_keperluan: String(keperluan),
+        detail_keperluan: String(currentVisitor.detail_keperluan || '-'),
+        jam_masuk: String(currentVisitor.jam_masuk || new Date().toISOString()),
+      },
+      priority: 'high',
+      collapseKey: `visitor_arrived_${visitor.id}`,
+    });
+
+    if (pushResult.success === false && !pushResult.simulated) {
+      await pool.query(`UPDATE visitors SET fcm_dispatch_status = 'failed' WHERE id = $1`, [visitor.id]).catch(() => {});
+      console.error(`⚠️ [FCM Visitor] Gagal mengirim push kedatangan tamu #${visitor.id}:`, pushResult.error);
+      return pushResult;
+    }
+
+    await pool.query(`UPDATE visitors SET fcm_dispatch_status = 'sent' WHERE id = $1`, [visitor.id]).catch(() => {});
+
+    console.log(
+      `🔔 [FCM Visitor] Notifikasi Tamu Tiba #${visitor.id} [${namaTamu} -> ${hostUser.nama}]:\n` +
+      `   - Target Warga : ${hostUser.nama} (${hostUser.id})\n` +
+      `   - Total Token  : ${pushResult.tokensCount || 0} perangkat aktif\n` +
+      `   - Berhasil     : ${pushResult.successCount ?? (pushResult.simulated ? pushResult.tokensCount : 0)}\n` +
+      `   - Gagal        : ${pushResult.failureCount ?? 0}\n` +
+      `   - Mode         : ${pushResult.simulated ? 'Simulasi' : 'Live'}`
+    );
+
+    return pushResult;
+  } catch (err) {
+    await pool.query(`UPDATE visitors SET fcm_dispatch_status = 'failed' WHERE id = $1`, [visitor.id]).catch(() => {});
+    console.error('⚠️ [FCM Visitor] Error dispatch kedatangan tamu:', err.message);
+    return { error: err.message };
+  }
+}
 
 async function getVisitors(req, res) {
   try {
@@ -77,7 +179,7 @@ async function getVisitorStats(req, res) {
 
 async function createVisitor(req, res) {
   try {
-    const { nama_tamu, no_hp_tamu, blok_tujuan, no_hp_tujuan, tipe_keperluan, detail_keperluan, plat_nomor, jenis_kendaraan } = req.body;
+    const { nama_tamu, no_hp_tamu, blok_tujuan, no_hp_tujuan, tipe_keperluan, detail_keperluan, plat_nomor, jenis_kendaraan, user_id, created_by } = req.body;
 
     // Validasi: kolom wajib diisi
     const kosong = [];
@@ -106,13 +208,18 @@ async function createVisitor(req, res) {
       });
     }
 
+    const creatorId = (req.user.role === 'warga') ? req.user.id : (created_by || user_id || req.user.id);
+
     const result = await pool.query(
       `INSERT INTO visitors (nama_tamu, no_hp_tamu, blok_tujuan, no_hp_tujuan, tipe_keperluan, detail_keperluan, plat_nomor, jenis_kendaraan, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [nama_tamu.trim(), no_hp_tamu.trim(), blok_tujuan.trim(), no_hp_tujuan.trim(), tipe_keperluan || 'Kunjungan', detail_keperluan.trim(), plat_nomor ? plat_nomor.trim() : null, jenisK || null, req.user.id]
+      [nama_tamu.trim(), no_hp_tamu.trim(), blok_tujuan.trim(), no_hp_tujuan.trim(), tipe_keperluan || 'Kunjungan', detail_keperluan.trim(), plat_nomor ? plat_nomor.trim() : null, jenisK || null, creatorId]
     );
     const t = result.rows[0];
     await logActivity(req, TIPE.CREATE, `Mencatat tamu masuk: ${ringkas(t.nama_tamu)} → ${t.blok_tujuan || '-'}, keperluan ${t.tipe_keperluan || '-'}${t.plat_nomor ? `, kendaraan ${t.plat_nomor}` : ''}`);
+
+    // Siaran push notifikasi FCM kedatangan tamu secara non-blocking
+    dispatcher.dispatchAsync(() => sendVisitorArrivalPushNotification(t), 'VisitorArrived');
 
     return res.status(201).json({ success: true, message: 'Tamu berhasil diregistrasi.', data: result.rows[0] });
   } catch (err) {
@@ -162,4 +269,11 @@ async function deleteVisitor(req, res) {
   }
 }
 
-module.exports = { getVisitors, getVisitorStats, createVisitor, checkoutVisitor, deleteVisitor };
+module.exports = {
+  getVisitors,
+  getVisitorStats,
+  createVisitor,
+  checkoutVisitor,
+  deleteVisitor,
+  sendVisitorArrivalPushNotification,
+};

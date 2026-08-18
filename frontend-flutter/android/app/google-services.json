@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "469624278332",
+    "project_id": "smart-community-rt-78c93",
+    "storage_bucket": "smart-community-rt-78c93.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:469624278332:android:b6ffd30ea4b68820de2239",
+        "android_client_info": {
+          "package_name": "id.smartcommunityrt.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDlLNQXLDvnh4q5oXtzJcPoqu3OB3ckUrA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

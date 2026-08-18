@@ -2,9 +2,127 @@ const { pool } = require('../config/database');
 const { logActivity, rupiah, ringkas, TIPE } = require('../services/log.service');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit-table');
+const dispatcher = require('../services/notification.dispatcher');
 
 const STATUS_DIPINJAM = 'Dipinjam';
 const STATUS_KEMBALI = 'Dikembalikan';
+const STATUS_RELEVAN_NOTIFIKASI = ['Dipinjam', 'Ditolak', 'Dikembalikan'];
+
+/**
+ * Mengirim notifikasi push FCM ke peminjam saat status peminjaman berubah (Disetujui/Dipinjam, Ditolak, Dikembalikan).
+ *
+ * Menggunakan Durable Database Idempotency (borrowings.fcm_last_status_dispatch).
+ * Bersifat fail-safe & non-blocking: kegagalan FCM tidak membatalkan transaksi peminjaman.
+ */
+async function sendBorrowingStatusPushNotification(borrowing, options = {}) {
+  if (!borrowing || !borrowing.id) {
+    return { skipped: true, reason: 'invalid_borrowing' };
+  }
+
+  const rawStatus = String(options.status || borrowing.status || '').trim();
+  const isRelevant = STATUS_RELEVAN_NOTIFIKASI.some((s) => s.toLowerCase() === rawStatus.toLowerCase());
+
+  if (!isRelevant) {
+    console.log(`ℹ️ [FCM Inventory] Peminjaman #${borrowing.id} berstatus '${rawStatus}' (tidak memerlukan push), push dilewati.`);
+    return { skipped: true, reason: 'status_not_relevant' };
+  }
+
+  const dispatchSignature = rawStatus;
+
+  try {
+    // 1. Klaim atomik status dispatch (Race Condition & Durable Idempotency Guard)
+    const claimResult = await pool.query(
+      `UPDATE borrowings
+       SET fcm_last_status_dispatch = $2
+       WHERE id = $1
+         AND (fcm_last_status_dispatch IS DISTINCT FROM $2)
+       RETURNING id, user_id, inventory_id, jumlah, status`,
+      [borrowing.id, dispatchSignature]
+    );
+
+    if (claimResult.rows.length === 0) {
+      console.log(`ℹ️ [FCM Inventory] Status Peminjaman #${borrowing.id} sudah pernah dikirim atau tidak berubah, push dilewati.`);
+      return { skipped: true, reason: 'no_change_or_duplicate' };
+    }
+
+    // 2. Ambil informasi lengkap peminjam & barang
+    const detailRes = await pool.query(
+      `SELECT b.id, b.user_id, b.jumlah, b.status, i.nama_barang, u.nama AS nama_peminjam, u.is_active
+       FROM borrowings b
+       JOIN inventory i ON b.inventory_id = i.id
+       JOIN users u ON b.user_id = u.id
+       WHERE b.id = $1`,
+      [borrowing.id]
+    );
+
+    if (detailRes.rows.length === 0 || !detailRes.rows[0].is_active) {
+      console.log(`ℹ️ [FCM Inventory] Peminjam untuk pinjaman #${borrowing.id} tidak ditemukan atau nonaktif, push dilewati.`);
+      return { skipped: true, reason: 'inactive_or_missing_user' };
+    }
+
+    const itemInfo = detailRes.rows[0];
+    const namaBarang = itemInfo.nama_barang || 'Barang Inventaris';
+    const qty = Number(itemInfo.jumlah || 1);
+
+    let title = `📦 Status Peminjaman: ${namaBarang}`;
+    let body = `Status peminjaman ${qty} unit ${namaBarang} telah diperbarui menjadi "${rawStatus}".`;
+
+    if (rawStatus.toLowerCase() === 'dipinjam') {
+      title = `📦 Peminjaman Disetujui: ${namaBarang}`;
+      body = `Permohonan peminjaman ${qty} unit ${namaBarang} telah disetujui oleh Pengurus RT.`;
+    } else if (rawStatus.toLowerCase() === 'ditolak') {
+      title = `📦 Peminjaman Ditolak: ${namaBarang}`;
+      body = `Permohonan peminjaman ${qty} unit ${namaBarang} belum dapat disetujui.`;
+    } else if (rawStatus.toLowerCase() === 'dikembalikan') {
+      title = `📦 Pengembalian Diterima: ${namaBarang}`;
+      body = `Pengembalian ${qty} unit ${namaBarang} telah diverifikasi dan diterima.`;
+    }
+
+    const pushResult = await dispatcher.sendToUser(itemInfo.user_id, {
+      title,
+      body,
+      data: {
+        entity_type: 'inventory',
+        entity_id: String(borrowing.id),
+        action: 'BORROWING_STATUS_CHANGED',
+        status: String(rawStatus),
+        nama_barang: String(namaBarang),
+        jumlah: String(qty),
+        updated_at: new Date().toISOString(),
+      },
+      priority: 'normal',
+      collapseKey: `inventory_borrowing_${borrowing.id}`,
+    });
+
+    if (pushResult.success === false && !pushResult.simulated) {
+      // Reset signature agar retry memungkinkan jika FCM error
+      await pool.query(
+        `UPDATE borrowings SET fcm_last_status_dispatch = NULL WHERE id = $1`,
+        [borrowing.id]
+      ).catch(() => {});
+      console.error(`⚠️ [FCM Inventory] Gagal mengirim push status peminjaman #${borrowing.id}:`, pushResult.error);
+      return pushResult;
+    }
+
+    console.log(
+      `🔔 [FCM Inventory] Notifikasi Status Peminjaman #${borrowing.id} [${namaBarang} -> ${rawStatus}]:\n` +
+      `   - Target Peminjam : ${itemInfo.nama_peminjam} (${itemInfo.user_id})\n` +
+      `   - Total Token     : ${pushResult.tokensCount || 0} perangkat aktif\n` +
+      `   - Berhasil        : ${pushResult.successCount ?? (pushResult.simulated ? pushResult.tokensCount : 0)}\n` +
+      `   - Gagal           : ${pushResult.failureCount ?? 0}\n` +
+      `   - Mode            : ${pushResult.simulated ? 'Simulasi' : 'Live'}`
+    );
+
+    return pushResult;
+  } catch (err) {
+    await pool.query(
+      `UPDATE borrowings SET fcm_last_status_dispatch = NULL WHERE id = $1`,
+      [borrowing.id]
+    ).catch(() => {});
+    console.error('⚠️ [FCM Inventory] Error dispatch status peminjaman:', err.message);
+    return { error: err.message };
+  }
+}
 
 /**
  * Status "Terlambat" DITURUNKAN, tidak disimpan.
@@ -513,6 +631,11 @@ async function createBorrowing(req, res) {
         `${ringkas(peminjam.rows[0].nama)} (status awal: ${initialStatus})`
     );
 
+    // Siaran push notifikasi FCM jika dicatat langsung oleh Admin/Pengurus (status 'Dipinjam')
+    if (initialStatus === STATUS_DIPINJAM) {
+      dispatcher.dispatchAsync(() => sendBorrowingStatusPushNotification(result.rows[0]), 'InventoryDirectBorrow');
+    }
+
     return res.status(201).json({ success: true, message: msg, data: result.rows[0] });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -620,6 +743,9 @@ async function returnBorrowing(req, res) {
 
     const p = result.rows[0];
     await logActivity(req, TIPE.UPDATE, `Mencatat pengembalian barang — peminjaman #${p.id}, ${p.jumlah} unit`);
+
+    // Siaran push notifikasi FCM ke peminjam secara non-blocking
+    dispatcher.dispatchAsync(() => sendBorrowingStatusPushNotification(p), 'InventoryReturn');
 
     return res.status(200).json({ success: true, message: 'Barang berhasil dikembalikan.', data: result.rows[0] });
   } catch (err) {
@@ -774,6 +900,9 @@ async function approveBorrowing(req, res) {
       `Menyetujui peminjaman #${id}: ${b.jumlah} unit oleh ${ringkas(b.nama_peminjam)}`
     );
 
+    // Siaran push notifikasi FCM ke peminjam secara non-blocking
+    dispatcher.dispatchAsync(() => sendBorrowingStatusPushNotification(b), 'InventoryApprove');
+
     return res.status(200).json({ success: true, message: 'Peminjaman barang telah disetujui.', data: result.rows[0] });
   } catch (err) {
     console.error('ApproveBorrowing Error:', err.message);
@@ -798,6 +927,9 @@ async function rejectBorrowing(req, res) {
       TIPE.UPDATE,
       `Menolak permohonan peminjaman #${id}: ${b.jumlah} unit oleh ${ringkas(b.nama_peminjam)}`
     );
+
+    // Siaran push notifikasi FCM ke peminjam secara non-blocking
+    dispatcher.dispatchAsync(() => sendBorrowingStatusPushNotification(b), 'InventoryReject');
 
     return res.status(200).json({ success: true, message: 'Permohonan peminjaman ditolak.', data: result.rows[0] });
   } catch (err) {
@@ -824,4 +956,6 @@ module.exports = {
   returnBorrowing,
   deleteBorrowing,
   exportBorrowings,
+  sendBorrowingStatusPushNotification,
+  STATUS_RELEVAN_NOTIFIKASI,
 };

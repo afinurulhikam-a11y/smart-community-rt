@@ -23,21 +23,27 @@ const Color _hijau = Color(0xFF1B7A6A);
 /// Warga membayar lewat Midtrans, dan tagihan baru lunas setelah backend
 /// mengonfirmasi ke server Midtrans.
 class BillListScreen extends StatefulWidget {
-  const BillListScreen({super.key});
+  final int initialTabIndex;
+  const BillListScreen({super.key, this.initialTabIndex = 0});
   @override
   State<BillListScreen> createState() => _BillListScreenState();
 }
 
 class _BillListScreenState extends State<BillListScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  int _tabIndex = 0;
+  late int _tabIndex;
   final Set<String> _terpilih = {};
   bool _sedangProses = false;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabIndex = widget.initialTabIndex.clamp(0, 1);
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: _tabIndex,
+    );
     _tabController.addListener(() {
       if (_tabController.indexIsChanging && mounted) {
         setState(() {

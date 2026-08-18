@@ -108,6 +108,9 @@ class ApiConstants {
   // System Activity Logs
   static String get activityLogs => '$baseUrl/activity-logs';
 
+  // Notifications (FCM Device Token)
+  static String get fcmToken => '$baseUrl/notifications/fcm-token';
+
   // Reset Sistem — seluruhnya khusus admin
   static String get resetRingkasan => '$baseUrl/reset/ringkasan';
   static String get resetPratinjau => '$baseUrl/reset/pratinjau';

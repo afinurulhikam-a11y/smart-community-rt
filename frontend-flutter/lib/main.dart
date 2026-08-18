@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -6,6 +7,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/auth_service.dart';
 import 'core/services/websocket_service.dart';
+import 'core/services/fcm_service.dart';
 import 'core/pesan.dart';
 
 // Providers
@@ -35,6 +37,7 @@ import 'providers/reset_provider.dart';
 
 import 'providers/aksi_utama_provider.dart';
 import 'providers/payment_provider.dart';
+import 'providers/notification_provider.dart';
 
 import 'providers/tema_provider.dart';
 import 'providers/koneksi_provider.dart';
@@ -48,6 +51,9 @@ import 'screens/admin/main_dashboard.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('id_ID', null);
+
+  // Inisialisasi Firebase & FCM di latar (aman di semua platform)
+  unawaited(FCMService.instance.initialize());
 
   // Dibaca sebelum runApp supaya bingkai PERTAMA sudah memakai tema yang benar.
   // Memuatnya belakangan membuat aplikasi berkedip dari terang ke gelap tepat
@@ -96,6 +102,11 @@ class SmartCommunityApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ResetProvider()),
 
         ChangeNotifierProvider(create: (_) => PaymentProvider()),
+        ChangeNotifierProvider(create: (_) {
+          final np = NotificationProvider();
+          FCMService.instance.pasangNotificationRouter(np);
+          return np;
+        }),
         
         ChangeNotifierProvider(create: (_) => AksiUtamaProvider()),
         // Memantau jaringan DAN mengirim ulang tulisan yang tertunda. Dibuat
@@ -165,6 +176,10 @@ class _AuthGateState extends State<AuthGate> {
     if (masuk) {
       if (auth.userRole.isNotEmpty) {
         izin.setRole(auth.userRole);
+      }
+      // Bila ada intent notifikasi pending dari cold start / background, konsumsi setelah login terverifikasi
+      if (mounted) {
+        context.read<NotificationProvider>().consumePendingIntent();
       }
       try {
         await izin.muat().timeout(_batasTungguIzin);
@@ -478,6 +493,7 @@ void bersihkanSemuaProvider(BuildContext context) {
     context.read<ResetProvider>().bersihkan();
     context.read<VisitorProvider>().bersihkan();
     context.read<WargaProvider>().bersihkan();
+    context.read<NotificationProvider>().bersihkan();
   } catch (_) {
     // Konteks bisa saja sudah dilepas ketika callback ini berjalan. Kegagalan
     // membersihkan tidak boleh menjatuhkan aplikasi di jalur logout — layar

@@ -33,6 +33,7 @@ import 'package:smart_community/providers/reset_provider.dart';
 import 'package:smart_community/providers/visitor_provider.dart';
 import 'package:smart_community/providers/warga_provider.dart';
 import 'package:smart_community/providers/koneksi_provider.dart';
+import 'package:smart_community/providers/notification_provider.dart';
 import 'package:smart_community/screens/admin/main_dashboard.dart';
 
 /// Perkakas bersama untuk pengujian widget.
@@ -88,6 +89,7 @@ List<SingleChildWidget> semuaProvider() => [
   ChangeNotifierProvider(create: (_) => LogProvider()),
   ChangeNotifierProvider(create: (_) => ResetProvider()),
   ChangeNotifierProvider(create: (_) => PaymentProvider()),
+  ChangeNotifierProvider(create: (_) => NotificationProvider()),
   ChangeNotifierProvider(create: (_) => AksiUtamaProvider()),
 ];
 

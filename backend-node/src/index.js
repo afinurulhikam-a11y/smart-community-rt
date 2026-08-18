@@ -49,6 +49,7 @@ const paymentRoutes = require('./routes/payment.routes');
 
 const uploadRoutes = require('./routes/upload.routes');
 const unduhRoutes = require('./routes/unduh.routes');
+const notificationRoutes = require('./routes/notification.routes');
 const { initMqtt } = require('./config/mqtt');
 
 const app = express();
@@ -193,6 +194,7 @@ app.use('/api/upload', uploadRoutes);
 
 // Tiket unduh sekali pakai — penggantinya `?token=` di URL tombol Export.
 app.use('/api/unduh', unduhRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health check
 //
