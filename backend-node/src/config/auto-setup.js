@@ -202,8 +202,46 @@ async function autoSetupCloud() {
     console.log('ℹ️ Catatan Master Categories:', e.message);
   }
 
-  // 6. Seed Akun Pengurus Bawaan (Ketua RT, Sekretaris, Bendahara)
+  // 6. Bersihkan Akun Demo Duplikat & Seed Akun Pengurus Bawaan (Ketua RT, Sekretaris, Bendahara)
   try {
+    const demoRes = await pool.query(
+      `SELECT id FROM users WHERE username IN ('ketua_demo', 'sekretaris_demo', 'bendahara_demo')`
+    );
+    if (demoRes.rows.length > 0) {
+      const ids = demoRes.rows.map((r) => r.id);
+      const adminRes = await pool.query(
+        `SELECT id FROM users WHERE role = 'admin' AND deleted_at IS NULL ORDER BY created_at LIMIT 1`
+      );
+      const adminId = adminRes.rows[0]?.id;
+
+      await pool.query(`UPDATE bills SET user_id = $2 WHERE user_id = ANY($1)`, [ids, adminId]);
+      await pool.query(`UPDATE bills SET created_by = $2 WHERE created_by = ANY($1)`, [ids, adminId]);
+      await pool.query(`UPDATE bill_payments SET user_id = $2 WHERE user_id = ANY($1)`, [ids, adminId]);
+      await pool.query(`UPDATE finances SET created_by = $2 WHERE created_by = ANY($1)`, [ids, adminId]);
+      await pool.query(`UPDATE emergency_alerts SET user_id = $2 WHERE user_id = ANY($1)`, [ids, adminId]);
+      await pool.query(`UPDATE emergency_alerts SET dismissed_by = NULL WHERE dismissed_by = ANY($1)`, [ids]);
+      await pool.query(`UPDATE letters SET user_id = $2 WHERE user_id = ANY($1)`, [ids, adminId]);
+      await pool.query(`UPDATE letters SET approved_by = NULL WHERE approved_by = ANY($1)`, [ids]);
+      await pool.query(`UPDATE bop_finances SET created_by = $2 WHERE created_by = ANY($1)`, [ids, adminId]);
+      await pool.query(`UPDATE alokasi_bop SET created_by = $2 WHERE created_by = ANY($1)`, [ids, adminId]);
+      await pool.query(`UPDATE borrowings SET dicatat_oleh = $2 WHERE dicatat_oleh = ANY($1)`, [ids, adminId]);
+      await pool.query(`UPDATE payment_transactions SET user_id = $2 WHERE user_id = ANY($1)`, [ids, adminId]);
+      await pool.query(`UPDATE announcements SET created_by = $2 WHERE created_by = ANY($1)`, [ids, adminId]);
+      await pool.query(`UPDATE agenda SET created_by = $2 WHERE created_by = ANY($1)`, [ids, adminId]);
+      await pool.query(`UPDATE polling SET created_by = $2 WHERE created_by = ANY($1)`, [ids, adminId]);
+      await pool.query(`UPDATE visitors SET created_by = $2 WHERE created_by = ANY($1)`, [ids, adminId]);
+      await pool.query(`UPDATE bantuan_sosial SET created_by = $2 WHERE created_by = ANY($1)`, [ids, adminId]);
+      await pool.query(`UPDATE inventory SET created_by = $2 WHERE created_by = ANY($1)`, [ids, adminId]);
+      await pool.query(`UPDATE complaints SET responded_by = NULL WHERE responded_by = ANY($1)`, [ids]);
+      await pool.query(`UPDATE bantuan_sosial_log SET changed_by = NULL WHERE changed_by = ANY($1)`, [ids]);
+      await pool.query(`UPDATE reset_logs SET user_id = NULL WHERE user_id = ANY($1)`, [ids]);
+      await pool.query(`UPDATE pembacaan_meteran SET diisi_oleh = NULL WHERE diisi_oleh = ANY($1)`, [ids]);
+      await pool.query(`UPDATE pembacaan_meteran SET dikoreksi_oleh = NULL WHERE dikoreksi_oleh = ANY($1)`, [ids]);
+      await pool.query(`DELETE FROM user_fcm_tokens WHERE user_id = ANY($1)`, [ids]);
+      await pool.query(`DELETE FROM users WHERE id = ANY($1)`, [ids]);
+      console.log('✅ Akun demo lama (ketua_demo, sekretaris_demo, bendahara_demo) berhasil dibersihkan.');
+    }
+
     const { PENGURUS_AWAL } = require('./master-data');
     for (const p of PENGURUS_AWAL) {
       const ada = await pool.query(

@@ -41,6 +41,7 @@ assertCanRunDestructive('seed-demo-lengkap');
 const bcrypt = require('bcryptjs');
 const { pool } = require('../../src/config/database');
 const { rincianTagihanAir } = require('../../src/utils/tagihan-air');
+const { PENGURUS_AWAL } = require('../../src/config/master-data');
 
 // ===================================================================
 // Penanda & tetapan
@@ -152,19 +153,6 @@ const KELUARGA = [
   },
 ];
 
-/**
- * Akun pengurus demo.
- *
- * Administrator yang sudah ada TIDAK disentuh. Ketiga akun ini ada supaya
- * perbedaan hak antar peran benar-benar bisa dilihat — kalau semuanya diuji
- * dengan admin, seluruh gerbang izin tidak pernah terbukti bekerja.
- */
-const PENGURUS = [
-  { nama: 'Ketua RT (Demo)', username: 'ketua_demo', email: 'ketua.demo@rt.local', role: 'ketua_rt', hp: '081200000001' },
-  { nama: 'Sekretaris (Demo)', username: 'sekretaris_demo', email: 'sekretaris.demo@rt.local', role: 'sekretaris', hp: '081200000002' },
-  { nama: 'Bendahara (Demo)', username: 'bendahara_demo', email: 'bendahara.demo@rt.local', role: 'bendahara', hp: '081200000003' },
-];
-
 const BARANG = [
   { nama: 'Tenda Terpal 4x6', kategori: 'Perlengkapan Acara', jumlah: 4, kondisi: 'Baik', lokasi: 'Gudang RT', nilai: 1500000 },
   { nama: 'Kursi Plastik', kategori: 'Perlengkapan Acara', jumlah: 120, kondisi: 'Baik', lokasi: 'Gudang RT', nilai: 45000 },
@@ -223,8 +211,8 @@ async function hapusDemo(client) {
     // --- kependudukan & akun, paling akhir karena banyak yang menunjuk ke sini ---
     [`DELETE FROM anggota_keluarga WHERE nik LIKE $1`, [`${AWALAN_NIK}%`]],
     [`DELETE FROM keluarga WHERE no_kk LIKE $1`, [`${AWALAN_KK}%`]],
-    [`DELETE FROM users WHERE nik LIKE $1 OR username = ANY($2)`,
-      [`${AWALAN_NIK}%`, PENGURUS.map((p) => p.username)]],
+    [`DELETE FROM users WHERE nik LIKE $1 OR username = ANY($2) OR username IN ('ketua_demo', 'sekretaris_demo', 'bendahara_demo')`,
+      [`${AWALAN_NIK}%`, PENGURUS_AWAL.map((p) => p.username)]],
   ];
 
   let total = 0;
@@ -244,15 +232,16 @@ async function isiDemo(client) {
   const hash = await bcrypt.hash(SANDI_DEMO, 10);
 
   // --- Akun pengurus -----------------------------------------------
-  for (const p of PENGURUS) {
+  for (const p of PENGURUS_AWAL) {
+    const hashPengurus = await bcrypt.hash(p.password, 10);
     await client.query(
-      `INSERT INTO users (nama, username, email, password_hash, role, no_hp, no_rt, is_active)
-       VALUES ($1, $2, $3, $4, $5, $6, '001', true)
-       ON CONFLICT (username) DO NOTHING`,
-      [p.nama, p.username, p.email, hash, p.role, p.hp]
+      `INSERT INTO users (nama, username, email, password_hash, role, no_rt, is_active)
+       VALUES ($1, $2, $3, $4, $5, '001', true)
+       ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = EXCLUDED.role`,
+      [p.nama, p.username, p.email, hashPengurus, p.role]
     );
   }
-  ringkas.pengurus = PENGURUS.length;
+  ringkas.pengurus = PENGURUS_AWAL.length;
 
   // Admin yang dipakai sebagai `created_by` di seluruh data di bawah.
   const adminRes = await client.query(
