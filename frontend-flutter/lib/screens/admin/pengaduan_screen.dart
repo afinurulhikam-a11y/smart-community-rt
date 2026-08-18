@@ -426,7 +426,7 @@ class _PengaduanScreenState extends State<PengaduanScreen> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(
-                        Icons.chat_bubble_outline,
+                        Icons.error_outline_rounded,
                         color: Color(0xFF0F766E),
                         size: 20,
                       ),
