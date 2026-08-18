@@ -582,6 +582,14 @@ class WargaDashboardContent extends StatelessWidget {
         'bgColor': const Color(0xFFDBEAFE),
         'menu': 44,
       },
+      {
+        'icon': Icons.error_outline_rounded,
+        'title': 'Pengaduan',
+        'subtitle': 'Laporkan',
+        'color': const Color(0xFFEF4444),
+        'bgColor': const Color(0xFFFEE2E2),
+        'menu': 61,
+      },
       if (permissions.bolehLihat('layanan.visitor'))
         {
           'icon': Icons.badge_outlined,
@@ -591,36 +599,26 @@ class WargaDashboardContent extends StatelessWidget {
           'bgColor': const Color(0xFFD1FAE5),
           'menu': 43,
         },
-      {
-        'icon': Icons.campaign_rounded,
-        'title': 'Pengumuman',
-        'subtitle': 'Lihat Info',
-        'color': const Color(0xFF8B5CF6),
-        'bgColor': const Color(0xFFEDE9FE),
-        'menu': 50,
-      },
-      {
-        'icon': Icons.error_outline_rounded,
-        'title': 'Pengaduan',
-        'subtitle': 'Laporkan',
-        'color': const Color(0xFFEF4444),
-        'bgColor': const Color(0xFFFEE2E2),
-        'menu': 61,
-      },
     ];
+
+    final isDesktop = ResponsiveLayout.isDesktop(context);
+    final isTablet = ResponsiveLayout.isTablet(context);
+    final crossAxisCount = isDesktop
+        ? (menus.length <= 3 ? 3 : 4)
+        : isTablet
+            ? 2
+            : 1;
 
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: ResponsiveLayout.isDesktop(context)
-            ? 4
-            : ResponsiveLayout.isTablet(context)
-            ? 2
-            : 1,
+        crossAxisCount: crossAxisCount,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: ResponsiveLayout.isDesktop(context) ? 2.5 : 3.0,
+        childAspectRatio: isDesktop
+            ? (menus.length <= 3 ? 3.0 : 2.5)
+            : (isTablet ? 2.8 : 3.0),
       ),
       itemCount: menus.length,
       itemBuilder: (context, index) {
