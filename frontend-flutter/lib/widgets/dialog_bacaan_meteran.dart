@@ -150,6 +150,9 @@ class _DialogBacaanMeteranState extends State<DialogBacaanMeteran> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
+            style: TextButton.styleFrom(
+              foregroundColor: ctx.gelap ? Colors.white : Colors.black,
+            ),
             child: const Text('Batal'),
           ),
           ElevatedButton(
@@ -269,6 +272,9 @@ class _DialogBacaanMeteranState extends State<DialogBacaanMeteran> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
+          style: TextButton.styleFrom(
+            foregroundColor: context.gelap ? Colors.white : Colors.black,
+          ),
           child: const Text('Tutup'),
         ),
       ],
