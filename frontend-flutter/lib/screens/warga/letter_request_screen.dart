@@ -6,6 +6,8 @@ import '../../core/theme/app_theme.dart';
 import '../../providers/letter_provider.dart';
 import '../../core/theme/warna_konteks.dart';
 import '../../core/pesan.dart';
+import '../../core/services/pdf_service.dart';
+import '../../models/letter_model.dart';
 
 class LetterRequestScreen extends StatefulWidget {
   const LetterRequestScreen({super.key});
@@ -306,12 +308,101 @@ class _LetterRequestScreenState extends State<LetterRequestScreen> {
                             ),
                           ),
                         ],
+                        if (letter.isPending) ...[
+                          const SizedBox(height: 8),
+                          Divider(height: 1, color: context.garis),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton.icon(
+                                onPressed: () => _konfirmasiBatalSurat(letter),
+                                icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Color(0xFFEF4444)),
+                                label: const Text(
+                                  'Batalkan Pengajuan',
+                                  style: TextStyle(fontSize: 12, color: Color(0xFFEF4444), fontWeight: FontWeight.w600),
+                                ),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ] else if (letter.isDisetujui) ...[
+                          const SizedBox(height: 8),
+                          Divider(height: 1, color: context.garis),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton.icon(
+                                onPressed: () => PdfService.downloadLetterPdf(letter),
+                                icon: const Icon(Icons.download_rounded, size: 16, color: Color(0xFF3B82F6)),
+                                label: const Text(
+                                  'Unduh Dokumen PDF',
+                                  style: TextStyle(fontSize: 12, color: Color(0xFF3B82F6), fontWeight: FontWeight.w600),
+                                ),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   );
                 },
               ),
       ],
+    );
+  }
+
+  void _konfirmasiBatalSurat(LetterModel letter) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444), size: 24),
+            SizedBox(width: 8),
+            Text('Batalkan Pengajuan', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'Apakah Anda yakin ingin membatalkan pengajuan ${letter.jenisSurat} ini?',
+          style: const TextStyle(fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Tidak', style: TextStyle(color: context.teksKedua)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final ok = await context.read<LetterProvider>().deleteLetter(letter.id);
+              if (mounted) {
+                if (ok) {
+                  pesanSukses(context, 'Pengajuan surat berhasil dibatalkan.');
+                } else {
+                  final err = context.read<LetterProvider>().errorMessage ?? 'Gagal membatalkan surat.';
+                  pesanGagal(context, err);
+                }
+              }
+            },
+            child: const Text('Ya, Batalkan'),
+          ),
+        ],
+      ),
     );
   }
 }

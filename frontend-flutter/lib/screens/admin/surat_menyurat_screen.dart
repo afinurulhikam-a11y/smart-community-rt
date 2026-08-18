@@ -74,6 +74,53 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
     }
   }
 
+  void _konfirmasiHapusSurat(LetterModel letter) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444), size: 24),
+            SizedBox(width: 8),
+            Text('Batalkan / Hapus Surat', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'Apakah Anda yakin ingin membatalkan/menghapus permohonan ${letter.jenisSurat} '
+          '${letter.namaPemohon != null ? "atas nama ${letter.namaPemohon}" : ""}? Tindakan ini tidak dapat dibatalkan.',
+          style: const TextStyle(fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Batal', style: TextStyle(color: context.teksKedua)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final ok = await context.read<LetterProvider>().deleteLetter(letter.id);
+              if (mounted) {
+                if (ok) {
+                  pesanSukses(context, 'Permohonan surat berhasil dibatalkan/dihapus.');
+                } else {
+                  final err = context.read<LetterProvider>().errorMessage ?? 'Gagal menghapus surat.';
+                  pesanGagal(context, err);
+                }
+              }
+            },
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final role = context.read<AuthService>().userRole;
@@ -300,7 +347,20 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
                                       responseNote: 'Ditolak admin',
                                     ),
                                   ),
-                                ] else if (!data.isPending) ...[
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline_rounded, size: 20, color: Color(0xFFEF4444)),
+                                    tooltip: 'Hapus / Batalkan',
+                                    style: gayaAksiTabel(const Color(0xFFEF4444)),
+                                    onPressed: () => _konfirmasiHapusSurat(data),
+                                  ),
+                                ] else if (data.isDitolak) ...[
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline_rounded, size: 20, color: Color(0xFFEF4444)),
+                                    tooltip: 'Hapus Riwayat Ditolak',
+                                    style: gayaAksiTabel(const Color(0xFFEF4444)),
+                                    onPressed: () => _konfirmasiHapusSurat(data),
+                                  ),
+                                ] else if (data.isDisetujui) ...[
                                   IconButton(
                                     icon: const Icon(
                                       Icons.download_rounded,
@@ -362,7 +422,7 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
                         color: const Color(0xFF1B7A6A),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.description_outlined, color: Colors.white, size: 24),
+                      child: const Icon(Icons.mail_outline_rounded, color: Colors.white, size: 24),
                     ),
                     const SizedBox(width: 12),
                     Flexible(
@@ -387,14 +447,12 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
                     ),
                   ],
                 ),
-              // Ketua RT menandatangani surat, tidak mengajukannya — jadi
-              // tombol ini menuntut `create`, bukan sekadar akses modul.
               if (_bolehAjukan)
                 ElevatedButton.icon(
                   onPressed: () => setState(() => _isFormView = true),
                   icon: const Icon(Icons.add, size: 16),
                   label: const Text(
-                    'Ajukan Surat',
+                    'Ajukan Surat Baru',
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                   style: ElevatedButton.styleFrom(
@@ -414,13 +472,13 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
         Consumer<LetterProvider>(
           builder: (context, provider, _) {
             if (provider.isLoading && provider.letters.isEmpty) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()));
             }
 
             if (provider.letters.isEmpty) {
               return Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 100),
+                padding: const EdgeInsets.symmetric(vertical: 80),
                 decoration: BoxDecoration(
                   color: context.latarKartu,
                   borderRadius: BorderRadius.circular(12),
@@ -429,7 +487,7 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
                 child: Center(
                   child: Column(
                     children: [
-                      Icon(Icons.description_outlined, size: 48, color: context.teksTersier),
+                      Icon(Icons.mail_outline_rounded, size: 48, color: context.teksTersier),
                       const SizedBox(height: 16),
                       Text(
                         'Belum ada permohonan surat',
@@ -444,10 +502,7 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
                         ElevatedButton.icon(
                           onPressed: () => setState(() => _isFormView = true),
                           icon: const Icon(Icons.add, size: 14),
-                          label: const Text(
-                            'Ajukan Surat',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                          ),
+                          label: const Text('Ajukan Surat', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF10B981),
                             foregroundColor: Colors.white,
@@ -463,40 +518,33 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
             }
 
             return Container(
-              width: double.infinity,
               decoration: BoxDecoration(
                 color: context.latarKartu,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: context.garis),
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Padding(
                     padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
                     child: TabelResponsif(
-                      tinggiBarisMaks: 60,
                       kolom: const ['NO', 'TANGGAL', 'JENIS SURAT', 'STATUS', 'KETERANGAN'],
                       baris: provider.letters.asMap().entries.map((entry) {
-                        final index = (((provider.currentPage - 1) * 25) + entry.key + 1);
+                        final index = entry.key + 1;
                         final data = entry.value;
-                        final status = data.status.toLowerCase();
+
                         Color statusColor;
                         Color statusBg;
                         String statusLabel;
 
-                        if (data.isDisetujui) {
+                        if (data.status == 'disetujui') {
                           statusColor = const Color(0xFF10B981);
                           statusBg = const Color(0xFFD1FAE5);
                           statusLabel = 'Disetujui';
-                        } else if (data.isDitolak) {
+                        } else if (data.status == 'ditolak') {
                           statusColor = const Color(0xFFEF4444);
                           statusBg = const Color(0xFFFEE2E2);
                           statusLabel = 'Ditolak';
-                        } else if (status == 'diproses') {
-                          statusColor = const Color(0xFF2563EB);
-                          statusBg = const Color(0xFFDBEAFE);
-                          statusLabel = 'Diproses';
                         } else {
                           statusColor = const Color(0xFFD97706);
                           statusBg = const Color(0xFFFEF3C7);
@@ -554,6 +602,34 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
                               gaya: TextStyle(fontSize: 14, color: context.teksKedua),
                             ),
                           ],
+                          aksi: Transform.translate(
+                            offset: const Offset(geserAksiTabel, 0),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (data.isPending)
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline_rounded, size: 20, color: Color(0xFFEF4444)),
+                                    tooltip: 'Batalkan Pengajuan',
+                                    style: gayaAksiTabel(const Color(0xFFEF4444)),
+                                    onPressed: () => _konfirmasiHapusSurat(data),
+                                  ),
+                                if (data.isDisetujui)
+                                  IconButton(
+                                    icon: const Icon(Icons.download_rounded, size: 20, color: Color(0xFF3B82F6)),
+                                    tooltip: 'Download PDF',
+                                    style: gayaAksiTabel(const Color(0xFF3B82F6)),
+                                    onPressed: () => PdfService.downloadLetterPdf(data),
+                                  ),
+                                IconButton(
+                                  icon: Icon(Icons.remove_red_eye_outlined, size: 20, color: context.teksKedua),
+                                  tooltip: 'Lihat Detail',
+                                  style: gayaAksiTabel(context.teksKedua),
+                                  onPressed: () => _showDetailSurat(data),
+                                ),
+                              ],
+                            ),
+                          ),
                         );
                       }).toList(),
                     ),
