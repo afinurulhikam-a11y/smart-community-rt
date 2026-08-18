@@ -160,6 +160,7 @@ const RESET_GROUPS = [
     tabel: [
       { tabel: 'polling_votes' },
       { tabel: 'polling_options' },
+      { tabel: 'polling' },
       { tabel: 'complaints' },
       { tabel: 'emergency_alerts' },
     ],
