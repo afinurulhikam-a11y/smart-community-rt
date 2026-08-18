@@ -314,16 +314,34 @@ class _KartuMeteranWargaState extends State<KartuMeteranWarga> {
             ),
           if (_tarif != null)
             _barisInfo(context, 'Abondement', rupiah(_tarif!.abondement)),
-          if (_tarif != null && k.langgananSampah)
+          if (_tarif != null &&
+              (k.terkunci
+                  ? (bacaan.nominal != null &&
+                      bacaan.nominal! >
+                          ((bacaan.terpakai ?? 0) *
+                                  (_tarif!.tarifPerM3 > 0
+                                      ? _tarif!.tarifPerM3
+                                      : _tarif!.nominalDefault) +
+                              _tarif!.abondement))
+                  : k.langgananSampah))
             _barisInfo(context, 'Layanan sampah', rupiah(_tarif!.biayaSampah)),
           if (_tarif != null)
             _barisInfo(
               context,
-              k.terkunci ? 'Tagihan' : 'Perkiraan tagihan',
+              k.terkunci
+                  ? (bacaan.statusTagihan == 'paid'
+                      ? 'Tagihan (Lunas)'
+                      : 'Tagihan (Terkunci)')
+                  : 'Perkiraan tagihan',
               rupiah(
-                (bacaan.terpakai ?? 0) * (_tarif!.tarifPerM3 > 0 ? _tarif!.tarifPerM3 : _tarif!.nominalDefault) +
-                    _tarif!.abondement +
-                    (k.langgananSampah ? _tarif!.biayaSampah : 0),
+                (k.terkunci && bacaan.nominal != null)
+                    ? bacaan.nominal!
+                    : ((bacaan.terpakai ?? 0) *
+                            (_tarif!.tarifPerM3 > 0
+                                ? _tarif!.tarifPerM3
+                                : _tarif!.nominalDefault) +
+                        _tarif!.abondement +
+                        (k.langgananSampah ? _tarif!.biayaSampah : 0)),
               ),
               tebal: true,
             ),
@@ -354,10 +372,16 @@ class _KartuMeteranWargaState extends State<KartuMeteranWarga> {
         if (k.terkunci)
           _pita(
             context,
-            AppTheme.primaryColor,
-            Icons.lock_outline_rounded,
-            'Tagihan periode ini sudah terbit, jadi angkanya terkunci. '
-            'Hubungi pengurus RT bila ada yang perlu dikoreksi.',
+            bacaan?.statusTagihan == 'paid'
+                ? AppTheme.successColor
+                : AppTheme.primaryColor,
+            bacaan?.statusTagihan == 'paid'
+                ? Icons.check_circle_outline_rounded
+                : Icons.lock_outline_rounded,
+            bacaan?.statusTagihan == 'paid'
+                ? 'Tagihan periode ini sudah lunas. Rincian telah terkunci.'
+                : 'Tagihan periode ini sudah terbit, jadi angkanya terkunci. '
+                    'Hubungi pengurus RT bila ada yang perlu dikoreksi.',
           )
         else if (k.bolehIsi)
           SizedBox(
@@ -388,6 +412,7 @@ class _KartuMeteranWargaState extends State<KartuMeteranWarga> {
 
   Widget _saklarSampah(BuildContext context, MeteranSaya k) {
     final teks = Theme.of(context).textTheme;
+    final bool bisaUbah = k.bolehIsi && !k.terkunci;
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppTheme.spasiM,
@@ -413,7 +438,12 @@ class _KartuMeteranWargaState extends State<KartuMeteranWarga> {
                       : '${rupiah(_tarif!.biayaSampah)} / bulan, ditagih bersama air',
                   style: teks.bodySmall?.copyWith(color: context.teksKedua),
                 ),
-                if (!k.bolehIsi)
+                if (k.terkunci)
+                  Text(
+                    'Tagihan periode ini sudah terbit. Pilihan dinonaktifkan.',
+                    style: teks.labelSmall?.copyWith(color: context.teksTersier),
+                  )
+                else if (!k.bolehIsi)
                   Text(
                     'Bisa diubah sampai tanggal ${k.batasTanggal}',
                     style: teks.labelSmall?.copyWith(color: context.teksTersier),
@@ -430,10 +460,8 @@ class _KartuMeteranWargaState extends State<KartuMeteranWarga> {
           else
             Switch(
               value: k.langgananSampah,
-              // Batasnya sama dengan input meteran, dan itu disengaja: satu
-              // tanggal untuk diingat. Tanpa batas, warga bisa mematikannya
-              // tanggal 24 lalu menyalakannya lagi tanggal 26.
-              onChanged: k.bolehIsi ? _ubahSampah : null,
+              // Saklar terkunci setelah batas tanggal atau bila tagihan sudah terbit
+              onChanged: bisaUbah ? _ubahSampah : null,
             ),
         ],
       ),
