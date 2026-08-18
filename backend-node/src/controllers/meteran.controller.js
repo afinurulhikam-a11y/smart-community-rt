@@ -333,7 +333,7 @@ async function daftarMeteran(req, res) {
       }
       const where = `WHERE ${kondisi.join(' AND ')}`;
       const hasil = await pool.query(
-        `SELECT pm.*, k.no_kk, k.kepala_keluarga, k.blok, k.alamat,
+        `SELECT pm.*, k.no_kk, k.kepala_keluarga, k.blok, k.alamat, k.langganan_sampah,
                 b.status AS status_tagihan, b.nominal
          FROM pembacaan_meteran pm
          JOIN keluarga k ON pm.keluarga_id = k.id
@@ -349,7 +349,7 @@ async function daftarMeteran(req, res) {
     // (termasuk yang belum mengisi meteran).
     const params = [targetPeriode];
     let queryKeluarga = `
-      SELECT k.id AS keluarga_id, k.no_kk, k.kepala_keluarga, k.blok, k.alamat,
+      SELECT k.id AS keluarga_id, k.no_kk, k.kepala_keluarga, k.blok, k.alamat, k.langganan_sampah,
              pm.id, pm.periode, pm.meteran_lalu, pm.meteran_sekarang,
              COALESCE(pm.status, 'menunggu') AS status,
              pm.catatan, pm.diisi_oleh, pm.diisi_pada, pm.dikoreksi_oleh, pm.dikoreksi_pada, pm.bill_id,
@@ -404,6 +404,7 @@ async function daftarMeteran(req, res) {
         kepala_keluarga: r.kepala_keluarga,
         blok: r.blok,
         alamat: r.alamat,
+        langganan_sampah: r.langganan_sampah === true,
         status_tagihan: r.status_tagihan,
         nominal: r.nominal,
       };
@@ -433,7 +434,7 @@ async function daftarMeteran(req, res) {
 async function koreksiMeteran(req, res) {
   try {
     const { id } = req.params;
-    const { meteran_lalu, meteran_sekarang, alasan, keluarga_id, periode } = req.body;
+    const { meteran_lalu, meteran_sekarang, alasan, keluarga_id, periode, langganan_sampah } = req.body;
 
     if (!alasan || !alasan.trim()) {
       return res.status(400).json({
@@ -459,7 +460,7 @@ async function koreksiMeteran(req, res) {
 
     if (existingId && existingId !== '0') {
       const lamaRes = await pool.query(
-        `SELECT pm.*, k.kepala_keluarga
+        `SELECT pm.*, k.kepala_keluarga, k.langganan_sampah
          FROM pembacaan_meteran pm
          JOIN keluarga k ON pm.keluarga_id = k.id
          WHERE pm.id = $1`,
@@ -472,7 +473,7 @@ async function koreksiMeteran(req, res) {
 
     if (!lama && targetKeluargaId && targetPeriode) {
       const checkRes = await pool.query(
-        `SELECT pm.*, k.kepala_keluarga
+        `SELECT pm.*, k.kepala_keluarga, k.langganan_sampah
          FROM pembacaan_meteran pm
          JOIN keluarga k ON pm.keluarga_id = k.id
          WHERE pm.keluarga_id = $1 AND pm.periode = $2`,
@@ -481,7 +482,7 @@ async function koreksiMeteran(req, res) {
       if (checkRes.rows.length > 0) {
         lama = checkRes.rows[0];
       } else {
-        const kRes = await pool.query(`SELECT id, kepala_keluarga FROM keluarga WHERE id = $1`, [targetKeluargaId]);
+        const kRes = await pool.query(`SELECT id, kepala_keluarga, langganan_sampah FROM keluarga WHERE id = $1`, [targetKeluargaId]);
         if (kRes.rows.length === 0) {
           return res.status(404).json({ success: false, message: 'Keluarga tidak ditemukan.' });
         }
@@ -493,12 +494,21 @@ async function koreksiMeteran(req, res) {
           meteran_sekarang: null,
           status: 'menunggu',
           kepala_keluarga: kRes.rows[0].kepala_keluarga,
+          langganan_sampah: kRes.rows[0].langganan_sampah === true,
         };
       }
     }
 
     if (!lama) {
       return res.status(404).json({ success: false, message: 'Bacaan meteran tidak ditemukan.' });
+    }
+
+    // Pembaruan langganan sampah keluarga bila dikirim oleh admin
+    if (typeof langganan_sampah === 'boolean') {
+      await pool.query(
+        'UPDATE keluarga SET langganan_sampah = $1, updated_at = NOW() WHERE id = $2',
+        [langganan_sampah, lama.keluarga_id]
+      );
     }
 
     const ambil = (baru, lamaNilai) =>
@@ -561,12 +571,15 @@ async function koreksiMeteran(req, res) {
 
     if (billRes.rows.length > 0 && billRes.rows[0].status !== 'lunas' && billRes.rows[0].status !== 'paid') {
       const b = billRes.rows[0];
+      const statusSampah = typeof langganan_sampah === 'boolean'
+        ? langganan_sampah
+        : (b.langganan_sampah === true);
       const air = rincianTagihanAir({
         meteranLalu: baru.meteran_lalu,
         meteranSekarang: baru.status === STATUS_TERISI ? baru.meteran_sekarang : null,
         tarifPerM3: b.tarif_per_m3,
         abondement: b.abondement,
-        biayaSampah: (b.langganan_sampah === true && b.biaya_sampah) ? b.biaya_sampah : 0,
+        biayaSampah: (statusSampah && b.biaya_sampah) ? b.biaya_sampah : 0,
       });
 
       await pool.query(
@@ -574,9 +587,10 @@ async function koreksiMeteran(req, res) {
          SET meteran_lalu = $1,
              meteran_sekarang = $2,
              nominal = $3,
+             langganan_sampah = $4,
              updated_at = NOW()
-         WHERE id = $4 AND status NOT IN ('lunas', 'paid')`,
-        [air.meteran_lalu, air.meteran_sekarang, air.total, b.id]
+         WHERE id = $5 AND status NOT IN ('lunas', 'paid')`,
+        [air.meteran_lalu, air.meteran_sekarang, air.total, statusSampah, b.id]
       );
     }
 

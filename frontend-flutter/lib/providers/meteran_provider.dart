@@ -137,6 +137,7 @@ class MeteranProvider extends ChangeNotifier {
     int? meteranSekarang,
     int? keluargaId,
     String? periode,
+    bool? langgananSampah,
   }) async {
     final response = await ApiService.put(
       ApiConstants.meteranKoreksi(id),
@@ -146,6 +147,7 @@ class MeteranProvider extends ChangeNotifier {
         if (meteranSekarang != null) 'meteran_sekarang': meteranSekarang,
         if (keluargaId != null && keluargaId > 0) 'keluarga_id': keluargaId,
         if (periode != null && periode.isNotEmpty) 'periode': periode,
+        if (langgananSampah != null) 'langganan_sampah': langgananSampah,
       },
     );
     if (response['success'] == true) await muatDaftar();

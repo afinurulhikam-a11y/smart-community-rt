@@ -80,6 +80,7 @@ class _DialogBacaanMeteranState extends State<DialogBacaanMeteran> {
     final ctlKini = TextEditingController(text: m.meteranSekarang?.toString() ?? '');
     final ctlAlasan = TextEditingController();
     final kunci = GlobalKey<FormState>();
+    bool langgananSampah = m.langgananSampah == true;
 
     final setuju = await showDialog<bool>(
       context: context,
@@ -93,56 +94,98 @@ class _DialogBacaanMeteranState extends State<DialogBacaanMeteran> {
           child: Form(
             key: kunci,
             child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Periode ${m.periode}',
-                    style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
-                          color: ctx.teksKedua,
-                        ),
-                  ),
-                  const SizedBox(height: AppTheme.spasiM),
-                  TextFormField(
-                    controller: ctlLalu,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: const InputDecoration(labelText: 'Meteran lalu'),
-                  ),
-                  const SizedBox(height: AppTheme.spasiM),
-                  TextFormField(
-                    controller: ctlKini,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: const InputDecoration(labelText: 'Meteran sekarang'),
-                  ),
-                  const SizedBox(height: AppTheme.spasiM),
-                  TextFormField(
-                    controller: ctlAlasan,
-                    minLines: 2,
-                    maxLines: 4,
-                    decoration: const InputDecoration(
-                      labelText: 'Alasan koreksi *',
-                      helperText: 'Tercatat di Log Aktivitas bersama angka lama dan baru',
-                    ),
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? 'Alasan koreksi wajib diisi'
-                        : null,
-                  ),
-                  if (m.sudahJadiTagihan)
-                    Padding(
-                      padding: const EdgeInsets.only(top: AppTheme.spasiM),
-                      child: _pita(
-                        ctx,
-                        AppTheme.warningColor,
-                        Icons.info_outline_rounded,
-                        'Tagihan periode ini sudah terbit. Nominalnya tidak ikut '
-                        'berubah dari sini — koreksi tagihannya lewat tombol Ubah '
-                        'pada baris tagihan.',
+              child: StatefulBuilder(
+                builder: (ctx, setDialogState) {
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Periode ${m.periode}',
+                        style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                              color: ctx.teksKedua,
+                            ),
                       ),
-                    ),
-                ],
+                      const SizedBox(height: AppTheme.spasiM),
+                      TextFormField(
+                        controller: ctlLalu,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        decoration: const InputDecoration(labelText: 'Meteran lalu'),
+                      ),
+                      const SizedBox(height: AppTheme.spasiM),
+                      TextFormField(
+                        controller: ctlKini,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        decoration: const InputDecoration(labelText: 'Meteran sekarang'),
+                      ),
+                      const SizedBox(height: AppTheme.spasiM),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppTheme.spasiM,
+                          vertical: AppTheme.spasiS,
+                        ),
+                        decoration: BoxDecoration(
+                          color: ctx.latarLembut,
+                          borderRadius: BorderRadius.circular(AppTheme.radiusM),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Langganan Sampah',
+                                    style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                  ),
+                                  Text(
+                                    'Layanan pengangkutan sampah warga',
+                                    style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                                          color: ctx.teksKedua,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Switch(
+                              value: langgananSampah,
+                              onChanged: (val) {
+                                setDialogState(() => langgananSampah = val);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: AppTheme.spasiM),
+                      TextFormField(
+                        controller: ctlAlasan,
+                        minLines: 2,
+                        maxLines: 4,
+                        decoration: const InputDecoration(
+                          labelText: 'Alasan koreksi *',
+                          helperText: 'Tercatat di Log Aktivitas bersama angka lama dan baru',
+                        ),
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Alasan koreksi wajib diisi'
+                            : null,
+                      ),
+                      if (m.sudahJadiTagihan)
+                        Padding(
+                          padding: const EdgeInsets.only(top: AppTheme.spasiM),
+                          child: _pita(
+                            ctx,
+                            AppTheme.warningColor,
+                            Icons.info_outline_rounded,
+                            'Tagihan periode ini sudah terbit. Nominal tagihan akan otomatis disinkronkan.',
+                          ),
+                        ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -176,6 +219,7 @@ class _DialogBacaanMeteranState extends State<DialogBacaanMeteran> {
           meteranSekarang: int.tryParse(ctlKini.text),
           keluargaId: m.keluargaId,
           periode: m.periode,
+          langgananSampah: langgananSampah,
         );
     if (!mounted) return;
 

@@ -38,6 +38,7 @@ class MeteranModel {
   /// Status tagihan yang lahir dari bacaan ini, bila sudah ada.
   final String? statusTagihan;
   final double? nominal;
+  final bool? langgananSampah;
 
   const MeteranModel({
     required this.id,
@@ -56,6 +57,7 @@ class MeteranModel {
     this.alamat,
     this.statusTagihan,
     this.nominal,
+    this.langgananSampah,
   });
 
   static int? _int(dynamic v) {
@@ -86,6 +88,7 @@ class MeteranModel {
       blok: json['blok']?.toString(),
       alamat: json['alamat']?.toString(),
       statusTagihan: json['status_tagihan']?.toString(),
+      langgananSampah: json['langganan_sampah'] == true,
       // Postgres mengirim NUMERIC sebagai string: "50000", bukan 50000.
       nominal: json['nominal'] == null
           ? null
