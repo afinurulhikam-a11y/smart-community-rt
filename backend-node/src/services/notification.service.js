@@ -89,12 +89,25 @@ async function getTokensByUserId(userId) {
   return result.rows.map((r) => r.fcm_token);
 }
 
+async function isTokenOwnedByUser(userId, fcmToken) {
+  if (!userId || !fcmToken) return false;
+  const cleanToken = String(fcmToken).trim();
+  const result = await pool.query(
+    `SELECT 1 FROM public.user_fcm_tokens
+     WHERE user_id = $1 AND fcm_token = $2 AND is_active = true
+     LIMIT 1`,
+    [userId, cleanToken]
+  );
+  return result.rowCount > 0;
+}
+
 const fcmService = require('./fcm.service');
 
 module.exports = {
   registerFcmToken,
   unregisterFcmToken,
   getTokensByUserId,
+  isTokenOwnedByUser,
   sendToToken: fcmService.sendToToken,
   sendToTokens: fcmService.sendToTokens,
   sendToUser: fcmService.sendToUser,

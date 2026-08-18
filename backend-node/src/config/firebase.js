@@ -1,5 +1,5 @@
 const admin = require('firebase-admin');
-const { initializeApp, getApps, cert, applicationDefault } = require('firebase-admin/app');
+const { initializeApp, getApps, cert, applicationDefault, deleteApp } = require('firebase-admin/app');
 const { getMessaging: getAdminMessaging } = require('firebase-admin/messaging');
 const fs = require('fs');
 const path = require('path');
@@ -277,9 +277,19 @@ function setMockMessaging(mockInstance) {
  * Helper isolasi test suite untuk mereset instance Firebase Admin.
  */
 async function resetFirebaseForTesting() {
-  if (admin && Array.isArray(admin.apps) && admin.apps.length > 0) {
+  const existingApps = typeof getApps === 'function' ? getApps() : (admin && Array.isArray(admin.apps) ? admin.apps : []);
+  if (Array.isArray(existingApps) && existingApps.length > 0) {
     await Promise.all(
-      admin.apps.map((app) => (app && typeof app.delete === 'function' ? app.delete().catch(() => {}) : Promise.resolve()))
+      existingApps.map((app) => {
+        if (!app) return Promise.resolve();
+        if (typeof deleteApp === 'function') {
+          return deleteApp(app).catch(() => {});
+        }
+        if (typeof app.delete === 'function') {
+          return app.delete().catch(() => {});
+        }
+        return Promise.resolve();
+      })
     );
   }
   firebaseApp = null;

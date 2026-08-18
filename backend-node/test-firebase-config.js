@@ -242,9 +242,17 @@ async function runAllFirebaseConfigTests() {
     });
 
     // ------------------------------------------------------------------------
-    // GROUP 5: Verifikasi Integrasi Output Health Check
+    // GROUP 5: Verifikasi Integrasi Output Health Check & Token Masking
     // ------------------------------------------------------------------------
-    console.log('\n--- 5. Verifikasi Integrasi Output Health Check ---');
+    console.log('\n--- 5. Verifikasi Integrasi Output Health Check & Token Masking ---');
+
+    it('Fungsi maskToken memasking token secara aman tanpa membocorkan token penuh', () => {
+      const { maskToken } = require('./src/services/fcm.service');
+      assert.strictEqual(maskToken('fcm_token_abcdef1234567890'), 'fcm_to...7890');
+      assert.strictEqual(maskToken('short123'), '***');
+      assert.strictEqual(maskToken(null), '[INVALID_TOKEN]');
+      assert.strictEqual(maskToken(''), '[INVALID_TOKEN]');
+    });
 
     it('Objek diagnostic cocok untuk disematkan pada /api/health tanpa membocorkan data rahasia', () => {
       const diagnostic = getFirebaseDiagnostic();
@@ -267,6 +275,163 @@ async function runAllFirebaseConfigTests() {
       assert(!jsonStr.includes('private_key'), 'private_key dilarang ada di health check');
       assert(!jsonStr.includes('client_email'), 'client_email dilarang ada di health check');
       assert(!jsonStr.includes('fcm_token'), 'fcm_token dilarang ada di health check');
+    });
+
+    // ------------------------------------------------------------------------
+    // GROUP 6: Verifikasi Project smart-community-rt-78c93 & Security Hardening Test-Send
+    // ------------------------------------------------------------------------
+    console.log('\n--- 6. Verifikasi Project ID smart-community-rt-78c93 & Security Test-Send ---');
+
+    await itAsync('Memastikan Project ID smart-community-rt-78c93 digunakan dengan benar', async () => {
+      process.env.FIREBASE_PROJECT_ID = 'smart-community-rt-78c93';
+      delete process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+      delete process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
+      delete process.env.GOOGLE_APPLICATION_CREDENTIALS;
+      await resetFirebaseForTesting();
+
+      const diagnostic = getFirebaseDiagnostic();
+      assert.strictEqual(diagnostic.project_id, 'smart-community-rt-78c93', 'Project ID harus smart-community-rt-78c93');
+      assert.strictEqual(diagnostic.simulation_mode, true, 'simulation_mode true karena kredensial belum ada');
+    });
+
+    const notificationService = require('./src/services/notification.service');
+    const { sendTestNotification } = require('./src/controllers/notification.controller');
+
+    function createMockRes() {
+      const resObj = {
+        code: 200,
+        body: null,
+        status(c) {
+          this.code = c;
+          return this;
+        },
+        json(d) {
+          this.body = d;
+          return this;
+        },
+      };
+      return resObj;
+    }
+
+    await itAsync('User non-admin dengan arbitrary/unowned token DITOLAK dengan HTTP 403 Forbidden', async () => {
+      const origIsOwned = notificationService.isTokenOwnedByUser;
+      notificationService.isTokenOwnedByUser = async () => false; // Simulasikan token bukan milik user
+
+      try {
+        const req = {
+          user: { id: 'uuid-user-warga-1', role: 'warga' },
+          body: { fcm_token: 'arbitrary_third_party_token_1234567890' },
+        };
+        const res = createMockRes();
+        await sendTestNotification(req, res);
+
+        assert.strictEqual(res.code, 403, 'Harus mengembalikan HTTP 403');
+        assert.strictEqual(res.body.success, false);
+        assert(res.body.message.includes('Akses ditolak'), 'Pesan harus menyatakan akses ditolak');
+      } finally {
+        notificationService.isTokenOwnedByUser = origIsOwned;
+      }
+    });
+
+    await itAsync('User non-admin dengan token miliknya sendiri DIIZINKAN (HTTP 200)', async () => {
+      const origIsOwned = notificationService.isTokenOwnedByUser;
+      notificationService.isTokenOwnedByUser = async () => true; // Simulasikan token valid milik user
+
+      try {
+        const req = {
+          user: { id: 'uuid-user-warga-1', role: 'warga' },
+          body: { fcm_token: 'owned_valid_token_1234567890' },
+        };
+        const res = createMockRes();
+        await sendTestNotification(req, res);
+
+        assert.strictEqual(res.code, 200, 'Harus mengembalikan HTTP 200');
+        assert.strictEqual(res.body.success, true);
+        assert(res.body.data.target_masked.includes('...'), 'Token target harus termasking');
+      } finally {
+        notificationService.isTokenOwnedByUser = origIsOwned;
+      }
+    });
+
+    await itAsync('Admin diizinkan menguji token tertentu untuk keperluan diagnostik (HTTP 200)', async () => {
+      const req = {
+        user: { id: 'uuid-admin-1', role: 'admin' },
+        body: { fcm_token: 'diagnostic_test_token_1234567890' },
+      };
+      const res = createMockRes();
+      await sendTestNotification(req, res);
+
+      assert.strictEqual(res.code, 200, 'Admin harus diizinkan (HTTP 200)');
+      assert.strictEqual(res.body.success, true);
+    });
+
+    await itAsync('Fallback ke token aktif user ketika fcm_token tidak diberikan (HTTP 200)', async () => {
+      const origGetTokens = notificationService.getTokensByUserId;
+      notificationService.getTokensByUserId = async () => ['active_user_token_abcdef123456'];
+
+      try {
+        const req = {
+          user: { id: 'uuid-user-warga-1', role: 'warga' },
+          body: {},
+        };
+        const res = createMockRes();
+        await sendTestNotification(req, res);
+
+        assert.strictEqual(res.code, 200, 'Harus mengembalikan HTTP 200');
+        assert.strictEqual(res.body.success, true);
+        assert.strictEqual(res.body.data.target_masked, 'active...3456');
+      } finally {
+        notificationService.getTokensByUserId = origGetTokens;
+      }
+    });
+
+    await itAsync('Mengembalikan HTTP 404 jika fcm_token tidak diberikan dan user tidak memiliki token aktif', async () => {
+      const origGetTokens = notificationService.getTokensByUserId;
+      notificationService.getTokensByUserId = async () => []; // Kosong
+
+      try {
+        const req = {
+          user: { id: 'uuid-user-warga-empty', role: 'warga' },
+          body: {},
+        };
+        const res = createMockRes();
+        await sendTestNotification(req, res);
+
+        assert.strictEqual(res.code, 404, 'Harus mengembalikan HTTP 404');
+        assert.strictEqual(res.body.success, false);
+      } finally {
+        notificationService.getTokensByUserId = origGetTokens;
+      }
+    });
+
+    await itAsync('Validasi input menolak title > 100 karakter atau kosong (HTTP 400)', async () => {
+      const res1 = createMockRes();
+      await sendTestNotification({ user: { id: 'u1', role: 'admin' }, body: { title: 'A'.repeat(101) } }, res1);
+      assert.strictEqual(res1.code, 400, 'Title > 100 harus HTTP 400');
+
+      const res2 = createMockRes();
+      await sendTestNotification({ user: { id: 'u1', role: 'admin' }, body: { title: '   ' } }, res2);
+      assert.strictEqual(res2.code, 400, 'Title kosong harus HTTP 400');
+    });
+
+    await itAsync('Validasi input menolak body > 500 karakter atau kosong (HTTP 400)', async () => {
+      const res1 = createMockRes();
+      await sendTestNotification({ user: { id: 'u1', role: 'admin' }, body: { body: 'B'.repeat(501) } }, res1);
+      assert.strictEqual(res1.code, 400, 'Body > 500 harus HTTP 400');
+
+      const res2 = createMockRes();
+      await sendTestNotification({ user: { id: 'u1', role: 'admin' }, body: { body: '   ' } }, res2);
+      assert.strictEqual(res2.code, 400, 'Body kosong harus HTTP 400');
+    });
+
+    await itAsync('Validasi input menolak fcm_token kosong atau > 500 karakter (HTTP 400)', async () => {
+      const res1 = createMockRes();
+      await sendTestNotification({ user: { id: 'u1', role: 'admin' }, body: { fcm_token: '   ' } }, res1);
+      assert.strictEqual(res1.code, 400, 'fcm_token kosong harus HTTP 400');
+
+      const res2 = createMockRes();
+      await sendTestNotification({ user: { id: 'u1', role: 'admin' }, body: { fcm_token: 'C'.repeat(501) } }, res2);
+      assert.strictEqual(res2.code, 400, 'fcm_token > 500 harus HTTP 400');
     });
 
     // ------------------------------------------------------------------------

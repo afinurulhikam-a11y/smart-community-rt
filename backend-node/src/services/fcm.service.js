@@ -49,6 +49,13 @@ function isInvalidTokenError(err) {
   return INVALID_TOKEN_ERRORS.some((pattern) => code.includes(pattern) || message.includes(pattern));
 }
 
+function maskToken(token) {
+  if (!token || typeof token !== 'string') return '[INVALID_TOKEN]';
+  const trimmed = token.trim();
+  if (trimmed.length <= 10) return '***';
+  return `${trimmed.slice(0, 6)}...${trimmed.slice(-4)}`;
+}
+
 async function deactivateInvalidToken(token, reason = 'invalid_or_unregistered') {
   if (!token) return;
   try {
@@ -60,7 +67,7 @@ async function deactivateInvalidToken(token, reason = 'invalid_or_unregistered')
       [token]
     );
     if (result.rowCount > 0) {
-      console.log(`ℹ️ FCM Service: Token dinonaktifkan (${reason}): ${token.slice(0, 16)}...`);
+      console.log(`ℹ️ FCM Service: Token dinonaktifkan (${reason}): ${maskToken(token)}`);
     }
   } catch (dbErr) {
     console.error('⚠️ Gagal menonaktifkan token invalid di database:', dbErr.message);
@@ -118,7 +125,7 @@ async function sendToToken(token, { title, body, data = {}, priority = 'high', c
   if (!messaging) {
     // Simulation Mode
     console.log('\n📲 [SIMULASI PUSH NOTIFIKASI FCM - CREDENTIAL BELUM DIPASANG]');
-    console.log(`  Target Token : ${cleanToken.slice(0, 20)}...`);
+    console.log(`  Target Token : ${maskToken(cleanToken)}`);
     console.log(`  Judul        : ${fcmPayload.notification.title}`);
     console.log(`  Isi Pesan    : ${fcmPayload.notification.body}`);
     console.log(`  Data Payload :`, fcmPayload.data);
@@ -184,7 +191,7 @@ async function sendToTokens(tokens, { title, body, data = {}, priority = 'high',
   if (!messaging) {
     // Simulation Mode
     console.log('\n📲 [SIMULASI MULTICAST FCM - CREDENTIAL BELUM DIPASANG]');
-    console.log(`  Target Tokens : ${uniqueTokens.length} perangkat`);
+    console.log(`  Target Tokens : ${uniqueTokens.length} perangkat (${uniqueTokens.map(maskToken).join(', ')})`);
     console.log(`  Judul         : ${fcmPayload.notification.title}`);
     console.log(`  Isi Pesan     : ${fcmPayload.notification.body}`);
     console.log(`  Data Payload  :`, fcmPayload.data);
@@ -330,4 +337,5 @@ module.exports = {
   isInvalidTokenError,
   isFirebaseConfigured,
   getFirebaseDiagnostic,
+  maskToken,
 };
