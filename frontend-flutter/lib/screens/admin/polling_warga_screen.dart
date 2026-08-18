@@ -83,7 +83,7 @@ class _PollingWargaScreenState extends State<PollingWargaScreen> {
                         color: const Color(0xFF0F766E).withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.bar_chart, color: Color(0xFF0F766E), size: 20),
+                      child: const Icon(Icons.bar_chart_rounded, color: Color(0xFF0F766E), size: 20),
                     ),
                     const SizedBox(width: 10),
                     Flexible(

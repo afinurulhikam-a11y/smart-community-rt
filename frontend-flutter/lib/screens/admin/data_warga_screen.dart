@@ -270,7 +270,7 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
                         color: const Color(0xFF1B7A6A).withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.people, color: Color(0xFF1B7A6A), size: 20),
+                      child: const Icon(Icons.people_outline, color: Color(0xFF1B7A6A), size: 20),
                     ),
                     const SizedBox(width: 10),
                     Flexible(
