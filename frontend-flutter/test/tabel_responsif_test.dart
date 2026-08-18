@@ -229,4 +229,30 @@ void main() {
     expect(find.widgetWithText(InkWell, '2'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('desktop memiliki Scrollbar horizontal dengan thumb dan drag support',
+      (tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      bungkus(TabelResponsif(
+        kolom: kolom,
+        baris: contohBaris(jumlah: 10),
+      )),
+    );
+    await tester.pump();
+
+    // Verifikasi Scrollbar terpasang di atas SingleChildScrollView mendatar
+    expect(find.byType(Scrollbar), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(Scrollbar),
+        matching: find.byType(SingleChildScrollView),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 }
