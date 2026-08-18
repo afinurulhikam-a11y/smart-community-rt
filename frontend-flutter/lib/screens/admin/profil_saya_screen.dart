@@ -59,8 +59,13 @@ class _ProfilSayaScreenState extends State<ProfilSayaScreen> {
       // menampilkan keadaan memuat sampai titik ini.
       _namaController.text = profil['nama']?.toString() ?? _namaController.text;
       _usernameController.text = profil['username']?.toString() ?? _usernameController.text;
-      _emailController.text = profil['email']?.toString() ?? '';
-      _noHpController.text = profil['no_hp']?.toString() ?? '';
+      final emailVal = profil['email']?.toString() ?? '';
+      final nikVal = profil['nik']?.toString() ?? '';
+      final unameVal = profil['username']?.toString() ?? '';
+      _emailController.text = (emailVal.isNotEmpty && emailVal != nikVal && emailVal != unameVal) ? emailVal : '';
+
+      final hpVal = profil['no_hp']?.toString() ?? '';
+      _noHpController.text = (hpVal.isNotEmpty && hpVal != '0000000000000000' && hpVal != '0') ? hpVal : '';
     });
   }
 
@@ -155,8 +160,13 @@ class _ProfilSayaScreenState extends State<ProfilSayaScreen> {
 
     final nama = (lengkap['nama'] ?? ringkas['nama'])?.toString() ?? 'Pengguna';
     final username = (lengkap['username'] ?? ringkas['username'])?.toString() ?? '-';
-    final email = lengkap['email']?.toString() ?? belumAda;
-    final noHp = lengkap['no_hp']?.toString() ?? '';
+    final rawEmail = lengkap['email']?.toString() ?? '';
+    final nikStr = lengkap['nik']?.toString() ?? '';
+    final email = (rawEmail.isNotEmpty && rawEmail != username && rawEmail != nikStr)
+        ? rawEmail
+        : belumAda;
+    final rawHp = lengkap['no_hp']?.toString() ?? '';
+    final noHp = (rawHp.isNotEmpty && rawHp != '0000000000000000' && rawHp != '0') ? rawHp : '';
     final roleLabel = auth.userRoleLabel;
     // Pengguna yang sedang melihat layar ini pasti aktif — akun nonaktif
     // ditolak middleware. Nilai dari server tetap dipakai bila sudah ada.

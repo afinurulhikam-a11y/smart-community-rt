@@ -383,10 +383,10 @@ async function tambahWargaLengkap(req, res) {
       const salt = await bcrypt.genSalt(10);
       const passwordHash = await bcrypt.hash(sandiAwal, salt);
 
-      // Note: we insert NIK into username. We also use NIK for email since email is unique but maybe required by old queries
+      // Email dikosongkan (null) secara bawaan agar warga bisa mengisinya sendiri di Profil Saya
       await client.query(
         'INSERT INTO users (username, email, password_hash, nama, no_hp, no_kk, alamat, role, is_active, nik, must_change_password) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true)',
-        [nik, nik, passwordHash, nama, no_hp, no_kk, alamat, 'warga', true, nik]
+        [nik, null, passwordHash, nama, (no_hp && no_hp.trim() !== '') ? no_hp.trim() : null, no_kk, alamat, 'warga', true, nik]
       );
     }
 
@@ -723,7 +723,7 @@ async function importWargaExcel(req, res) {
           const passwordHash = await bcrypt.hash(sandiAwal, salt);
           await client.query(
             'INSERT INTO users (username, email, password_hash, nama, no_hp, no_kk, alamat, role, is_active, nik, must_change_password) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true)',
-            [nik, nik, passwordHash, nama, no_hp || '-', no_kk, '-', 'warga', true, nik]
+            [nik, null, passwordHash, nama, (no_hp && no_hp.trim() !== '' && no_hp !== '-') ? no_hp.trim() : null, no_kk, '-', 'warga', true, nik]
           );
           // Dikumpulkan untuk dikembalikan sekali di akhir impor. Inilah
           // satu-satunya kesempatan sandi ini terbaca — setelah respons ini

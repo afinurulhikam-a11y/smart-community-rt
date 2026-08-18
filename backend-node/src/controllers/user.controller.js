@@ -192,7 +192,7 @@ async function getUserByNik(req, res) {
         data: {
           id: null,
           username: ak.nik,
-          email: ak.nik,
+          email: '',
           nama: ak.nama,
           no_hp: ak.no_hp || '',
           no_kk: ak.no_kk,
@@ -268,9 +268,11 @@ async function updateUserCredentials(req, res) {
       const salt = await bcrypt.genSalt(10);
       const hash = await bcrypt.hash(password.trim(), salt);
 
+      const noHpAwal = (no_hp && no_hp.trim() !== '') ? no_hp.trim() : (akRes.rows[0]?.no_hp || null);
+
       const newU = await client.query(
         'INSERT INTO users (username, email, password_hash, nama, no_hp, no_kk, alamat, role, is_active, nik, must_change_password) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, $9, true) RETURNING id',
-        [nik, nik, hash, nama, no_hp || akRes.rows[0]?.no_hp || null, noKk, alamat, 'warga', nik]
+        [nik, null, hash, nama, noHpAwal, noKk, alamat, 'warga', nik]
       );
       userId = newU.rows[0].id;
     } else {
