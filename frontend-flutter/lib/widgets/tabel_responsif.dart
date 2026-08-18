@@ -219,22 +219,34 @@ class _TabelResponsifState extends State<TabelResponsif> {
     // Layar yang tidak mengirim totalData memakai pagination lama di bawah.
     if (widget.totalData != null && widget.currentPage != null && widget.totalPages != null) {
       return Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           content,
-          const Divider(height: 1),
-          _buildFooter(context),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Divider(height: 1),
+              _buildFooter(context),
+            ],
+          ),
         ],
       );
     }
 
     if (widget.currentPage != null && widget.totalPages != null) {
       return Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           content,
-          const SizedBox(height: 16),
-          _buildPagination(context),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 16),
+              _buildPagination(context),
+            ],
+          ),
         ],
       );
     }
@@ -423,11 +435,9 @@ class _TabelResponsifState extends State<TabelResponsif> {
           behavior: const _PerilakuScrollMendatar(),
           child: Scrollbar(
             controller: _scrollController,
-            thumbVisibility: true,
-            trackVisibility: true,
             interactive: true,
-            thickness: 8.0,
-            radius: const Radius.circular(4.0),
+            thickness: 6.0,
+            radius: const Radius.circular(3.0),
             child: SingleChildScrollView(
               controller: _scrollController,
               scrollDirection: Axis.horizontal,
