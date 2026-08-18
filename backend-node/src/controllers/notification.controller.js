@@ -65,7 +65,27 @@ async function unregisterToken(req, res) {
   }
 }
 
+const { getFirebaseDiagnostic } = require('../config/firebase');
+
+async function getDiagnostic(req, res) {
+  try {
+    const diagnostic = getFirebaseDiagnostic();
+    return res.status(200).json({
+      success: true,
+      message: 'Status diagnostik Firebase FCM.',
+      data: diagnostic,
+    });
+  } catch (err) {
+    console.error('Get Notification Diagnostic Error:', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Terjadi kesalahan server saat mengambil status diagnostik notifikasi.',
+    });
+  }
+}
+
 module.exports = {
   registerToken,
   unregisterToken,
+  getDiagnostic,
 };

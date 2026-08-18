@@ -1,5 +1,5 @@
 const { pool } = require('../config/database');
-const { getMessaging, isFirebaseConfigured } = require('../config/firebase');
+const { getMessaging, isFirebaseConfigured, getFirebaseDiagnostic } = require('../config/firebase');
 
 /**
  * Service Pengirim Notifikasi Firebase Cloud Messaging (FCM).
@@ -329,4 +329,5 @@ module.exports = {
   deactivateInvalidToken,
   isInvalidTokenError,
   isFirebaseConfigured,
+  getFirebaseDiagnostic,
 };
