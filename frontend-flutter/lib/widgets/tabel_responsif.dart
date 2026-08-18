@@ -1,8 +1,22 @@
+import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 
 import '../core/responsif.dart';
 import '../core/theme/app_theme.dart';
 import '../core/theme/warna_konteks.dart';
+
+/// Perilaku scroll mendatar yang mengizinkan gesture sentuh, mouse drag, dan trackpad.
+class _PerilakuScrollMendatar extends MaterialScrollBehavior {
+  const _PerilakuScrollMendatar();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+      };
+}
 
 /// Satu sel: isi kolom beserta nama kolomnya.
 ///
@@ -82,7 +96,7 @@ class BarisTabel {
 /// mendatar sama sekali.
 ///
 /// Ambangnya [pakaiKartu], sama dengan yang dipakai sidebar dan grid.
-class TabelResponsif extends StatelessWidget {
+class TabelResponsif extends StatefulWidget {
   /// Judul kolom. Panjangnya harus sama dengan panjang `sel` setiap baris.
   final List<String> kolom;
 
@@ -146,23 +160,22 @@ class TabelResponsif extends StatelessWidget {
     fontWeight: FontWeight.bold,
   );
 
-  bool get _adaAksi => baris.any((b) => b.aksi != null);
+  @override
+  State<TabelResponsif> createState() => _TabelResponsifState();
+}
+
+class _TabelResponsifState extends State<TabelResponsif> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  bool get _adaAksi => widget.baris.any((b) => b.aksi != null);
 
   /// Rapatkan isi kolom aksi ke tepi kiri kolomnya.
-  ///
-  /// Menyejajarkan KOTAK tombol dengan judul kolom saja belum cukup: setiap
-  /// kontrol Material menaruh glifnya di TENGAH sasaran sentuh 48dp, sehingga
-  /// ikon 20px tampak masuk 14px ke dalam meski kotaknya sudah rata kiri.
-  /// Terukur begitu — dan itulah yang membuat kolomnya terlihat tidak lurus.
-  ///
-  /// Yang digeser hanya letak glif di dalam kotaknya, lewat `alignment` dan
-  /// `padding` pada gaya tombolnya. Ukuran kotaknya TIDAK dikecilkan, jadi
-  /// sasaran sentuh 48dp tetap utuh — mengecilkannya akan menukar kerapian
-  /// tampilan dengan tombol yang lebih sering meleset saat ditekan di ponsel.
-  ///
-  /// Disetel lewat `Theme` supaya berlaku untuk apa pun yang diletakkan di
-  /// kolom aksi — satu IconButton, PopupMenuButton, maupun sederet keduanya —
-  /// tanpa setiap layar perlu mengulang pengaturan yang sama.
   Widget _rapatkanAksi(BuildContext context, Widget aksi) {
     final tema = Theme.of(context);
     final gayaLama = tema.iconButtonTheme.style ?? const ButtonStyle();
@@ -183,13 +196,13 @@ class TabelResponsif extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     assert(
-      baris.every((b) => b.sel.length == kolom.length),
-      'Jumlah sel harus sama dengan jumlah kolom (${kolom.length}). '
+      widget.baris.every((b) => b.sel.length == widget.kolom.length),
+      'Jumlah sel harus sama dengan jumlah kolom (${widget.kolom.length}). '
       'Ketidakcocokan ini membuat DataTable melempar galat saat dirender.',
     );
 
-    if (baris.isEmpty) {
-      return kosong ??
+    if (widget.baris.isEmpty) {
+      return widget.kosong ??
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 40),
             child: Center(
@@ -204,7 +217,7 @@ class TabelResponsif extends StatelessWidget {
     // (satu-satunya cara tahu rentang "Menampilkan X–Y dari Z" yang benar) —
     // termasuk saat cuma satu halaman, supaya ringkasannya tetap terbaca.
     // Layar yang tidak mengirim totalData memakai pagination lama di bawah.
-    if (totalData != null && currentPage != null && totalPages != null) {
+    if (widget.totalData != null && widget.currentPage != null && widget.totalPages != null) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -215,7 +228,7 @@ class TabelResponsif extends StatelessWidget {
       );
     }
 
-    if (currentPage != null && totalPages != null) {
+    if (widget.currentPage != null && widget.totalPages != null) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -264,10 +277,10 @@ class TabelResponsif extends StatelessWidget {
   }
 
   Widget _buildFooter(BuildContext context) {
-    final halaman = currentPage ?? 1;
-    final totalHal = totalPages ?? 1;
-    final per = perPage ?? 10;
-    final total = totalData ?? 0;
+    final halaman = widget.currentPage ?? 1;
+    final totalHal = widget.totalPages ?? 1;
+    final per = widget.perPage ?? 10;
+    final total = widget.totalData ?? 0;
 
     // Rentang baris yang sedang tampil, mis. "1–10". Dihitung dari halaman,
     // bukan dari panjang baris, agar benar walau halaman terakhir lebih pendek.
@@ -298,27 +311,27 @@ class TabelResponsif extends StatelessWidget {
           context,
           '<',
           false,
-          halaman > 1 ? () => onPageChanged?.call(halaman - 1) : null,
+          halaman > 1 ? () => widget.onPageChanged?.call(halaman - 1) : null,
         ),
         for (int p = startPage; p <= endPage; p++)
           _pageBtn(
             context,
             '$p',
             p == halaman,
-            () => onPageChanged?.call(p),
+            () => widget.onPageChanged?.call(p),
           ),
         _pageBtn(
           context,
           '>',
           false,
-          halaman < totalHal ? () => onPageChanged?.call(halaman + 1) : null,
+          halaman < totalHal ? () => widget.onPageChanged?.call(halaman + 1) : null,
         ),
       ],
     );
 
     // Mode terpusat: hanya pagination ditampilkan, tanpa ringkasan, dan
     // berada di tengah baris.
-    if (footerTerpusat) {
+    if (widget.footerTerpusat) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Center(child: pagination()),
@@ -346,8 +359,8 @@ class TabelResponsif extends StatelessWidget {
   }
 
   Widget _buildPagination(BuildContext context) {
-    final halaman = currentPage ?? 1;
-    final totalHal = totalPages ?? 1;
+    final halaman = widget.currentPage ?? 1;
+    final totalHal = widget.totalPages ?? 1;
 
     int startPage = 1;
     int endPage = totalHal;
@@ -376,20 +389,20 @@ class TabelResponsif extends StatelessWidget {
               context,
               '<',
               false,
-              halaman > 1 ? () => onPageChanged?.call(halaman - 1) : null,
+              halaman > 1 ? () => widget.onPageChanged?.call(halaman - 1) : null,
             ),
             for (int p = startPage; p <= endPage; p++)
               _pageBtn(
                 context,
                 '$p',
                 p == halaman,
-                () => onPageChanged?.call(p),
+                () => widget.onPageChanged?.call(p),
               ),
             _pageBtn(
               context,
               '>',
               false,
-              halaman < totalHal ? () => onPageChanged?.call(halaman + 1) : null,
+              halaman < totalHal ? () => widget.onPageChanged?.call(halaman + 1) : null,
             ),
           ],
         ),
@@ -406,56 +419,51 @@ class TabelResponsif extends StatelessWidget {
             constraints.maxWidth.isFinite && constraints.maxWidth > 0
                 ? constraints.maxWidth
                 : 0.0;
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minWidth: targetWidth),
-            child: DataTable(
-              dataRowMinHeight: tinggiBarisMin,
-              dataRowMaxHeight: tinggiBarisMaks,
-              headingTextStyle: _gayaJudulKolom(context),
-              dataTextStyle: Theme.of(context).textTheme.bodyMedium,
-              columns: [
-                for (int i = 0; i < kolom.length; i++)
-                  DataColumn(label: judulKolom?[i] ?? Text(kolom[i])),
-                // Judul kolom aksi TIDAK dibungkus Center.
-                //
-                // `DataTable` membungkus setiap label kolom di dalam
-                // `Flexible` pada sebuah `Row`, sementara isi selnya tidak.
-                // Akibatnya `Center` pada judul menyusut mengikuti lebar
-                // teksnya sendiri dan menempel di kiri kolom, sedangkan
-                // `Center` pada selnya melebar dan benar-benar ke tengah —
-                // tombolnya terukur 140px di kanan judulnya.
-                //
-                // Keduanya kini rata kiri, sehingga selalu berada pada sumbu
-                // vertikal yang sama berapa pun lebar kolomnya. Kolom terakhir
-                // menyerap sisa lebar tabel, jadi menyandarkan keduanya pada
-                // "tengah" tidak pernah bisa diandalkan.
-                if (_adaAksi) DataColumn(label: Text(labelAksi)),
-              ],
-              rows: [
-                for (final b in baris)
-                  DataRow(
-                    color: b.warna == null ? null : WidgetStatePropertyAll(b.warna!),
-                    onSelectChanged: b.onTap == null ? null : (_) => b.onTap!(),
-                    cells: [
-                      for (final s in b.sel) DataCell(s.isi),
-                      // Baris tanpa tombol tetap butuh selnya, kalau tidak jumlah sel
-                      // tidak cocok dengan jumlah kolom dan DataTable melempar galat.
-                      //
-                      // Rata kiri, menyamai judul kolomnya — lihat komentar di
-                      // atas untuk alasan kenapa "tengah" tidak bisa dipakai,
-                      // dan `_rapatkanAksi` untuk kenapa kotak yang rata saja
-                      // belum membuat ikonnya terlihat lurus.
-                      if (_adaAksi)
-                        DataCell(
-                          b.aksi == null
-                              ? const SizedBox.shrink()
-                              : _rapatkanAksi(context, b.aksi!),
-                        ),
-                    ],
-                  ),
-              ],
+        return ScrollConfiguration(
+          behavior: const _PerilakuScrollMendatar(),
+          child: Scrollbar(
+            controller: _scrollController,
+            thumbVisibility: true,
+            trackVisibility: true,
+            interactive: true,
+            thickness: 8.0,
+            radius: const Radius.circular(4.0),
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: targetWidth),
+                child: DataTable(
+                  dataRowMinHeight: widget.tinggiBarisMin,
+                  dataRowMaxHeight: widget.tinggiBarisMaks,
+                  headingTextStyle: TabelResponsif._gayaJudulKolom(context),
+                  dataTextStyle: Theme.of(context).textTheme.bodyMedium,
+                  columns: [
+                    for (int i = 0; i < widget.kolom.length; i++)
+                      DataColumn(label: widget.judulKolom?[i] ?? Text(widget.kolom[i])),
+                    if (_adaAksi) DataColumn(label: Text(widget.labelAksi)),
+                  ],
+                  rows: [
+                    for (final b in widget.baris)
+                      DataRow(
+                        color: b.warna == null ? null : WidgetStatePropertyAll(b.warna!),
+                        onSelectChanged: b.onTap == null ? null : (_) => b.onTap!(),
+                        cells: [
+                          for (final s in b.sel) DataCell(s.isi),
+                          if (_adaAksi)
+                            DataCell(
+                              b.aksi == null
+                                  ? const SizedBox.shrink()
+                                  : _rapatkanAksi(context, b.aksi!),
+                            ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
             ),
           ),
         );
@@ -468,9 +476,9 @@ class TabelResponsif extends StatelessWidget {
   Widget _daftarKartu(BuildContext context) {
     return Column(
       children: [
-        for (int i = 0; i < baris.length; i++) ...[
+        for (int i = 0; i < widget.baris.length; i++) ...[
           if (i > 0) const SizedBox(height: 10),
-          _kartu(context, baris[i]),
+          _kartu(context, widget.baris[i]),
         ],
       ],
     );
@@ -481,9 +489,6 @@ class TabelResponsif extends StatelessWidget {
     final sisa = b.sel.where((s) => !s.utama && !s.sembunyiDiKartu).toList();
     final teks = Theme.of(context).textTheme;
 
-    // Card, bukan Container berhias sendiri: warna, radius, dan garis tepinya
-    // datang dari tema, jadi kartu di sini tidak akan menyimpang dari kartu
-    // lain saat temanya berubah — termasuk saat mode gelap dinyalakan.
     return Card(
       color: b.warna,
       child: InkWell(
@@ -520,14 +525,9 @@ class TabelResponsif extends StatelessWidget {
       children: [
         SizedBox(width: 104, child: Text(s.label, style: teks.bodySmall)),
         const SizedBox(width: AppTheme.spasiS),
-        // Expanded, bukan lebar tetap: isinya bisa teks panjang, lencana,
-        // atau apa pun, dan hanya sisa ruang yang tersedia untuknya.
         Expanded(
           child: Align(
             alignment: Alignment.centerLeft,
-            // bodyMedium = 14sp. Nilai di kartu dulu 13px dan labelnya 11px —
-            // kerapatan dasbor desktop, dan itulah yang membuat daftar di
-            // ponsel terbaca berdesakan.
             child: DefaultTextStyle.merge(style: teks.bodyMedium!, child: s.isi),
           ),
         ),
