@@ -17,26 +17,36 @@ import '../../providers/visitor_provider.dart';
 /// Service penyegaran data bisnis terpusat ketika notification intent dibuka oleh pengguna.
 ///
 /// Memetakan seluruh 11 tipe entitas ke provider bisnis terkait secara aman,
-/// mencegah pemanggilan API ganda (deduplikasi), dan menjamin kegagalan jaringan
-/// tidak merusak navigasi atau menjatuhkan aplikasi.
+/// mencegah pemanggilan API ganda (deduplikasi dengan batas TTL 15 menit dan bounded cache),
+/// serta menjamin kegagalan jaringan tidak merusak navigasi atau menjatuhkan aplikasi.
 class NotificationDataRefresher {
   NotificationDataRefresher._();
   static final NotificationDataRefresher instance = NotificationDataRefresher._();
 
-  final Set<String> _refreshedIntentKeys = {};
+  final Map<String, DateTime> _refreshedEntries = {};
   static const int _maxRefreshedHistory = 100;
+  static const Duration _refreshTTL = Duration(minutes: 15);
 
-  /// Memeriksa apakah intent ini sudah memicu refresh data sebelumnya.
-  bool sudahDirefresh(NotificationIntent intent) {
-    return _refreshedIntentKeys.contains(intent.deduplicationKey);
+  /// Memeriksa apakah intent ini sudah memicu refresh data sebelumnya dalam jendela TTL.
+  bool sudahDirefresh(NotificationIntent intent, {DateTime? now}) {
+    _bersihkanStaleEntries(now: now);
+    return _refreshedEntries.containsKey(intent.deduplicationKey);
   }
 
   /// Mencatat bahwa intent ini telah memicu refresh data.
-  void catatRefreshed(NotificationIntent intent) {
-    if (_refreshedIntentKeys.length >= _maxRefreshedHistory) {
-      _refreshedIntentKeys.remove(_refreshedIntentKeys.first);
+  void catatRefreshed(NotificationIntent intent, {DateTime? now}) {
+    _bersihkanStaleEntries(now: now);
+    if (_refreshedEntries.length >= _maxRefreshedHistory) {
+      _refreshedEntries.remove(_refreshedEntries.keys.first);
     }
-    _refreshedIntentKeys.add(intent.deduplicationKey);
+    _refreshedEntries[intent.deduplicationKey] = now ?? DateTime.now();
+  }
+
+  void _bersihkanStaleEntries({DateTime? now}) {
+    final currentTime = now ?? DateTime.now();
+    _refreshedEntries.removeWhere((key, timestamp) {
+      return currentTime.difference(timestamp) > _refreshTTL;
+    });
   }
 
   /// Memicu penyegaran data bisnis secara aman sesuai [NotificationIntent].
@@ -135,8 +145,8 @@ class NotificationDataRefresher {
     }
   }
 
-  /// Membersihkan cache riwayat intent yang sudah direfresh.
+  /// Membersihkan cache riwayat intent yang sudah direfresh (saat logout / reset).
   void bersihkan() {
-    _refreshedIntentKeys.clear();
+    _refreshedEntries.clear();
   }
 }
