@@ -125,62 +125,100 @@ class _BillListScreenState extends State<BillListScreen> with SingleTickerProvid
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Pembayaran Masih Berjalan'),
-        content: Text(
-          orderId != null
-              ? 'Anda memiliki pembayaran yang belum selesai (Order ID: $orderId).\n\n'
-                'Anda dapat melanjutkan pembayaran sebelumnya atau membatalkannya untuk membuat pembayaran baru.'
-              : 'Sebagian tagihan memiliki transaksi pembayaran yang sedang berjalan.\n\n'
-                'Apakah Anda ingin membatalkan pembayaran sebelumnya?',
+        title: Row(
+          children: [
+            const Icon(Icons.info_outline_rounded, color: AppTheme.warningColor),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Pembayaran Masih Berjalan',
+                style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Tutup'),
+        content: SizedBox(
+          width: lebarDialog(ctx, maksimal: 420),
+          child: Text(
+            orderId != null
+                ? 'Anda memiliki pembayaran yang belum selesai (Order ID: $orderId).\n\n'
+                  'Anda dapat melanjutkan pembayaran sebelumnya atau membatalkannya untuk membuat pembayaran baru.'
+                : 'Sebagian tagihan memiliki transaksi pembayaran yang sedang berjalan.\n\n'
+                  'Apakah Anda ingin membatalkan pembayaran sebelumnya?',
+            style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                  color: ctx.teksKedua,
+                  height: 1.5,
+                ),
           ),
-          if (trxLama != null && trxLama.redirectUrl != null && trxLama.redirectUrl!.isNotEmpty)
-            ElevatedButton.icon(
-              icon: const Icon(Icons.payment_rounded, size: 16),
-              label: const Text('Lanjutkan Pembayaran'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _hijau,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        actions: [
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (trxLama != null && trxLama.redirectUrl != null && trxLama.redirectUrl!.isNotEmpty) ...[
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.payment_rounded, size: 18),
+                  label: const Text('Lanjutkan Pembayaran'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _hijau,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    final adaPerubahan = await Navigator.of(context).push<bool>(
+                      MaterialPageRoute(builder: (_) => PaymentScreen(sesi: trxLama.toSession())),
+                    );
+                    if (!mounted) return;
+                    _terpilih.clear();
+                    if (adaPerubahan == true) {
+                      await context.read<BillProvider>().fetchBills();
+                    }
+                  },
+                ),
+                const SizedBox(height: 10),
+              ],
+              if (orderId != null) ...[
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Batalkan & Buat Baru'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFEF4444),
+                    side: const BorderSide(color: Color(0xFFEF4444)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    setState(() => _sedangProses = true);
+                    final success = await prov.batalkan(orderId);
+                    if (!mounted) return;
+                    setState(() => _sedangProses = false);
+                    if (success) {
+                      _pesan('Transaksi lama dibatalkan.', sukses: true);
+                      _bayar(semuaBelumLunas);
+                    } else {
+                      _pesan('Gagal membatalkan transaksi.', sukses: false);
+                    }
+                  },
+                ),
+                const SizedBox(height: 6),
+              ],
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: TextButton.styleFrom(
+                  foregroundColor: ctx.teksKedua,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+                child: const Text('Tutup'),
               ),
-              onPressed: () async {
-                Navigator.pop(ctx);
-                final adaPerubahan = await Navigator.of(context).push<bool>(
-                  MaterialPageRoute(builder: (_) => PaymentScreen(sesi: trxLama.toSession())),
-                );
-                if (!mounted) return;
-                _terpilih.clear();
-                if (adaPerubahan == true) {
-                  await context.read<BillProvider>().fetchBills();
-                }
-              },
-            ),
-          if (orderId != null)
-            OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFEF4444),
-                side: const BorderSide(color: Color(0xFFEF4444)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              onPressed: () async {
-                Navigator.pop(ctx);
-                setState(() => _sedangProses = true);
-                final success = await prov.batalkan(orderId);
-                if (!mounted) return;
-                setState(() => _sedangProses = false);
-                if (success) {
-                  _pesan('Transaksi lama dibatalkan.', sukses: true);
-                  _bayar(semuaBelumLunas);
-                } else {
-                  _pesan('Gagal membatalkan transaksi.', sukses: false);
-                }
-              },
-              child: const Text('Batalkan & Buat Baru'),
-            ),
+            ],
+          ),
         ],
       ),
     );
