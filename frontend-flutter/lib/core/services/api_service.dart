@@ -184,9 +184,15 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> delete(String url) async {
+  static Future<Map<String, dynamic>> delete(String url, {Map<String, dynamic>? body}) async {
     try {
-      final response = await _withRetry(() => http.delete(Uri.parse(url), headers: _headers));
+      final response = await _withRetry(
+        () => http.delete(
+          Uri.parse(url),
+          headers: _headers,
+          body: body != null ? jsonEncode(body) : null,
+        ),
+      );
       return _handleResponse(response);
     } catch (e) {
       return {'success': false, penandaOffline: true, 'message': 'Gagal terhubung ke server: $e'};

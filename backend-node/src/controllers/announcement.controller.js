@@ -1,5 +1,53 @@
 const { pool } = require('../config/database');
 const { logActivity, ringkas, TIPE } = require('../services/log.service');
+const dispatcher = require('../services/notification.dispatcher');
+
+/**
+ * Mengirim notifikasi push FCM kepada seluruh warga/pengurus aktif saat pengumuman baru diterbitkan.
+ *
+ * Bersifat fail-safe dan non-blocking: kegagalan FCM atau ketiadaan token tidak
+ * membatalkan pembuatan pengumuman di database.
+ */
+async function sendAnnouncementPushNotification(announcement) {
+  try {
+    if (!announcement || announcement.status !== 'publish') {
+      console.log(`ℹ️ [FCM Announcement] Pengumuman #${announcement?.id} berstatus '${announcement?.status}', siaran FCM dilewati.`);
+      return { skipped: true, reason: 'not_published' };
+    }
+
+    const title = `📢 Pengumuman: ${announcement.judul}`;
+    const cleanIsi = String(announcement.isi || '').trim();
+    const body = cleanIsi.length > 120 ? `${cleanIsi.slice(0, 117)}...` : cleanIsi;
+
+    const pushResult = await dispatcher.sendToAllActive({
+      title,
+      body,
+      data: {
+        entity_type: 'announcement',
+        entity_id: String(announcement.id),
+        kategori: String(announcement.kategori || 'Umum'),
+        created_at: announcement.created_at
+          ? new Date(announcement.created_at).toISOString()
+          : new Date().toISOString(),
+      },
+      priority: 'high',
+      collapseKey: 'announcement_broadcast',
+    });
+
+    console.log(
+      `🔔 [FCM Announcement] Hasil Siaran Pengumuman #${announcement.id}:\n` +
+      `   - Total Token : ${pushResult.tokensCount || 0} perangkat aktif\n` +
+      `   - Berhasil    : ${pushResult.successCount ?? (pushResult.simulated ? pushResult.tokensCount : 0)}\n` +
+      `   - Gagal       : ${pushResult.failureCount ?? 0}\n` +
+      `   - Mode        : ${pushResult.simulated ? 'Simulasi' : 'Live'}`
+    );
+
+    return pushResult;
+  } catch (err) {
+    console.error('⚠️ [FCM Announcement] Gagal mengirim push notification pengumuman:', err.message);
+    return { error: err.message };
+  }
+}
 
 async function getAnnouncements(req, res) {
   try {
@@ -28,6 +76,9 @@ async function createAnnouncement(req, res) {
     );
     const p = result.rows[0];
     await logActivity(req, TIPE.CREATE, `Membuat pengumuman "${ringkas(p.judul)}" — kategori ${p.kategori || '-'}, status ${p.status}`);
+
+    // Siaran push notifikasi FCM secara non-blocking di latar
+    dispatcher.dispatchAsync(() => sendAnnouncementPushNotification(p), 'Announcement');
 
     return res.status(201).json({ success: true, message: 'Pengumuman berhasil dibuat.', data: result.rows[0] });
   } catch (err) {
@@ -69,4 +120,10 @@ async function deleteAnnouncement(req, res) {
   }
 }
 
-module.exports = { getAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement };
+module.exports = {
+  getAnnouncements,
+  createAnnouncement,
+  updateAnnouncement,
+  deleteAnnouncement,
+  sendAnnouncementPushNotification,
+};

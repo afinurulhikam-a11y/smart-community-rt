@@ -4,6 +4,170 @@ const { pastikanTerpasang, CLIENT_KEY, IS_PRODUCTION } = require('../config/midt
 const midtrans = require('../services/midtrans.service');
 const { catatKeKasRt, STATUS_LUNAS } = require('./bill.controller');
 const { logActivity, logSistem, rupiah, TIPE } = require('../services/log.service');
+const dispatcher = require('../services/notification.dispatcher');
+
+/**
+ * Mengirim notifikasi push FCM ke pembayar saat transaksi pembayaran berhasil (settlement).
+ *
+ * Menggunakan Durable Database Idempotency (payment_transactions.fcm_dispatch_status / bill_payments.fcm_dispatch_status).
+ * Mencegah siaran ganda jika webhook Midtrans dipanggil berulang kali atau concurrent.
+ */
+async function sendPaymentSuccessPushNotification(trx, bills = []) {
+  if (!trx || (!trx.id && !trx.order_id)) {
+    return { skipped: true, reason: 'invalid_transaction' };
+  }
+
+  try {
+    // 1. Klaim atomik status dispatch transaksi pembayaran
+    let claimResult = null;
+    if (trx.id) {
+      // Cek apakah trx.id ada di payment_transactions atau bill_payments
+      claimResult = await pool.query(
+        `UPDATE payment_transactions
+         SET fcm_dispatch_status = 'pending'
+         WHERE id = $1
+           AND (fcm_dispatch_status = 'unsent' OR fcm_dispatch_status = 'failed' OR fcm_dispatch_status IS NULL)
+         RETURNING id, fcm_dispatch_status`,
+        [trx.id]
+      );
+      if (claimResult.rows.length === 0) {
+        // Coba di bill_payments jika berasal dari pembayaran manual
+        claimResult = await pool.query(
+          `UPDATE bill_payments
+           SET fcm_dispatch_status = 'pending'
+           WHERE id = $1
+             AND (fcm_dispatch_status = 'unsent' OR fcm_dispatch_status = 'failed' OR fcm_dispatch_status IS NULL)
+           RETURNING id, fcm_dispatch_status`,
+          [trx.id]
+        );
+      }
+    } else if (trx.order_id) {
+      claimResult = await pool.query(
+        `UPDATE payment_transactions
+         SET fcm_dispatch_status = 'pending'
+         WHERE order_id = $1
+           AND (fcm_dispatch_status = 'unsent' OR fcm_dispatch_status = 'failed' OR fcm_dispatch_status IS NULL)
+         RETURNING id, fcm_dispatch_status`,
+        [trx.order_id]
+      );
+    }
+
+    if (!claimResult || claimResult.rows.length === 0) {
+      console.log(`ℹ️ [FCM Payment] Transaksi #${trx.order_id || trx.id} tidak dapat diklaim (sudah dikirim/sedang diproses), siaran duplikat dicegah.`);
+      return { skipped: true, reason: 'already_sent_or_processing' };
+    }
+
+    // 2. Cari target user penerima
+    let targetUserId = trx.user_id;
+    if (!targetUserId && bills.length > 0) {
+      targetUserId = bills[0].user_id;
+    }
+    if (!targetUserId && trx.keluarga_id) {
+      const familyUser = await pool.query(
+        `SELECT u.id FROM users u
+         LEFT JOIN anggota_keluarga ak ON ak.nik = u.nik
+         LEFT JOIN keluarga k ON k.id = ak.keluarga_id OR k.no_kk = u.no_kk
+         WHERE k.id = $1 AND u.is_active = true
+         LIMIT 1`,
+        [trx.keluarga_id]
+      );
+      targetUserId = familyUser.rows[0]?.id;
+    }
+
+    if (!targetUserId) {
+      console.log(`ℹ️ [FCM Payment] Tidak ditemukan user target untuk transaksi #${trx.order_id || trx.id}.`);
+      return { skipped: true, reason: 'no_target_user' };
+    }
+
+    const userCheck = await pool.query(
+      `SELECT id, nama, is_active FROM users WHERE id = $1`,
+      [targetUserId]
+    );
+    if (userCheck.rows.length === 0 || !userCheck.rows[0].is_active) {
+      console.log(`ℹ️ [FCM Payment] User target #${targetUserId} nonaktif atau tidak ditemukan.`);
+      return { skipped: true, reason: 'inactive_or_missing_user' };
+    }
+
+    const nominalAngka = Number(trx.gross_amount || (bills.reduce((acc, b) => acc + Number(b.nominal || 0), 0)));
+    const title = '✅ Pembayaran Iuran Berhasil';
+    const periodeInfo = bills.map((b) => b.bulan).filter(Boolean).join(', ');
+    const body = `Pembayaran iuran ${periodeInfo ? `periode ${periodeInfo} ` : ''}sebesar ${rupiah(nominalAngka)} telah berhasil diterima & diverifikasi.`;
+
+    const billIds = bills.map((b) => String(b.id || b.bill_id)).filter(Boolean).join(',');
+
+    const pushResult = await dispatcher.sendToUser(targetUserId, {
+      title,
+      body,
+      data: {
+        entity_type: 'payment',
+        entity_id: String(trx.id || trx.order_id || ''),
+        order_id: String(trx.order_id || ''),
+        bill_id: billIds,
+        gross_amount: String(nominalAngka),
+        action: 'PAYMENT_SUCCESS',
+        status: 'settlement',
+        settled_at: new Date().toISOString(),
+      },
+      priority: 'high',
+      collapseKey: `payment_settled_${trx.order_id || trx.id}`,
+    });
+
+    if (pushResult.success === false && !pushResult.simulated) {
+      if (trx.id) {
+        await pool.query(
+          `UPDATE payment_transactions SET fcm_dispatch_status = 'failed' WHERE id = $1`,
+          [trx.id]
+        ).catch(() => {});
+        await pool.query(
+          `UPDATE bill_payments SET fcm_dispatch_status = 'failed' WHERE id = $1`,
+          [trx.id]
+        ).catch(() => {});
+      }
+      console.error(`⚠️ [FCM Payment] Gagal mengirim push pembayaran #${trx.order_id || trx.id}:`, pushResult.error);
+      return pushResult;
+    }
+
+    if (trx.id) {
+      await pool.query(
+        `UPDATE payment_transactions SET fcm_dispatch_status = 'sent' WHERE id = $1`,
+        [trx.id]
+      ).catch(() => {});
+      await pool.query(
+        `UPDATE bill_payments SET fcm_dispatch_status = 'sent' WHERE id = $1`,
+        [trx.id]
+      ).catch(() => {});
+    } else if (trx.order_id) {
+      await pool.query(
+        `UPDATE payment_transactions SET fcm_dispatch_status = 'sent' WHERE order_id = $1`,
+        [trx.order_id]
+      ).catch(() => {});
+    }
+
+    console.log(
+      `🔔 [FCM Payment] Notifikasi Pembayaran Berhasil #${trx.order_id || trx.id}:\n` +
+      `   - Target Pembayar : ${userCheck.rows[0].nama} (${targetUserId})\n` +
+      `   - Total Token     : ${pushResult.tokensCount || 0} perangkat aktif\n` +
+      `   - Berhasil        : ${pushResult.successCount ?? (pushResult.simulated ? pushResult.tokensCount : 0)}\n` +
+      `   - Gagal           : ${pushResult.failureCount ?? 0}\n` +
+      `   - Mode            : ${pushResult.simulated ? 'Simulasi' : 'Live'}`
+    );
+
+    return pushResult;
+  } catch (err) {
+    if (trx.id) {
+      await pool.query(
+        `UPDATE payment_transactions SET fcm_dispatch_status = 'failed' WHERE id = $1`,
+        [trx.id]
+      ).catch(() => {});
+      await pool.query(
+        `UPDATE bill_payments SET fcm_dispatch_status = 'failed' WHERE id = $1`,
+        [trx.id]
+      ).catch(() => {});
+    }
+    console.error('⚠️ [FCM Payment] Error dispatch pembayaran sukses:', err.message);
+    return { error: err.message };
+  }
+}
 
 /**
  * Pembayaran iuran lewat Midtrans.
@@ -336,6 +500,9 @@ async function terapkanStatus(orderId, data) {
       { pelaku: 'Midtrans' }
     );
 
+    // Siaran push notifikasi FCM ke pembayar secara non-blocking
+    dispatcher.dispatchAsync(() => sendPaymentSuccessPushNotification(trx, daftar.rows), 'PaymentWebhook');
+
     return { ok: true, status: 'settlement', jumlah_tagihan: daftar.rows.length };
   } catch (err) {
     await client.query('ROLLBACK');
@@ -564,4 +731,5 @@ module.exports = {
   batalkan,
   halamanSelesai,
   terapkanStatus,
+  sendPaymentSuccessPushNotification,
 };

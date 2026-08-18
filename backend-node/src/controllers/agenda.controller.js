@@ -1,5 +1,125 @@
 const { pool } = require('../config/database');
 const { logActivity, ringkas, TIPE } = require('../services/log.service');
+const dispatcher = require('../services/notification.dispatcher');
+
+const STATUS_AKTIF_AGENDA = ['Akan Datang', 'Terjadwal', 'Berjalan', 'publish', 'aktif'];
+
+/**
+ * Mengirim notifikasi push FCM ke seluruh Warga & Pengurus aktif saat Agenda Baru dibuat dan berstatus aktif/publish.
+ *
+ * Menggunakan Durable Database Idempotency (agenda.fcm_dispatch_status).
+ * Bersifat fail-safe & non-blocking: kegagalan FCM tidak membatalkan pembuatan agenda.
+ */
+async function sendNewAgendaPushNotification(agenda) {
+  if (!agenda || !agenda.id) {
+    return { skipped: true, reason: 'invalid_agenda' };
+  }
+
+  const rawStatus = String(agenda.status || 'Akan Datang').trim();
+  const isActive = STATUS_AKTIF_AGENDA.some((s) => s.toLowerCase() === rawStatus.toLowerCase());
+
+  if (!isActive) {
+    console.log(`ℹ️ [FCM Agenda] Agenda #${agenda.id} berstatus '${rawStatus}' (bukan aktif/publish), push dilewati.`);
+    return { skipped: true, reason: 'agenda_not_active' };
+  }
+
+  try {
+    // 1. Klaim atomik status dispatch agenda baru (Race Condition & Durable Idempotency Guard)
+    const claimResult = await pool.query(
+      `UPDATE agenda
+       SET fcm_dispatch_status = 'pending'
+       WHERE id = $1
+         AND (fcm_dispatch_status = 'unsent' OR fcm_dispatch_status = 'failed' OR fcm_dispatch_status IS NULL)
+       RETURNING id, fcm_dispatch_status`,
+      [agenda.id]
+    );
+
+    if (claimResult.rows.length === 0) {
+      const check = await pool.query(`SELECT fcm_dispatch_status FROM agenda WHERE id = $1`, [agenda.id]);
+      const curStatus = check.rows[0]?.fcm_dispatch_status || 'unknown';
+      console.log(`ℹ️ [FCM Agenda] Agenda #${agenda.id} tidak dapat diklaim (status: '${curStatus}'), siaran duplikat dicegah.`);
+      return { skipped: true, reason: curStatus === 'sent' ? 'already_sent' : 'already_processing' };
+    }
+
+    const cleanJudul = String(agenda.judul || 'Agenda Kegiatan RT').trim();
+    const cleanDeskripsi = String(agenda.deskripsi || '').trim();
+    const tglStr = agenda.tanggal ? String(agenda.tanggal).slice(0, 10) : '';
+    const waktuStr = agenda.waktu_mulai ? String(agenda.waktu_mulai).slice(0, 5) : '';
+    const lokasiStr = String(agenda.lokasi || '').trim();
+
+    const infoJadwal = [
+      tglStr ? `Tgl: ${tglStr}` : null,
+      waktuStr ? `Pukul: ${waktuStr} WIB` : null,
+      lokasiStr ? `Lokasi: ${lokasiStr}` : null,
+    ].filter(Boolean).join(' | ');
+
+    const title = `📅 Agenda Baru: ${cleanJudul}`;
+    const body = infoJadwal
+      ? `${infoJadwal}${cleanDeskripsi ? ` — ${cleanDeskripsi.length > 80 ? `${cleanDeskripsi.slice(0, 77)}...` : cleanDeskripsi}` : ''}`
+      : (cleanDeskripsi || 'Agenda kegiatan baru telah ditambahkan ke jadwal RT.');
+
+    const pushResult = await dispatcher.sendToAllActive({
+      title,
+      body,
+      data: {
+        entity_type: 'agenda',
+        entity_id: String(agenda.id),
+        action: 'NEW_AGENDA',
+        judul: cleanJudul,
+        tipe: String(agenda.tipe || 'Kegiatan'),
+        tanggal: tglStr,
+        waktu_mulai: waktuStr,
+        lokasi: lokasiStr,
+        status: rawStatus,
+        created_at: agenda.created_at
+          ? new Date(agenda.created_at).toISOString()
+          : new Date().toISOString(),
+      },
+      priority: 'normal',
+      collapseKey: 'agenda_broadcast',
+    });
+
+    if (pushResult.skipped && pushResult.reason === 'no_active_users') {
+      console.log('ℹ️ [FCM Agenda] Tidak ada user aktif untuk menerima notifikasi agenda baru.');
+      await pool.query(
+        `UPDATE agenda SET fcm_dispatch_status = 'sent' WHERE id = $1`,
+        [agenda.id]
+      );
+      return pushResult;
+    }
+
+    if (pushResult.success === false && !pushResult.simulated) {
+      await pool.query(
+        `UPDATE agenda SET fcm_dispatch_status = 'failed' WHERE id = $1`,
+        [agenda.id]
+      );
+      console.error(`⚠️ [FCM Agenda] Gagal mengirim push agenda baru #${agenda.id}:`, pushResult.error);
+      return pushResult;
+    }
+
+    await pool.query(
+      `UPDATE agenda SET fcm_dispatch_status = 'sent' WHERE id = $1`,
+      [agenda.id]
+    );
+
+    console.log(
+      `🔔 [FCM Agenda] Notifikasi Agenda Baru #${agenda.id} [${cleanJudul}]:\n` +
+      `   - Total Token : ${pushResult.tokensCount || 0} perangkat aktif\n` +
+      `   - Berhasil    : ${pushResult.successCount ?? (pushResult.simulated ? pushResult.tokensCount : 0)}\n` +
+      `   - Gagal       : ${pushResult.failureCount ?? 0}\n` +
+      `   - Mode        : ${pushResult.simulated ? 'Simulasi' : 'Live'}`
+    );
+
+    return pushResult;
+  } catch (err) {
+    await pool.query(
+      `UPDATE agenda SET fcm_dispatch_status = 'failed' WHERE id = $1`,
+      [agenda.id]
+    ).catch(() => {});
+    console.error('⚠️ [FCM Agenda] Error dispatch agenda baru:', err.message);
+    return { error: err.message };
+  }
+}
 
 async function getAgenda(req, res) {
   try {
@@ -63,6 +183,12 @@ async function createAgenda(req, res) {
     );
     const a = result.rows[0];
     await logActivity(req, TIPE.CREATE, `Membuat agenda "${ringkas(a.judul)}" — ${a.tipe || '-'}, tanggal ${a.tanggal ? String(a.tanggal).slice(0, 10) : '-'}`);
+
+    // Siaran push notifikasi FCM ke seluruh warga secara non-blocking jika agenda aktif/publish
+    const isActive = STATUS_AKTIF_AGENDA.some((s) => s.toLowerCase() === (cleanStatus || '').toLowerCase());
+    if (isActive) {
+      dispatcher.dispatchAsync(() => sendNewAgendaPushNotification(a), 'AgendaNew');
+    }
 
     return res.status(201).json({ success: true, message: 'Agenda berhasil dibuat.', data: a });
   } catch (err) {
@@ -138,4 +264,11 @@ async function deleteAgenda(req, res) {
   }
 }
 
-module.exports = { getAgenda, createAgenda, updateAgenda, deleteAgenda };
+module.exports = {
+  getAgenda,
+  createAgenda,
+  updateAgenda,
+  deleteAgenda,
+  sendNewAgendaPushNotification,
+  STATUS_AKTIF_AGENDA,
+};

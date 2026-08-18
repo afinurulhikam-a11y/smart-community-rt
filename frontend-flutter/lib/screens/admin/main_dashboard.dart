@@ -32,6 +32,7 @@ import '../../providers/polling_provider.dart';
 import '../../providers/family_provider.dart';
 import '../../providers/log_provider.dart';
 import '../../providers/reset_provider.dart';
+import '../../providers/notification_provider.dart';
 import '../../widgets/navigasi_bawah.dart';
 import '../../widgets/sidebar_menu.dart';
 import '../../widgets/gradient_stat_card.dart';
@@ -82,6 +83,7 @@ class _MainDashboardState extends State<MainDashboard> {
   bool _isEmergencyDialogShowing = false;
   final Set<String> _dismissedPopupAlertIds = {};
   final Set<String> _dismissingAlertIds = {};
+  int? _targetTabIndex;
 
   Timer? _autoRefreshTimer;
   bool _isRefreshing = false;
@@ -960,6 +962,26 @@ class _MainDashboardState extends State<MainDashboard> {
 
     final warga = auth.userRole == 'warga';
     final izin = context.watch<PermissionProvider>();
+    NotificationProvider? notif;
+    try {
+      notif = context.watch<NotificationProvider>();
+    } catch (_) {}
+
+    if (notif != null && notif.hasActiveIntent) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && notif?.hasActiveIntent == true) {
+          final currentIntent = notif?.activeIntent;
+          if (currentIntent != null) {
+            notif?.clearActiveIntent();
+            _pilihMenu(
+              currentIntent.targetMenuIndex,
+              tabIndex: currentIntent.targetTabIndex,
+            );
+          }
+        }
+      });
+    }
+
     final tujuan = tujuanNavigasi(warga: warga, izin: izin);
     final namaMenu = judulMenu(_selectedMenuIndex, warga: warga);
 
@@ -1165,12 +1187,15 @@ class _MainDashboardState extends State<MainDashboard> {
   /// layar sebelumnya — misalnya tombol "Pemasukan" tertinggal di Statistik.
   /// Layar tujuan yang memang punya aksi akan memasangnya kembali pada build
   /// yang sama, jadi tombolnya tidak berkedip.
-  void _pilihMenu(int indeks, {bool isBack = false}) {
+  void _pilihMenu(int indeks, {bool isBack = false, int? tabIndex}) {
     context.read<AksiUtamaProvider>().lepas();
     if (!isBack && _selectedMenuIndex != indeks) {
       _menuHistory.add(_selectedMenuIndex);
     }
-    setState(() => _selectedMenuIndex = indeks);
+    setState(() {
+      _selectedMenuIndex = indeks;
+      _targetTabIndex = tabIndex;
+    });
 
     // Kembali ke Beranda berarti memuat ulang kartu ringkasannya.
     //
@@ -1531,7 +1556,7 @@ class _MainDashboardState extends State<MainDashboard> {
       // warga melihat miliknya sendiri, pengurus mengelola milik seluruh RT.
       case 21:
         return warga
-            ? const BillListScreen()
+            ? BillListScreen(initialTabIndex: _targetTabIndex ?? 0)
             : IuranWargaScreen(onBack: _kembaliMenu);
       case 22:
         return warga
@@ -1553,7 +1578,10 @@ class _MainDashboardState extends State<MainDashboard> {
             ? const LetterRequestScreen()
             : SuratMenyuratScreen(onBack: _kembaliMenu);
       case 50:
-        return AgendaKegiatanScreen(onBack: _kembaliMenu);
+        return AgendaKegiatanScreen(
+          onBack: _kembaliMenu,
+          initialTabIndex: _targetTabIndex ?? 0,
+        );
       case 60:
         return StatusDaruratScreen(onBack: _kembaliMenu);
       case 61:
