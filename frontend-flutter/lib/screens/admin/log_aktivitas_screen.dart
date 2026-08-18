@@ -56,13 +56,12 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
     });
-    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      // Muat ulang otomatis hanya di halaman pertama tanpa penyaring apa pun.
-      // Kalau tidak, hasil yang sedang dibaca akan tergeser sendiri setiap
-      // lima detik justru saat seseorang sedang menelusuri sesuatu.
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      // Muat ulang di latar belakang (silent) tanpa memicu spinner dan tanpa merusak scroll.
+      // Hanya berjalan di halaman pertama tanpa penyaring aktif.
       if (mounted && !_adaPenyaring && _halaman == 1) {
         final provider = context.read<LogProvider>();
-        if (!provider.isLoading) _loadData();
+        if (!provider.isLoading) _loadData(silent: true);
       }
     });
   }
@@ -74,7 +73,7 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
     super.dispose();
   }
 
-  void _loadData() {
+  void _loadData({bool silent = false}) {
     final provider = context.read<LogProvider>();
     provider.fetchLogs(
       limit: _limit,
@@ -83,6 +82,7 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
       tipe: _tipe,
       dari: _dari,
       sampai: _sampai,
+      silent: silent,
     );
   }
 
@@ -459,14 +459,19 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
                                 icon: const Icon(Icons.close, size: 15),
                                 label: const Text('Bersihkan', style: TextStyle(fontSize: 12)),
                               ),
+                            TextButton.icon(
+                              onPressed: () => _loadData(silent: false),
+                              icon: const Icon(Icons.refresh_rounded, size: 15),
+                              label: const Text('Segarkan', style: TextStyle(fontSize: 12)),
+                            ),
                           ],
                         ),
                       ],
                     ),
                   ),
 
-                  // Data Table or Loader
-                  if (isLoading)
+                  // Data Table or Loader (hanya muncul spinner penuh jika data belum ada)
+                  if (isLoading && logs.isEmpty)
                     const Padding(
                       padding: EdgeInsets.all(40.0),
                       child: Center(child: CircularProgressIndicator(color: Color(0xFF3B82F6))),

@@ -47,7 +47,12 @@ const TIPE = Object.freeze({
 function ambilIp(req) {
   if (!req) return null;
   const mentah =
-    req.headers?.['x-forwarded-for'] || req.socket?.remoteAddress || req.ip || '127.0.0.1';
+    req.headers?.['cf-connecting-ip'] ||
+    req.headers?.['x-real-ip'] ||
+    req.headers?.['x-forwarded-for'] ||
+    req.socket?.remoteAddress ||
+    req.ip ||
+    '127.0.0.1';
   return (typeof mentah === 'string' ? mentah.split(',')[0].trim() : '127.0.0.1')
     .replace('::ffff:', '')
     .replace('::1', '127.0.0.1');
