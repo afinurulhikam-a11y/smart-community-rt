@@ -43,6 +43,7 @@ import 'providers/tema_provider.dart';
 import 'providers/koneksi_provider.dart';
 import 'core/services/cache_lokal.dart';
 import 'core/services/antrean_offline.dart';
+import 'core/services/notification_data_refresher.dart';
 
 // Screens
 import 'screens/login_screen.dart';
@@ -494,6 +495,7 @@ void bersihkanSemuaProvider(BuildContext context) {
     context.read<VisitorProvider>().bersihkan();
     context.read<WargaProvider>().bersihkan();
     context.read<NotificationProvider>().bersihkan();
+    NotificationDataRefresher.instance.bersihkan();
   } catch (_) {
     // Konteks bisa saja sudah dilepas ketika callback ini berjalan. Kegagalan
     // membersihkan tidak boleh menjatuhkan aplikasi di jalur logout — layar
