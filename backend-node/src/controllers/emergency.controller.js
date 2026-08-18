@@ -600,12 +600,12 @@ async function getAlerts(req, res) {
       COALESCE(
         NULLIF(TRIM(u.alamat), ''),
         NULLIF(TRIM(k.alamat), ''),
-        CASE WHEN k.blok IS NOT NULL AND TRIM(k.blok) != '' THEN CONCAT('Blok ', k.blok, COALESCE(CONCAT(' No. ', NULLIF(TRIM(k.nomor_rumah), '')), '')) ELSE NULL END,
+        CASE WHEN k.blok IS NOT NULL AND TRIM(k.blok) != '' THEN CONCAT('Blok ', k.blok) ELSE NULL END,
         'Alamat tidak tercatat'
       ) AS alamat,
-      COALESCE(NULLIF(TRIM(u.no_hp), ''), NULLIF(TRIM(ak.no_hp), ''), NULLIF(TRIM(k.no_telp), ''), '-') AS no_hp,
-      k.no_kk,
-      k.blok,
+      COALESCE(NULLIF(TRIM(u.no_hp), ''), NULLIF(TRIM(ak.no_hp), ''), '-') AS no_hp,
+      COALESCE(u.no_kk, k.no_kk, '') AS no_kk,
+      COALESCE(k.blok, '') AS blok,
       COALESCE(d.nama, CASE WHEN ea.dismissed_by IS NOT NULL THEN 'Pengurus RT' ELSE NULL END) AS dismissed_by_nama
       FROM emergency_alerts ea 
       LEFT JOIN users u ON ea.user_id = u.id 
