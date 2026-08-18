@@ -459,11 +459,6 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
                                 icon: const Icon(Icons.close, size: 15),
                                 label: const Text('Bersihkan', style: TextStyle(fontSize: 12)),
                               ),
-                            TextButton.icon(
-                              onPressed: () => _loadData(silent: false),
-                              icon: const Icon(Icons.refresh_rounded, size: 15),
-                              label: const Text('Segarkan', style: TextStyle(fontSize: 12)),
-                            ),
                           ],
                         ),
                       ],
