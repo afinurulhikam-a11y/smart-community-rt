@@ -1049,6 +1049,23 @@ CREATE TABLE public.users (
 
 
 --
+-- Name: user_fcm_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_fcm_tokens (
+    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
+    user_id uuid NOT NULL,
+    fcm_token text NOT NULL,
+    device_type character varying(20) DEFAULT 'android'::character varying,
+    device_name character varying(100),
+    is_active boolean DEFAULT true,
+    last_used_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--
 -- Name: visitors; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1615,6 +1632,22 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- Name: user_fcm_tokens user_fcm_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_fcm_tokens
+    ADD CONSTRAINT user_fcm_tokens_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_fcm_tokens user_fcm_tokens_fcm_token_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_fcm_tokens
+    ADD CONSTRAINT user_fcm_tokens_fcm_token_key UNIQUE (fcm_token);
+
+
+--
 -- Name: visitors visitors_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1844,6 +1877,20 @@ CREATE INDEX idx_users_aktif ON public.users USING btree (id) WHERE (deleted_at 
 --
 
 CREATE INDEX idx_users_nik ON public.users USING btree (nik);
+
+
+--
+-- Name: idx_user_fcm_tokens_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_fcm_tokens_user_id ON public.user_fcm_tokens USING btree (user_id);
+
+
+--
+-- Name: idx_user_fcm_tokens_fcm_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_fcm_tokens_fcm_token ON public.user_fcm_tokens USING btree (fcm_token);
 
 
 --
@@ -2288,6 +2335,14 @@ ALTER TABLE ONLY public.tiket_unduh
 
 ALTER TABLE ONLY public.visitors
     ADD CONSTRAINT visitors_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: user_fcm_tokens user_fcm_tokens_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_fcm_tokens
+    ADD CONSTRAINT user_fcm_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --
