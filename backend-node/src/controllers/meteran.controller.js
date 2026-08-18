@@ -559,7 +559,7 @@ async function koreksiMeteran(req, res) {
       [baru.bill_id || null, baru.keluarga_id, baru.periode]
     );
 
-    if (billRes.rows.length > 0 && billRes.rows[0].status !== 'lunas') {
+    if (billRes.rows.length > 0 && billRes.rows[0].status !== 'lunas' && billRes.rows[0].status !== 'paid') {
       const b = billRes.rows[0];
       const air = rincianTagihanAir({
         meteranLalu: baru.meteran_lalu,
@@ -575,7 +575,7 @@ async function koreksiMeteran(req, res) {
              meteran_sekarang = $2,
              nominal = $3,
              updated_at = NOW()
-         WHERE id = $4 AND status != 'lunas'`,
+         WHERE id = $4 AND status NOT IN ('lunas', 'paid')`,
         [air.meteran_lalu, air.meteran_sekarang, air.total, b.id]
       );
     }
