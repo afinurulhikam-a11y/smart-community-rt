@@ -5,18 +5,22 @@ import '../models/notification_intent.dart';
 /// notifikasi FCM ke menu/layar target di dalam aplikasi, serta mengelola
 /// in-app foreground notification banner yang konsisten dengan desain UI.
 ///
-/// Dirancang bersih tanpa dependensi pada `BuildContext` dan sepenuhnya
-/// dapat diuji (testable) secara terisolasi.
+/// Dirancang bersih tanpa dependensi pada `BuildContext`, dilengkapi proteksi
+/// deduplikasi berbasis TTL dan bounded FIFO cache, serta sepenuhnya dapat
+/// diuji (testable) secara terisolasi.
 class NotificationProvider extends ChangeNotifier {
   NotificationIntent? _pendingIntent;
   NotificationIntent? _activeIntent;
   NotificationIntent? _foregroundNotification;
 
-  /// Cache deduplikasi berbasis signature pesan yang baru saja diproses.
-  final Set<String> _processedKeys = {};
+  /// Cache deduplikasi berbasis signature pesan dan waktu pemrosesan.
+  final Map<String, DateTime> _processedEntries = {};
 
   /// Batas ukuran cache deduplikasi agar penggunaan memori tetap terkendali.
   static const int _maxDeduplicationHistory = 100;
+
+  /// Masa berlaku deduplikasi (Time-To-Live) 15 menit.
+  static const Duration _deduplicationTTL = Duration(minutes: 15);
 
   NotificationIntent? get pendingIntent => _pendingIntent;
   NotificationIntent? get activeIntent => _activeIntent;
@@ -45,10 +49,16 @@ class NotificationProvider extends ChangeNotifier {
 
     final rawAction = data['action']?.toString().trim();
     final rawEntityId = data['entity_id']?.toString().trim();
-    final entityId = (rawEntityId != null && rawEntityId.isNotEmpty && rawEntityId != 'null')
+    final entityId = (rawEntityId != null &&
+            rawEntityId.isNotEmpty &&
+            rawEntityId != 'null' &&
+            rawEntityId != 'undefined')
         ? rawEntityId
         : null;
-    final action = (rawAction != null && rawAction.isNotEmpty && rawAction != 'null')
+    final action = (rawAction != null &&
+            rawAction.isNotEmpty &&
+            rawAction != 'null' &&
+            rawAction != 'undefined')
         ? rawAction
         : null;
 
@@ -153,17 +163,27 @@ class NotificationProvider extends ChangeNotifier {
     );
   }
 
-  /// Memeriksa apakah intent ini sudah pernah diproses sebelumnya.
-  bool isDuplicate(NotificationIntent intent) {
-    return _processedKeys.contains(intent.deduplicationKey);
+  /// Memeriksa apakah intent ini sudah pernah diproses sebelumnya dalam jendela TTL.
+  bool isDuplicate(NotificationIntent intent, {DateTime? now}) {
+    _bersihkanStaleEntries(now: now);
+    return _processedEntries.containsKey(intent.deduplicationKey);
   }
 
-  /// Mencatat key intent ke cache deduplikasi.
-  void recordProcessed(NotificationIntent intent) {
-    if (_processedKeys.length >= _maxDeduplicationHistory) {
-      _processedKeys.remove(_processedKeys.first);
+  /// Mencatat key intent ke cache deduplikasi dengan timestamp terkini.
+  void recordProcessed(NotificationIntent intent, {DateTime? now}) {
+    _bersihkanStaleEntries(now: now);
+    if (_processedEntries.length >= _maxDeduplicationHistory) {
+      _processedEntries.remove(_processedEntries.keys.first);
     }
-    _processedKeys.add(intent.deduplicationKey);
+    _processedEntries[intent.deduplicationKey] = now ?? DateTime.now();
+  }
+
+  /// Membersihkan entri deduplikasi yang sudah melewati batas TTL 15 menit.
+  void _bersihkanStaleEntries({DateTime? now}) {
+    final currentTime = now ?? DateTime.now();
+    _processedEntries.removeWhere((key, timestamp) {
+      return currentTime.difference(timestamp) > _deduplicationTTL;
+    });
   }
 
   /// Menangani payload notifikasi FCM dari berbagai siklus hidup (Background Tap `onMessageOpenedApp`,
@@ -279,12 +299,12 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  /// Membersihkan seluruh state saat sesi pengguna berakhir (logout).
+  /// Membersihkan seluruh state saat sesi pengguna berakhir (logout) atau pergantian akun.
   void bersihkan() {
     _foregroundNotification = null;
     _pendingIntent = null;
     _activeIntent = null;
-    _processedKeys.clear();
+    _processedEntries.clear();
     notifyListeners();
   }
 }
