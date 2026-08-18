@@ -6,7 +6,7 @@ const bcrypt = require('bcryptjs');
 const { pool } = require('../../src/config/database');
 const { MENU_ITEMS, DEFAULT_PERMISSIONS } = require('../../src/config/permissions');
 const {
-  JENIS_IURAN, KATEGORI_KAS, KATEGORI_BOP, ADMIN_AWAL, WARGA_UJI,
+  JENIS_IURAN, KATEGORI_KAS, KATEGORI_BOP, ADMIN_AWAL, PENGURUS_AWAL, WARGA_UJI,
 } = require('../../src/config/master-data');
 
 /**
@@ -113,8 +113,8 @@ async function run() {
     // password yang sudah diganti.
     const dibuat = [];
     let dirapikan = 0;
-    for (const akun of [ADMIN_AWAL, WARGA_UJI]) {
-      const ada = await client.query('SELECT 1 FROM users WHERE email = $1', [akun.email]);
+    for (const akun of [ADMIN_AWAL, ...PENGURUS_AWAL, WARGA_UJI]) {
+      const ada = await client.query('SELECT 1 FROM users WHERE email = $1 OR username = $2', [akun.email, akun.username]);
       if (ada.rowCount === 0) {
         const hash = await bcrypt.hash(akun.password, 10);
         await client.query(

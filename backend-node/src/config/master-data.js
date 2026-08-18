@@ -95,6 +95,33 @@ const ADMIN_AWAL = {
 };
 
 /**
+ * Akun pengurus RT bawaan untuk mempermudah login & pengujian peran.
+ */
+const PENGURUS_AWAL = [
+  {
+    nama: 'Ketua RT',
+    email: 'ketua@example.com',
+    username: 'ketua',
+    password: 'ketua123',
+    role: 'ketua_rt',
+  },
+  {
+    nama: 'Sekretaris RT',
+    email: 'sekretaris@example.com',
+    username: 'sekretaris',
+    password: 'sekretaris123',
+    role: 'sekretaris',
+  },
+  {
+    nama: 'Bendahara RT',
+    email: 'bendahara@example.com',
+    username: 'bendahara',
+    password: 'bendahara123',
+    role: 'bendahara',
+  },
+];
+
+/**
  * Akun warga untuk uji coba.
  *
  * Akun warga sebenarnya dibuat otomatis oleh Data Warga dengan NIK sebagai
@@ -116,5 +143,6 @@ const WARGA_UJI = {
 };
 
 module.exports = {
-  JENIS_IURAN, KATEGORI_KAS, KATEGORI_BOP, ADMIN_AWAL, WARGA_UJI,
+  JENIS_IURAN, KATEGORI_KAS, KATEGORI_BOP, ADMIN_AWAL, PENGURUS_AWAL, WARGA_UJI,
 };
+
