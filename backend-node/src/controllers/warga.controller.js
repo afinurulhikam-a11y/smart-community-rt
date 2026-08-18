@@ -318,8 +318,19 @@ async function tambahWargaLengkap(req, res) {
     const resKeluarga = await client.query('SELECT id FROM keluarga WHERE no_kk = $1', [no_kk]);
     if (resKeluarga.rows.length > 0) {
       keluargaId = resKeluarga.rows[0].id;
-      // If family exists and this new person is Kepala Keluarga, update the KK head
+      // If family exists and this new person is Kepala Keluarga, pastikan belum ada kepala keluarga
       if (status_keluarga === 'Kepala Keluarga') {
+        const cekKepala = await client.query(
+          "SELECT id, nama FROM anggota_keluarga WHERE keluarga_id = $1 AND status_keluarga = 'Kepala Keluarga'",
+          [keluargaId]
+        );
+        if (cekKepala.rows.length > 0) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({
+            success: false,
+            message: `Kartu Keluarga ini sudah memiliki Kepala Keluarga (${cekKepala.rows[0].nama}).`,
+          });
+        }
         await client.query('UPDATE keluarga SET kepala_keluarga = $1 WHERE id = $2', [nama, keluargaId]);
       }
       // Status rumah adalah properti KK — perbarui hanya bila dikirim.
@@ -497,6 +508,17 @@ async function updateWargaLengkap(req, res) {
 
     // 4. Properti KK: kepala keluarga & status rumah hanya bermakna pada KK.
     if (status_keluarga === 'Kepala Keluarga') {
+      const cekKepala = await client.query(
+        "SELECT id, nama FROM anggota_keluarga WHERE keluarga_id = $1 AND status_keluarga = 'Kepala Keluarga' AND nik != $2",
+        [keluargaId, nik]
+      );
+      if (cekKepala.rows.length > 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({
+          success: false,
+          message: `Kartu Keluarga ini sudah memiliki Kepala Keluarga (${cekKepala.rows[0].nama}).`,
+        });
+      }
       await client.query('UPDATE keluarga SET kepala_keluarga = $1 WHERE id = $2', [namaFinal, keluargaId]);
     }
     if (statusRumah) {
