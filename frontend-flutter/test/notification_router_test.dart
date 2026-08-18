@@ -470,5 +470,235 @@ void main() {
       expect(freshRouter.hasPendingIntent, isTrue);
       expect(freshRouter.pendingIntent!.targetMenuIndex, equals(21));
     });
+
+    test('simulasiForegroundMessage meneruskan pesan ke handleForegroundMessage', () {
+      final message = RemoteMessage(
+        messageId: 'fg_msg_001',
+        notification: const RemoteNotification(
+          title: 'Aduan Ditanggapi',
+          body: 'Ketua RT telah menanggapi aduan Anda',
+        ),
+        data: {
+          'entity_type': 'complaint',
+          'action': 'COMPLAINT_REPLIED',
+          'entity_id': '45',
+        },
+      );
+
+      // ApiService.token null -> masuk ke pendingIntent
+      FCMService.instance.simulasiForegroundMessage(message);
+      expect(router.hasPendingIntent, isTrue);
+      expect(router.pendingIntent!.title, equals('Aduan Ditanggapi'));
+      expect(router.pendingIntent!.body, equals('Ketua RT telah menanggapi aduan Anda'));
+    });
+  });
+
+  group('NotificationProvider: Foreground Notifications & Actions', () {
+    late NotificationProvider provider;
+
+    setUp(() {
+      provider = NotificationProvider();
+    });
+
+    test('Foreground message dengan notification block menggunakan title & body yang dikirim', () {
+      final intent = provider.handleForegroundMessage(
+        {'entity_type': 'emergency', 'action': 'ALARM_TRIGGERED', 'entity_id': '911'},
+        title: 'BAHAYA KEBAKARAN!',
+        body: 'Terdeteksi asap pekat di Blok C2',
+        messageId: 'fg_emergency_1',
+        isLoggedIn: true,
+      );
+
+      expect(intent, isNotNull);
+      expect(provider.hasForegroundNotification, isTrue);
+      expect(provider.foregroundNotification!.title, equals('BAHAYA KEBAKARAN!'));
+      expect(provider.foregroundNotification!.body, equals('Terdeteksi asap pekat di Blok C2'));
+      expect(provider.hasActiveIntent, isFalse);
+    });
+
+    test('Foreground message tanpa notification block menggunakan fallback title & body yang aman', () {
+      final intent = provider.handleForegroundMessage(
+        {
+          'entity_type': 'bill',
+          'action': 'NEW_BILL',
+          'entity_id': '88',
+          'periode': 'September 2026',
+        },
+        messageId: 'fg_bill_1',
+        isLoggedIn: true,
+      );
+
+      expect(intent, isNotNull);
+      expect(provider.hasForegroundNotification, isTrue);
+      expect(provider.foregroundNotification!.title, equals('Tagihan Iuran Baru'));
+      expect(provider.foregroundNotification!.body, contains('September 2026'));
+    });
+
+    test('Foreground message dengan payload invalid/unknown tidak memunculkan notifikasi', () {
+      final intent = provider.handleForegroundMessage(
+        {'entity_type': 'random_unknown_type'},
+        title: 'Judul',
+        body: 'Isi',
+        isLoggedIn: true,
+      );
+
+      expect(intent, isNull);
+      expect(provider.hasForegroundNotification, isFalse);
+      expect(provider.hasActiveIntent, isFalse);
+      expect(provider.hasPendingIntent, isFalse);
+    });
+
+    test('Foreground message duplikat diabaikan', () {
+      final data = {'entity_type': 'letter', 'action': 'NEW_LETTER_REQUEST', 'entity_id': '10'};
+
+      final first = provider.handleForegroundMessage(
+        data,
+        messageId: 'fg_duplicate_1',
+        isLoggedIn: true,
+      );
+      expect(first, isNotNull);
+      expect(provider.hasForegroundNotification, isTrue);
+
+      provider.tutupForegroundNotification();
+      expect(provider.hasForegroundNotification, isFalse);
+
+      final second = provider.handleForegroundMessage(
+        data,
+        messageId: 'fg_duplicate_1',
+        isLoggedIn: true,
+      );
+      expect(second, isNull);
+      expect(provider.hasForegroundNotification, isFalse);
+    });
+
+    test('Aksi bukaForegroundNotification memindahkan intent ke activeIntent untuk navigasi', () {
+      provider.handleForegroundMessage(
+        {'entity_type': 'agenda', 'action': 'NEW_AGENDA', 'entity_id': '25'},
+        isLoggedIn: true,
+      );
+
+      expect(provider.hasForegroundNotification, isTrue);
+      expect(provider.hasActiveIntent, isFalse);
+
+      provider.bukaForegroundNotification();
+
+      expect(provider.hasForegroundNotification, isFalse);
+      expect(provider.hasActiveIntent, isTrue);
+      expect(provider.activeIntent!.targetMenuIndex, equals(50));
+      expect(provider.activeIntent!.targetTabIndex, equals(1));
+    });
+
+    test('Aksi tutupForegroundNotification menghilangkan in-app notification', () {
+      provider.handleForegroundMessage(
+        {'entity_type': 'visitor', 'action': 'VISITOR_ARRIVED', 'entity_id': '12'},
+        isLoggedIn: true,
+      );
+
+      expect(provider.hasForegroundNotification, isTrue);
+
+      provider.tutupForegroundNotification();
+
+      expect(provider.hasForegroundNotification, isFalse);
+      expect(provider.hasActiveIntent, isFalse);
+    });
+
+    test('bersihkan() menghapus foreground notification', () {
+      provider.handleForegroundMessage(
+        {'entity_type': 'bansos', 'action': 'BANSOS_STATUS_UPDATE', 'entity_id': '5'},
+        isLoggedIn: true,
+      );
+
+      expect(provider.hasForegroundNotification, isTrue);
+
+      provider.bersihkan();
+
+      expect(provider.hasForegroundNotification, isFalse);
+      expect(provider.hasActiveIntent, isFalse);
+      expect(provider.hasPendingIntent, isFalse);
+    });
+  });
+
+  group('NotificationIntent: Fallback Generator Verification across 11 Entities', () {
+    test('Fallback title dan body untuk seluruh 11 entitas bekerja tepat', () {
+      // 1. announcement
+      expect(NotificationIntent.generateFallbackTitle('announcement', null), equals('Pengumuman Warga'));
+      expect(
+        NotificationIntent.generateFallbackBody('announcement', null, {'judul': 'Gotong Royong'}),
+        equals('Gotong Royong'),
+      );
+
+      // 2. emergency
+      expect(NotificationIntent.generateFallbackTitle('emergency', 'ALARM_TRIGGERED'), equals('Peringatan Darurat Warga'));
+      expect(NotificationIntent.generateFallbackTitle('emergency', 'ALARM_CANCELLED'), equals('Peringatan Darurat Selesai'));
+      expect(
+        NotificationIntent.generateFallbackBody('emergency', 'ALARM_TRIGGERED', {'lokasi': 'Blok A'}),
+        contains('Blok A'),
+      );
+
+      // 3. complaint
+      expect(NotificationIntent.generateFallbackTitle('complaint', 'NEW_COMPLAINT'), equals('Pengaduan Warga Baru'));
+      expect(NotificationIntent.generateFallbackTitle('complaint', 'COMPLAINT_REPLIED'), equals('Tanggapan Pengaduan Warga'));
+      expect(
+        NotificationIntent.generateFallbackBody('complaint', 'NEW_COMPLAINT', {'judul': 'Lampu Jalan'}),
+        contains('Lampu Jalan'),
+      );
+
+      // 4. letter
+      expect(NotificationIntent.generateFallbackTitle('letter', 'NEW_LETTER_REQUEST'), equals('Pengajuan Surat Warga'));
+      expect(NotificationIntent.generateFallbackTitle('letter', 'LETTER_STATUS_CHANGED'), equals('Status Surat Diperbarui'));
+      expect(
+        NotificationIntent.generateFallbackBody('letter', 'LETTER_STATUS_CHANGED', {'jenis_surat': 'Surat Pengantar SKCK'}),
+        contains('SKCK'),
+      );
+
+      // 5. bill
+      expect(NotificationIntent.generateFallbackTitle('bill', 'NEW_BILL'), equals('Tagihan Iuran Baru'));
+      expect(
+        NotificationIntent.generateFallbackBody('bill', 'NEW_BILL', {'periode': 'Agustus 2026'}),
+        contains('Agustus 2026'),
+      );
+
+      // 6. payment
+      expect(NotificationIntent.generateFallbackTitle('payment', 'PAYMENT_SUCCESS'), equals('Pembayaran Iuran Berhasil'));
+      expect(
+        NotificationIntent.generateFallbackBody('payment', 'PAYMENT_SUCCESS', {}),
+        contains('berhasil diverifikasi'),
+      );
+
+      // 7. agenda
+      expect(NotificationIntent.generateFallbackTitle('agenda', 'NEW_AGENDA'), equals('Agenda Kegiatan Baru'));
+      expect(
+        NotificationIntent.generateFallbackBody('agenda', 'NEW_AGENDA', {'judul': 'Senam Pagi'}),
+        contains('Senam Pagi'),
+      );
+
+      // 8. inventory
+      expect(NotificationIntent.generateFallbackTitle('inventory', 'BORROWING_STATUS_CHANGED'), equals('Peminjaman Inventaris'));
+      expect(
+        NotificationIntent.generateFallbackBody('inventory', 'BORROWING_STATUS_CHANGED', {}),
+        contains('inventaris RT'),
+      );
+
+      // 9. visitor
+      expect(NotificationIntent.generateFallbackTitle('visitor', 'VISITOR_ARRIVED'), equals('Buku Tamu / Kunjungan'));
+      expect(
+        NotificationIntent.generateFallbackBody('visitor', 'VISITOR_ARRIVED', {'nama_tamu': 'Ahmad'}),
+        contains('Ahmad'),
+      );
+
+      // 10. polling
+      expect(NotificationIntent.generateFallbackTitle('polling', 'NEW_POLLING'), equals('Polling Warga Baru'));
+      expect(
+        NotificationIntent.generateFallbackBody('polling', 'NEW_POLLING', {'judul': 'Pemilihan Pengurus'}),
+        contains('Pemilihan Pengurus'),
+      );
+
+      // 11. bansos
+      expect(NotificationIntent.generateFallbackTitle('bansos', 'BANSOS_STATUS_UPDATE'), equals('Bantuan Sosial Diperbarui'));
+      expect(
+        NotificationIntent.generateFallbackBody('bansos', 'BANSOS_STATUS_UPDATE', {}),
+        contains('bantuan sosial'),
+      );
+    });
   });
 }

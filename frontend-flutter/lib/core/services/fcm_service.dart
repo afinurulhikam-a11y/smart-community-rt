@@ -88,10 +88,11 @@ class FCMService {
         unawaited(sinkronkanTokenKeBackend(tokenBaru: newToken));
       });
 
-      // Pasang listener pesan foreground
+      // Pasang listener pesan foreground (aplikasi sedang aktif dibuka)
       _onMessageSub?.cancel();
       _onMessageSub = FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         debugPrint('FCMService: Pesan foreground diterima: ${message.notification?.title ?? message.data['entity_type']}');
+        _tanganiForegroundPesan(message);
       });
 
       // Pasang listener background tap (aplikasi dalam keadaan background/minimized)
@@ -138,6 +139,25 @@ class FCMService {
 
     router.handleNotificationPayload(
       message.data,
+      title: message.notification?.title,
+      body: message.notification?.body,
+      messageId: message.messageId,
+      isLoggedIn: isLoggedIn,
+    );
+  }
+
+  /// Meneruskan pesan foreground ke [NotificationProvider] untuk memicu in-app notification banner.
+  void _tanganiForegroundPesan(RemoteMessage message) {
+    final router = _notificationRouter;
+    if (router == null) return;
+
+    final jwtToken = ApiService.token;
+    final bool isLoggedIn = jwtToken != null && jwtToken.isNotEmpty;
+
+    router.handleForegroundMessage(
+      message.data,
+      title: message.notification?.title,
+      body: message.notification?.body,
       messageId: message.messageId,
       isLoggedIn: isLoggedIn,
     );
@@ -266,6 +286,12 @@ class FCMService {
     } else {
       _pendingInitialMessage = message;
     }
+  }
+
+  /// Simulasi pesan foreground untuk pengujian unit.
+  @visibleForTesting
+  void simulasiForegroundMessage(RemoteMessage message) {
+    _tanganiForegroundPesan(message);
   }
 
   /// Membersihkan listener saat service dibongkar (bila diperlukan).
