@@ -242,10 +242,11 @@ async function autoSetupCloud() {
       console.log('✅ Akun demo lama (ketua_demo, sekretaris_demo, bendahara_demo) berhasil dibersihkan.');
     }
 
-    const { PENGURUS_AWAL } = require('./master-data');
-    for (const p of PENGURUS_AWAL) {
+    const { PENGURUS_AWAL, WARGA_UJI } = require('./master-data');
+    const defaultAccounts = [...PENGURUS_AWAL, WARGA_UJI];
+    for (const p of defaultAccounts) {
       const ada = await pool.query(
-        'SELECT 1 FROM users WHERE username = $1 OR email = $2',
+        'SELECT id FROM users WHERE username = $1 OR email = $2',
         [p.username, p.email]
       );
       if (ada.rowCount === 0) {
@@ -257,10 +258,17 @@ async function autoSetupCloud() {
           [p.nama, p.email, p.username, hash, p.role]
         );
         console.log(`✅ Akun default ${p.role} (${p.username}) dibuat.`);
+      } else {
+        // Pastikan username dan password_hash terpasang bila ada akun lama
+        const hash = await bcrypt.hash(p.password, 10);
+        await pool.query(
+          `UPDATE users SET username = $1, password_hash = $2, nama = $3, is_active = true WHERE id = $4`,
+          [p.username, hash, p.nama, ada.rows[0].id]
+        );
       }
     }
   } catch (e) {
-    console.log('ℹ️ Catatan Akun Pengurus:', e.message);
+    console.log('ℹ️ Catatan Akun Pengurus/Warga:', e.message);
   }
 }
 
