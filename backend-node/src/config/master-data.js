@@ -136,8 +136,9 @@ const PENGURUS_AWAL = [
  * samakan `no_kk`-nya, atau pakai akun warga bikinan Data Warga.
  */
 const WARGA_UJI = {
-  nama: 'Warga Demo',
+  nama: 'Demo Warga',
   email: 'warga@example.com',
+  username: 'warga',
   password: 'warga123',
   role: 'warga',
 };
