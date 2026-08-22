@@ -272,7 +272,15 @@ void main() {
       // --- Selesaikan dari layar Status Darurat ---
       await tester.ensureVisible(find.text('Selesaikan'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Selesaikan'));
+
+      // Tombol "Selesaikan" berada di dalam tabel yang menggulir mendatar, dan
+      // tepi bawahnya melewati batas area gulir tersebut. Akibatnya titik
+      // tengah tombol jatuh tepat pada rel batang gulir mendatar, yang
+      // menyerap ketukan sebelum sampai ke tombolnya. Ketukan karena itu
+      // diarahkan ke bagian atas tombol, yang bebas dari rel itu.
+      final kotakSelesaikan =
+          tester.getRect(find.widgetWithText(ElevatedButton, 'Selesaikan'));
+      await tester.tapAt(Offset(kotakSelesaikan.center.dx, kotakSelesaikan.top + 6));
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField).first, '246810');
