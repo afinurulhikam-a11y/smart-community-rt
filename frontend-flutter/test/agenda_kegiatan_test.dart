@@ -27,7 +27,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verifikasi judul / breadcrumb muncul
-    expect(find.text('Kegiatan & Info / Agenda Kegiatan'), findsOneWidget);
+    expect(find.text('Kegiatan & Info / Agenda & Kegiatan'), findsOneWidget);
     expect(find.text('Semua Agenda'), findsOneWidget);
     expect(find.text('Akan Datang'), findsOneWidget);
     expect(find.text('Selesai'), findsOneWidget);
