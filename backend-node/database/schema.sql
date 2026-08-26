@@ -26,6 +26,46 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
 
 
 --
+-- Name: isi_rt_id(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.isi_rt_id() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+      DECLARE
+        uid uuid;
+        rid uuid;
+      BEGIN
+        -- Nilai yang sudah disebut selalu menang. Inilah yang membuat
+        -- administrator tetap bisa membuat data atas nama RT tertentu.
+        IF NEW.rt_id IS NOT NULL THEN
+          RETURN NEW;
+        END IF;
+
+        IF TG_NARGS > 0 AND TG_ARGV[0] IS NOT NULL AND TG_ARGV[0] <> '' THEN
+          BEGIN
+            uid := NULLIF(to_jsonb(NEW) ->> TG_ARGV[0], '')::uuid;
+          EXCEPTION WHEN others THEN
+            uid := NULL;
+          END;
+        END IF;
+
+        IF uid IS NOT NULL THEN
+          SELECT u.rt_id INTO rid FROM users u WHERE u.id = uid;
+        END IF;
+
+        IF rid IS NULL THEN
+          SELECT r.id INTO rid FROM rt r
+            WHERE r.deleted_at IS NULL ORDER BY r.kode LIMIT 1;
+        END IF;
+
+        NEW.rt_id := rid;
+        RETURN NEW;
+      END
+      $$;
+
+
+--
 -- Name: tolak_ubah_activity_logs(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -80,7 +120,8 @@ CREATE TABLE public.agenda (
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     deleted_at timestamp without time zone,
-    fcm_dispatch_status character varying(20) DEFAULT 'unsent'::character varying
+    fcm_dispatch_status character varying(20) DEFAULT 'unsent'::character varying,
+    rt_id uuid
 );
 
 
@@ -116,7 +157,8 @@ CREATE TABLE public.alokasi_bop (
     sumber_dana character varying(100),
     keterangan text,
     created_by uuid,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    rt_id uuid
 );
 
 
@@ -198,7 +240,8 @@ CREATE TABLE public.announcements (
     status character varying(20) DEFAULT 'draft'::character varying,
     created_by uuid,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    rt_id uuid
 );
 
 
@@ -244,6 +287,7 @@ CREATE TABLE public.bantuan_sosial (
     sumber_bantuan character varying(100) DEFAULT 'Pemerintah Pusat'::character varying,
     no_sk character varying(100),
     fcm_last_status_dispatch character varying(50),
+    rt_id uuid,
     CONSTRAINT bantuan_sosial_tanggal_valid CHECK (((tanggal_selesai IS NULL) OR (tanggal_mulai IS NULL) OR (tanggal_selesai >= tanggal_mulai)))
 );
 
@@ -362,7 +406,8 @@ CREATE TABLE public.bop_finances (
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     kategori character varying(50) DEFAULT 'Umum'::character varying,
     kategori_id integer,
-    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    rt_id uuid
 );
 
 
@@ -384,7 +429,8 @@ CREATE TABLE public.borrowings (
     dicatat_oleh uuid,
     nama_peminjam character varying(255),
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    fcm_last_status_dispatch character varying(50)
+    fcm_last_status_dispatch character varying(50),
+    rt_id uuid
 );
 
 
@@ -427,7 +473,8 @@ CREATE TABLE public.complaints (
     deleted_at timestamp without time zone,
     tanggapan_dibaca_pada timestamp without time zone,
     fcm_dispatch_status character varying(20) DEFAULT 'unsent'::character varying,
-    fcm_last_response_dispatch text
+    fcm_last_response_dispatch text,
+    rt_id uuid
 );
 
 
@@ -467,7 +514,8 @@ CREATE TABLE public.emergency_alerts (
     dismissed_at timestamp without time zone,
     fcm_dispatch_status character varying(20) DEFAULT 'unsent'::character varying,
     fcm_dispatched_at timestamp with time zone,
-    fcm_dispatch_error text
+    fcm_dispatch_error text,
+    rt_id uuid
 );
 
 
@@ -488,7 +536,8 @@ CREATE TABLE public.finances (
     sumber character varying(20) DEFAULT 'manual'::character varying,
     ref_id uuid,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    deleted_at timestamp without time zone
+    deleted_at timestamp without time zone,
+    rt_id uuid
 );
 
 
@@ -509,7 +558,8 @@ CREATE TABLE public.inventory (
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     nilai_barang numeric DEFAULT 0,
     tanggal_perolehan date,
-    deleted_at timestamp without time zone
+    deleted_at timestamp without time zone,
+    rt_id uuid
 );
 
 
@@ -548,6 +598,7 @@ CREATE TABLE public.jenis_iuran (
     tarif_per_m3 integer,
     abondement integer DEFAULT 0 NOT NULL,
     biaya_sampah integer DEFAULT 0 NOT NULL,
+    rt_id uuid,
     CONSTRAINT jenis_iuran_tipe_hitung_sah CHECK (((tipe_hitung)::text = ANY ((ARRAY['tetap'::character varying, 'meteran'::character varying])::text[])))
 );
 
@@ -582,6 +633,7 @@ CREATE TABLE public.kategori_bop (
     tipe character varying(3) NOT NULL,
     is_aktif boolean DEFAULT true,
     keterangan text,
+    rt_id uuid,
     CONSTRAINT kategori_bop_tipe_check CHECK (((tipe)::text = ANY ((ARRAY['IN'::character varying, 'OUT'::character varying])::text[])))
 );
 
@@ -616,6 +668,7 @@ CREATE TABLE public.kategori_kas (
     tipe character varying(3) NOT NULL,
     is_aktif boolean DEFAULT true,
     keterangan text,
+    rt_id uuid,
     CONSTRAINT kategori_kas_tipe_check CHECK (((tipe)::text = ANY ((ARRAY['IN'::character varying, 'OUT'::character varying])::text[])))
 );
 
@@ -658,7 +711,8 @@ CREATE TABLE public.keluarga (
     status_rumah character varying(50) DEFAULT 'Milik Sendiri'::character varying,
     deleted_at timestamp without time zone,
     blok character varying(20),
-    langganan_sampah boolean DEFAULT false NOT NULL
+    langganan_sampah boolean DEFAULT false NOT NULL,
+    rt_id uuid
 );
 
 
@@ -699,7 +753,8 @@ CREATE TABLE public.letters (
     tanggal_respon timestamp without time zone,
     deleted_at timestamp without time zone,
     fcm_dispatch_status character varying(20) DEFAULT 'unsent'::character varying,
-    fcm_last_status_dispatch text
+    fcm_last_status_dispatch text,
+    rt_id uuid
 );
 
 
@@ -810,7 +865,8 @@ CREATE TABLE public.polling (
     created_by uuid,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    fcm_dispatch_status character varying(20) DEFAULT 'unsent'::character varying
+    fcm_dispatch_status character varying(20) DEFAULT 'unsent'::character varying,
+    rt_id uuid
 );
 
 
@@ -975,6 +1031,23 @@ ALTER SEQUENCE public.role_permissions_id_seq OWNED BY public.role_permissions.i
 
 
 --
+-- Name: rt; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.rt (
+    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
+    kode character varying(3) NOT NULL,
+    nama character varying(120),
+    rw_kode character varying(3) DEFAULT '001'::character varying NOT NULL,
+    ketua_id uuid,
+    alamat_sekretariat text,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    deleted_at timestamp without time zone
+);
+
+
+--
 -- Name: sensor_logs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1024,6 +1097,23 @@ CREATE TABLE public.tiket_unduh (
 
 
 --
+-- Name: user_fcm_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_fcm_tokens (
+    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
+    user_id uuid NOT NULL,
+    fcm_token text NOT NULL,
+    device_type character varying(20) DEFAULT 'android'::character varying,
+    device_name character varying(100),
+    is_active boolean DEFAULT true,
+    last_used_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--
 -- Name: users; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1044,24 +1134,8 @@ CREATE TABLE public.users (
     deleted_at timestamp without time zone,
     updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     must_change_password boolean DEFAULT false NOT NULL,
-    token_versi integer DEFAULT 0 NOT NULL
-);
-
-
---
--- Name: user_fcm_tokens; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.user_fcm_tokens (
-    id uuid DEFAULT public.uuid_generate_v4() NOT NULL,
-    user_id uuid NOT NULL,
-    fcm_token text NOT NULL,
-    device_type character varying(20) DEFAULT 'android'::character varying,
-    device_name character varying(100),
-    is_active boolean DEFAULT true,
-    last_used_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+    token_versi integer DEFAULT 0 NOT NULL,
+    rt_id uuid
 );
 
 
@@ -1084,7 +1158,8 @@ CREATE TABLE public.visitors (
     status character varying(20) DEFAULT 'Di Dalam'::character varying,
     created_by uuid,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    fcm_dispatch_status character varying(20) DEFAULT 'unsent'::character varying
+    fcm_dispatch_status character varying(20) DEFAULT 'unsent'::character varying,
+    rt_id uuid
 );
 
 
@@ -1584,6 +1659,14 @@ ALTER TABLE ONLY public.role_permissions
 
 
 --
+-- Name: rt rt_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.rt
+    ADD CONSTRAINT rt_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: sensor_logs sensor_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1597,6 +1680,22 @@ ALTER TABLE ONLY public.sensor_logs
 
 ALTER TABLE ONLY public.tiket_unduh
     ADD CONSTRAINT tiket_unduh_pkey PRIMARY KEY (tiket_hash);
+
+
+--
+-- Name: user_fcm_tokens user_fcm_tokens_fcm_token_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_fcm_tokens
+    ADD CONSTRAINT user_fcm_tokens_fcm_token_key UNIQUE (fcm_token);
+
+
+--
+-- Name: user_fcm_tokens user_fcm_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_fcm_tokens
+    ADD CONSTRAINT user_fcm_tokens_pkey PRIMARY KEY (id);
 
 
 --
@@ -1632,27 +1731,39 @@ ALTER TABLE ONLY public.users
 
 
 --
--- Name: user_fcm_tokens user_fcm_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.user_fcm_tokens
-    ADD CONSTRAINT user_fcm_tokens_pkey PRIMARY KEY (id);
-
-
---
--- Name: user_fcm_tokens user_fcm_tokens_fcm_token_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.user_fcm_tokens
-    ADD CONSTRAINT user_fcm_tokens_fcm_token_key UNIQUE (fcm_token);
-
-
---
 -- Name: visitors visitors_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.visitors
     ADD CONSTRAINT visitors_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: agenda_rt_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX agenda_rt_id_idx ON public.agenda USING btree (rt_id);
+
+
+--
+-- Name: alokasi_bop_rt_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX alokasi_bop_rt_id_idx ON public.alokasi_bop USING btree (rt_id);
+
+
+--
+-- Name: announcements_rt_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX announcements_rt_id_idx ON public.announcements USING btree (rt_id);
+
+
+--
+-- Name: bantuan_sosial_rt_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX bantuan_sosial_rt_id_idx ON public.bantuan_sosial USING btree (rt_id);
 
 
 --
@@ -1677,10 +1788,24 @@ CREATE UNIQUE INDEX bills_kk_jenis_bulan_uniq ON public.bills USING btree (kelua
 
 
 --
+-- Name: bop_finances_rt_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX bop_finances_rt_id_idx ON public.bop_finances USING btree (rt_id);
+
+
+--
 -- Name: bop_finances_tanggal_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX bop_finances_tanggal_idx ON public.bop_finances USING btree (tanggal DESC);
+
+
+--
+-- Name: borrowings_rt_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX borrowings_rt_id_idx ON public.borrowings USING btree (rt_id);
 
 
 --
@@ -1691,6 +1816,13 @@ CREATE INDEX borrowings_status_idx ON public.borrowings USING btree (status, inv
 
 
 --
+-- Name: complaints_rt_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX complaints_rt_id_idx ON public.complaints USING btree (rt_id);
+
+
+--
 -- Name: complaints_tanggapan_belum_dibaca_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1698,10 +1830,24 @@ CREATE INDEX complaints_tanggapan_belum_dibaca_idx ON public.complaints USING bt
 
 
 --
+-- Name: emergency_alerts_rt_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX emergency_alerts_rt_id_idx ON public.emergency_alerts USING btree (rt_id);
+
+
+--
 -- Name: finances_ref_uniq; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX finances_ref_uniq ON public.finances USING btree (ref_id) WHERE (ref_id IS NOT NULL);
+
+
+--
+-- Name: finances_rt_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX finances_rt_id_idx ON public.finances USING btree (rt_id);
 
 
 --
@@ -1782,6 +1928,20 @@ CREATE INDEX idx_bill_payments_bill ON public.bill_payments USING btree (bill_id
 
 
 --
+-- Name: idx_bill_payments_fcm_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bill_payments_fcm_status ON public.bill_payments USING btree (fcm_dispatch_status);
+
+
+--
+-- Name: idx_bills_fcm_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_bills_fcm_status ON public.bills USING btree (fcm_dispatch_status);
+
+
+--
 -- Name: idx_borrowings_user; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1796,6 +1956,13 @@ CREATE INDEX idx_complaints_aktif ON public.complaints USING btree (id) WHERE (d
 
 
 --
+-- Name: idx_complaints_fcm_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_complaints_fcm_status ON public.complaints USING btree (fcm_dispatch_status);
+
+
+--
 -- Name: idx_complaints_status; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1807,6 +1974,13 @@ CREATE INDEX idx_complaints_status ON public.complaints USING btree (status);
 --
 
 CREATE INDEX idx_complaints_user ON public.complaints USING btree (user_id);
+
+
+--
+-- Name: idx_emergency_alerts_fcm_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_emergency_alerts_fcm_status ON public.emergency_alerts USING btree (fcm_dispatch_status);
 
 
 --
@@ -1838,6 +2012,13 @@ CREATE INDEX idx_letters_aktif ON public.letters USING btree (id) WHERE (deleted
 
 
 --
+-- Name: idx_letters_fcm_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_letters_fcm_status ON public.letters USING btree (fcm_dispatch_status);
+
+
+--
 -- Name: idx_letters_status; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1849,6 +2030,13 @@ CREATE INDEX idx_letters_status ON public.letters USING btree (status);
 --
 
 CREATE INDEX idx_letters_user ON public.letters USING btree (user_id);
+
+
+--
+-- Name: idx_payment_trx_fcm_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_payment_trx_fcm_status ON public.payment_transactions USING btree (fcm_dispatch_status);
 
 
 --
@@ -1866,6 +2054,20 @@ CREATE INDEX idx_polling_options_polling ON public.polling_options USING btree (
 
 
 --
+-- Name: idx_user_fcm_tokens_fcm_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_fcm_tokens_fcm_token ON public.user_fcm_tokens USING btree (fcm_token);
+
+
+--
+-- Name: idx_user_fcm_tokens_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_user_fcm_tokens_user_id ON public.user_fcm_tokens USING btree (user_id);
+
+
+--
 -- Name: idx_users_aktif; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1877,20 +2079,6 @@ CREATE INDEX idx_users_aktif ON public.users USING btree (id) WHERE (deleted_at 
 --
 
 CREATE INDEX idx_users_nik ON public.users USING btree (nik);
-
-
---
--- Name: idx_user_fcm_tokens_user_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_user_fcm_tokens_user_id ON public.user_fcm_tokens USING btree (user_id);
-
-
---
--- Name: idx_user_fcm_tokens_fcm_token; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_user_fcm_tokens_fcm_token ON public.user_fcm_tokens USING btree (fcm_token);
 
 
 --
@@ -1922,6 +2110,48 @@ CREATE INDEX idx_visitors_tipe ON public.visitors USING btree (tipe_keperluan);
 
 
 --
+-- Name: inventory_rt_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX inventory_rt_id_idx ON public.inventory USING btree (rt_id);
+
+
+--
+-- Name: jenis_iuran_rt_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX jenis_iuran_rt_id_idx ON public.jenis_iuran USING btree (rt_id);
+
+
+--
+-- Name: kategori_bop_rt_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX kategori_bop_rt_id_idx ON public.kategori_bop USING btree (rt_id);
+
+
+--
+-- Name: kategori_kas_rt_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX kategori_kas_rt_id_idx ON public.kategori_kas USING btree (rt_id);
+
+
+--
+-- Name: keluarga_rt_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX keluarga_rt_id_idx ON public.keluarga USING btree (rt_id);
+
+
+--
+-- Name: letters_rt_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX letters_rt_id_idx ON public.letters USING btree (rt_id);
+
+
+--
 -- Name: payment_bill_pending_uniq; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1943,6 +2173,13 @@ CREATE INDEX pembacaan_meteran_periode_idx ON public.pembacaan_meteran USING btr
 
 
 --
+-- Name: polling_rt_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX polling_rt_id_idx ON public.polling USING btree (rt_id);
+
+
+--
 -- Name: reset_logs_waktu; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1957,10 +2194,31 @@ CREATE INDEX role_permissions_lookup ON public.role_permissions USING btree (rol
 
 
 --
+-- Name: rt_rw_kode_uniq; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX rt_rw_kode_uniq ON public.rt USING btree (rw_kode, kode) WHERE (deleted_at IS NULL);
+
+
+--
 -- Name: tiket_unduh_kedaluwarsa_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX tiket_unduh_kedaluwarsa_idx ON public.tiket_unduh USING btree (kedaluwarsa);
+
+
+--
+-- Name: users_rt_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX users_rt_id_idx ON public.users USING btree (rt_id);
+
+
+--
+-- Name: visitors_rt_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX visitors_rt_id_idx ON public.visitors USING btree (rt_id);
 
 
 --
@@ -1978,6 +2236,132 @@ CREATE TRIGGER trg_activity_logs_no_truncate BEFORE TRUNCATE ON public.activity_
 
 
 --
+-- Name: agenda trg_agenda_isi_rt_id; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_agenda_isi_rt_id BEFORE INSERT ON public.agenda FOR EACH ROW EXECUTE FUNCTION public.isi_rt_id('created_by');
+
+
+--
+-- Name: alokasi_bop trg_alokasi_bop_isi_rt_id; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_alokasi_bop_isi_rt_id BEFORE INSERT ON public.alokasi_bop FOR EACH ROW EXECUTE FUNCTION public.isi_rt_id('created_by');
+
+
+--
+-- Name: announcements trg_announcements_isi_rt_id; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_announcements_isi_rt_id BEFORE INSERT ON public.announcements FOR EACH ROW EXECUTE FUNCTION public.isi_rt_id('created_by');
+
+
+--
+-- Name: bantuan_sosial trg_bantuan_sosial_isi_rt_id; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_bantuan_sosial_isi_rt_id BEFORE INSERT ON public.bantuan_sosial FOR EACH ROW EXECUTE FUNCTION public.isi_rt_id('user_id');
+
+
+--
+-- Name: bop_finances trg_bop_finances_isi_rt_id; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_bop_finances_isi_rt_id BEFORE INSERT ON public.bop_finances FOR EACH ROW EXECUTE FUNCTION public.isi_rt_id('created_by');
+
+
+--
+-- Name: borrowings trg_borrowings_isi_rt_id; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_borrowings_isi_rt_id BEFORE INSERT ON public.borrowings FOR EACH ROW EXECUTE FUNCTION public.isi_rt_id('user_id');
+
+
+--
+-- Name: complaints trg_complaints_isi_rt_id; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_complaints_isi_rt_id BEFORE INSERT ON public.complaints FOR EACH ROW EXECUTE FUNCTION public.isi_rt_id('user_id');
+
+
+--
+-- Name: emergency_alerts trg_emergency_alerts_isi_rt_id; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_emergency_alerts_isi_rt_id BEFORE INSERT ON public.emergency_alerts FOR EACH ROW EXECUTE FUNCTION public.isi_rt_id('user_id');
+
+
+--
+-- Name: finances trg_finances_isi_rt_id; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_finances_isi_rt_id BEFORE INSERT ON public.finances FOR EACH ROW EXECUTE FUNCTION public.isi_rt_id('created_by');
+
+
+--
+-- Name: inventory trg_inventory_isi_rt_id; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_inventory_isi_rt_id BEFORE INSERT ON public.inventory FOR EACH ROW EXECUTE FUNCTION public.isi_rt_id('created_by');
+
+
+--
+-- Name: jenis_iuran trg_jenis_iuran_isi_rt_id; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_jenis_iuran_isi_rt_id BEFORE INSERT ON public.jenis_iuran FOR EACH ROW EXECUTE FUNCTION public.isi_rt_id('');
+
+
+--
+-- Name: kategori_bop trg_kategori_bop_isi_rt_id; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_kategori_bop_isi_rt_id BEFORE INSERT ON public.kategori_bop FOR EACH ROW EXECUTE FUNCTION public.isi_rt_id('');
+
+
+--
+-- Name: kategori_kas trg_kategori_kas_isi_rt_id; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_kategori_kas_isi_rt_id BEFORE INSERT ON public.kategori_kas FOR EACH ROW EXECUTE FUNCTION public.isi_rt_id('');
+
+
+--
+-- Name: keluarga trg_keluarga_isi_rt_id; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_keluarga_isi_rt_id BEFORE INSERT ON public.keluarga FOR EACH ROW EXECUTE FUNCTION public.isi_rt_id('');
+
+
+--
+-- Name: letters trg_letters_isi_rt_id; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_letters_isi_rt_id BEFORE INSERT ON public.letters FOR EACH ROW EXECUTE FUNCTION public.isi_rt_id('user_id');
+
+
+--
+-- Name: polling trg_polling_isi_rt_id; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_polling_isi_rt_id BEFORE INSERT ON public.polling FOR EACH ROW EXECUTE FUNCTION public.isi_rt_id('created_by');
+
+
+--
+-- Name: users trg_users_isi_rt_id; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_users_isi_rt_id BEFORE INSERT ON public.users FOR EACH ROW EXECUTE FUNCTION public.isi_rt_id('');
+
+
+--
+-- Name: visitors trg_visitors_isi_rt_id; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_visitors_isi_rt_id BEFORE INSERT ON public.visitors FOR EACH ROW EXECUTE FUNCTION public.isi_rt_id('created_by');
+
+
+--
 -- Name: agenda agenda_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1986,11 +2370,27 @@ ALTER TABLE ONLY public.agenda
 
 
 --
+-- Name: agenda agenda_rt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agenda
+    ADD CONSTRAINT agenda_rt_id_fkey FOREIGN KEY (rt_id) REFERENCES public.rt(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: alokasi_bop alokasi_bop_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.alokasi_bop
     ADD CONSTRAINT alokasi_bop_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id);
+
+
+--
+-- Name: alokasi_bop alokasi_bop_rt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.alokasi_bop
+    ADD CONSTRAINT alokasi_bop_rt_id_fkey FOREIGN KEY (rt_id) REFERENCES public.rt(id) ON DELETE RESTRICT;
 
 
 --
@@ -2007,6 +2407,14 @@ ALTER TABLE ONLY public.anggota_keluarga
 
 ALTER TABLE ONLY public.announcements
     ADD CONSTRAINT announcements_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: announcements announcements_rt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.announcements
+    ADD CONSTRAINT announcements_rt_id_fkey FOREIGN KEY (rt_id) REFERENCES public.rt(id) ON DELETE RESTRICT;
 
 
 --
@@ -2031,6 +2439,14 @@ ALTER TABLE ONLY public.bantuan_sosial_log
 
 ALTER TABLE ONLY public.bantuan_sosial_log
     ADD CONSTRAINT bantuan_sosial_log_changed_by_fkey FOREIGN KEY (changed_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: bantuan_sosial bantuan_sosial_rt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bantuan_sosial
+    ADD CONSTRAINT bantuan_sosial_rt_id_fkey FOREIGN KEY (rt_id) REFERENCES public.rt(id) ON DELETE RESTRICT;
 
 
 --
@@ -2106,6 +2522,14 @@ ALTER TABLE ONLY public.bop_finances
 
 
 --
+-- Name: bop_finances bop_finances_rt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bop_finances
+    ADD CONSTRAINT bop_finances_rt_id_fkey FOREIGN KEY (rt_id) REFERENCES public.rt(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: borrowings borrowings_dicatat_oleh_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2119,6 +2543,14 @@ ALTER TABLE ONLY public.borrowings
 
 ALTER TABLE ONLY public.borrowings
     ADD CONSTRAINT borrowings_inventory_id_fkey FOREIGN KEY (inventory_id) REFERENCES public.inventory(id) ON DELETE CASCADE;
+
+
+--
+-- Name: borrowings borrowings_rt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.borrowings
+    ADD CONSTRAINT borrowings_rt_id_fkey FOREIGN KEY (rt_id) REFERENCES public.rt(id) ON DELETE RESTRICT;
 
 
 --
@@ -2138,6 +2570,14 @@ ALTER TABLE ONLY public.complaints
 
 
 --
+-- Name: complaints complaints_rt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.complaints
+    ADD CONSTRAINT complaints_rt_id_fkey FOREIGN KEY (rt_id) REFERENCES public.rt(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: complaints complaints_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2151,6 +2591,14 @@ ALTER TABLE ONLY public.complaints
 
 ALTER TABLE ONLY public.emergency_alerts
     ADD CONSTRAINT emergency_alerts_dismissed_by_fkey FOREIGN KEY (dismissed_by) REFERENCES public.users(id);
+
+
+--
+-- Name: emergency_alerts emergency_alerts_rt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.emergency_alerts
+    ADD CONSTRAINT emergency_alerts_rt_id_fkey FOREIGN KEY (rt_id) REFERENCES public.rt(id) ON DELETE RESTRICT;
 
 
 --
@@ -2178,6 +2626,14 @@ ALTER TABLE ONLY public.finances
 
 
 --
+-- Name: finances finances_rt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.finances
+    ADD CONSTRAINT finances_rt_id_fkey FOREIGN KEY (rt_id) REFERENCES public.rt(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: inventory inventory_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2186,11 +2642,59 @@ ALTER TABLE ONLY public.inventory
 
 
 --
+-- Name: inventory inventory_rt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.inventory
+    ADD CONSTRAINT inventory_rt_id_fkey FOREIGN KEY (rt_id) REFERENCES public.rt(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: jenis_iuran jenis_iuran_rt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.jenis_iuran
+    ADD CONSTRAINT jenis_iuran_rt_id_fkey FOREIGN KEY (rt_id) REFERENCES public.rt(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: kategori_bop kategori_bop_rt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.kategori_bop
+    ADD CONSTRAINT kategori_bop_rt_id_fkey FOREIGN KEY (rt_id) REFERENCES public.rt(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: kategori_kas kategori_kas_rt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.kategori_kas
+    ADD CONSTRAINT kategori_kas_rt_id_fkey FOREIGN KEY (rt_id) REFERENCES public.rt(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: keluarga keluarga_rt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.keluarga
+    ADD CONSTRAINT keluarga_rt_id_fkey FOREIGN KEY (rt_id) REFERENCES public.rt(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: letters letters_approved_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.letters
     ADD CONSTRAINT letters_approved_by_fkey FOREIGN KEY (approved_by) REFERENCES public.users(id);
+
+
+--
+-- Name: letters letters_rt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.letters
+    ADD CONSTRAINT letters_rt_id_fkey FOREIGN KEY (rt_id) REFERENCES public.rt(id) ON DELETE RESTRICT;
 
 
 --
@@ -2282,6 +2786,14 @@ ALTER TABLE ONLY public.polling_options
 
 
 --
+-- Name: polling polling_rt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.polling
+    ADD CONSTRAINT polling_rt_id_fkey FOREIGN KEY (rt_id) REFERENCES public.rt(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: polling_votes polling_votes_option_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2322,11 +2834,35 @@ ALTER TABLE ONLY public.role_permissions
 
 
 --
+-- Name: rt rt_ketua_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.rt
+    ADD CONSTRAINT rt_ketua_id_fkey FOREIGN KEY (ketua_id) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
 -- Name: tiket_unduh tiket_unduh_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.tiket_unduh
     ADD CONSTRAINT tiket_unduh_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_fcm_tokens user_fcm_tokens_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_fcm_tokens
+    ADD CONSTRAINT user_fcm_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: users users_rt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT users_rt_id_fkey FOREIGN KEY (rt_id) REFERENCES public.rt(id) ON DELETE RESTRICT;
 
 
 --
@@ -2338,11 +2874,11 @@ ALTER TABLE ONLY public.visitors
 
 
 --
--- Name: user_fcm_tokens user_fcm_tokens_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: visitors visitors_rt_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.user_fcm_tokens
-    ADD CONSTRAINT user_fcm_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.visitors
+    ADD CONSTRAINT visitors_rt_id_fkey FOREIGN KEY (rt_id) REFERENCES public.rt(id) ON DELETE RESTRICT;
 
 
 --

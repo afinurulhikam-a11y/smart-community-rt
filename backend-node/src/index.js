@@ -44,6 +44,7 @@ const wargaRoutes = require('./routes/warga.routes');
 const bopRoutes = require('./routes/bop.routes');
 const logRoutes = require('./routes/log.routes');
 const menuAksesRoutes = require('./routes/menu_akses.routes');
+const rtRoutes = require('./routes/rt.routes');
 const resetRoutes = require('./routes/reset.routes');
 const paymentRoutes = require('./routes/payment.routes');
 
@@ -187,6 +188,7 @@ app.use('/api/warga', wargaRoutes);
 app.use('/api/bop', bopRoutes);
 app.use('/api/activity-logs', logRoutes);
 app.use('/api/menu-akses', menuAksesRoutes);
+app.use('/api/rt', rtRoutes);
 app.use('/api/reset', resetRoutes);
 app.use('/api/payments', paymentRoutes);
 

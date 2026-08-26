@@ -766,7 +766,7 @@ async function jalankan() {
 
     console.log('\n   ── Akun untuk pengujian ────────────────────────');
     console.log(`   Administrator   : akun admin Anda yang sudah ada (tidak diubah)`);
-    for (const p of PENGURUS) {
+    for (const p of PENGURUS_AWAL) {
       console.log(`   ${p.role.padEnd(15)} : ${p.username}  /  ${SANDI_DEMO}`);
     }
     console.log(`   warga           : NIK kepala keluarga  /  ${SANDI_DEMO}`);

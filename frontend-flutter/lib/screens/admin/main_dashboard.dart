@@ -33,6 +33,7 @@ import '../../providers/family_provider.dart';
 import '../../providers/log_provider.dart';
 import '../../providers/reset_provider.dart';
 import '../../providers/notification_provider.dart';
+import '../../providers/rt_provider.dart';
 import '../../core/services/notification_data_refresher.dart';
 import '../../widgets/navigasi_bawah.dart';
 import '../../widgets/sidebar_menu.dart';
@@ -168,6 +169,11 @@ class _MainDashboardState extends State<MainDashboard> {
       }
 
       final futures = <Future>[];
+
+      // Daftar RT dimuat untuk semua peran, bukan hanya yang boleh lintas RT:
+      // server sudah menyaring isinya, dan peran biasa menerima tepat satu RT
+      // yang dipakai menampilkan "Anda di RT berapa".
+      futures.add(context.read<RtProvider>().muat());
 
       if (izin.bolehLihat('keuangan.iuran', userRole: userRole)) {
         final billP = context.read<BillProvider>();
@@ -1253,8 +1259,91 @@ class _MainDashboardState extends State<MainDashboard> {
   ///
   /// Tanggal dan jam yang dulu memenuhi bilah ini dipindahkan ke kartu sambutan
   /// di Beranda: di ponsel ruangnya terlalu berharga untuk jam berdetik.
+
+  /// Pemilih RT untuk peran yang boleh melihat lintas RT.
+  ///
+  /// Mengembalikan null ketika hanya ada satu RT yang bisa dilihat — bagi
+  /// warga dan pengurus RT, pemilih ini tidak pernah muncul sama sekali.
+  ///
+  /// Yang ditampilkan hanya KODE RT-nya, tiga karakter, bukan nama lengkapnya.
+  /// AppBar di ponsel 360px sudah memuat judul, tiga tombol, dan menu akun;
+  /// menambahkan teks sepanjang "RT 003 Kampung Melati" di situ adalah cara
+  /// paling pasti membuatnya meluber.
+  Widget? _pemilihRt() {
+    final rt = context.watch<RtProvider>();
+    if (!rt.bolehMemilih) return null;
+
+    final aktif = rt.rtTerpilih;
+    final ringkas = aktif?.kode ?? 'RW';
+
+    return PopupMenuButton<String>(
+      tooltip: 'Lingkup data: ${rt.labelLingkup}',
+      offset: const Offset(0, 48),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: context.garis),
+      ),
+      color: context.latarKartu,
+      onSelected: (nilai) {
+        context.read<RtProvider>().pilih(nilai.isEmpty ? null : nilai);
+        // Seluruh data di layar milik RT sebelumnya, jadi harus diambil ulang.
+        // Tanpa ini angka lama bertahan di kartu dashboard dan terbaca seolah
+        // milik RT yang baru dipilih.
+        _loadData();
+      },
+      itemBuilder: (ctx) => [
+        PopupMenuItem<String>(
+          value: '',
+          child: Row(
+            children: [
+              Icon(Icons.apartment_rounded, size: 18, color: context.teksKedua),
+              const SizedBox(width: 10),
+              const Text('Semua RT'),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        ...rt.daftar.map(
+          (r) => PopupMenuItem<String>(
+            value: r.id,
+            child: Row(
+              children: [
+                Icon(
+                  r.id == rt.terpilih ? Icons.check_rounded : Icons.home_work_outlined,
+                  size: 18,
+                  color: r.id == rt.terpilih ? AppTheme.primaryColor : context.teksKedua,
+                ),
+                const SizedBox(width: 10),
+                Flexible(child: Text(r.label, overflow: TextOverflow.ellipsis)),
+              ],
+            ),
+          ),
+        ),
+      ],
+      child: Container(
+        constraints: const BoxConstraints(minHeight: AppTheme.sasaranSentuh),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        alignment: Alignment.center,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.apartment_rounded, size: 18),
+            const SizedBox(width: 4),
+            Text(
+              ringkas,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+            const Icon(Icons.arrow_drop_down_rounded, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+
   PreferredSizeWidget _appBar(AuthService auth, bool warga) {
     final diBeranda = _selectedMenuIndex == 0;
+
+    final pemilihRt = _pemilihRt();
 
     return AppBar(
       // Di layar selain Beranda, panah kembali ke Beranda lebih sesuai
@@ -1272,6 +1361,7 @@ class _MainDashboardState extends State<MainDashboard> {
             ),
       title: Text(judulMenu(_selectedMenuIndex, warga: warga)),
       actions: [
+        if (pemilihRt != null) pemilihRt,
         const TombolFullscreen(size: 18),
         IconButton(
           tooltip: _gelap ? 'Mode terang' : 'Mode gelap',

@@ -34,6 +34,7 @@ import 'package:smart_community/providers/visitor_provider.dart';
 import 'package:smart_community/providers/warga_provider.dart';
 import 'package:smart_community/providers/koneksi_provider.dart';
 import 'package:smart_community/providers/notification_provider.dart';
+import 'package:smart_community/providers/rt_provider.dart';
 import 'package:smart_community/screens/admin/main_dashboard.dart';
 
 /// Perkakas bersama untuk pengujian widget.
@@ -65,6 +66,7 @@ List<SingleChildWidget> semuaProvider() => [
   ChangeNotifierProvider(create: (_) => KoneksiProvider(pantau: false)),
   ChangeNotifierProvider(create: (_) => AuthService()),
   ChangeNotifierProvider(create: (_) => PermissionProvider()),
+  ChangeNotifierProvider(create: (_) => RtProvider()),
   ChangeNotifierProvider<WebSocketService>(create: (_) => WsTanpaSambung()),
   ChangeNotifierProvider(create: (_) => BillProvider()),
   ChangeNotifierProvider(create: (_) => JenisIuranProvider()),

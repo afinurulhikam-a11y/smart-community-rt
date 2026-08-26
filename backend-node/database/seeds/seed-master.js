@@ -29,6 +29,23 @@ async function run() {
     await client.query('BEGIN');
     const hasil = {};
 
+    // --- RT bawaan ----------------------------------------------------------
+    // Harus lebih dulu dari apa pun. Sejak sistem melayani beberapa RT, setiap
+    // baris di delapan belas tabel menunjuk sebuah RT, dan pemicu `isi_rt_id`
+    // mengambil RT pertama sebagai cadangan ketika pemiliknya tidak diketahui.
+    //
+    // Pada basis data yang benar-benar kosong, cadangan itu tidak punya sasaran:
+    // barisnya lahir ber-`rt_id` NULL, dan NULL tidak pernah cocok dengan
+    // penyaringan RT mana pun. Akibatnya bukan galat melainkan yang lebih buruk
+    // — data tersimpan rapi dan tidak terlihat oleh siapa pun.
+    const rtBawaan = await client.query(
+      `INSERT INTO rt (kode, nama, rw_kode)
+       SELECT '001', 'RT 001', '001'
+       WHERE NOT EXISTS (SELECT 1 FROM rt WHERE deleted_at IS NULL)
+       RETURNING id`
+    );
+    hasil['rt'] = rtBawaan.rows.length ? 'RT 001 dibuat' : 'sudah ada, dibiarkan';
+
     // --- Menu ---------------------------------------------------------------
     let menuBaru = 0;
     for (let i = 0; i < MENU_ITEMS.length; i++) {

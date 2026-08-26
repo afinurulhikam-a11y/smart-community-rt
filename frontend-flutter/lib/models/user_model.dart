@@ -64,6 +64,8 @@ class UserModel {
     switch (role) {
       case 'admin':
         return 'Administrator';
+      case 'ketua_rw':
+        return 'Ketua RW';
       case 'ketua_rt':
         return 'Ketua RT';
       case 'sekretaris':

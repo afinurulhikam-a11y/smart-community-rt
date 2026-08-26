@@ -119,6 +119,11 @@ class ApiConstants {
   static String get resetRiwayat => '$baseUrl/reset/riwayat';
 
   // Menu & Hak Akses per Role
+  /// Daftar RT dalam satu RW. Isinya disaring server menurut peran:
+  /// administrator dan ketua RW menerima seluruhnya, peran lain hanya RT-nya.
+  static String get rt => '$baseUrl/rt';
+  static String rtDetail(String id) => '$baseUrl/rt/$id';
+
   static String get menuAkses => '$baseUrl/menu-akses';
   static String get menuAksesSaya => '$baseUrl/menu-akses/me';
   static String get menuAksesReset => '$baseUrl/menu-akses/reset';

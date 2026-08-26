@@ -50,6 +50,12 @@ const TABEL_DILINDUNGI = [
   'master_pendidikan',
   'master_pekerjaan',
   'reset_logs',
+  // Daftar RT. Menghapusnya berarti setiap baris di 18 tabel lain kehilangan
+  // acuan RT-nya sekaligus — dan kunci asingnya ON DELETE RESTRICT, jadi
+  // percobaannya akan menggagalkan seluruh transaksi reset di tengah jalan.
+  // Menghapus sebuah RT dilakukan lewat layarnya sendiri, satu per satu,
+  // dan hanya setelah RT itu benar-benar kosong.
+  'rt',
   // Jejak audit. Dilindungi dari SETIAP kelompok, termasuk Reset Total —
   // sama seperti reset_logs, dan karena alasan yang sama: catatan pengawasan
   // tidak boleh bisa dihapus oleh pihak yang diawasi.

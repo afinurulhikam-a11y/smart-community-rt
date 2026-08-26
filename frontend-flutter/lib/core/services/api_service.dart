@@ -9,6 +9,27 @@ import 'antrean_offline.dart';
 
 class ApiService {
   static String? _token;
+
+  /// RT yang sedang dilihat, disisipkan sebagai `?rt=` pada setiap permintaan.
+  ///
+  /// Hanya berarti bagi administrator dan ketua RW; untuk peran lain server
+  /// mengabaikannya dan tetap mengunci ke RT pemiliknya. Jadi keliru menyetel
+  /// nilai ini tidak pernah bisa membuka data yang bukan haknya — pemeriksaan
+  /// sesungguhnya ada di `lingkup-rt.js` di sisi server, bukan di sini.
+  ///
+  /// Disimpan statis, sejajar dengan token, karena alasan yang sama: setiap
+  /// permintaan membutuhkannya, dan menyalurkannya lewat parameter berarti
+  /// menyentuh 28 provider yang tidak punya urusan dengan hal ini.
+  static String? lingkupRt;
+
+  /// Menyisipkan `?rt=` bila ada, tanpa menimpa nilai yang sudah ditulis
+  /// pemanggil — pemanggil yang menyebutnya sendiri selalu menang.
+  static Uri _denganLingkup(Uri uri) {
+    final rt = lingkupRt;
+    if (rt == null || rt.isEmpty) return uri;
+    if (uri.queryParameters.containsKey('rt')) return uri;
+    return uri.replace(queryParameters: {...uri.queryParameters, 'rt': rt});
+  }
   static const int _timeoutSeconds = 10;
   static const int _maxRetries = 2;
 
@@ -94,6 +115,7 @@ class ApiService {
     if (queryParams != null) {
       uri = uri.replace(queryParameters: queryParams);
     }
+    uri = _denganLingkup(uri);
 
     try {
       final response = await _withRetry(() => http.get(uri, headers: _headers));
@@ -138,7 +160,7 @@ class ApiService {
     try {
       final response = await _withRetry(
         () => http.post(
-          Uri.parse(url),
+          _denganLingkup(Uri.parse(url)),
           headers: _headers,
           body: body != null ? jsonEncode(body) : null,
         ),
@@ -173,7 +195,7 @@ class ApiService {
     try {
       final response = await _withRetry(
         () => http.put(
-          Uri.parse(url),
+          _denganLingkup(Uri.parse(url)),
           headers: _headers,
           body: body != null ? jsonEncode(body) : null,
         ),
@@ -188,7 +210,7 @@ class ApiService {
     try {
       final response = await _withRetry(
         () => http.delete(
-          Uri.parse(url),
+          _denganLingkup(Uri.parse(url)),
           headers: _headers,
           body: body != null ? jsonEncode(body) : null,
         ),

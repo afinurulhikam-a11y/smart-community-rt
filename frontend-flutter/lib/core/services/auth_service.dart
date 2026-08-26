@@ -42,6 +42,8 @@ class AuthService extends ChangeNotifier {
         return 'Administrator';
       case 'pengurus_rt':
         return 'Pengurus RT';
+      case 'ketua_rw':
+        return 'Ketua RW';
       case 'ketua_rt':
         return 'Ketua RT';
       case 'sekretaris':

@@ -41,6 +41,7 @@ import 'providers/notification_provider.dart';
 
 import 'providers/tema_provider.dart';
 import 'providers/koneksi_provider.dart';
+import 'providers/rt_provider.dart';
 import 'core/services/cache_lokal.dart';
 import 'core/services/antrean_offline.dart';
 import 'core/services/notification_data_refresher.dart';
@@ -78,6 +79,7 @@ class SmartCommunityApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => TemaProvider(gelapAwal: gelapAwal)),
         ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => PermissionProvider()),
+        ChangeNotifierProvider(create: (_) => RtProvider()),
         ChangeNotifierProvider(create: (_) => WebSocketService()),
         ChangeNotifierProvider(create: (_) => BillProvider()),
         ChangeNotifierProvider(create: (_) => JenisIuranProvider()),
@@ -471,6 +473,9 @@ class _AuthGateState extends State<AuthGate> {
 /// PermissionProvider dibersihkan terpisah karena punya urutannya sendiri.
 void bersihkanSemuaProvider(BuildContext context) {
   try {
+    // Ikut dibersihkan supaya `ApiService.lingkupRt` — yang statis dan hidup
+    // selama proses — tidak diwarisi pengguna berikutnya.
+    context.read<RtProvider>().bersihkan();
     context.read<AgendaProvider>().bersihkan();
     context.read<AlokasiBopProvider>().bersihkan();
     context.read<AnnouncementProvider>().bersihkan();
