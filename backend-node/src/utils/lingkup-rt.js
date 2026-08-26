@@ -185,6 +185,11 @@ function rtUntukSimpan(req) {
 const SUMBER_RT = Object.freeze({
   users: 'SELECT 1 FROM users WHERE id = $1 AND rt_id = $2',
   keluarga: 'SELECT 1 FROM keluarga WHERE id = $1 AND rt_id = $2',
+  // Master per RT sejak v45 — nominal iuran, tarif air, dan pos belanja
+  // adalah keputusan masing-masing RT, bukan registri kode.
+  jenis_iuran: 'SELECT 1 FROM jenis_iuran WHERE id = $1 AND rt_id = $2',
+  kategori_kas: 'SELECT 1 FROM kategori_kas WHERE id = $1 AND rt_id = $2',
+  kategori_bop: 'SELECT 1 FROM kategori_bop WHERE id = $1 AND rt_id = $2',
   inventory: 'SELECT 1 FROM inventory WHERE id = $1 AND rt_id = $2',
   borrowings: 'SELECT 1 FROM borrowings WHERE id = $1 AND rt_id = $2',
   finances: 'SELECT 1 FROM finances WHERE id = $1 AND rt_id = $2',

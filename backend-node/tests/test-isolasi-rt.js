@@ -56,6 +56,7 @@ assertCanRunTest('test-isolasi-rt');
 
 const assert = require('assert');
 const { pool } = require('../src/config/database');
+const { siapkanMasterRt } = require('../src/services/master-rt.service');
 
 const { getFamilies } = require('../src/controllers/family.controller');
 const { getWarga } = require('../src/controllers/warga.controller');
@@ -90,6 +91,15 @@ const { getFamilyDetail, exportFamiliesExcel } = require('../src/controllers/fam
 const { exportWargaExcel } = require('../src/controllers/warga.controller');
 const ExcelJS = require('exceljs');
 const { PassThrough } = require('stream');
+
+// --- Bagian E: tabel master per RT --------------------------------------
+const { getJenisIuran } = require('../src/controllers/jenis_iuran.controller');
+const { getKategoriKas } = require('../src/controllers/kategori_kas.controller');
+const { getKategoriBop } = require('../src/controllers/kategori_bop.controller');
+
+// --- Bagian F: reset per RT ---------------------------------------------
+const { pratinjauReset } = require('../src/controllers/reset.controller');
+const { GRUP_TOTAL, TABEL_TANPA_RT, polaLingkupRt } = require('../src/config/reset-groups');
 
 const KODE_RT_UJI = '902';
 
@@ -498,7 +508,126 @@ async function barisEkspor(fn, user, query = {}) {
       }
     }
 
-    const total = PERIKSA.length + RINGKASAN.length + DETAIL.length + EKSPOR.length;
+    // ============================================================ BAGIAN E
+    //
+    // Tabel master. Sebelum v45 ketiganya satu untuk seluruh RW, dan yang
+    // menahannya bukan pengendali melainkan indeks unik atas NAMA saja —
+    // sehingga RT kedua tidak mungkin punya "Biaya Keamanan" sendiri.
+    //
+    // Yang diperiksa bukan sekadar "isinya berbeda" melainkan bahwa TIDAK ADA
+    // SATU PUN id yang sama di antara keduanya. Dua daftar bisa berbeda
+    // panjangnya sambil tetap berbagi baris, dan satu baris yang dipakai
+    // bersama sudah cukup: menaikkan tarif air di RT 001 akan menaikkan
+    // tagihan warga RT 002.
+    const MASTER = [
+      { nama: 'Jenis Iuran', fn: getJenisIuran, tabel: 'jenis_iuran' },
+      { nama: 'Kategori Kas', fn: getKategoriKas, tabel: 'kategori_kas' },
+      { nama: 'Kategori BOP', fn: getKategoriBop, tabel: 'kategori_bop' },
+    ];
+    console.log(`\n  ── Tabel master (${MASTER.length}) ──\n`);
+
+    const KETUA_UJI = { ...KETUA_A, rt_id: rtUji };
+    for (const m of MASTER) {
+      // RT uji baru dibuat dan belum punya masternya. Diisi dari sumber yang
+      // sama dengan yang dipakai layar Kelola RT, bukan dari INSERT yang
+      // ditulis ulang di sini — daftar kolom yang disalin akan basi diam-diam.
+      await siapkanMasterRt(pool, rtUji);
+
+      const a = await daftar(m.fn, KETUA_A);
+      const b = await daftar(m.fn, KETUA_UJI);
+      if (!a.baris.length || !b.baris.length) {
+        console.log(`  ?  ${m.nama.padEnd(18)} TIDAK TERUJI — salah satu daftarnya kosong`);
+        takTeruji += 1;
+        continue;
+      }
+      const idA = new Set(a.baris.map((r) => String(r.id)));
+      const beririsan = b.baris.filter((r) => idA.has(String(r.id)));
+      if (beririsan.length) {
+        console.log(`  X  ${m.nama.padEnd(18)} BOCOR — ${beririsan.length} baris dipakai berdua`);
+        bocor += 1;
+      } else {
+        console.log(`  v  ${m.nama.padEnd(18)} ${a.baris.length} vs ${b.baris.length} baris, tidak ada yang dipakai berdua`);
+      }
+    }
+
+    // ============================================================ BAGIAN F
+    //
+    // Reset per RT. Yang diperiksa adalah sebuah kesamaan yang harus selalu
+    // berlaku: jumlah baris yang terlihat oleh SETIAP RT, dijumlahkan, sama
+    // dengan jumlah baris tanpa pelingkupan.
+    //
+    // Kesamaan ini menangkap ketiga cara ekspresi pelingkupan bisa salah
+    // sekaligus — join yang keliru (jumlahnya kurang), penyaring yang tidak
+    // mengikat (jumlahnya berlipat), dan tabel yang terlewat dari registry —
+    // tanpa perlu menghapus satu baris pun. Menghapus untuk mengujinya berarti
+    // uji yang tidak akan pernah dijalankan orang terhadap data sungguhan.
+    const semuaRt = (await pool.query(
+      'SELECT id FROM rt WHERE deleted_at IS NULL'
+    )).rows.map((r) => r.id);
+
+    const tabelReset = GRUP_TOTAL.tabel.filter((t) => !TABEL_TANPA_RT.includes(t.tabel));
+    console.log(`\n  ── Pelingkupan reset (${tabelReset.length} tabel) ──\n`);
+
+    let resetBocor = 0;
+    for (const entri of tabelReset) {
+      const hitung = async (rt) => {
+        const params = [];
+        const bagian = [];
+        if (entri.where) bagian.push(entri.where);
+        if (rt) {
+          const pola = polaLingkupRt(entri.tabel, params.length + 1);
+          params.push(rt);
+          bagian.push(pola);
+        }
+        const where = bagian.length ? ` WHERE ${bagian.join(' AND ')}` : '';
+        const r = await pool.query(`SELECT COUNT(*)::int n FROM ${entri.tabel}${where}`, params);
+        return r.rows[0].n;
+      };
+
+      const seluruh = await hitung(null);
+      let jumlah = 0;
+      for (const id of semuaRt) jumlah += await hitung(id);
+
+      if (jumlah !== seluruh) {
+        console.log(`  X  ${entri.tabel.padEnd(26)} BOCOR — per RT berjumlah ${jumlah}, tanpa lingkup ${seluruh}`);
+        resetBocor += 1;
+      }
+    }
+    if (resetBocor === 0) {
+      console.log(`  v  ${String(tabelReset.length).padStart(2)} tabel: jumlah per RT = jumlah tanpa lingkup`);
+    }
+    bocor += resetBocor;
+
+    // Kelompok yang tidak punya dimensi RT harus DITOLAK, bukan dijalankan
+    // menyeluruh dan bukan pula dilaporkan "berhasil, 0 baris".
+    const rSensor = mockReqRes(
+      { ...KETUA_A, role: 'admin' },
+      { rt: rtUji }
+    );
+    rSensor.req.body = { grup: 'sensor' };
+    await pratinjauReset(rSensor.req, rSensor.res);
+    if (rSensor.res.getStatusCode() === 400) {
+      console.log('  v  kelompok Sensor    ditolak saat sebuah RT dipilih');
+    } else {
+      console.log(`  X  kelompok Sensor    TIDAK ditolak (status ${rSensor.res.getStatusCode()})`);
+      bocor += 1;
+    }
+
+    // Frasa konfirmasi harus menyebut RT-nya. Ia satu-satunya tempat di
+    // seluruh alur ini yang dijamin dibaca sebelum data hilang.
+    const rFrasa = mockReqRes({ ...KETUA_A, role: 'admin' }, { rt: rtUji });
+    rFrasa.req.body = { grup: 'total' };
+    await pratinjauReset(rFrasa.req, rFrasa.res);
+    const frasa = rFrasa.res.getBody()?.data?.konfirmasi ?? '';
+    if (frasa.includes(KODE_RT_UJI)) {
+      console.log(`  v  frasa konfirmasi   menyebut RT: "${frasa}"`);
+    } else {
+      console.log(`  X  frasa konfirmasi   TIDAK menyebut RT: "${frasa}"`);
+      bocor += 1;
+    }
+
+    const total = PERIKSA.length + RINGKASAN.length + DETAIL.length + EKSPOR.length
+      + MASTER.length + tabelReset.length + 2;
     console.log('\n----------------------------------------------------------------');
     console.log(`  terisolasi   : ${total - bocor - takTeruji} dari ${total}`);
     console.log(`  BOCOR        : ${bocor}`);
@@ -508,7 +637,7 @@ async function barisEkspor(fn, user, query = {}) {
     assert.strictEqual(bocor, 0, `${bocor} endpoint masih membocorkan data RT lain.`);
     assert.strictEqual(takTeruji, 0,
       `${takTeruji} endpoint tidak dapat diuji — isi datanya kosong, jadi isolasinya belum terbukti.`);
-    console.log('✅ Daftar, kartu ringkasan, jalur :id, dan ekspor semuanya terisolasi per RT.\n');
+    console.log('✅ Daftar, kartu, jalur :id, ekspor, master, dan reset semuanya terisolasi per RT.\n');
   } finally {
     // Pemulihan menangani dua bentuk: satu baris (Bagian A dan C) dan
     // seluruh baris sekaligus (Bagian B). Blok ini berjalan juga ketika ada
@@ -524,6 +653,12 @@ async function barisEkspor(fn, user, query = {}) {
       }
     }
     if (rtUji) {
+      // Master RT uji dibuang lebih dulu: FK-nya ke `rt` ber-ON DELETE
+      // RESTRICT, jadi menghapus RT-nya lebih dulu akan gagal dan
+      // meninggalkan RT uji hidup di basis data sungguhan.
+      for (const t of ['jenis_iuran', 'kategori_kas', 'kategori_bop']) {
+        await pool.query(`DELETE FROM ${t} WHERE rt_id = $1`, [rtUji]);
+      }
       await pool.query('DELETE FROM rt WHERE id = $1 AND kode = $2', [rtUji, KODE_RT_UJI]);
     }
     await pool.end();

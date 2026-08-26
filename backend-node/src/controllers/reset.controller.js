@@ -2,11 +2,14 @@ const { pool } = require('../config/database');
 const bcrypt = require('bcryptjs');
 const ExcelJS = require('exceljs');
 const { logActivity, TIPE } = require('../services/log.service');
+const { rtAktif } = require('../utils/lingkup-rt');
 const {
   RESET_GROUPS,
   GRUP_TOTAL,
+  TABEL_TANPA_RT,
   cariGrup,
   frasaKonfirmasi,
+  polaLingkupRt,
 } = require('../config/reset-groups');
 
 /**
@@ -28,14 +31,99 @@ function ambilIp(req) {
   return String(raw).split(',')[0].trim().replace('::ffff:', '').replace('::1', '127.0.0.1');
 }
 
-function klausaWhere(entri) {
-  return entri.where ? ` WHERE ${entri.where}` : '';
+/**
+ * Klausa WHERE untuk satu entri tabel, beserta parameternya.
+ *
+ * Dua penyaring digabung di sini dan HANYA di sini: `entri.where` dari
+ * registry (mis. "hanya baris milik warga") dan pelingkupan RT. Menempatkan
+ * yang kedua di tiap pemanggil berarti empat tempat — pratinjau, ringkasan,
+ * cadangan, eksekusi — dan yang terlewat tidak berbunyi: ia hanya menghapus
+ * lebih banyak daripada yang diminta.
+ *
+ * Nilai RT didorong ke `params`, tidak pernah disambung sebagai teks.
+ */
+function klausaWhere(entri, rt, params) {
+  const bagian = [];
+  if (entri.where) bagian.push(entri.where);
+  if (rt) {
+    const pola = polaLingkupRt(entri.tabel, params.length + 1);
+    if (pola) {
+      params.push(rt);
+      bagian.push(pola);
+    }
+  }
+  return bagian.length ? ` WHERE ${bagian.join(' AND ')}` : '';
 }
 
 /** Jumlah baris yang akan terhapus oleh satu entri tabel. */
-async function hitungBaris(db, entri) {
-  const r = await db.query(`SELECT COUNT(*)::int AS n FROM ${entri.tabel}${klausaWhere(entri)}`);
+async function hitungBaris(db, entri, rt) {
+  if (dilewatiKarenaRt(entri, rt)) return 0;
+  const params = [];
+  const where = klausaWhere(entri, rt, params);
+  const r = await db.query(`SELECT COUNT(*)::int AS n FROM ${entri.tabel}${where}`, params);
   return r.rows[0].n;
+}
+
+/**
+ * RT yang sedang dilihat, beserta nomornya.
+ *
+ * Nomornya dibaca dari basis data, bukan dari token: ia ikut masuk ke frasa
+ * konfirmasi dan ke `reset_logs`, dan keduanya harus menyebut RT yang benar-
+ * benar dihapus. `null` berarti seluruh RW — perilaku sebelum ada modul RT.
+ */
+async function lingkupReset(req) {
+  const id = rtAktif(req);
+  if (!id) return { id: null, kode: null };
+  const r = await pool.query('SELECT kode FROM rt WHERE id = $1 AND deleted_at IS NULL', [id]);
+  return { id, kode: r.rows[0]?.kode ?? null };
+}
+
+/**
+ * Tabel dalam sebuah kelompok yang tidak punya dimensi RT sama sekali.
+ *
+ * Hari ini hanya `sensor_logs`: barisnya memuat jenis sensor, nilai, dan
+ * waktu, dan tidak ada satu pun kolom yang menghubungkannya ke sebuah RT.
+ */
+function tabelTakBerRt(grup) {
+  return grup.tabel.map((t) => t.tabel).filter((t) => TABEL_TANPA_RT.includes(t));
+}
+
+/**
+ * Apakah sebuah entri DILEWATI pada reset yang dilingkupi ke satu RT.
+ *
+ * ===================================================================
+ * Kenapa dilewati, bukan menggagalkan seluruh kelompoknya
+ * ===================================================================
+ *
+ * Percobaan pertama menolak kelompok mana pun yang memuat tabel semacam ini.
+ * Itu terlihat tegas dan ternyata salah sasaran: `sensor_logs` ada di dalam
+ * URUTAN_TOTAL, jadi aturan itu membuat **Reset Total per RT mustahil** —
+ * padahal justru itu yang paling masuk akal diminta seorang administrator
+ * yang sedang membereskan satu RT.
+ *
+ * Jadi entrinya dilewati, dan pelewatannya DITAMPILKAN: pratinjau menandainya
+ * `dilewati`, dan hasil eksekusi ikut menyebutkannya. Yang berbahaya bukan
+ * melewati sesuatu, melainkan melewatinya tanpa memberi tahu.
+ *
+ * Kelompok yang SELURUH tabelnya begini (yaitu kelompok Sensor) tetap ditolak
+ * — bukan karena aturannya berbeda, melainkan karena tidak ada satu pun baris
+ * yang akan tersentuh, dan tombol yang tidak melakukan apa pun harus
+ * mengatakannya, bukan melapor "berhasil, 0 baris".
+ */
+function dilewatiKarenaRt(entri, rt) {
+  return Boolean(rt) && TABEL_TANPA_RT.includes(entri.tabel);
+}
+
+/** Kalimat penolakan untuk kelompok yang seluruhnya tak punya dimensi RT. */
+function pesanTakBerRt(daftar, kodeRt) {
+  return `Kelompok ini hanya berisi ${daftar.join(', ')}, yang tidak menyimpan RT `
+    + `sama sekali — jadi tidak ada yang bisa dihapus khusus untuk RT ${kodeRt}. `
+    + 'Pilih "Semua RT" lebih dulu bila memang hendak menghapusnya untuk seluruh RW.';
+}
+
+/** Benar bila kelompok ini tidak menyentuh apa pun dalam lingkup RT terpilih. */
+function seluruhnyaTakBerRt(grup, rt) {
+  return Boolean(rt) && grup.tabel.every((t) => dilewatiKarenaRt(t, rt));
 }
 
 /**
@@ -45,13 +133,14 @@ async function hitungBaris(db, entri) {
  * sasaran utama kelompok ini. Layar menampilkannya terpisah supaya tidak ada
  * yang lenyap tanpa disadari.
  */
-async function rincianGrup(db, grup) {
+async function rincianGrup(db, grup, rt) {
   const rincian = [];
   for (const entri of grup.tabel) {
     rincian.push({
       tabel: entri.tabel,
-      jumlah: await hitungBaris(db, entri),
+      jumlah: await hitungBaris(db, entri, rt),
       ikutan: entri.ikutan === true,
+      dilewati: dilewatiKarenaRt(entri, rt),
     });
   }
   return rincian;
@@ -72,12 +161,13 @@ function totalkan(rincian) {
  */
 async function getRingkasan(req, res) {
   try {
+    const lingkup = await lingkupReset(req);
     const hasil = [];
     for (const grup of RESET_GROUPS) {
       let jumlah = 0;
       for (const entri of grup.tabel) {
         if (entri.ikutan) continue;
-        jumlah += await hitungBaris(pool, entri);
+        jumlah += await hitungBaris(pool, entri, lingkup.id);
       }
       hasil.push({
         kode: grup.kode,
@@ -85,21 +175,33 @@ async function getRingkasan(req, res) {
         deskripsi: grup.deskripsi,
         ikon: grup.ikon,
         jumlah,
-        konfirmasi: frasaKonfirmasi(grup),
+        konfirmasi: frasaKonfirmasi(grup, lingkup.kode),
+        // Kartu yang tidak bisa dijalankan dalam lingkup ini ditandai di sini,
+        // bukan dibiarkan gagal setelah administrator mengetik frasanya.
+        terkunci: seluruhnyaTakBerRt(grup, lingkup.id),
       });
     }
 
-    const total = await rincianGrup(pool, GRUP_TOTAL);
+    const total = await rincianGrup(pool, GRUP_TOTAL, lingkup.id);
     hasil.push({
       kode: GRUP_TOTAL.kode,
       nama: GRUP_TOTAL.nama,
       deskripsi: GRUP_TOTAL.deskripsi,
       ikon: GRUP_TOTAL.ikon,
       jumlah: totalkan(total),
-      konfirmasi: frasaKonfirmasi(GRUP_TOTAL),
+      konfirmasi: frasaKonfirmasi(GRUP_TOTAL, lingkup.kode),
+      terkunci: false,
     });
 
-    return res.status(200).json({ success: true, data: hasil, count: hasil.length });
+    return res.status(200).json({
+      success: true,
+      data: hasil,
+      count: hasil.length,
+      // Dibaca layar untuk menuliskan lingkupnya di atas daftar kartu. Sebuah
+      // penghapusan yang lingkupnya tidak terlihat adalah cacat tersendiri,
+      // sekalipun penghapusannya sendiri benar.
+      lingkup: { rt_id: lingkup.id, rt_kode: lingkup.kode },
+    });
   } catch (err) {
     console.error('GetRingkasan Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
@@ -115,9 +217,19 @@ async function pratinjauReset(req, res) {
       return res.status(400).json({ success: false, message: 'Kelompok reset tidak dikenal.' });
     }
 
-    const rincian = await rincianGrup(pool, grup);
+    const lingkup = await lingkupReset(req);
+    if (seluruhnyaTakBerRt(grup, lingkup.id)) {
+      return res.status(400).json({
+        success: false, message: pesanTakBerRt(tabelTakBerRt(grup), lingkup.kode),
+      });
+    }
+
+    const rincian = await rincianGrup(pool, grup, lingkup.id);
     const utama = rincian.filter((r) => !r.ikutan);
     const ikutan = rincian.filter((r) => r.ikutan && r.jumlah > 0);
+    // Ditampilkan terpisah supaya administrator melihat apa yang TIDAK ikut
+    // terhapus, bukan menyimpulkannya dari angka nol yang terlihat wajar.
+    const dilewati = rincian.filter((r) => r.dilewati).map((r) => r.tabel);
 
     return res.status(200).json({
       success: true,
@@ -125,9 +237,11 @@ async function pratinjauReset(req, res) {
         kode: grup.kode,
         nama: grup.nama,
         deskripsi: grup.deskripsi,
-        konfirmasi: frasaKonfirmasi(grup),
+        konfirmasi: frasaKonfirmasi(grup, lingkup.kode),
+        rt_kode: lingkup.kode,
         utama,
         ikutan,
+        dilewati,
         total: totalkan(rincian),
       },
     });
@@ -180,9 +294,27 @@ async function cadanganReset(req, res) {
     workbook.creator = 'Smart Community RT';
     workbook.created = new Date();
 
+    // Cadangan HARUS memakai lingkup yang sama dengan penghapusannya. Berbeda
+    // sedikit pun berarti salah satu dari dua hal: berkasnya memuat data RT
+    // lain (kebocoran), atau tidak memuat semua yang akan dihapus (cadangan
+    // yang tidak bisa dipakai memulihkan).
+    const lingkup = await lingkupReset(req);
+    if (seluruhnyaTakBerRt(grup, lingkup.id)) {
+      return res.status(400).json({
+        success: false, message: pesanTakBerRt(tabelTakBerRt(grup), lingkup.kode),
+      });
+    }
+
     let adaIsi = false;
     for (const entri of grup.tabel) {
-      const hasil = await pool.query(`SELECT * FROM ${entri.tabel}${klausaWhere(entri)}`);
+      // Dilewati di sini juga, dengan alasan yang sama: cadangan harus memuat
+      // persis apa yang akan dihapus. Menyertakan sensor_logs pada cadangan
+      // per RT berarti berkasnya menjanjikan pemulihan atas baris yang tidak
+      // pernah tersentuh.
+      if (dilewatiKarenaRt(entri, lingkup.id)) continue;
+      const pCad = [];
+      const whereCad = klausaWhere(entri, lingkup.id, pCad);
+      const hasil = await pool.query(`SELECT * FROM ${entri.tabel}${whereCad}`, pCad);
       if (hasil.rows.length === 0) continue;
       adaIsi = true;
 
@@ -201,7 +333,8 @@ async function cadanganReset(req, res) {
     }
 
     const stempel = new Date().toISOString().slice(0, 10);
-    const namaFile = `Cadangan_${grup.kode.replace(/\./g, '_')}_${stempel}.xlsx`;
+    const bagianRt = lingkup.kode ? `RT${lingkup.kode}_` : '';
+    const namaFile = `Cadangan_${bagianRt}${grup.kode.replace(/\./g, '_')}_${stempel}.xlsx`;
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=${namaFile}`);
@@ -247,7 +380,21 @@ async function eksekusiReset(req, res) {
     return res.status(400).json({ success: false, message: 'Kelompok reset tidak dikenal.' });
   }
 
-  const frasa = frasaKonfirmasi(grup);
+  let lingkup;
+  try {
+    lingkup = await lingkupReset(req);
+  } catch (err) {
+    console.error('EksekusiReset (lingkup) Error:', err.message);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  }
+
+  if (seluruhnyaTakBerRt(grup, lingkup.id)) {
+    return res.status(400).json({
+      success: false, message: pesanTakBerRt(tabelTakBerRt(grup), lingkup.kode),
+    });
+  }
+
+  const frasa = frasaKonfirmasi(grup, lingkup.kode);
   if (String(konfirmasi || '').trim() !== frasa) {
     return res.status(400).json({
       success: false,
@@ -275,8 +422,15 @@ async function eksekusiReset(req, res) {
     // rincian ini bukan perkiraan melainkan hasil sesungguhnya.
     const rincian = {};
     let total = 0;
+    const dilewati = [];
     for (const entri of grup.tabel) {
-      const r = await client.query(`DELETE FROM ${entri.tabel}${klausaWhere(entri)}`);
+      if (dilewatiKarenaRt(entri, lingkup.id)) {
+        dilewati.push(entri.tabel);
+        continue;
+      }
+      const pDel = [];
+      const whereDel = klausaWhere(entri, lingkup.id, pDel);
+      const r = await client.query(`DELETE FROM ${entri.tabel}${whereDel}`, pDel);
       if (r.rowCount > 0) {
         rincian[entri.tabel] = (rincian[entri.tabel] || 0) + r.rowCount;
         total += r.rowCount;
@@ -289,7 +443,12 @@ async function eksekusiReset(req, res) {
           user_id, user_nama, user_role, ip_address)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [
-        grup.kode, grup.nama, JSON.stringify(rincian), total, dicadangkan === true,
+        // Nama kelompok DITULIS beserta RT-nya. `reset_logs` tidak punya kolom
+        // rt_id — ia tabel dilindungi yang tidak ikut migrasi v43 — dan
+        // riwayat yang tidak menyebutkan lingkupnya membuat dua baris "Reset
+        // Data Warga" tidak bisa dibedakan satu sama lain.
+        grup.kode, lingkup.kode ? `${grup.nama} (RT ${lingkup.kode})` : grup.nama,
+        JSON.stringify(rincian), total, dicadangkan === true,
         req.user.id, req.user.nama || req.user.email, req.user.role, ambilIp(req),
       ]
     );
@@ -300,17 +459,32 @@ async function eksekusiReset(req, res) {
     // activity_logs, jadi mencatat di dalam transaksi berarti catatan reset
     // ikut terhapus oleh reset itu sendiri.
     const ringkas = Object.entries(rincian).map(([t, n]) => `${t}: ${n}`).join(', ');
+    // Lingkupnya ikut ke jejak audit. "Reset Data Warga — 48 baris" tidak bisa
+    // dibedakan dari reset RT lain tanpa keterangan ini, dan tabel ini
+    // permanen: keterangan yang hilang saat menulis tidak bisa ditambahkan.
+    const sebutRt = lingkup.kode ? ` (RT ${lingkup.kode})` : ' (seluruh RW)';
+    const sebutLewat = dilewati.length
+      ? ` Dilewati karena tidak menyimpan RT: ${dilewati.join(', ')}.`
+      : '';
     await logActivity(
       req, TIPE.RESET,
-      `Reset "${grup.nama}" — ${total} baris dihapus${ringkas ? ` (${ringkas})` : ''}.`
+      `Reset "${grup.nama}"${sebutRt} — ${total} baris dihapus`
+      + `${ringkas ? ` (${ringkas})` : ''}.${sebutLewat}`
     );
 
     return res.status(200).json({
       success: true,
-      message: total > 0
-        ? `Reset "${grup.nama}" berhasil. ${total} baris dihapus.`
-        : `Tidak ada data untuk dihapus pada "${grup.nama}".`,
-      data: { kode: grup.kode, nama: grup.nama, rincian, total },
+      message: (total > 0
+        ? `Reset "${grup.nama}"${sebutRt} berhasil. ${total} baris dihapus.`
+        : `Tidak ada data untuk dihapus pada "${grup.nama}"${sebutRt}.`) + sebutLewat,
+      data: {
+        kode: grup.kode,
+        nama: grup.nama,
+        rt_kode: lingkup.kode,
+        rincian,
+        dilewati,
+        total,
+      },
     });
   } catch (err) {
     await client.query('ROLLBACK');

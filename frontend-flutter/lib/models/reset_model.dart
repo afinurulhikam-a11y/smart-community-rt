@@ -12,6 +12,14 @@ class ResetGroup {
   /// supaya keduanya tidak mungkin berbeda.
   final String konfirmasi;
 
+  /// Kelompok ini tidak bisa dijalankan dalam lingkup RT yang sedang dipilih.
+  ///
+  /// Hari ini hanya kelompok Sensor: `sensor_logs` tidak menyimpan RT sama
+  /// sekali. Ditandai dari server, bukan disimpulkan layar — daftar tabel per
+  /// kelompok hanya ada di `reset-groups.js`, dan menyalin pengetahuan itu ke
+  /// sini berarti dua sumber yang bisa berbeda diam-diam.
+  final bool terkunci;
+
   const ResetGroup({
     required this.kode,
     required this.nama,
@@ -19,6 +27,7 @@ class ResetGroup {
     required this.ikon,
     required this.jumlah,
     required this.konfirmasi,
+    this.terkunci = false,
   });
 
   bool get kosong => jumlah == 0;
@@ -31,6 +40,7 @@ class ResetGroup {
     ikon: j['ikon']?.toString() ?? 'kotak',
     jumlah: (j['jumlah'] as num?)?.toInt() ?? 0,
     konfirmasi: j['konfirmasi']?.toString() ?? j['nama']?.toString() ?? '',
+    terkunci: j['terkunci'] == true,
   );
 
   /// Backend sengaja tidak tahu-menahu soal widget, jadi pemetaan ikon ada di
@@ -81,6 +91,16 @@ class ResetPreview {
   final List<ResetBaris> ikutan;
   final int total;
 
+  /// Nomor RT yang sedang dilingkupi; null berarti seluruh RW.
+  final String? rtKode;
+
+  /// Tabel yang TIDAK ikut terhapus karena tidak menyimpan RT.
+  ///
+  /// Ditampilkan, bukan disembunyikan: yang berbahaya bukan melewati sesuatu,
+  /// melainkan melewatinya tanpa memberi tahu — angka nol pada sebuah tabel
+  /// terbaca persis seperti "memang tidak ada datanya".
+  final List<String> dilewati;
+
   const ResetPreview({
     required this.kode,
     required this.nama,
@@ -89,6 +109,8 @@ class ResetPreview {
     required this.utama,
     required this.ikutan,
     required this.total,
+    this.rtKode,
+    this.dilewati = const [],
   });
 
   bool get adaIkutan => ikutan.isNotEmpty;
@@ -108,5 +130,9 @@ class ResetPreview {
     utama: _baris(j['utama']),
     ikutan: _baris(j['ikutan']),
     total: (j['total'] as num?)?.toInt() ?? 0,
+    rtKode: j['rt_kode']?.toString(),
+    dilewati: (j['dilewati'] as List<dynamic>? ?? [])
+        .map((e) => e.toString())
+        .toList(),
   );
 }

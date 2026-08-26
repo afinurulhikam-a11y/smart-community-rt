@@ -1,5 +1,6 @@
 const { pool } = require('../config/database');
 const { logActivity, bandingkan, TIPE } = require('../services/log.service');
+const { klausaRt, kondisiRt, rtUntukSimpan, tolakLuarRt } = require('../utils/lingkup-rt');
 
 // Sesuai CHECK constraint pada tabel kategori_bop.
 const TIPE_VALID = ['IN', 'OUT'];
@@ -16,6 +17,10 @@ async function getKategoriBop(req, res) {
       params.push(tipe);
       kondisi.push(`kb.tipe = $${params.length}`);
     }
+    // Sama seperti kategori_kas: dropdown Dana BOP hanya memuat pos belanja
+    // RT ini sendiri.
+    const rt = kondisiRt(req, 'kb', params);
+    if (rt) kondisi.push(rt);
     const where = kondisi.length ? `WHERE ${kondisi.join(' AND ')}` : '';
 
     const result = await pool.query(`
@@ -46,18 +51,24 @@ async function createKategoriBop(req, res) {
       return res.status(400).json({ success: false, message: "Tipe harus 'IN' (pemasukan) atau 'OUT' (pengeluaran)." });
     }
 
+    // Nama kembar diperiksa DALAM RT ini saja. Memeriksanya se-basis-data
+    // adalah keadaan sebelum v45, dan itu berarti satu RT yang sudah memakai
+    // sebuah nama mengunci nama itu untuk seluruh RW.
+    const pKembar = [nama_kategori];
     const kembar = await pool.query(
-      'SELECT id FROM kategori_bop WHERE LOWER(TRIM(nama_kategori)) = LOWER(TRIM($1))',
-      [nama_kategori]
+      `SELECT id FROM kategori_bop
+        WHERE LOWER(TRIM(nama_kategori)) = LOWER(TRIM($1))
+        ${klausaRt(req, '', pKembar)}`,
+      pKembar
     );
     if (kembar.rows.length > 0) {
       return res.status(409).json({ success: false, message: 'Kategori BOP dengan nama tersebut sudah ada.' });
     }
 
     const result = await pool.query(
-      `INSERT INTO kategori_bop (nama_kategori, tipe, keterangan, is_aktif)
-       VALUES ($1, $2, $3, true) RETURNING *`,
-      [nama_kategori.trim(), tipe, keterangan || null]
+      `INSERT INTO kategori_bop (nama_kategori, tipe, keterangan, is_aktif, rt_id)
+       VALUES ($1, $2, $3, true, $4) RETURNING *`,
+      [nama_kategori.trim(), tipe, keterangan || null, rtUntukSimpan(req)]
     );
     const baru = result.rows[0];
     await logActivity(req, TIPE.CREATE, `Menambah kategori BOP "${baru.nama_kategori}" (tipe ${baru.tipe})`);
@@ -72,6 +83,7 @@ async function createKategoriBop(req, res) {
 async function updateKategoriBop(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'kategori_bop', id)) return;
     const { nama_kategori, tipe, keterangan, is_aktif } = req.body;
 
     if (tipe !== undefined && !TIPE_VALID.includes(tipe)) {
@@ -93,7 +105,9 @@ async function updateKategoriBop(req, res) {
 
     if (nama_kategori) {
       const kembar = await pool.query(
-        'SELECT id FROM kategori_bop WHERE LOWER(TRIM(nama_kategori)) = LOWER(TRIM($1)) AND id <> $2',
+        `SELECT id FROM kategori_bop
+          WHERE LOWER(TRIM(nama_kategori)) = LOWER(TRIM($1)) AND id <> $2
+            AND rt_id IS NOT DISTINCT FROM (SELECT rt_id FROM kategori_bop WHERE id = $2)`,
         [nama_kategori, id]
       );
       if (kembar.rows.length > 0) {
@@ -137,6 +151,7 @@ async function updateKategoriBop(req, res) {
 async function deleteKategoriBop(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'kategori_bop', id)) return;
 
     const dipakai = await pool.query('SELECT COUNT(*)::int AS c FROM bop_finances WHERE kategori_id = $1', [id]);
     if (dipakai.rows[0].c > 0) {

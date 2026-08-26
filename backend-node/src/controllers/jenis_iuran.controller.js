@@ -1,6 +1,7 @@
 const { pool } = require('../config/database');
 const { logActivity, rupiah, bandingkan, TIPE } = require('../services/log.service');
 const { TIPE_TETAP, TIPE_METERAN } = require('../utils/tagihan-air');
+const { klausaRt, kondisiRt, rtUntukSimpan, tolakLuarRt } = require('../utils/lingkup-rt');
 
 const PERIODE_VALID = ['bulanan', 'tahunan', 'sekali'];
 
@@ -8,6 +9,18 @@ async function getJenisIuran(req, res) {
   try {
     // Dropdown di layar hanya butuh yang aktif; halaman kelola butuh semuanya.
     const hanyaAktif = req.query.aktif === 'true';
+
+    // Tarif air per m3, abondement, dan biaya sampah semuanya tersimpan di
+    // tabel ini. Dropdown yang memuat jenis iuran RT lain berarti pengurus
+    // bisa menerbitkan tagihan memakai tarif yang bukan tarif RT-nya —
+    // kesalahan yang baru ketahuan setelah tagihannya sampai ke warga.
+    const params = [];
+    const kondisi = [];
+    if (hanyaAktif) kondisi.push('ji.is_aktif = true');
+    const rt = kondisiRt(req, 'ji', params);
+    if (rt) kondisi.push(rt);
+    const saring = kondisi.length ? `WHERE ${kondisi.join(' AND ')}` : '';
+
     const result = await pool.query(`
       SELECT ji.id, ji.nama_iuran, ji.nominal_default::numeric AS nominal_default,
              ji.periode, ji.is_aktif, ji.keterangan,
@@ -18,10 +31,10 @@ async function getJenisIuran(req, res) {
              COUNT(b.id)::int AS jumlah_tagihan
       FROM jenis_iuran ji
       LEFT JOIN bills b ON b.jenis_iuran_id = ji.id
-      ${hanyaAktif ? 'WHERE ji.is_aktif = true' : ''}
+      ${saring}
       GROUP BY ji.id
       ORDER BY ji.is_aktif DESC, ji.nama_iuran ASC
-    `);
+    `, params);
     return res.status(200).json({ success: true, count: result.rows.length, data: result.rows });
   } catch (err) {
     console.error('GetJenisIuran Error:', err.message);
@@ -58,19 +71,28 @@ async function createJenisIuran(req, res) {
       });
     }
 
-    const kembar = await pool.query('SELECT id FROM jenis_iuran WHERE LOWER(TRIM(nama_iuran)) = LOWER(TRIM($1))', [nama_iuran]);
+    // Nama kembar diperiksa DALAM RT ini saja. Memeriksanya se-basis-data
+    // adalah keadaan sebelum v45, dan itu berarti satu RT yang sudah memakai
+    // sebuah nama mengunci nama itu untuk seluruh RW.
+    const pKembar = [nama_iuran];
+    const kembar = await pool.query(
+      `SELECT id FROM jenis_iuran
+        WHERE LOWER(TRIM(nama_iuran)) = LOWER(TRIM($1))
+        ${klausaRt(req, '', pKembar)}`,
+      pKembar
+    );
     if (kembar.rows.length > 0) {
       return res.status(409).json({ success: false, message: 'Jenis iuran dengan nama tersebut sudah ada.' });
     }
 
     const result = await pool.query(
       `INSERT INTO jenis_iuran (nama_iuran, nominal_default, periode, keterangan, is_aktif,
-                                tipe_hitung, tarif_per_m3, abondement, biaya_sampah)
-       VALUES ($1, $2, $3, $4, true, $5, $6, $7, $8) RETURNING *`,
+                                tipe_hitung, tarif_per_m3, abondement, biaya_sampah, rt_id)
+       VALUES ($1, $2, $3, $4, true, $5, $6, $7, $8, $9) RETURNING *`,
       [
         nama_iuran.trim(), nominal_default || 0, periode || 'bulanan', keterangan || null,
         tipeHitung, tipeHitung === TIPE_METERAN ? (tarif_per_m3 || 0) : null,
-        abondement || 0, biaya_sampah || 0,
+        abondement || 0, biaya_sampah || 0, rtUntukSimpan(req),
       ]
     );
     const baru = result.rows[0];
@@ -90,6 +112,7 @@ async function createJenisIuran(req, res) {
 async function updateJenisIuran(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'jenis_iuran', id)) return;
     const {
       nama_iuran, nominal_default, periode, keterangan, is_aktif,
       tipe_hitung, tarif_per_m3, abondement, biaya_sampah,
@@ -108,7 +131,9 @@ async function updateJenisIuran(req, res) {
 
     if (nama_iuran) {
       const kembar = await pool.query(
-        'SELECT id FROM jenis_iuran WHERE LOWER(TRIM(nama_iuran)) = LOWER(TRIM($1)) AND id <> $2',
+        `SELECT id FROM jenis_iuran
+          WHERE LOWER(TRIM(nama_iuran)) = LOWER(TRIM($1)) AND id <> $2
+            AND rt_id IS NOT DISTINCT FROM (SELECT rt_id FROM jenis_iuran WHERE id = $2)`,
         [nama_iuran, id]
       );
       if (kembar.rows.length > 0) {
@@ -171,6 +196,7 @@ async function updateJenisIuran(req, res) {
 async function deleteJenisIuran(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'jenis_iuran', id)) return;
 
     // Menghapus jenis yang sudah dipakai akan membuat tagihan kehilangan
     // identitasnya. Tawarkan menonaktifkan sebagai gantinya.

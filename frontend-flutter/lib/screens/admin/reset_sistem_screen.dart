@@ -93,6 +93,7 @@ class _ResetSistemScreenState extends State<ResetSistemScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _bannerLingkup(provider),
             _bannerPeringatan(provider),
             const SizedBox(height: 16),
             _bannerDilindungi(),
@@ -130,6 +131,48 @@ class _ResetSistemScreenState extends State<ResetSistemScreen> {
             icon: const Icon(Icons.refresh, size: 16),
             label: const Text('Coba Lagi'),
             style: OutlinedButton.styleFrom(foregroundColor: _hijau),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Menuliskan lingkup penghapusan di paling atas layar.
+  ///
+  /// Seluruh angka di layar ini berubah artinya menurut RT yang sedang
+  /// dipilih — kartu "48 baris" bisa berarti seluruh RW atau satu RT saja.
+  /// Sebuah penghapusan yang lingkupnya harus disimpulkan dari pemilih di
+  /// bilah atas adalah penghapusan yang cepat atau lambat dilakukan atas
+  /// data yang salah.
+  ///
+  /// Nilainya datang dari server, bukan dari pemilih RT di klien: yang
+  /// menentukan apa yang benar-benar terhapus adalah keputusan server.
+  Widget _bannerLingkup(ResetProvider provider) {
+    final perRt = provider.rtKode != null;
+    final warna = perRt ? AppTheme.primaryColor : AppTheme.dangerColor;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.all(paddingKartu(context)),
+      decoration: BoxDecoration(
+        color: warna.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
+        border: Border.all(color: warna.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          Icon(perRt ? Icons.apartment_rounded : Icons.public_rounded,
+              size: 18, color: warna),
+          const SizedBox(width: AppTheme.spasiS),
+          Expanded(
+            child: Text(
+              perRt
+                  ? 'Yang dihapus hanya data RT ${provider.rtKode}. '
+                      'RT lain dalam RW ini tidak tersentuh.'
+                  : 'Yang dihapus adalah data SELURUH RW — semua RT sekaligus. '
+                      'Pilih satu RT di bilah atas bila hanya satu yang dimaksud.',
+              style: TextStyle(color: context.teksUtama, height: 1.4),
+            ),
           ),
         ],
       ),
@@ -269,7 +312,10 @@ class _ResetSistemScreenState extends State<ResetSistemScreen> {
   }
 
   Widget _kartuGrup(ResetGroup grup) {
-    final bool kosong = grup.kosong;
+    // Kelompok yang terkunci diperlakukan seperti kosong pada tombolnya —
+    // tetapi labelnya berbeda, karena sebabnya berbeda dan seorang
+    // administrator berhak tahu mana dari keduanya yang sedang ia lihat.
+    final bool kosong = grup.kosong || grup.terkunci;
     final provider = context.watch<ResetProvider>();
     final isDark = context.gelap;
     final warnaAksen = isDark ? const Color(0xFF34D399) : _hijau;
@@ -365,7 +411,9 @@ class _ResetSistemScreenState extends State<ResetSistemScreen> {
               ),
               icon: const Icon(Icons.delete_outline, size: 16),
               label: Text(
-                kosong ? 'Sudah Kosong' : 'Reset',
+                grup.terkunci
+                    ? 'Tidak Per RT'
+                    : (kosong ? 'Sudah Kosong' : 'Reset'),
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
               ),
             ),
@@ -582,6 +630,10 @@ class _DialogKonfirmasiState extends State<_DialogKonfirmasi> {
               ...p.utama.map((b) => _barisDampak(b, ikutan: false)),
 
               if (p.adaIkutan) ...[const SizedBox(height: 16), _kotakIkutan(p)],
+              if (p.dilewati.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                _kotakDilewati(p),
+              ],
 
               const SizedBox(height: 12),
               Container(
@@ -774,6 +826,50 @@ class _DialogKonfirmasiState extends State<_DialogKonfirmasi> {
 
   /// Inilah bagian yang mencegah kejutan: data milik modul LAIN yang ikut
   /// terhapus karena rantai foreign key, ditampilkan terpisah dan disorot.
+  /// Menyebutkan tabel yang TIDAK ikut terhapus pada reset per RT.
+  ///
+  /// Tanpa kotak ini, satu-satunya jejaknya adalah ketiadaan barisnya di
+  /// daftar dampak — dan tabel yang tidak muncul terbaca persis sama dengan
+  /// tabel yang datanya memang nol. Administrator akan menyimpulkan data
+  /// sensornya sudah terhapus padahal masih utuh.
+  Widget _kotakDilewati(ResetPreview p) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: context.latarLembut,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.garis),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.block_rounded, size: 15, color: context.teksKedua),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Tidak ikut terhapus',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: context.teksUtama,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${p.dilewati.join(", ")} tidak menyimpan RT sama sekali, jadi '
+            'isinya dibiarkan utuh pada reset yang dilingkupi ke satu RT.',
+            style: TextStyle(fontSize: 11, color: context.teksKedua, height: 1.4),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _kotakIkutan(ResetPreview p) {
     return Container(
       padding: const EdgeInsets.all(14),

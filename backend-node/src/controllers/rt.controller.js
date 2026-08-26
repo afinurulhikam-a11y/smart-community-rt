@@ -26,6 +26,7 @@
 const { pool } = require('../config/database');
 const { logActivity, TIPE } = require('../services/log.service');
 const { bolehLintasRt } = require('../utils/lingkup-rt');
+const { siapkanMasterRt } = require('../services/master-rt.service');
 
 const KOLOM = `
   r.id, r.kode, r.nama, r.rw_kode, r.ketua_id, r.alamat_sekretariat,
@@ -83,16 +84,45 @@ async function createRt(req, res) {
       return res.status(400).json({ success: false, message: 'Nomor RT wajib diisi.' });
     }
 
-    const hasil = await pool.query(
-      `INSERT INTO rt (kode, nama, rw_kode, alamat_sekretariat, ketua_id)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id, kode, nama, rw_kode`,
-      [kode, (nama || '').trim() || `RT ${kode}`, rwKode,
-        alamat_sekretariat || null, ketua_id || null]
-    );
+    // RT dan tabel masternya lahir dalam SATU transaksi.
+    //
+    // Sebuah RT tanpa jenis iuran dan tanpa kategori kas bukan RT yang setengah
+    // jadi — ia RT yang tidak bisa dipakai sama sekali: dropdown Generate
+    // Tagihan kosong, dan Kas RT tidak punya satu pun pos untuk mencatat uang.
+    // Tidak ada layar yang memberi tahu penyebabnya, karena tidak ada yang
+    // salah menurut kode mana pun; daftarnya memang kosong.
+    //
+    // Membuatnya di luar transaksi berarti sebuah RT bisa berdiri tanpa master
+    // ketika penyisipannya gagal di tengah, dan tidak ada jalan dari layar
+    // untuk memperbaikinya.
+    const client = await pool.connect();
+    let baris;
+    let master;
+    try {
+      await client.query('BEGIN');
+      const hasil = await client.query(
+        `INSERT INTO rt (kode, nama, rw_kode, alamat_sekretariat, ketua_id)
+         VALUES ($1, $2, $3, $4, $5) RETURNING id, kode, nama, rw_kode`,
+        [kode, (nama || '').trim() || `RT ${kode}`, rwKode,
+          alamat_sekretariat || null, ketua_id || null]
+      );
+      baris = hasil.rows[0];
+      master = await siapkanMasterRt(client, baris.id);
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
 
-    await logActivity(req, TIPE.CREATE, `Menambah RT ${kode} pada RW ${rwKode}`);
+    await logActivity(
+      req, TIPE.CREATE,
+      `Menambah RT ${kode} pada RW ${rwKode} — beserta ${master.jenis_iuran} jenis iuran, `
+      + `${master.kategori_kas} kategori kas, dan ${master.kategori_bop} kategori BOP bawaan`
+    );
     return res.status(201).json({
-      success: true, message: 'RT berhasil ditambahkan.', data: hasil.rows[0],
+      success: true, message: 'RT berhasil ditambahkan.', data: { ...baris, master },
     });
   } catch (err) {
     // Ditangkap dari indeks unik, bukan diperiksa lebih dulu dengan SELECT:

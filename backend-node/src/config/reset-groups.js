@@ -71,6 +71,89 @@ const TABEL_DILINDUNGI = [
   'activity_logs',
 ];
 
+
+/**
+ * ===================================================================
+ * Reset per RT
+ * ===================================================================
+ *
+ * Sejak satu pemasangan melayani beberapa RT, "Reset Data Warga" yang
+ * menghapus seluruh RW adalah pilihan yang tidak pernah diminta siapa pun.
+ * Administrator yang sedang melihat RT 002 dan menekan Reset mengharapkan
+ * RT 002 — bukan seluruh kampung.
+ *
+ * Yang menentukan lingkupnya adalah pemilih RT yang sama dengan seluruh
+ * aplikasi (`rtAktif`): ada RT terpilih berarti hanya RT itu, tidak ada
+ * berarti seluruh RW seperti sebelumnya.
+ *
+ * `$rt` adalah tempat nomor parameter disisipkan saat kueri disusun — bukan
+ * nilainya. Nilai RT tidak pernah disambung sebagai teks ke dalam SQL.
+ *
+ * Tabel yang tidak punya `rt_id` dilingkupi LEWAT INDUKNYA, mengikuti
+ * keputusan v43: yang bertempat tinggal di sebuah RT adalah kartu keluarga,
+ * dan tagihan, bacaan meteran, serta pembayarannya mengikuti.
+ */
+const LINGKUP_RT = Object.freeze({
+  // Punya rt_id sendiri.
+  keluarga: 'rt_id = $rt',
+  users: 'rt_id = $rt',
+  finances: 'rt_id = $rt',
+  bop_finances: 'rt_id = $rt',
+  alokasi_bop: 'rt_id = $rt',
+  inventory: 'rt_id = $rt',
+  borrowings: 'rt_id = $rt',
+  agenda: 'rt_id = $rt',
+  announcements: 'rt_id = $rt',
+  polling: 'rt_id = $rt',
+  visitors: 'rt_id = $rt',
+  complaints: 'rt_id = $rt',
+  letters: 'rt_id = $rt',
+  emergency_alerts: 'rt_id = $rt',
+  bantuan_sosial: 'rt_id = $rt',
+
+  // Lewat kartu keluarga.
+  anggota_keluarga: 'keluarga_id IN (SELECT id FROM keluarga WHERE rt_id = $rt)',
+  bills: 'keluarga_id IN (SELECT id FROM keluarga WHERE rt_id = $rt)',
+  pembacaan_meteran: 'keluarga_id IN (SELECT id FROM keluarga WHERE rt_id = $rt)',
+  payment_transactions: 'keluarga_id IN (SELECT id FROM keluarga WHERE rt_id = $rt)',
+  bill_payments:
+    'bill_id IN (SELECT b.id FROM bills b JOIN keluarga k ON k.id = b.keluarga_id WHERE k.rt_id = $rt)',
+  payment_transaction_bills:
+    'bill_id IN (SELECT b.id FROM bills b JOIN keluarga k ON k.id = b.keluarga_id WHERE k.rt_id = $rt)',
+
+  // Lewat induk masing-masing.
+  polling_options: 'polling_id IN (SELECT id FROM polling WHERE rt_id = $rt)',
+  polling_votes: 'polling_id IN (SELECT id FROM polling WHERE rt_id = $rt)',
+  bantuan_sosial_log: 'bantuan_sosial_id IN (SELECT id FROM bantuan_sosial WHERE rt_id = $rt)',
+});
+
+/**
+ * Tabel yang memang TIDAK punya dimensi RT.
+ *
+ * `sensor_logs` adalah telemetri perangkat: barisnya hanya memuat jenis
+ * sensor, nilai, dan waktu. Tidak ada kolom yang bisa menghubungkannya ke
+ * sebuah RT, dan menebaknya dari perangkat mana pun berarti menghapus bacaan
+ * RT lain.
+ *
+ * Kelompok yang memuat tabel semacam ini DITOLAK ketika sebuah RT sedang
+ * dipilih — bukan dijalankan dengan tabel itu dilewati diam-diam, dan bukan
+ * pula dijalankan menyeluruh. Keduanya menghasilkan hal yang sama buruknya:
+ * seorang administrator yang mengira sedang menghapus data satu RT.
+ */
+const TABEL_TANPA_RT = Object.freeze(['sensor_logs']);
+
+/**
+ * Ekspresi pembatas RT untuk sebuah tabel, dengan `$rt` sudah diganti nomor
+ * parameter. `null` berarti tabelnya tidak bisa dilingkupi.
+ */
+function polaLingkupRt(tabel, nomorParam) {
+  const pola = LINGKUP_RT[tabel];
+  if (!pola) return null;
+  // split/join, bukan replaceAll: dalam string pengganti `replace`, `$` punya
+  // arti khusus ($&, $1, $$), dan nomor parameter kita SELALU diawali `$`.
+  return pola.split('$rt').join(`$${nomorParam}`);
+}
+
 /**
  * Daftar kelompok.
  *
@@ -310,9 +393,18 @@ const GRUP_TOTAL = {
   tabel: URUTAN_TOTAL,
 };
 
-/** Frasa yang harus diketik pengguna. Nama kelompok, kecuali Reset Total. */
-function frasaKonfirmasi(grup) {
-  return grup.konfirmasi || grup.nama;
+/**
+ * Frasa yang harus diketik pengguna. Nama kelompok, kecuali Reset Total.
+ *
+ * Ketika sebuah RT sedang dipilih, nomornya IKUT masuk ke dalam frasa —
+ * "RESET TOTAL DATA RT 002". Itu bukan hiasan: lingkup sebuah penghapusan
+ * adalah hal yang paling berbahaya untuk salah dikira, dan frasa yang harus
+ * diketik ulang adalah satu-satunya tempat di seluruh alur ini yang dijamin
+ * dibaca. Peringatan di layar bisa dilewati; kotak konfirmasi tidak.
+ */
+function frasaKonfirmasi(grup, kodeRt) {
+  const dasar = grup.konfirmasi || grup.nama;
+  return kodeRt ? `${dasar} RT ${kodeRt}` : dasar;
 }
 
 function cariGrup(kode) {
@@ -342,11 +434,36 @@ function cariGrup(kode) {
   }
 })();
 
+/**
+ * Penjaga kedua: setiap tabel di setiap kelompok harus punya cara dilingkupi
+ * per RT, ATAU dinyatakan terang-terangan tidak punya dimensi RT.
+ *
+ * Tanpa pemeriksaan ini, sebuah tabel baru yang ditambahkan ke registry tanpa
+ * entri di `LINGKUP_RT` akan diam-diam terlewat dari penghapusan per RT —
+ * penghapusan yang tampak berhasil sambil meninggalkan datanya utuh. Salah
+ * ketik nama tabel karena itu menghentikan server saat start, bukan
+ * menghasilkan reset yang setengah jalan saat dipakai.
+ */
+(function periksaLingkupRt() {
+  const semua = [...RESET_GROUPS, GRUP_TOTAL];
+  for (const g of semua) {
+    for (const t of g.tabel) {
+      if (LINGKUP_RT[t.tabel] || TABEL_TANPA_RT.includes(t.tabel)) continue;
+      throw new Error(
+        `reset-groups.js: tabel "${t.tabel}" pada kelompok "${g.kode}" belum `
+        + 'punya entri di LINGKUP_RT dan belum dinyatakan di TABEL_TANPA_RT.'
+      );
+    }
+  }
+})();
+
 module.exports = {
   RESET_GROUPS,
   GRUP_TOTAL,
   TABEL_DILINDUNGI,
+  TABEL_TANPA_RT,
   ROLE_DILINDUNGI,
   cariGrup,
   frasaKonfirmasi,
+  polaLingkupRt,
 };

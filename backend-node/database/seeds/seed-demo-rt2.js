@@ -35,6 +35,7 @@ assertCanRunTest('seed-demo-rt2');
 
 const bcrypt = require('bcryptjs');
 const { pool } = require('../../src/config/database');
+const { siapkanMasterRt } = require('../../src/services/master-rt.service');
 
 const KODE_RT2 = '002';
 const SANDI = 'demo123';
@@ -90,6 +91,15 @@ async function isi(client) {
   const idRt2 = rt2.rows[0]?.id
     ?? (await client.query('SELECT id FROM rt WHERE kode = $1 AND rw_kode = $2', [KODE_RT2, RW])).rows[0].id;
   ringkas['RT'] = `${KODE_RT2} pada RW ${RW}`;
+
+  // Master milik RT kedua. Sejak v45 tiap RT punya salinannya sendiri, dan
+  // seed ini membuat RT-nya lewat SQL langsung — bukan lewat `createRt`, yang
+  // sudah menyiapkannya. Tanpa baris ini, pemasangan dari nol menghasilkan RT
+  // 002 yang dropdown Iuran dan Kas RT-nya kosong: tidak ada galat, hanya
+  // Generate Tagihan yang tidak punya jenis untuk dipilih.
+  const master = await siapkanMasterRt(client, idRt2);
+  ringkas['master RT 002'] = `${master.jenis_iuran} jenis iuran, `
+    + `${master.kategori_kas} kategori kas, ${master.kategori_bop} kategori BOP`;
 
   // --- Ketua RW ------------------------------------------------------
   await client.query(

@@ -11,6 +11,13 @@ import '../models/reset_model.dart';
 /// Seluruh keputusan tentang APA yang dihapus ada di backend; provider ini
 /// hanya mengirim kode kelompok dan menampilkan jawabannya.
 class ResetProvider extends ChangeNotifier {
+  String? _rtKode;
+
+  /// Nomor RT yang sedang dilingkupi menurut SERVER; null berarti seluruh RW.
+  String? get rtKode => _rtKode;
+
+  /// Kalimat lingkup untuk ditulis di layar, mis. "RT 002" atau "seluruh RW".
+  String get labelLingkup => _rtKode == null ? 'seluruh RW' : 'RT $_rtKode';
   List<ResetGroup> _grup = [];
   bool _isLoading = false;
   bool _sedangProses = false;
@@ -47,6 +54,12 @@ class ResetProvider extends ChangeNotifier {
           .whereType<Map<String, dynamic>>()
           .map(ResetGroup.fromJson)
           .toList();
+      // Lingkupnya datang dari server, bukan dari RtProvider di sisi klien.
+      // Yang menentukan apa yang benar-benar terhapus adalah `rtAktif()` di
+      // server; layar harus menampilkan keputusan ITU, bukan keputusannya
+      // sendiri yang kebetulan biasanya sama.
+      final l = r['lingkup'] as Map<String, dynamic>?;
+      _rtKode = l?['rt_kode']?.toString();
     } else {
       _error = r['message']?.toString() ?? 'Gagal memuat ringkasan.';
     }
@@ -166,6 +179,7 @@ class ResetProvider extends ChangeNotifier {
   /// pengurus bergantian, itu kebocoran yang nyata, bukan sekadar kosmetik.
   void bersihkan() {
     _grup = [];
+    _rtKode = null;
     _isLoading = false;
     _sedangProses = false;
     _error = null;

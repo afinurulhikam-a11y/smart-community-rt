@@ -1,5 +1,6 @@
 const { pool } = require('../config/database');
 const { logActivity, bandingkan, TIPE } = require('../services/log.service');
+const { klausaRt, kondisiRt, rtUntukSimpan, tolakLuarRt } = require('../utils/lingkup-rt');
 
 // Sesuai CHECK constraint yang sudah ada di tabel kategori_kas.
 const TIPE_VALID = ['IN', 'OUT'];
@@ -16,6 +17,11 @@ async function getKategoriKas(req, res) {
       params.push(tipe);
       kondisi.push(`kk.tipe = $${params.length}`);
     }
+    // Sejak v45 tiap RT punya salinan kategorinya sendiri. Tanpa baris ini,
+    // dropdown Kas RT memuat kategori seluruh RW — dan memilih kategori milik
+    // RT lain menyimpan transaksi yang tidak pernah utuh di laporan mana pun.
+    const rt = kondisiRt(req, 'kk', params);
+    if (rt) kondisi.push(rt);
     const where = kondisi.length ? `WHERE ${kondisi.join(' AND ')}` : '';
 
     const result = await pool.query(`
@@ -46,18 +52,24 @@ async function createKategoriKas(req, res) {
       return res.status(400).json({ success: false, message: "Tipe harus 'IN' (pemasukan) atau 'OUT' (pengeluaran)." });
     }
 
+    // Nama kembar diperiksa DALAM RT ini saja. Memeriksanya se-basis-data
+    // adalah keadaan sebelum v45, dan itu berarti satu RT yang sudah memakai
+    // sebuah nama mengunci nama itu untuk seluruh RW.
+    const pKembar = [nama_kategori];
     const kembar = await pool.query(
-      'SELECT id FROM kategori_kas WHERE LOWER(TRIM(nama_kategori)) = LOWER(TRIM($1))',
-      [nama_kategori]
+      `SELECT id FROM kategori_kas
+        WHERE LOWER(TRIM(nama_kategori)) = LOWER(TRIM($1))
+        ${klausaRt(req, '', pKembar)}`,
+      pKembar
     );
     if (kembar.rows.length > 0) {
       return res.status(409).json({ success: false, message: 'Kategori dengan nama tersebut sudah ada.' });
     }
 
     const result = await pool.query(
-      `INSERT INTO kategori_kas (nama_kategori, tipe, keterangan, is_aktif)
-       VALUES ($1, $2, $3, true) RETURNING *`,
-      [nama_kategori.trim(), tipe, keterangan || null]
+      `INSERT INTO kategori_kas (nama_kategori, tipe, keterangan, is_aktif, rt_id)
+       VALUES ($1, $2, $3, true, $4) RETURNING *`,
+      [nama_kategori.trim(), tipe, keterangan || null, rtUntukSimpan(req)]
     );
     const baru = result.rows[0];
     await logActivity(req, TIPE.CREATE, `Menambah kategori kas "${baru.nama_kategori}" (tipe ${baru.tipe})`);
@@ -72,6 +84,7 @@ async function createKategoriKas(req, res) {
 async function updateKategoriKas(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'kategori_kas', id)) return;
     const { nama_kategori, tipe, keterangan, is_aktif } = req.body;
 
     if (tipe !== undefined && !TIPE_VALID.includes(tipe)) {
@@ -93,7 +106,9 @@ async function updateKategoriKas(req, res) {
 
     if (nama_kategori) {
       const kembar = await pool.query(
-        'SELECT id FROM kategori_kas WHERE LOWER(TRIM(nama_kategori)) = LOWER(TRIM($1)) AND id <> $2',
+        `SELECT id FROM kategori_kas
+          WHERE LOWER(TRIM(nama_kategori)) = LOWER(TRIM($1)) AND id <> $2
+            AND rt_id IS NOT DISTINCT FROM (SELECT rt_id FROM kategori_kas WHERE id = $2)`,
         [nama_kategori, id]
       );
       if (kembar.rows.length > 0) {
@@ -137,6 +152,7 @@ async function updateKategoriKas(req, res) {
 async function deleteKategoriKas(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'kategori_kas', id)) return;
 
     // Menghapus kategori yang sudah dipakai akan membuat transaksi kehilangan
     // rujukannya. Tawarkan menonaktifkan sebagai gantinya.
