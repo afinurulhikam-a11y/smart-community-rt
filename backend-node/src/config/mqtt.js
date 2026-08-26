@@ -32,7 +32,41 @@ const mqtt = require('mqtt');
  */
 
 const URL_BROKER = (process.env.MQTT_URL || '').trim();
-const TOPIK_ALARM = (process.env.MQTT_TOPIC_ALARM || 'smart-community/alarm/command').trim();
+/**
+ * Pola topik alarm; `{rt}` diganti kode RT saat diterbitkan.
+ *
+ * Sejak satu pemasangan melayani beberapa RT, satu topik datar berarti tombol
+ * darurat di RT mana pun membunyikan SELURUH sirene di RW. Topiknya karena itu
+ * dibedakan per RT, dan tiap ESP32 hanya berlangganan topik RT-nya sendiri.
+ *
+ * JALAN KELUAR yang sengaja disediakan: bila `MQTT_TOPIC_ALARM` disetel TANPA
+ * `{rt}`, nilainya dipakai apa adanya dan seluruh RT berbagi satu perangkat.
+ * Itu bukan kelalaian melainkan syarat pemasangan bertahap — perangkat yang
+ * sudah terpasang di lapangan masih memakai topik lama sampai diflash ulang,
+ * dan sirene yang berhenti berbunyi adalah kegagalan terburuk di aplikasi ini.
+ * Lebih baik satu perangkat yang tetap berbunyi daripada beberapa yang bisu.
+ */
+const POLA_TOPIK = (process.env.MQTT_TOPIC_ALARM || 'smart-community/rt/{rt}/alarm/command').trim();
+const TOPIK_PER_RT = POLA_TOPIK.includes('{rt}');
+
+/**
+ * Topik untuk sebuah RT.
+ *
+ * Kode RT yang kosong DITOLAK, bukan diganti nilai bawaan: menebak di sini
+ * berarti membunyikan sirene di RT yang salah, dan tidak ada cara bagi warga
+ * untuk tahu bahwa yang berbunyi bukan peringatan untuk mereka.
+ */
+function topikAlarm(kodeRt) {
+  if (!TOPIK_PER_RT) return POLA_TOPIK;
+  const kode = String(kodeRt ?? '').trim();
+  if (!kode) {
+    throw Object.assign(
+      new Error('Kode RT tidak diketahui, jadi perintah alarm tidak bisa dialamatkan.'),
+      { kode: 'MQTT_RT_KOSONG' }
+    );
+  }
+  return POLA_TOPIK.replace('{rt}', kode);
+}
 
 /** Perintah yang boleh diterbitkan. Daftar tertutup, bukan string bebas. */
 const PERINTAH = Object.freeze({ NYALA: 'ON', MATI: 'OFF' });
@@ -58,7 +92,10 @@ function ambilKlien() {
 
   klien.on('connect', () => {
     siapPernah = true;
-    console.log(`✅ MQTT tersambung ke broker — topik alarm: ${TOPIK_ALARM}`);
+    console.log(`✅ MQTT tersambung ke broker — pola topik alarm: ${POLA_TOPIK}`);
+    if (!TOPIK_PER_RT) {
+      console.warn('⚠️  MQTT_TOPIC_ALARM disetel tanpa {rt} — SELURUH RT berbagi satu perangkat alarm.');
+    }
   });
   klien.on('error', (e) => console.error('❌ MQTT Error:', e.message));
   klien.on('offline', () => console.warn('⚠️  MQTT offline — perintah alarm akan gagal sampai tersambung lagi'));
@@ -89,10 +126,17 @@ function tersambung() {
  * `retain` true supaya perangkat yang baru menyala langsung tahu keadaan alarm
  * terakhir, bukan menunggu perintah berikutnya.
  */
-function terbitkanPerintahAlarm(perintah, { timeoutMs = 8000 } = {}) {
+function terbitkanPerintahAlarm(perintah, { kodeRt, timeoutMs = 8000 } = {}) {
   const nilai = String(perintah).toUpperCase();
   if (nilai !== PERINTAH.NYALA && nilai !== PERINTAH.MATI) {
     return Promise.reject(new Error(`Perintah alarm tidak dikenal: "${perintah}"`));
+  }
+
+  let topik;
+  try {
+    topik = topikAlarm(kodeRt);
+  } catch (e) {
+    return Promise.reject(e);
   }
 
   const c = ambilKlien();
@@ -114,7 +158,7 @@ function terbitkanPerintahAlarm(perintah, { timeoutMs = 8000 } = {}) {
       ));
     }, timeoutMs);
 
-    c.publish(TOPIK_ALARM, nilai, { qos: 1, retain: true }, (err) => {
+    c.publish(topik, nilai, { qos: 1, retain: true }, (err) => {
       if (selesai) return;
       selesai = true;
       clearTimeout(jam);
@@ -122,8 +166,8 @@ function terbitkanPerintahAlarm(perintah, { timeoutMs = 8000 } = {}) {
         reject(Object.assign(err, { kode: 'MQTT_GAGAL_TERBIT' }));
         return;
       }
-      console.log(`📡 MQTT → ${TOPIK_ALARM}: ${nilai}`);
-      resolve({ topik: TOPIK_ALARM, perintah: nilai });
+      console.log(`📡 MQTT → ${topik}: ${nilai}`);
+      resolve({ topik, perintah: nilai });
     });
   });
 }
@@ -143,6 +187,8 @@ module.exports = {
   terkonfigurasi,
   tersambung,
   pernahTersambung: () => siapPernah,
-  TOPIK_ALARM,
+  topikAlarm,
+  POLA_TOPIK,
+  TOPIK_PER_RT,
   PERINTAH,
 };

@@ -68,10 +68,32 @@ const char* MQTT_USER = "GANTI_USER_BROKER";
 const char* MQTT_PASSWORD = "GANTI_PASSWORD_BROKER";
 
 // ============================================================
+// Identitas RT
+// ============================================================
+// Satu pemasangan melayani beberapa RT dalam satu RW, jadi tiap perangkat
+// harus tahu ia milik RT mana. Nilai ini WAJIB disesuaikan sebelum diflash,
+// dan harus sama persis dengan kolom `kode` pada tabel `rt` di server —
+// termasuk angka nolnya: "003", bukan "3".
+//
+// Salah kode berarti sirene RT ini berbunyi untuk keadaan darurat di RT lain,
+// atau lebih buruk, tidak berbunyi sama sekali saat RT ini yang membutuhkan.
+const char* RT_CODE = "001";
+
+// ============================================================
 // MQTT Topics
 // ============================================================
-const char* TOPIC_COMMAND = "smart-community/alarm/command";
-const char* TOPIC_STATUS  = "smart-community/alarm/status";
+// Disusun dari RT_CODE saat setup(), bukan ditulis tetap. Pola dan urutannya
+// harus sama dengan `POLA_TOPIK` di backend-node/src/config/mqtt.js:
+//
+//   smart-community/rt/{rt}/alarm/command
+//   smart-community/rt/{rt}/alarm/status
+char TOPIC_COMMAND[64];
+char TOPIC_STATUS[64];
+
+void susunTopik() {
+  snprintf(TOPIC_COMMAND, sizeof(TOPIC_COMMAND), "smart-community/rt/%s/alarm/command", RT_CODE);
+  snprintf(TOPIC_STATUS,  sizeof(TOPIC_STATUS),  "smart-community/rt/%s/alarm/status",  RT_CODE);
+}
 
 // ============================================================
 // GPIO
@@ -379,9 +401,16 @@ void setup() {
 
   delay(500);
 
+  // Topik disusun paling awal: seluruh sisa setup() dan loop() memakainya,
+  // dan array yang masih kosong akan membuat perangkat berlangganan ke topik
+  // "" tanpa satu pun pesan galat — bisu, dan terlihat seperti berfungsi.
+  susunTopik();
+
   Serial.println();
   Serial.println("========================================");
   Serial.println(" Smart Community RT - Alarm ESP32");
+  Serial.print(" RT   : "); Serial.println(RT_CODE);
+  Serial.print(" Topik: "); Serial.println(TOPIC_COMMAND);
   Serial.println("========================================");
 
   // ----------------------------------------------------------

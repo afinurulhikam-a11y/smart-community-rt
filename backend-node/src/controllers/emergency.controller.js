@@ -436,7 +436,7 @@ async function triggerAlarm(req, res) {
     // supaya "sirene tidak berbunyi padahal alarm terkirim" bisa dilacak.
     let sireneNyala = false;
     try {
-      await mqttAlarm.terbitkanPerintahAlarm(mqttAlarm.PERINTAH.NYALA);
+      await mqttAlarm.terbitkanPerintahAlarm(mqttAlarm.PERINTAH.NYALA, { kodeRt: req.user.rt_kode });
       sireneNyala = true;
     } catch (e) {
       console.error('⚠️  Alarm tercatat, tetapi sirene GAGAL dinyalakan:', e.message);
@@ -546,7 +546,7 @@ async function dismissAlarm(req, res) {
     // aplikasi, jadi kegagalannya dicatat DAN dilaporkan ke pemanggil.
     let sireneMati = false;
     try {
-      await mqttAlarm.terbitkanPerintahAlarm(mqttAlarm.PERINTAH.MATI);
+      await mqttAlarm.terbitkanPerintahAlarm(mqttAlarm.PERINTAH.MATI, { kodeRt: req.user.rt_kode });
       sireneMati = true;
     } catch (e) {
       console.error('⚠️  Status ditutup, tetapi sirene GAGAL dimatikan:', e.message);
@@ -866,7 +866,7 @@ async function nyalakanDarurat(req, res, keterangan, legacyTanpaKeterangan = fal
     // Sirene tetap dibunyikan ulang walau kejadiannya sudah ada. Perintahnya
     // retained dan idempoten di sisi alat, dan menegaskan ulang jauh lebih
     // aman daripada berasumsi alat masih mendengar perintah sebelumnya.
-    await mqttAlarm.terbitkanPerintahAlarm(mqttAlarm.PERINTAH.NYALA);
+    await mqttAlarm.terbitkanPerintahAlarm(mqttAlarm.PERINTAH.NYALA, { kodeRt: req.user.rt_kode });
 
     await client.query('COMMIT');
 
@@ -923,7 +923,7 @@ async function nyalakanDarurat(req, res, keterangan, legacyTanpaKeterangan = fal
         : 'Alarm sudah menyala sejak sebelumnya. Sirene ditegaskan ulang.',
       data: {
         aksi: mqttAlarm.PERINTAH.NYALA,
-        topik: mqttAlarm.TOPIK_ALARM,
+        topik: mqttAlarm.topikAlarm(req.user.rt_kode),
         kejadian_baru: baru,
         emergency_id: kejadian.id,
         // Keterangan yang BERLAKU pada kejadian, bukan yang barusan dikirim.
@@ -987,7 +987,7 @@ async function matikanDarurat(req, res) {
     );
 
     if (aktif.rows.length === 0) {
-      await mqttAlarm.terbitkanPerintahAlarm(mqttAlarm.PERINTAH.MATI);
+      await mqttAlarm.terbitkanPerintahAlarm(mqttAlarm.PERINTAH.MATI, { kodeRt: req.user.rt_kode });
       await client.query('COMMIT');
 
       await logActivity(req, TIPE.DARURAT, 'Menekan MATIKAN saat tidak ada kejadian darurat aktif');
@@ -997,7 +997,7 @@ async function matikanDarurat(req, res) {
         message: 'Tidak ada darurat aktif. Perintah mati tetap dikirim ke alat.',
         data: {
           aksi: mqttAlarm.PERINTAH.MATI,
-          topik: mqttAlarm.TOPIK_ALARM,
+          topik: mqttAlarm.topikAlarm(req.user.rt_kode),
           emergency_id: null,
           kejadian_ditutup: false,
         },
@@ -1039,7 +1039,7 @@ async function matikanDarurat(req, res) {
       });
     }
 
-    await mqttAlarm.terbitkanPerintahAlarm(mqttAlarm.PERINTAH.MATI);
+    await mqttAlarm.terbitkanPerintahAlarm(mqttAlarm.PERINTAH.MATI, { kodeRt: req.user.rt_kode });
     await client.query('COMMIT');
 
     // Format sama dengan `dismissAlarm`. Hanya ditembakkan di cabang ini —
@@ -1071,7 +1071,7 @@ async function matikanDarurat(req, res) {
       message: 'Alarm dimatikan.',
       data: {
         aksi: mqttAlarm.PERINTAH.MATI,
-        topik: mqttAlarm.TOPIK_ALARM,
+        topik: mqttAlarm.topikAlarm(req.user.rt_kode),
         emergency_id: ditutup.rows[0].id,
         kejadian_ditutup: true,
         // Keterangan kejadian yang baru saja ditutup. Sama barisnya, bukan
@@ -1156,7 +1156,7 @@ async function statusAlarm(req, res) {
       terkonfigurasi: mqttAlarm.terkonfigurasi(),
       tersambung: mqttAlarm.tersambung(),
       pernah_tersambung: mqttAlarm.pernahTersambung(),
-      topik: mqttAlarm.TOPIK_ALARM,
+      topik: mqttAlarm.topikAlarm(req.user.rt_kode),
       alarm_aktif: aktif !== null,
       kejadian_aktif: aktif,
     },

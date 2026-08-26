@@ -81,6 +81,18 @@ if (!process.env.ZONA_ANAK) {
 const { pool } = require('../src/config/database');
 const { getAlerts, statusAlarm } = require('../src/controllers/emergency.controller');
 
+/** RT bawaan untuk mengisi rt_id/rt_kode pada pengguna palsu — lihat catatan
+ *  yang sama di test-emergency-broadcast.js. */
+let RT_UJI = null;
+async function muatRtUji() {
+  const r = await pool.query(
+    'SELECT id, kode FROM rt WHERE deleted_at IS NULL ORDER BY kode LIMIT 1'
+  );
+  if (!r.rows.length) throw new Error('Belum ada RT — jalankan migrasi v43 lebih dulu.');
+  RT_UJI = r.rows[0];
+}
+
+
 /** Jam dinding WIB dari sebuah instant, apa pun zona proses ini. */
 function jamWib(nilaiJson) {
   const d = new Date(nilaiJson);
@@ -125,6 +137,7 @@ let idAktif = null;
 let userUji = null;
 
 (async () => {
+  await muatRtUji();
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
   console.log(`Zona proses Node: ${tz}`);
 
@@ -157,7 +170,7 @@ let userUji = null;
   // --- 1. created_at lewat GET /emergency/alerts -------------------
   console.log('1. created_at pada daftar riwayat...');
   {
-    const { req, res } = mockReqRes({ user: { id: userUji.id, role: 'admin' } });
+    const { req, res } = mockReqRes({ user: { id: userUji.id, role: 'admin', rt_id: RT_UJI.id, rt_kode: RT_UJI.kode } });
     await getAlerts(req, res);
     assert.strictEqual(res.getStatusCode(), 200, 'getAlerts harus 200');
 
@@ -181,7 +194,7 @@ let userUji = null;
   // --- 2. dismissed_at ---------------------------------------------
   console.log('2. dismissed_at pada daftar riwayat...');
   {
-    const { req, res } = mockReqRes({ user: { id: userUji.id, role: 'admin' } });
+    const { req, res } = mockReqRes({ user: { id: userUji.id, role: 'admin', rt_id: RT_UJI.id, rt_kode: RT_UJI.kode } });
     await getAlerts(req, res);
 
     const baris = res.getBodyKawat().data.find((x) => x.id === idUji);
@@ -202,7 +215,7 @@ let userUji = null;
   // --- 3. created_at pada kejadian aktif (statusAlarm) --------------
   console.log('3. created_at pada /emergency/alarm/status...');
   {
-    const { req, res } = mockReqRes({ user: { id: userUji.id, role: 'admin' } });
+    const { req, res } = mockReqRes({ user: { id: userUji.id, role: 'admin', rt_id: RT_UJI.id, rt_kode: RT_UJI.kode } });
     await statusAlarm(req, res);
 
     const k = res.getBodyKawat().data.kejadian_aktif;
@@ -222,7 +235,7 @@ let userUji = null;
   // --- 4. instant identik di zona proses mana pun -------------------
   console.log('4. Nilai kawat tidak bergantung pada zona proses Node...');
   {
-    const { req, res } = mockReqRes({ user: { id: userUji.id, role: 'admin' } });
+    const { req, res } = mockReqRes({ user: { id: userUji.id, role: 'admin', rt_id: RT_UJI.id, rt_kode: RT_UJI.kode } });
     await getAlerts(req, res);
     const baris = res.getBodyKawat().data.find((x) => x.id === idUji);
 

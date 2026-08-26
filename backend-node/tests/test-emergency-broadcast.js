@@ -54,6 +54,24 @@ mqttAlarm.pernahTersambung = () => true;
 
 const { kendaliAlarm } = require('../src/controllers/emergency.controller');
 
+/**
+ * RT bawaan, dipakai mengisi `rt_id` dan `rt_kode` pada pengguna palsu.
+ *
+ * Keduanya biasanya diisi authMiddleware dari join ke tabel `rt`. Uji ini
+ * memanggil pengendali secara langsung, jadi harus disebut sendiri — tanpa itu
+ * penerbitan alarm menolak, dan menolak memang perilaku yang benar: menebak RT
+ * berarti membunyikan sirene di lingkungan yang salah.
+ */
+let RT_UJI = null;
+async function muatRtUji() {
+  const r = await pool.query(
+    'SELECT id, kode FROM rt WHERE deleted_at IS NULL ORDER BY kode LIMIT 1'
+  );
+  if (!r.rows.length) throw new Error('Belum ada RT — jalankan migrasi v43 lebih dulu.');
+  RT_UJI = r.rows[0];
+}
+
+
 process.env.EMERGENCY_PIN = '135790';
 const PIN = '135790';
 
@@ -108,9 +126,12 @@ const KET = 'Kebakaran di dapur rumah nomor 12';
   wargaLain = await buatUser('warga', 'Warga Lain');
   pengurus = await buatUser('ketua_rt', 'Ketua RT Uji');
 
-  const sbgWarga = { id: warga.id, role: 'warga', nama: warga.nama };
-  const sbgWargaLain = { id: wargaLain.id, role: 'warga', nama: wargaLain.nama };
-  const sbgPengurus = { id: pengurus.id, role: 'ketua_rt', nama: pengurus.nama };
+  await muatRtUji();
+
+
+  const sbgWarga = { id: warga.id, role: 'warga', nama: warga.nama, rt_id: RT_UJI.id, rt_kode: RT_UJI.kode };
+  const sbgWargaLain = { id: wargaLain.id, role: 'warga', nama: wargaLain.nama, rt_id: RT_UJI.id, rt_kode: RT_UJI.kode };
+  const sbgPengurus = { id: pengurus.id, role: 'ketua_rt', nama: pengurus.nama, rt_id: RT_UJI.id, rt_kode: RT_UJI.kode };
 
   await bersihkanAktif();
 

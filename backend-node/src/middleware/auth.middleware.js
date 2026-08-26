@@ -127,8 +127,16 @@ async function authMiddleware(req, res, next) {
 
   try {
     const akun = await pool.query(
-      `SELECT id, nama, role, is_active, token_versi, rt_id
-       FROM users WHERE id = $1 AND deleted_at IS NULL`,
+      // `rt.kode` ikut diambil karena dua hal membutuhkannya pada hampir setiap
+      // permintaan: topik MQTT alarm dialamatkan per RT, dan aplikasi memakainya
+      // untuk menampilkan RT mana yang sedang dilihat. Biayanya satu join pada
+      // kunci utama yang terindeks — jauh lebih murah daripada kueri kedua di
+      // setiap pengendali yang memerlukannya.
+      `SELECT u.id, u.nama, u.role, u.is_active, u.token_versi, u.rt_id,
+              r.kode AS rt_kode, r.rw_kode
+         FROM users u
+         LEFT JOIN rt r ON r.id = u.rt_id
+        WHERE u.id = $1 AND u.deleted_at IS NULL`,
       [decoded.id]
     );
 
@@ -171,6 +179,8 @@ async function authMiddleware(req, res, next) {
       role: akun.rows[0].role,
       nama: akun.rows[0].nama,
       rt_id: akun.rows[0].rt_id,
+      rt_kode: akun.rows[0].rt_kode,
+      rw_kode: akun.rows[0].rw_kode,
     };
     return next();
   } catch (err) {

@@ -30,6 +30,24 @@ const { PENANDA_LEGACY, WAJIBKAN_KETERANGAN_DARURAT } = require('../src/config/k
 // --- palsukan broker sebelum controller dimuat ------------------------
 const mqttAlarm = require('../src/config/mqtt');
 
+/**
+ * RT bawaan, dipakai mengisi `rt_id` dan `rt_kode` pada pengguna palsu.
+ *
+ * Keduanya biasanya diisi authMiddleware dari join ke tabel `rt`. Uji ini
+ * memanggil pengendali secara langsung, jadi harus disebut sendiri — tanpa itu
+ * penerbitan alarm menolak, dan menolak memang perilaku yang benar: menebak RT
+ * berarti membunyikan sirene di lingkungan yang salah.
+ */
+let RT_UJI = null;
+async function muatRtUji() {
+  const r = await pool.query(
+    'SELECT id, kode FROM rt WHERE deleted_at IS NULL ORDER BY kode LIMIT 1'
+  );
+  if (!r.rows.length) throw new Error('Belum ada RT — jalankan migrasi v43 lebih dulu.');
+  RT_UJI = r.rows[0];
+}
+
+
 const perintahTerkirim = [];
 let mqttGagal = false;
 
@@ -115,7 +133,9 @@ async function jalankanFase2() {
     'anak harus berjalan dengan saklar menyala');
 
   const u = await buatUser('warga', 'Warga Fase 2');
-  const sbg = { id: u.id, role: 'warga', nama: u.nama };
+  await muatRtUji();
+
+  const sbg = { id: u.id, role: 'warga', nama: u.nama, rt_id: RT_UJI.id, rt_kode: RT_UJI.kode };
 
   try {
     await pool.query("DELETE FROM emergency_alerts WHERE status = 'active'");
@@ -152,6 +172,7 @@ if (process.env.UJI_FASE === '2') {
     .catch((e) => { console.error('TAHAP 2 GAGAL:', e.message); process.exit(1); });
 } else {
 (async () => {
+  await muatRtUji();
   console.log('\n================================================================');
   console.log('ALUR KENDALI DARURAT — rollout bertahap keterangan & otorisasi OFF');
   console.log('================================================================\n');
@@ -162,9 +183,9 @@ if (process.env.UJI_FASE === '2') {
 
   await bersihkanKejadianAktif();
 
-  const sbgWarga = { id: warga.id, role: 'warga', nama: warga.nama };
-  const sbgWargaLain = { id: wargaLain.id, role: 'warga', nama: wargaLain.nama };
-  const sbgPengurus = { id: pengurus.id, role: 'ketua_rt', nama: pengurus.nama };
+  const sbgWarga = { id: warga.id, role: 'warga', nama: warga.nama, rt_id: RT_UJI.id, rt_kode: RT_UJI.kode };
+  const sbgWargaLain = { id: wargaLain.id, role: 'warga', nama: wargaLain.nama, rt_id: RT_UJI.id, rt_kode: RT_UJI.kode };
+  const sbgPengurus = { id: pengurus.id, role: 'ketua_rt', nama: pengurus.nama, rt_id: RT_UJI.id, rt_kode: RT_UJI.kode };
 
   // ------------------------------------------------------------------
   console.log('1. Keterangan yang DIKIRIM tetapi tidak sah tetap ditolak...');
