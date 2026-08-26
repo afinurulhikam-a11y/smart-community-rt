@@ -78,6 +78,20 @@ class RtProvider extends ChangeNotifier {
     return 'Semua RT (RW ${_daftar.first.rwKode})';
   }
 
+  /// Mengisi daftar tanpa memanggil server.
+  ///
+  /// Ada semata-mata untuk pengujian widget. Tanpa ini `_daftar` selalu kosong
+  /// di lingkungan uji, `bolehMemilih` selalu false, dan pemilih RT tidak
+  /// pernah dirender — sehingga uji tata letak "lolos" pada layar yang
+  /// pemilihnya justru tidak muncul. Itu persis bentuk cacat yang membuat
+  /// pemilih RT sempat hilang dari mode desktop tanpa ada yang menangkapnya.
+  @visibleForTesting
+  void isiUntukUji(List<RtModel> daftar, {String? terpilih}) {
+    _daftar = daftar;
+    _terpilih = terpilih;
+    notifyListeners();
+  }
+
   Future<void> muat() async {
     _isLoading = true;
     notifyListeners();
