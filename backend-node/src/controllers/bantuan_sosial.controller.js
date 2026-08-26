@@ -3,6 +3,7 @@ const { logActivity, rupiah, bandingkan, TIPE } = require('../services/log.servi
 const dispatcher = require('../services/notification.dispatcher');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit-table');
+const { klausaRt } = require('../utils/lingkup-rt');
 
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 function isUUID(val) {
@@ -222,6 +223,10 @@ async function getBantuanSosial(req, res) {
 
     let where = 'WHERE 1=1';
     const params = [];
+
+    // Pelingkupan RT, dipasang sebelum penyaringan lain supaya daftar dan
+    // penghitungan totalnya memakai batas yang sama persis.
+    where += klausaRt(req, 'bs', params);
 
     if (req.user.role === 'warga') {
       params.push(req.user.id);

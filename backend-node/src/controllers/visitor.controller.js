@@ -1,6 +1,7 @@
 const { pool } = require('../config/database');
 const { logActivity, ringkas, TIPE } = require('../services/log.service');
 const dispatcher = require('../services/notification.dispatcher');
+const { klausaRt } = require('../utils/lingkup-rt');
 
 /**
  * Mengirim notifikasi push FCM ke warga tujuan saat tamu tiba / dicatat di pos keamanan.
@@ -113,6 +114,9 @@ async function getVisitors(req, res) {
 
     let baseQuery = `FROM visitors v LEFT JOIN users u ON v.created_by = u.id WHERE 1=1`;
     const params = [];
+    // Pelingkupan RT. Dipasang sebelum penyaringan lain supaya daftar,
+    // penghitungan total, dan export memakai batas yang sama persis.
+    baseQuery += klausaRt(req, 'v', params);
 
     // Warga hanya melihat tamu yang didaftarkannya sendiri
     if (req.user.role === 'warga') {

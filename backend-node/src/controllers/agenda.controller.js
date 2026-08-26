@@ -1,6 +1,7 @@
 const { pool } = require('../config/database');
 const { logActivity, ringkas, TIPE } = require('../services/log.service');
 const dispatcher = require('../services/notification.dispatcher');
+const { klausaRt } = require('../utils/lingkup-rt');
 
 const STATUS_AKTIF_AGENDA = ['Akan Datang', 'Terjadwal', 'Berjalan', 'publish', 'aktif'];
 
@@ -130,6 +131,9 @@ async function getAgenda(req, res) {
                  LEFT JOIN users u ON a.created_by = u.id 
                  WHERE a.deleted_at IS NULL`;
     const params = [];
+    // Pelingkupan RT, sebelum penyaringan lain, supaya daftar dan
+    // penghitungan totalnya memakai batas yang sama persis.
+    query += klausaRt(req, 'a', params);
     if (status && status !== 'Semua') { params.push(status); query += ` AND a.status = $${params.length}`; }
     if (tipe) { params.push(tipe); query += ` AND a.tipe = $${params.length}`; }
     query += ' ORDER BY a.tanggal DESC, a.waktu_mulai DESC';

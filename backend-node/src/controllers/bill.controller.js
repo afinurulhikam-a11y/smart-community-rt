@@ -11,6 +11,7 @@ const {
   STATUS_TERISI, STATUS_ANOMALI,
 } = require('../utils/tagihan-air');
 const { terbitkanTagihanPeriode } = require('../services/tagihan-air.service');
+const { rtAktif } = require('../utils/lingkup-rt');
 
 const STATUS_BELUM = 'unpaid';
 const STATUS_LUNAS = 'lunas';
@@ -227,6 +228,15 @@ function buildFilter(req, mulaiDari = 0) {
 
   // Keluarga yang sudah di-soft-delete tidak dihitung dalam daftar & statistik.
   kondisi.push('k.deleted_at IS NULL');
+
+  // Pelingkupan RT lewat KELUARGA, bukan lewat `bills`. Yang bertempat
+  // tinggal di sebuah RT adalah kartu keluarganya; tagihan mengikutinya.
+  //
+  // Klausanya ditulis di sini, bukan lewat kondisiRt(), karena penomoran
+  // parameter berkas ini bergeser oleh `mulaiDari`. Yang penting tetap satu
+  // tempat: keputusan RT mana diambil `rtAktif()`, bukan diputuskan di sini.
+  const rt = rtAktif(req);
+  if (rt) { params.push(rt); kondisi.push(`k.rt_id = ${p()}`); }
 
   // Warga hanya boleh melihat tagihan kartu keluarganya sendiri.
   if (req.user.role === 'warga') {

@@ -184,6 +184,43 @@ const DEFAULT_PERMISSIONS = {
     'pengaturan.reset': N,
   },
 
+  /**
+   * Ketua RW mengawasi seluruh RT dalam RW-nya, dan itulah batas wewenangnya.
+   *
+   * Seluruh modul operasional diberi LIHAT saja. Alasannya bukan kehati-hatian
+   * berlebihan melainkan pembagian tugas yang nyata: uang, data warga, dan
+   * inventaris adalah tanggung jawab pengurus RT masing-masing. Ketua RW yang
+   * bisa menyunting kas RT membuat pertanyaan "siapa yang mencatat ini"
+   * kehilangan jawabannya.
+   *
+   * Satu pengecualian: Pengumuman boleh ia terbitkan, karena pengumuman
+   * setingkat RW memang tidak punya pemilik RT.
+   *
+   * Modul bertanda `is_sistem` tetap tertutup — sama seperti peran lain, dan
+   * penjaganya bukan baris ini melainkan middleware.
+   */
+  ketua_rw: {
+    'kependudukan.warga': V,
+    'kependudukan.kk': V,
+    'kependudukan.bansos': V,
+    'kependudukan.statistik': V,
+    'keuangan.iuran': V,
+    'keuangan.kas': V,
+    'keuangan.bop': V,
+    'inventaris.barang': V,
+    'inventaris.peminjaman': V,
+    'layanan.visitor': V,
+    'layanan.surat': V,
+    // Satu-satunya modul yang boleh ia isi: pengumuman lintas RT.
+    'kegiatan.agenda': VC,
+    'aspirasi.darurat': V,
+    'aspirasi.pengaduan': V,
+    'aspirasi.polling': V,
+    'pengaturan.log': V,
+    'pengaturan.akses': N,
+    'pengaturan.reset': N,
+  },
+
   warga: {
     'kependudukan.warga': N,
     // Warga tidak mengelola kartu keluarga RT. Tagihannya sendiri disaring
@@ -214,10 +251,11 @@ const DEFAULT_PERMISSIONS = {
 };
 
 /** Role yang muncul sebagai kolom di layar Menu & Akses. */
-const ROLES = ['admin', 'ketua_rt', 'sekretaris', 'bendahara', 'warga'];
+const ROLES = ['admin', 'ketua_rw', 'ketua_rt', 'sekretaris', 'bendahara', 'warga'];
 
 const ROLE_LABEL = {
   admin: 'Administrator',
+  ketua_rw: 'Ketua RW',
   ketua_rt: 'Ketua RT',
   sekretaris: 'Sekretaris',
   bendahara: 'Bendahara',

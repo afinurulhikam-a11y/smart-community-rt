@@ -1,6 +1,7 @@
 const { pool } = require('../config/database');
 const { logActivity, ringkas, TIPE } = require('../services/log.service');
 const dispatcher = require('../services/notification.dispatcher');
+const { klausaRt } = require('../utils/lingkup-rt');
 
 /**
  * Mengirim notifikasi push FCM ke seluruh Pengurus/Admin RT saat ada Permohonan Surat Baru.
@@ -207,6 +208,9 @@ async function getLetters(req, res) {
                  FROM letters l JOIN users u ON l.user_id = u.id LEFT JOIN users a ON l.approved_by = a.id 
                  WHERE l.deleted_at IS NULL`;
     const params = [];
+    // Pelingkupan RT. Dipasang sebelum penyaringan lain supaya daftar,
+    // penghitungan total, dan export memakai batas yang sama persis.
+    query += klausaRt(req, 'l', params);
     if (req.user.role === 'warga') { params.push(req.user.id); query += ` AND l.user_id = $${params.length}`; }
     else if (user_id) { params.push(user_id); query += ` AND l.user_id = $${params.length}`; }
     if (status) { params.push(status); query += ` AND l.status = $${params.length}`; }

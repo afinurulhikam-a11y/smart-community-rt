@@ -1,6 +1,7 @@
 const { pool } = require('../config/database');
 const { logActivity, ringkas, TIPE } = require('../services/log.service');
 const dispatcher = require('../services/notification.dispatcher');
+const { klausaRt } = require('../utils/lingkup-rt');
 
 /**
  * Mengirim notifikasi push FCM ke seluruh Pengurus/Admin RT saat ada Pengaduan Baru.
@@ -201,6 +202,9 @@ async function getComplaints(req, res) {
                  LEFT JOIN users r ON c.responded_by = r.id 
                  WHERE c.deleted_at IS NULL`;
     const params = [];
+    // Pelingkupan RT, sebelum penyaringan lain, supaya daftar dan
+    // penghitungan totalnya memakai batas yang sama persis.
+    query += klausaRt(req, 'c', params);
 
     // Warga hanya melihat pengaduannya sendiri — pola yang sama dengan
     // getLetters. Aduan kerap memuat keluhan tentang tetangga, jadi membukanya

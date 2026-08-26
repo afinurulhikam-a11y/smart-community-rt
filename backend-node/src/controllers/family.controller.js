@@ -3,6 +3,7 @@ const PDFDocument = require('pdfkit-table');
 const { pool } = require('../config/database');
 const { logActivity } = require('../services/log.service');
 const { jenisKelamin } = require('../utils/normalisasi');
+const { klausaRt } = require('../utils/lingkup-rt');
 
 function buildFamilyQuery(req) {
   const { search } = req.query;
@@ -14,6 +15,9 @@ function buildFamilyQuery(req) {
       ) AS kepala_terkonfirmasi
     FROM keluarga k WHERE k.deleted_at IS NULL`;
   const params = [];
+
+  // Menjaga daftar dan kedua export sekaligus, sama seperti klausa warga.
+  query += klausaRt(req, 'k', params);
 
   if (req.user && req.user.role === 'warga') {
     params.push(req.user.id);

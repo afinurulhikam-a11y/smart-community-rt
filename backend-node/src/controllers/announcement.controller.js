@@ -1,6 +1,7 @@
 const { pool } = require('../config/database');
 const { logActivity, ringkas, TIPE } = require('../services/log.service');
 const dispatcher = require('../services/notification.dispatcher');
+const { klausaRt } = require('../utils/lingkup-rt');
 
 /**
  * Mengirim notifikasi push FCM kepada seluruh warga/pengurus aktif saat pengumuman baru diterbitkan.
@@ -54,6 +55,9 @@ async function getAnnouncements(req, res) {
     const { kategori, status, search } = req.query;
     let query = `SELECT a.*, u.nama AS created_by_nama FROM announcements a LEFT JOIN users u ON a.created_by = u.id WHERE 1=1`;
     const params = [];
+    // Pelingkupan RT, dipasang sebelum penyaringan lain supaya daftar dan
+    // penghitungan totalnya memakai batas yang sama persis.
+    query += klausaRt(req, 'a', params);
     if (kategori && kategori !== 'Semua Kategori') { params.push(kategori); query += ` AND a.kategori = $${params.length}`; }
     if (status) { params.push(status); query += ` AND a.status = $${params.length}`; }
     if (search) { params.push(`%${search}%`); query += ` AND (a.judul ILIKE $${params.length} OR a.isi ILIKE $${params.length})`; }

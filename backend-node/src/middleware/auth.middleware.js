@@ -127,7 +127,7 @@ async function authMiddleware(req, res, next) {
 
   try {
     const akun = await pool.query(
-      `SELECT id, nama, role, is_active, token_versi
+      `SELECT id, nama, role, is_active, token_versi, rt_id
        FROM users WHERE id = $1 AND deleted_at IS NULL`,
       [decoded.id]
     );
@@ -160,8 +160,18 @@ async function authMiddleware(req, res, next) {
     }
 
     // Payload token dipertahankan (no_kk, email, dan lainnya dipakai controller),
-    // tetapi peran dan nama ditimpa dengan yang berlaku sekarang.
-    req.user = { ...decoded, role: akun.rows[0].role, nama: akun.rows[0].nama };
+    // tetapi peran, nama, dan RT ditimpa dengan yang berlaku sekarang.
+    //
+    // `rt_id` SENGAJA tidak dibaca dari token. Alasannya sama persis dengan
+    // alasan peran dibaca ulang: token berumur tujuh hari, dan seorang warga
+    // yang dipindahkan ke RT lain akan tetap melihat data RT lamanya selama
+    // sisa umur token itu — termasuk data yang bukan lagi haknya.
+    req.user = {
+      ...decoded,
+      role: akun.rows[0].role,
+      nama: akun.rows[0].nama,
+      rt_id: akun.rows[0].rt_id,
+    };
     return next();
   } catch (err) {
     // FAIL-CLOSED. Sebelumnya jalur ini memakai payload JWT sebagai cadangan

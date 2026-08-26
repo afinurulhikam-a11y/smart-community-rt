@@ -2,6 +2,7 @@ const { pool } = require('../config/database');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit-table');
 const { logActivity, rupiah } = require('../services/log.service');
+const { kondisiRt } = require('../utils/lingkup-rt');
 
 /**
  * Tata letak kolom export. Excel dan PDF sama-sama membacanya supaya keduanya
@@ -56,6 +57,11 @@ function buildFilter(req) {
     params.push(`%${search}%`);
     kondisi.push(`(f.deskripsi ILIKE ${p()} OR f.kategori ILIKE ${p()})`);
   }
+
+  // Pelingkupan RT dipasang di sini, bukan di tiap pemanggil: buildFilter
+  // yang sama menyuapi daftar, ringkasan, grafik bulanan, dan export.
+  const rt = kondisiRt(req, 'f', params);
+  if (rt) kondisi.push(rt);
 
   const where = kondisi.length ? `WHERE ${kondisi.join(' AND ')}` : '';
   return { where, params };

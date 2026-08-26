@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit-table');
 const { jenisKelamin: normalJk, labelJenisKelamin } = require('../utils/normalisasi');
+const { klausaRt } = require('../utils/lingkup-rt');
 
 /**
  * Tata letak kolom Excel/PDF. Export menulis dengan urutan ini dan import
@@ -63,6 +64,12 @@ function buildWargaQuery(req) {
   const search = req?.query?.search;
   let query = BASE_QUERY;
   const params = [];
+
+  // Pelingkupan RT lebih dulu, sebelum penyaringan apa pun yang lain. Sama
+  // seperti klausa warga di bawah, satu tempat ini menjaga daftar DAN kedua
+  // export sekaligus — melewatkannya berarti seluruh tabel bisa diunduh
+  // sebagai berkas oleh pengurus RT lain.
+  query += klausaRt(req, 'k', params);
 
   if (req?.user?.role === 'warga') {
     params.push(req.user.id);

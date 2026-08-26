@@ -3,6 +3,7 @@ const { logActivity, ringkas, TIPE } = require('../services/log.service');
 const { broadcast } = require('../config/websocket');
 const mqttAlarm = require('../config/mqtt');
 const dispatcher = require('../services/notification.dispatcher');
+const { klausaRt } = require('../utils/lingkup-rt');
 const {
   WAJIBKAN_KETERANGAN_DARURAT,
   PENANDA_LEGACY,
@@ -575,6 +576,10 @@ async function getAlerts(req, res) {
 
     const queryParams = [];
     let whereClause = 'WHERE 1=1';
+
+    // Pelingkupan RT, sebelum penyaringan lain, supaya daftar dan
+    // penghitungan totalnya memakai batas yang sama persis.
+    whereClause += klausaRt(req, 'ea', queryParams);
 
     if (status) {
       queryParams.push(status);

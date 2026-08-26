@@ -3,6 +3,7 @@ const { logActivity, rupiah, ringkas, TIPE } = require('../services/log.service'
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit-table');
 const dispatcher = require('../services/notification.dispatcher');
+const { kondisiRt } = require('../utils/lingkup-rt');
 
 const STATUS_DIPINJAM = 'Dipinjam';
 const STATUS_KEMBALI = 'Dikembalikan';
@@ -209,6 +210,11 @@ function filterBarang(req) {
   const kondisiArr = ['i.deleted_at IS NULL'];
   const params = [];
   const p = () => `$${params.length}`;
+
+  // Pelingkupan RT. Satu tempat untuk daftar, statistik, dan export —
+  // ketiganya memanggil penyaring ini.
+  const rt = kondisiRt(req, 'i', params);
+  if (rt) kondisiArr.push(rt);
 
   if (kategori) { params.push(kategori); kondisiArr.push(`i.kategori = ${p()}`); }
   if (kondisi) { params.push(kondisi); kondisiArr.push(`i.kondisi = ${p()}`); }
@@ -442,6 +448,11 @@ function filterPinjam(req) {
   const kondisi = [];
   const params = [];
   const p = () => `$${params.length}`;
+
+  // Pelingkupan RT. Satu tempat untuk daftar, statistik, dan export —
+  // ketiganya memanggil penyaring ini.
+  const rt = kondisiRt(req, 'b', params);
+  if (rt) kondisi.push(rt);
 
   // Warga hanya boleh melihat peminjamannya sendiri — pola yang sama dengan
   // getLetters dan buildFilter pada tagihan.
