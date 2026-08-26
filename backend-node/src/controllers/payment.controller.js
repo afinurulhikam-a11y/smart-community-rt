@@ -1,5 +1,6 @@
 const { v4: uuidv4 } = require('uuid');
 const { pool } = require('../config/database');
+const { kondisiRt } = require('../utils/lingkup-rt');
 const { pastikanTerpasang, CLIENT_KEY, IS_PRODUCTION } = require('../config/midtrans');
 const midtrans = require('../services/midtrans.service');
 const { catatKeKasRt, STATUS_LUNAS } = require('./bill.controller');
@@ -611,11 +612,19 @@ async function periksaStatus(req, res) {
 async function riwayat(req, res) {
   try {
     const params = [];
-    let where = '';
+    const kondisi = [];
     if (req.user.role === 'warga') {
       params.push(req.user.id);
-      where = 'WHERE pt.user_id = $1';
+      kondisi.push(`pt.user_id = $${params.length}`);
     }
+
+    // `payment_transactions` tidak punya `rt_id` sendiri — ia dilingkupi lewat
+    // kartu keluarga yang ditagih, sesuai keputusan v43. Tanpa ini, layar
+    // Pembayaran Online seorang pengurus memuat nama pembayar dan nominal
+    // milik RT lain; warga sendiri sudah aman karena disaring `user_id`.
+    const rt = kondisiRt(req, 'k', params);
+    if (rt) kondisi.push(rt);
+    const where = kondisi.length ? `WHERE ${kondisi.join(' AND ')}` : '';
 
     const r = await pool.query(
       `SELECT pt.order_id, pt.status, pt.gross_amount, pt.payment_type,
@@ -624,6 +633,7 @@ async function riwayat(req, res) {
               COUNT(ptb.bill_id)::int AS jumlah_tagihan
          FROM payment_transactions pt
          LEFT JOIN users u ON pt.user_id = u.id
+         LEFT JOIN keluarga k ON k.id = pt.keluarga_id
          LEFT JOIN payment_transaction_bills ptb ON ptb.transaction_id = pt.id
          ${where}
         GROUP BY pt.id, u.nama

@@ -22,6 +22,7 @@ const {
   rincianTagihanAir,
 } = require('../utils/tagihan-air');
 const { terbitkanTagihanPeriode } = require('../services/tagihan-air.service');
+const { klausaRt, tolakLuarRt } = require('../utils/lingkup-rt');
 
 /**
  * Kartu keluarga milik pemanggil.
@@ -378,6 +379,13 @@ async function daftarMeteran(req, res) {
       WHERE k.deleted_at IS NULL
     `;
 
+    // Layar ini menampilkan SETIAP rumah, termasuk yang belum mengisi — jadi
+    // tanpa pelingkupan ia adalah daftar alamat dan nama kepala keluarga
+    // seluruh RW, bukan sekadar angka meteran. Terukur: pengurus RT 001 dan
+    // RT 002 sama-sama menerima 28 baris yang identik, padahal masing-masing
+    // hanya punya 12 dan 2 rumah.
+    queryKeluarga += klausaRt(req, 'k', params);
+
     if (status) {
       if (status === 'menunggu') {
         queryKeluarga += ` AND (pm.status = 'menunggu' OR pm.status IS NULL)`;
@@ -457,6 +465,16 @@ async function koreksiMeteran(req, res) {
     let targetPeriode = periode;
     let existingId = id;
 
+    // Penjagaannya bersandar pada KARTU KELUARGA, bukan pada baris bacaannya.
+    //
+    // Dua sebab. Pertama, id yang masuk ke sini bisa berupa `new_<kk>_<periode>`
+    // untuk rumah yang belum punya bacaan sama sekali — tidak ada baris
+    // `pembacaan_meteran` untuk dijaga. Kedua, yang menentukan sebuah bacaan
+    // milik RT mana memang kartu keluarganya; `pembacaan_meteran` sengaja
+    // tidak diberi `rt_id` sendiri, sesuai keputusan v43.
+    if (targetKeluargaId
+        && await tolakLuarRt(pool, req, res, 'keluarga', targetKeluargaId)) return;
+
     if (String(id).startsWith('new_')) {
       const parts = String(id).split('_');
       if (parts.length >= 3) {
@@ -478,6 +496,12 @@ async function koreksiMeteran(req, res) {
       );
       if (lamaRes.rows.length > 0) {
         lama = lamaRes.rows[0];
+        // Jalur kedua penjagaan: ketika klien mengirim id bacaan sungguhan
+        // TANPA `keluarga_id` di badan permintaan, penjagaan di atas tidak
+        // punya apa pun untuk diperiksa. Kartu keluarganya baru diketahui di
+        // sini, jadi di sinilah ia diperiksa. Satu jalur yang dijaga dan satu
+        // yang tidak sama saja dengan tidak dijaga.
+        if (await tolakLuarRt(pool, req, res, 'keluarga', lama.keluarga_id)) return;
       }
     }
 

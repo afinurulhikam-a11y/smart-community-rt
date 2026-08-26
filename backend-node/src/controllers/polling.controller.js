@@ -72,6 +72,13 @@ async function sendNewPollingPushNotification(polling) {
       },
       priority: 'normal',
       collapseKey: 'polling_broadcast',
+    }, {
+      // Dilingkupi ke RT baris yang memicunya, bukan ke RT pengirimnya:
+      // yang menentukan siapa yang perlu tahu adalah data itu sendiri.
+      // `?? null` berarti seluruh RW — jaring pengaman untuk baris lama
+      // yang `rt_id`-nya belum terisi, karena berhenti mengirim diam-diam
+      // lebih buruk daripada mengirim terlalu luas.
+      rtId: currentPolling.rt_id ?? null,
     });
 
     if (pushResult.success === false && !pushResult.simulated) {

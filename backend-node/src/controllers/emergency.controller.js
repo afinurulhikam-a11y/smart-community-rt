@@ -63,11 +63,13 @@ const KOLOM_WAKTU_WIB = `
 
 /** Semua kolom `emergency_alerts`, dengan waktunya sudah ditafsirkan. */
 const KOLOM_ALERT = `ea.id, ea.user_id, ea.message, ea.latitude, ea.longitude,
-  ea.status, ea.dismissed_by,${KOLOM_WAKTU_WIB}`;
+  ea.status, ea.dismissed_by, ea.rt_id,${KOLOM_WAKTU_WIB}`;
 
 /** Bentuk tanpa awalan tabel, untuk `RETURNING` pada INSERT/UPDATE. */
+// `rt_id` ikut karena siaran WebSocket-nya dialamatkan per RT: muatan
+// penuhnya membawa nama, alamat, dan nomor telepon pelapor.
 const KOLOM_ALERT_RETURNING = `id, user_id, message, latitude, longitude,
-  status, dismissed_by,
+  status, dismissed_by, rt_id,
   created_at::timestamptz AS created_at,
   dismissed_at::timestamptz AS dismissed_at`;
 
@@ -160,9 +162,9 @@ function validasiKeterangan(mentah) {
  * Pemanggilnya WAJIB memanggil ini SESUDAH `COMMIT`. Menyiarkan sebelum itu
  * berarti mengumumkan keadaan yang masih bisa dibatalkan.
  */
-function siarkanPerubahanDarurat(muatan, muatanPerangkat) {
+function siarkanPerubahanDarurat(muatan, muatanPerangkat, opsi = {}) {
   try {
-    return broadcast(muatan, muatanPerangkat);
+    return broadcast(muatan, muatanPerangkat, opsi);
   } catch (e) {
     console.error('⚠️  Siaran realtime darurat gagal:', e.message);
     return 0;
@@ -253,6 +255,13 @@ async function sendEmergencyPushNotification(alert, user = {}) {
       },
       priority: 'high',
       collapseKey: 'emergency_alarm',
+    }, {
+      // Dilingkupi ke RT baris yang memicunya, bukan ke RT pengirimnya:
+      // yang menentukan siapa yang perlu tahu adalah data itu sendiri.
+      // `?? null` berarti seluruh RW — jaring pengaman untuk baris lama
+      // yang `rt_id`-nya belum terisi, karena berhenti mengirim diam-diam
+      // lebih buruk daripada mengirim terlalu luas.
+      rtId: alert.rt_id ?? null,
     });
 
     if (pushResult.skipped && pushResult.reason === 'no_active_users') {
@@ -422,7 +431,7 @@ async function triggerAlarm(req, res) {
       type: 'ALARM_ON',
       alert_id: alert.id,
       timestamp: alert.created_at,
-    });
+    }, { rtId: alert.rt_id ?? null });
 
     // ALAT digerakkan lewat MQTT, bukan lagi lewat WebSocket.
     //
@@ -541,7 +550,7 @@ async function dismissAlarm(req, res) {
       type: 'ALARM_OFF',
       alert_id: id,
       timestamp: new Date().toISOString(),
-    });
+    }, { rtId: result.rows[0].rt_id ?? null });
     // Sirene wajib ikut mati. Buzzer yang terus berbunyi setelah pengurus
     // menekan "Selesaikan" jauh lebih terasa daripada kegagalan mana pun di
     // aplikasi, jadi kegagalannya dicatat DAN dilaporkan ke pemanggil.
@@ -844,7 +853,7 @@ async function nyalakanDarurat(req, res, keterangan, legacyTanpaKeterangan = fal
     await client.query('SELECT pg_advisory_xact_lock($1)', [KUNCI_DARURAT]);
 
     const aktif = await client.query(
-      `SELECT id, user_id, message, created_at::timestamptz AS created_at
+      `SELECT id, user_id, message, rt_id, created_at::timestamptz AS created_at
        FROM emergency_alerts
        WHERE status = 'active' ORDER BY created_at DESC LIMIT 1 FOR UPDATE`
     );
@@ -868,7 +877,7 @@ async function nyalakanDarurat(req, res, keterangan, legacyTanpaKeterangan = fal
       const dibuat = await client.query(
         `INSERT INTO emergency_alerts (user_id, message, status)
          VALUES ($1, $2, 'active')
-         RETURNING id, user_id, message, created_at::timestamptz AS created_at`,
+         RETURNING id, user_id, message, rt_id, created_at::timestamptz AS created_at`,
         [req.user.id, keterangan]
       );
       kejadian = dibuat.rows[0];
@@ -908,7 +917,7 @@ async function nyalakanDarurat(req, res, keterangan, legacyTanpaKeterangan = fal
       type: 'ALARM_ON',
       alert_id: kejadian.id,
       timestamp: kejadian.created_at,
-    });
+    }, { rtId: kejadian.rt_id ?? null });
 
     // Siaran push notifikasi FCM hanya untuk kejadian baru (mencegah duplikasi pada re-trigger)
     if (baru) {
@@ -1037,7 +1046,7 @@ async function matikanDarurat(req, res) {
       `UPDATE emergency_alerts
        SET status = 'dismissed', dismissed_by = $1, dismissed_at = NOW()
        WHERE id = $2 AND status = 'active'
-       RETURNING id, user_id, message,
+       RETURNING id, user_id, message, rt_id,
                  created_at::timestamptz AS created_at,
                  dismissed_at::timestamptz AS dismissed_at`,
       [req.user.id, kejadian.id]
@@ -1070,7 +1079,7 @@ async function matikanDarurat(req, res) {
       type: 'ALARM_OFF',
       alert_id: ditutup.rows[0].id,
       timestamp: ditutup.rows[0].dismissed_at,
-    });
+    }, { rtId: ditutup.rows[0].rt_id ?? null });
 
     await logActivity(
       req,

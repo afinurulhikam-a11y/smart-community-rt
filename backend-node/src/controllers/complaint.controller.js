@@ -56,6 +56,13 @@ async function sendNewComplaintPushNotification(complaint, reporterUser = {}) {
       },
       priority: 'normal',
       collapseKey: 'complaint_admin_incoming',
+    }, {
+      // Dilingkupi ke RT baris yang memicunya, bukan ke RT pengirimnya:
+      // yang menentukan siapa yang perlu tahu adalah data itu sendiri.
+      // `?? null` berarti seluruh RW — jaring pengaman untuk baris lama
+      // yang `rt_id`-nya belum terisi, karena berhenti mengirim diam-diam
+      // lebih buruk daripada mengirim terlalu luas.
+      rtId: complaint.rt_id ?? null,
     });
 
     if (pushResult.skipped && pushResult.reason === 'no_active_users_for_roles') {

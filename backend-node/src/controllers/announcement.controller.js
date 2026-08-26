@@ -33,6 +33,13 @@ async function sendAnnouncementPushNotification(announcement) {
       },
       priority: 'high',
       collapseKey: 'announcement_broadcast',
+    }, {
+      // Dilingkupi ke RT baris yang memicunya, bukan ke RT pengirimnya:
+      // yang menentukan siapa yang perlu tahu adalah data itu sendiri.
+      // `?? null` berarti seluruh RW — jaring pengaman untuk baris lama
+      // yang `rt_id`-nya belum terisi, karena berhenti mengirim diam-diam
+      // lebih buruk daripada mengirim terlalu luas.
+      rtId: announcement.rt_id ?? null,
     });
 
     console.log(

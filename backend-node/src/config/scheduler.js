@@ -75,7 +75,7 @@ async function terbitkanBilaWaktunya({ paksa = false, tanggal = new Date() } = {
       // tetap — bila kelak ada lagi — tetap diterbitkan manual, karena nominalnya
       // adalah keputusan pengurus, bukan hasil pengukuran.
       const jenisRes = await client.query(
-        `SELECT id, nama_iuran FROM jenis_iuran
+        `SELECT id, nama_iuran, rt_id FROM jenis_iuran
          WHERE is_aktif = true AND tipe_hitung = 'meteran'
          ORDER BY id`
       );
@@ -87,15 +87,20 @@ async function terbitkanBilaWaktunya({ paksa = false, tanggal = new Date() } = {
 
       for (const jenis of jenisRes.rows) {
         // Lewati bila seluruh KK sudah punya tagihan periode ini.
+        // Dilingkupi ke RT pemilik jenis iuran ini, sama seperti penerbitannya.
+        // Tanpa itu hitungannya memasukkan rumah RT lain yang memang tidak
+        // akan pernah ditagih oleh jenis ini — sehingga "kurang" tidak pernah
+        // mencapai nol dan penjadwal mencoba lagi setiap hari, selamanya.
         const kurang = await client.query(
           `SELECT COUNT(*)::int AS n
            FROM keluarga k
            WHERE k.deleted_at IS NULL
+             AND k.rt_id IS NOT DISTINCT FROM $3
              AND NOT EXISTS (
                SELECT 1 FROM bills b
                WHERE b.keluarga_id = k.id AND b.jenis_iuran_id = $1 AND b.bulan = $2
              )`,
-          [jenis.id, periode]
+          [jenis.id, periode, jenis.rt_id]
         );
         if (kurang.rows[0].n === 0) {
           ringkas.push({ jenis: jenis.nama_iuran, dibuat: 0, lengkap: true });

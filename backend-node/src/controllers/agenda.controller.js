@@ -78,6 +78,13 @@ async function sendNewAgendaPushNotification(agenda) {
       },
       priority: 'normal',
       collapseKey: 'agenda_broadcast',
+    }, {
+      // Dilingkupi ke RT baris yang memicunya, bukan ke RT pengirimnya:
+      // yang menentukan siapa yang perlu tahu adalah data itu sendiri.
+      // `?? null` berarti seluruh RW — jaring pengaman untuk baris lama
+      // yang `rt_id`-nya belum terisi, karena berhenti mengirim diam-diam
+      // lebih buruk daripada mengirim terlalu luas.
+      rtId: agenda.rt_id ?? null,
     });
 
     if (pushResult.skipped && pushResult.reason === 'no_active_users') {

@@ -70,7 +70,40 @@ async function terbitkanTagihanPeriode(client, opsi) {
     return { ok: false, alasan: 'Jenis iuran ini sudah dinonaktifkan.' };
   }
 
-  const totalKk = (await client.query('SELECT COUNT(*)::int AS c FROM keluarga WHERE deleted_at IS NULL')).rows[0].c;
+  // ===================================================================
+  // Yang ditagih hanya kartu keluarga MILIK RT pemilik jenis iuran ini
+  // ===================================================================
+  //
+  // Sebelum v45 tabel `jenis_iuran` hanya satu untuk seluruh RW, jadi
+  // "seluruh kartu keluarga" adalah jawaban yang benar. Sejak tiap RT punya
+  // jenis iuran sendiri, jawaban itu berubah menjadi cacat yang mahal:
+  // penjadwal melooping SETIAP jenis aktif, dan tiap putaran menagih seluruh
+  // RW. Terukur pada dua RT — 14 kartu keluarga menerima 28 tagihan, dan
+  // separuhnya memakai tarif per m3 milik RT tetangga.
+  //
+  // Bukan cacat yang berbunyi: `bills_kk_jenis_bulan_uniq` menjaga keunikan
+  // per (keluarga, JENIS, bulan), sehingga dua jenis berbeda memang sah punya
+  // dua baris. Idempotensinya bekerja sempurna sambil menagih dua kali.
+  //
+  // Dan ia berjalan sendiri: penjadwal terbit tiap tanggal 25 tanpa ada yang
+  // menekan tombol.
+  const rtJenis = jenis.rt_id ?? null;
+  if (!rtJenis) {
+    // Menagih seluruh RW dengan tarif satu RT adalah kegagalan yang jauh
+    // lebih buruk daripada tidak menagih sama sekali: yang pertama sampai ke
+    // tangan warga sebagai angka, yang kedua terlihat sebagai tombol yang
+    // menolak dan menyebutkan sebabnya.
+    return {
+      ok: false,
+      alasan: `Jenis iuran "${jenis.nama_iuran}" belum terhubung ke RT mana pun, `
+        + 'jadi tidak jelas rumah siapa yang harus ditagih. Perbaiki datanya lebih dulu.',
+    };
+  }
+
+  const totalKk = (await client.query(
+    'SELECT COUNT(*)::int AS c FROM keluarga WHERE deleted_at IS NULL AND rt_id = $1',
+    [rtJenis]
+  )).rows[0].c;
 
   // ── Jenis bernominal tetap: perilaku lama, tidak disentuh ──────────
   if (!pakaiMeteran(jenis)) {
@@ -84,11 +117,12 @@ async function terbitkanTagihanPeriode(client, opsi) {
       `INSERT INTO bills (keluarga_id, jenis_iuran_id, jenis_tagihan, bulan, nominal,
                           keterangan, jatuh_tempo, status, created_by)
        SELECT k.id, $1, $2, $3, $4, $5, $6, $7, $8
-       FROM keluarga k WHERE k.deleted_at IS NULL
+       FROM keluarga k WHERE k.deleted_at IS NULL AND k.rt_id = $9
        ON CONFLICT (keluarga_id, jenis_iuran_id, bulan) WHERE keluarga_id IS NOT NULL
        DO NOTHING
        RETURNING id`,
-      [jenisIuranId, jenis.nama_iuran, bulan, nominal, keterangan, jatuhTempo, STATUS_BELUM, createdBy]
+      [jenisIuranId, jenis.nama_iuran, bulan, nominal, keterangan, jatuhTempo, STATUS_BELUM, createdBy,
+        rtJenis]
     );
     return {
       ok: true, jenis, dibuat: r.rowCount, dilewati: totalKk - r.rowCount,
@@ -115,9 +149,9 @@ async function terbitkanTagihanPeriode(client, opsi) {
      FROM keluarga k
      LEFT JOIN pembacaan_meteran pm
             ON pm.keluarga_id = k.id AND pm.periode = $1
-     WHERE k.deleted_at IS NULL
+     WHERE k.deleted_at IS NULL AND k.rt_id = $2
      ORDER BY k.id`,
-    [bulan]
+    [bulan, rtJenis]
   );
 
   const rincian = { terisi: 0, tanpa_bacaan: 0, anomali: 0 };

@@ -6,6 +6,39 @@
  */
 const { pool } = require('../config/database');
 const fcmService = require('./fcm.service');
+const { PERAN_LINTAS_RT } = require('../utils/lingkup-rt');
+
+/**
+ * ===================================================================
+ * Kenapa penerima notifikasi harus dilingkupi per RT
+ * ===================================================================
+ *
+ * Pemilihan penerima di berkas ini hanya melihat `role` dan `is_active`.
+ * Sejak satu pemasangan melayani beberapa RT, itu berarti setiap pengaduan
+ * baru di RT 002 mengirim notifikasi — lengkap dengan nama pelapor dan judul
+ * pengaduannya — ke seluruh pengurus se-RW.
+ *
+ * Yang paling membingungkan bukan kebocorannya melainkan akibat lanjutannya:
+ * pengumuman RT 001 memunculkan notifikasi di ponsel warga RT 002, lalu
+ * ketika dibuka TIDAK ADA APA-APA, karena daftarnya sendiri sudah tersaring
+ * per RT dengan benar. Notifikasi yang menunjuk ke ruang kosong lebih buruk
+ * daripada tidak ada notifikasi.
+ *
+ * `rtId` bersifat opsional: dibiarkan kosong berarti seluruh RW, yaitu
+ * perilaku sebelum ada modul RT. Jadi jalur yang belum disesuaikan tidak
+ * mendadak berhenti mengirim — ia hanya belum menyempit.
+ *
+ * ===================================================================
+ * Kenapa peran lintas RT selalu ikut
+ * ===================================================================
+ *
+ * Administrator dan ketua RW melihat SELURUH RW di dalam aplikasi. Menyaring
+ * notifikasi mereka menurut `users.rt_id` — yang bagi mereka hanyalah RT
+ * tempat akunnya kebetulan terdaftar — akan membuat mereka berhenti diberi
+ * tahu tentang sebagian besar hal yang justru menjadi tanggung jawab mereka.
+ * Notifikasi harus sejalan dengan apa yang bisa dibuka orangnya.
+ */
+const SARING_RT = `AND ($RT::uuid IS NULL OR rt_id = $RT::uuid OR role = ANY($LINTAS::varchar[]))`;
 
 // Daftar peran pengguna yang diakui sistem database existing
 const PERAN_PENGURUS = ['admin', 'ketua_rt', 'sekretaris', 'bendahara', 'pengurus_rt'];
@@ -35,15 +68,18 @@ async function sendToUsers(userIds, payload = {}) {
 /**
  * Mengirim push notifikasi ke seluruh pengguna aktif berdasarkan daftar role (mis. Pengurus RT).
  */
-async function sendToRoles(roles = [], payload = {}) {
+async function sendToRoles(roles = [], payload = {}, { rtId = null } = {}) {
   const roleArray = Array.isArray(roles) ? roles : [roles];
   if (roleArray.length === 0) {
     return { skipped: true, reason: 'empty_roles', tokensCount: 0, successCount: 0, failureCount: 0 };
   }
 
   const userRows = await pool.query(
-    `SELECT id FROM users WHERE is_active = true AND role = ANY($1::varchar[])`,
-    [roleArray]
+    `SELECT id FROM users
+      WHERE is_active = true
+        AND role = ANY($1::varchar[])
+        ${SARING_RT.split('$RT').join('$2').split('$LINTAS').join('$3')}`,
+    [roleArray, rtId, PERAN_LINTAS_RT]
   );
   const userIds = userRows.rows.map((r) => r.id);
 
@@ -57,9 +93,12 @@ async function sendToRoles(roles = [], payload = {}) {
 /**
  * Mengirim push notifikasi ke seluruh pengguna yang berstatus aktif di RT (Broadcast).
  */
-async function sendToAllActive(payload = {}) {
+async function sendToAllActive(payload = {}, { rtId = null } = {}) {
   const userRows = await pool.query(
-    `SELECT id FROM users WHERE is_active = true`
+    `SELECT id FROM users
+      WHERE is_active = true
+        ${SARING_RT.split('$RT').join('$1').split('$LINTAS').join('$2')}`,
+    [rtId, PERAN_LINTAS_RT]
   );
   const userIds = userRows.rows.map((r) => r.id);
 

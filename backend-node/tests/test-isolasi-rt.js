@@ -57,6 +57,7 @@ assertCanRunTest('test-isolasi-rt');
 const assert = require('assert');
 const { pool } = require('../src/config/database');
 const { siapkanMasterRt } = require('../src/services/master-rt.service');
+const { PERAN_LINTAS_RT } = require('../src/utils/lingkup-rt');
 
 const { getFamilies } = require('../src/controllers/family.controller');
 const { getWarga } = require('../src/controllers/warga.controller');
@@ -100,6 +101,23 @@ const { getKategoriBop } = require('../src/controllers/kategori_bop.controller')
 // --- Bagian F: reset per RT ---------------------------------------------
 const { pratinjauReset } = require('../src/controllers/reset.controller');
 const { GRUP_TOTAL, TABEL_TANPA_RT, polaLingkupRt } = require('../src/config/reset-groups');
+
+// --- Bagian G: iuran air ------------------------------------------------
+const { daftarMeteran } = require('../src/controllers/meteran.controller');
+const { terbitkanTagihanPeriode } = require('../src/services/tagihan-air.service');
+
+// --- Bagian H: penerima notifikasi --------------------------------------
+//
+// Pengirim FCM diganti penangkap SEBELUM dispatcher dimuat. Yang diuji di
+// sini adalah PEMILIHAN penerimanya, bukan Firebase - dan Firebase memang
+// tidak tersedia di lingkungan uji.
+const fcmService = require('../src/services/fcm.service');
+let penerimaTertangkap = [];
+fcmService.sendToUsers = async (ids) => {
+  penerimaTertangkap = ids;
+  return { tokensCount: ids.length, successCount: ids.length, failureCount: 0, simulated: true };
+};
+const dispatcher = require('../src/services/notification.dispatcher');
 
 const KODE_RT_UJI = '902';
 
@@ -626,8 +644,116 @@ async function barisEkspor(fn, user, query = {}) {
       bocor += 1;
     }
 
+    // ============================================================ BAGIAN G
+    //
+    // Iuran air. Dua cacat berbeda pernah hidup di sini sekaligus, dan
+    // keduanya baru terlihat setelah ada RT kedua:
+    //
+    //   1. Daftar meteran menampilkan SETIAP rumah se-RW - bukan sekadar
+    //      angka meteran, melainkan nama kepala keluarga dan alamatnya.
+    //   2. Penerbitan tagihan menagih seluruh RW untuk SETIAP jenis iuran
+    //      yang aktif. Dengan satu jenis per RT, 14 kartu keluarga menerima
+    //      28 tagihan dan separuhnya memakai tarif per m3 milik RT lain.
+    console.log('\n  -- Iuran air (2) --\n');
+
+    const jumlahKk = {};
+    for (const r of (await pool.query(
+      'SELECT rt_id, COUNT(*)::int n FROM keluarga WHERE deleted_at IS NULL GROUP BY 1'
+    )).rows) jumlahKk[r.rt_id] = r.n;
+
+    const mA = await daftar(daftarMeteran, KETUA_A);
+    const mUji = await daftar(daftarMeteran, { ...KETUA_A, rt_id: rtUji });
+    const benarA = mA.baris.length === (jumlahKk[RT_A.id] ?? 0);
+    const benarUji = mUji.baris.length === (jumlahKk[rtUji] ?? 0);
+    if (benarA && benarUji) {
+      console.log(`  v  Daftar meteran     ${mA.baris.length} dan ${mUji.baris.length} rumah, sesuai jumlah KK tiap RT`);
+    } else {
+      console.log(`  X  Daftar meteran     BOCOR - ${mA.baris.length} baris, seharusnya ${jumlahKk[RT_A.id] ?? 0}`);
+      bocor += 1;
+    }
+
+    // Penerbitan diuji SUNGGUHAN lalu dibatalkan. Menghitung tanpa
+    // menerbitkan tidak akan menangkap cacatnya: yang salah bukan kuerinya
+    // melainkan berapa kali ia dijalankan dan atas rumah siapa.
+    const klienAir = await pool.connect();
+    try {
+      await klienAir.query('BEGIN');
+      const jenisAktif = (await klienAir.query(
+        'SELECT id FROM jenis_iuran WHERE is_aktif = true ORDER BY id'
+      )).rows;
+      for (const j of jenisAktif) {
+        await terbitkanTagihanPeriode(klienAir, { jenisIuranId: j.id, bulan: '2099-01' });
+      }
+      const silang = await klienAir.query(`
+        SELECT COUNT(*)::int n FROM bills b
+          JOIN keluarga k ON k.id = b.keluarga_id
+          JOIN jenis_iuran ji ON ji.id = b.jenis_iuran_id
+         WHERE b.bulan = '2099-01' AND ji.rt_id IS DISTINCT FROM k.rt_id`);
+      const ganda = await klienAir.query(`
+        SELECT COUNT(*)::int n FROM (
+          SELECT keluarga_id FROM bills WHERE bulan = '2099-01'
+           GROUP BY 1 HAVING COUNT(*) > 1
+        ) x`);
+      if (silang.rows[0].n === 0 && ganda.rows[0].n === 0) {
+        console.log('  v  Terbit tagihan     satu tagihan per rumah, tarif RT-nya sendiri');
+      } else {
+        console.log(`  X  Terbit tagihan     BOCOR - ${silang.rows[0].n} tagihan lintas RT, ${ganda.rows[0].n} rumah ditagih ganda`);
+        bocor += 1;
+      }
+      await klienAir.query('ROLLBACK');
+    } finally {
+      klienAir.release();
+    }
+
+    // ============================================================ BAGIAN H
+    //
+    // Penerima notifikasi. Sebelum ini pemilihannya hanya melihat `role` dan
+    // `is_active`, sehingga pengumuman RT 001 memunculkan notifikasi di
+    // ponsel warga RT 002 - lalu ketika dibuka tidak ada apa-apa, karena
+    // daftarnya sendiri sudah tersaring dengan benar.
+    console.log('\n  -- Penerima notifikasi (2) --\n');
+
+    const penerima = async (fn) => { penerimaTertangkap = []; await fn(); return penerimaTertangkap; };
+    const peranDari = async (ids) => {
+      if (!ids.length) return [];
+      const r = await pool.query('SELECT DISTINCT role FROM users WHERE id = ANY($1::uuid[])', [ids]);
+      return r.rows.map((x) => x.role);
+    };
+
+    for (const [namaKirim, kirim] of [
+      ['Pengumuman', (opsi) => dispatcher.sendToAllActive({ title: 't', body: 'b' }, opsi)],
+      ['Pengaduan', (opsi) => dispatcher.sendToRoles(dispatcher.PERAN_PENGURUS, { title: 't', body: 'b' }, opsi)],
+    ]) {
+      const seRw = await penerima(() => kirim({}));
+      const seRt = await penerima(() => kirim({ rtId: RT_A.id }));
+      if (!seRw.length) {
+        console.log(`  ?  ${namaKirim.padEnd(18)} TIDAK TERUJI - tidak ada penerima sama sekali`);
+        takTeruji += 1;
+        continue;
+      }
+      // Yang tersisa harus HANYA milik RT itu atau peran lintas RT. Memeriksa
+      // "jumlahnya berkurang" saja akan lolos meski satu warga RT lain tetap
+      // ikut menerima.
+      const luar = await pool.query(
+        `SELECT COUNT(*)::int n FROM users
+          WHERE id = ANY($1::uuid[]) AND rt_id IS DISTINCT FROM $2
+            AND role <> ALL($3::varchar[])`,
+        [seRt, RT_A.id, PERAN_LINTAS_RT]
+      );
+      if (luar.rows[0].n > 0) {
+        console.log(`  X  ${namaKirim.padEnd(18)} BOCOR - ${luar.rows[0].n} penerima dari RT lain`);
+        bocor += 1;
+      } else if (seRt.length < seRw.length) {
+        const pr = await peranDari(seRt);
+        console.log(`  v  ${namaKirim.padEnd(18)} ${seRw.length} -> ${seRt.length} penerima (${pr.join(', ')})`);
+      } else {
+        console.log(`  ?  ${namaKirim.padEnd(18)} TIDAK TERUJI - seluruh penerima kebetulan peran lintas RT`);
+        takTeruji += 1;
+      }
+    }
+
     const total = PERIKSA.length + RINGKASAN.length + DETAIL.length + EKSPOR.length
-      + MASTER.length + tabelReset.length + 2;
+      + MASTER.length + tabelReset.length + 2 + 2 + 2;
     console.log('\n----------------------------------------------------------------');
     console.log(`  terisolasi   : ${total - bocor - takTeruji} dari ${total}`);
     console.log(`  BOCOR        : ${bocor}`);
@@ -637,7 +763,7 @@ async function barisEkspor(fn, user, query = {}) {
     assert.strictEqual(bocor, 0, `${bocor} endpoint masih membocorkan data RT lain.`);
     assert.strictEqual(takTeruji, 0,
       `${takTeruji} endpoint tidak dapat diuji — isi datanya kosong, jadi isolasinya belum terbukti.`);
-    console.log('✅ Daftar, kartu, jalur :id, ekspor, master, dan reset semuanya terisolasi per RT.\n');
+    console.log('✅ Daftar, kartu, jalur :id, ekspor, master, reset, iuran air, dan notifikasi terisolasi per RT.\n');
   } finally {
     // Pemulihan menangani dua bentuk: satu baris (Bagian A dan C) dan
     // seluruh baris sekaligus (Bagian B). Blok ini berjalan juga ketika ada
