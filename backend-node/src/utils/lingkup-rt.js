@@ -128,6 +128,124 @@ function rtUntukSimpan(req) {
   return req?.user?.rt_id ?? null;
 }
 
+/**
+ * ===================================================================
+ * Penjagaan SATU BARIS: `pastikanDalamRt`
+ * ===================================================================
+ *
+ * `klausaRt` menjaga kueri DAFTAR, dan itu hanya separuh pekerjaan. Setiap
+ * modul juga punya jalur `:id` — buka detail, ubah, hapus, setujui — dan di
+ * sana idnya datang dari URL, bukan dari daftar yang sudah tersaring. Selama
+ * penjagaannya hanya ada di daftar, siapa pun yang MENGETAHUI sebuah id bisa
+ * membuka, mengubah, dan menghapus baris milik RT lain.
+ *
+ * Itu bukan dugaan. Diukur sebelum berkas ini ada: pengurus RT 001 memanggil
+ * `GET /api/families/:id` dengan id kartu keluarga milik RT 002 dan menerima
+ * HTTP 200 lengkap dengan seluruh anggotanya.
+ *
+ * ===================================================================
+ * Kenapa satu penjaga, bukan `AND rt_id = $n` di tiap kueri
+ * ===================================================================
+ *
+ * Ada sekitar tiga puluh jalur `:id`. Menambahkan klausa satu per satu berarti
+ * tiga puluh kesempatan untuk lupa, dan kelalaiannya tidak berbunyi — persis
+ * alasan `klausaRt` sendiri ditulis di satu tempat. Lebih buruk lagi, banyak
+ * pengendali membaca barisnya lebih dulu untuk jejak audit lalu menulis lewat
+ * kueri KEDUA; menyaring salah satunya saja menghasilkan penjagaan yang
+ * terlihat ada tetapi bisa dilewati.
+ *
+ * Satu panggilan di awal pengendali menutup seluruh badan fungsinya sekaligus,
+ * berapa pun jumlah kueri di dalamnya.
+ *
+ * ===================================================================
+ * Kenapa 404, bukan 403
+ * ===================================================================
+ *
+ * 403 berarti "ada, tapi bukan milikmu" — ia MENGONFIRMASI keberadaan baris
+ * itu, sehingga id yang ditebak satu per satu tetap memberi tahu penebaknya
+ * mana yang nyata. 404 adalah jawaban yang jujur dari sudut pandang pemanggil:
+ * di dalam lingkupnya, baris itu memang tidak ada. Ini alasan yang sama dengan
+ * `?rt=` yang diabaikan alih-alih ditolak di bagian atas berkas ini.
+ *
+ * ===================================================================
+ * Kenapa nama tabel diambil dari daftar tertutup
+ * ===================================================================
+ *
+ * Nama tabel tidak bisa diparameterkan di SQL, jadi ia selalu disambung
+ * sebagai teks. Selama nilainya harus cocok dengan kunci di `SUMBER_RT`,
+ * tidak ada masukan pemanggil yang bisa sampai ke kueri — disiplin yang sama
+ * dipakai `reset-groups.js` untuk daftar tabel yang boleh dihapus.
+ *
+ * Dua tabel tidak punya `rt_id` sendiri dan dilingkupi lewat induknya, persis
+ * seperti yang diputuskan migrasi v43: `bills` dan `anggota_keluarga` ikut
+ * `keluarga`. Menyalin `rt_id` ke sana akan menduakan sumber kebenarannya —
+ * sebuah kartu keluarga yang pindah RT lalu punya tagihan yang tidak ikut
+ * pindah.
+ */
+const SUMBER_RT = Object.freeze({
+  users: 'SELECT 1 FROM users WHERE id = $1 AND rt_id = $2',
+  keluarga: 'SELECT 1 FROM keluarga WHERE id = $1 AND rt_id = $2',
+  inventory: 'SELECT 1 FROM inventory WHERE id = $1 AND rt_id = $2',
+  borrowings: 'SELECT 1 FROM borrowings WHERE id = $1 AND rt_id = $2',
+  finances: 'SELECT 1 FROM finances WHERE id = $1 AND rt_id = $2',
+  bop_finances: 'SELECT 1 FROM bop_finances WHERE id = $1 AND rt_id = $2',
+  alokasi_bop: 'SELECT 1 FROM alokasi_bop WHERE id = $1 AND rt_id = $2',
+  complaints: 'SELECT 1 FROM complaints WHERE id = $1 AND rt_id = $2',
+  letters: 'SELECT 1 FROM letters WHERE id = $1 AND rt_id = $2',
+  polling: 'SELECT 1 FROM polling WHERE id = $1 AND rt_id = $2',
+  agenda: 'SELECT 1 FROM agenda WHERE id = $1 AND rt_id = $2',
+  announcements: 'SELECT 1 FROM announcements WHERE id = $1 AND rt_id = $2',
+  visitors: 'SELECT 1 FROM visitors WHERE id = $1 AND rt_id = $2',
+  bantuan_sosial: 'SELECT 1 FROM bantuan_sosial WHERE id = $1 AND rt_id = $2',
+  emergency_alerts: 'SELECT 1 FROM emergency_alerts WHERE id = $1 AND rt_id = $2',
+  // Dilingkupi lewat induknya — lihat catatan di atas.
+  bills: `SELECT 1 FROM bills b JOIN keluarga k ON k.id = b.keluarga_id
+           WHERE b.id = $1 AND k.rt_id = $2`,
+  anggota_keluarga: `SELECT 1 FROM anggota_keluarga ak JOIN keluarga k ON k.id = ak.keluarga_id
+           WHERE ak.id = $1 AND k.rt_id = $2`,
+});
+
+/**
+ * Apakah sebuah baris berada dalam lingkup RT pemanggil.
+ *
+ * Mengembalikan `true` ketika pemanggil tidak dibatasi (administrator atau
+ * ketua RW yang belum memilih RT) — bukan karena longgar, melainkan karena
+ * `rtAktif()` sudah memutuskan hal itu satu kali untuk seluruh aplikasi.
+ *
+ * @param {object} db      pool atau client transaksi
+ * @param {object} req     permintaan Express, sudah lewat authMiddleware
+ * @param {string} tabel   kunci pada SUMBER_RT
+ * @param {string|number} id
+ */
+async function pastikanDalamRt(db, req, tabel, id) {
+  const rt = rtAktif(req);
+  if (!rt) return true;
+
+  const sql = SUMBER_RT[tabel];
+  // Kunci yang tidak dikenal adalah salah tulis programmer, bukan masukan
+  // pengguna. Melempar lebih baik daripada mengembalikan `true` diam-diam:
+  // yang terakhir mengubah salah ketik menjadi lubang izin.
+  if (!sql) throw new Error(`pastikanDalamRt: tabel '${tabel}' tidak terdaftar.`);
+
+  if (id === undefined || id === null || id === '') return false;
+
+  const hasil = await db.query(sql, [id, rt]);
+  return hasil.rowCount > 0;
+}
+
+/**
+ * Bentuk siap pakai untuk awal pengendali:
+ *
+ *   if (await tolakLuarRt(pool, req, res, 'keluarga', id)) return;
+ *
+ * @returns {Promise<boolean>} true bila sudah menjawab 404 dan pemanggil harus berhenti
+ */
+async function tolakLuarRt(db, req, res, tabel, id) {
+  if (await pastikanDalamRt(db, req, tabel, id)) return false;
+  res.status(404).json({ success: false, message: 'Data tidak ditemukan.' });
+  return true;
+}
+
 module.exports = {
   PERAN_LINTAS_RT,
   bolehLintasRt,
@@ -136,4 +254,7 @@ module.exports = {
   kondisiRt,
   whereRt,
   rtUntukSimpan,
+  SUMBER_RT,
+  pastikanDalamRt,
+  tolakLuarRt,
 };

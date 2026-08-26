@@ -1,7 +1,7 @@
 const { pool } = require('../config/database');
 const { logActivity, ringkas, TIPE } = require('../services/log.service');
 const dispatcher = require('../services/notification.dispatcher');
-const { klausaRt } = require('../utils/lingkup-rt');
+const { klausaRt, tolakLuarRt, rtUntukSimpan } = require('../utils/lingkup-rt');
 
 /**
  * Mengirim notifikasi push FCM siaran polling baru yang aktif kepada seluruh warga/user yang berhak memberikan suara.
@@ -192,10 +192,10 @@ async function createPolling(req, res) {
     try {
       await client.query('BEGIN');
       const pollingResult = await client.query(
-        `INSERT INTO polling (judul, deskripsi, tanggal_mulai, tanggal_selesai, created_by)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO polling (judul, deskripsi, tanggal_mulai, tanggal_selesai, created_by, rt_id)
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id, judul, deskripsi, status, tanggal_mulai::text AS tanggal_mulai, tanggal_selesai::text AS tanggal_selesai, created_by, created_at, updated_at`,
-        [judul, deskripsi || null, tanggal_mulai, tanggal_selesai, req.user.id]
+        [judul, deskripsi || null, tanggal_mulai, tanggal_selesai, req.user.id, rtUntukSimpan(req)]
       );
       const polling = pollingResult.rows[0];
       for (const opt of options) {
@@ -230,6 +230,12 @@ async function vote(req, res) {
   if (!option_id || isNaN(parsedOptionId)) {
     return res.status(400).json({ success: false, message: 'option_id wajib diisi dengan format yang benar.' });
   }
+
+  // Sebelum `pool.connect()`, bukan sesudah: penjaga yang mengembalikan
+  // respons di dalam transaksi harus mengingat melepas client-nya, dan
+  // "harus mengingat" adalah bentuk yang sama dengan yang membuat pelingkupan
+  // ini perlu ditambahkan sejak awal.
+  if (await tolakLuarRt(pool, req, res, 'polling', id)) return;
 
   const client = await pool.connect();
   try {
@@ -366,6 +372,7 @@ async function vote(req, res) {
 async function updatePollingStatus(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'polling', id)) return;
     const { status } = req.body;
     const rawStatus = (status || '').toLowerCase();
     const validStatus = ['aktif', 'ditutup', 'selesai'];
@@ -401,6 +408,7 @@ async function updatePollingStatus(req, res) {
 async function deletePolling(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'polling', id)) return;
     const result = await pool.query('DELETE FROM polling WHERE id = $1 RETURNING id, judul', [id]);
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Polling tidak ditemukan.' });
     await logActivity(req, TIPE.DELETE, `Menghapus polling "${ringkas(result.rows[0].judul)}" beserta seluruh suara yang sudah masuk`);

@@ -1,7 +1,7 @@
 const { pool } = require('../config/database');
 const { logActivity, ringkas, TIPE } = require('../services/log.service');
 const dispatcher = require('../services/notification.dispatcher');
-const { klausaRt } = require('../utils/lingkup-rt');
+const { klausaRt, tolakLuarRt } = require('../utils/lingkup-rt');
 
 /**
  * Mengirim notifikasi push FCM ke seluruh Pengurus/Admin RT saat ada Permohonan Surat Baru.
@@ -269,6 +269,7 @@ async function createLetter(req, res) {
 async function updateLetterStatus(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'letters', id)) return;
     const { status, response_note } = req.body;
     const validStatus = ['diproses', 'disetujui', 'ditolak', 'approved', 'rejected'];
     if (!status || !validStatus.includes(status)) return res.status(400).json({ success: false, message: `status harus salah satu dari: ${validStatus.join(', ')}` });
@@ -316,6 +317,7 @@ async function updateLetterStatus(req, res) {
 async function deleteLetter(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'letters', id)) return;
     const letterRes = await pool.query('SELECT * FROM letters WHERE id = $1', [id]);
     if (letterRes.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Surat tidak ditemukan.' });

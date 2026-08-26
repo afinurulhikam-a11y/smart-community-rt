@@ -1,7 +1,7 @@
 const { pool } = require('../config/database');
 const { logActivity, ringkas, TIPE } = require('../services/log.service');
 const dispatcher = require('../services/notification.dispatcher');
-const { klausaRt } = require('../utils/lingkup-rt');
+const { klausaRt, tolakLuarRt } = require('../utils/lingkup-rt');
 
 /**
  * Mengirim notifikasi push FCM ke seluruh Pengurus/Admin RT saat ada Pengaduan Baru.
@@ -277,6 +277,7 @@ async function createComplaint(req, res) {
 async function updateComplaintStatus(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'complaints', id)) return;
     const { status, response } = req.body;
     const validStatus = ['Menunggu', 'Diproses', 'Selesai', 'Ditolak'];
     let finalStatus = status;
@@ -374,6 +375,7 @@ async function updateComplaintStatus(req, res) {
 async function tandaiTanggapanDibaca(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'complaints', id)) return;
     const hasil = await pool.query(
       `UPDATE complaints
        SET tanggapan_dibaca_pada = COALESCE(tanggapan_dibaca_pada, NOW())
@@ -406,6 +408,7 @@ async function tandaiTanggapanDibaca(req, res) {
 async function deleteComplaint(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'complaints', id)) return;
     const result = await pool.query('UPDATE complaints SET deleted_at = NOW() WHERE id = $1 RETURNING *', [id]);
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Pengaduan tidak ditemukan.' });
     const d = result.rows[0];
@@ -428,8 +431,13 @@ async function getComplaintStats(req, res) {
       whereClause += ` AND c.user_id = $${params.length}`;
     }
 
+    // Sama seperti getComplaints. Kartu dan daftar di layar yang sama harus
+    // menghitung himpunan yang sama, atau kartunya menyebut 6 pengaduan di
+    // atas tabel yang berisi 4 — dan yang dua itu milik RT lain.
+    whereClause += klausaRt(req, 'c', params);
+
     const query = `
-      SELECT 
+      SELECT
         COUNT(*) FILTER (WHERE c.status IN ('Menunggu', 'pending', 'diajukan')) AS pending,
         COUNT(*) FILTER (WHERE c.status = 'Diproses') AS diproses,
         COUNT(*) FILTER (WHERE c.status IN ('Selesai', 'disetujui')) AS selesai,

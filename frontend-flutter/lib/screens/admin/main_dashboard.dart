@@ -63,6 +63,7 @@ import 'profil_saya_screen.dart';
 import 'log_aktivitas_screen.dart';
 import 'menu_akses_screen.dart';
 import 'reset_sistem_screen.dart';
+import 'kelola_rt_screen.dart';
 
 import '../warga/warga_dashboard_content.dart';
 import '../warga/bill_list_screen.dart';
@@ -312,6 +313,8 @@ class _MainDashboardState extends State<MainDashboard> {
         await log.fetchLogs();
       case 86:
         await context.read<ResetProvider>().muatRingkasan();
+      case 87:
+        await context.read<RtProvider>().muat();
 
       // ─────────────────────────────────────────────────────────────
       // Profil Saya (81) dan Menu & Akses (85) SENGAJA tidak punya case
@@ -1265,16 +1268,25 @@ class _MainDashboardState extends State<MainDashboard> {
   /// Mengembalikan null ketika hanya ada satu RT yang bisa dilihat — bagi
   /// warga dan pengurus RT, pemilih ini tidak pernah muncul sama sekali.
   ///
-  /// Yang ditampilkan hanya KODE RT-nya, tiga karakter, bukan nama lengkapnya.
-  /// AppBar di ponsel 360px sudah memuat judul, tiga tombol, dan menu akun;
-  /// menambahkan teks sepanjang "RT 003 Kampung Melati" di situ adalah cara
-  /// paling pasti membuatnya meluber.
-  Widget? _pemilihRt() {
+  /// Dipasang di DUA tempat, dan itu bukan duplikasi yang bisa dihapus:
+  /// ponsel memakai `AppBar`, layar lebar memakai `_buildHeaderBar`, dan
+  /// `Scaffold` hanya diberi `appBar` ketika bukan desktop. Selama pemilih ini
+  /// hanya ditanam di AppBar, administrator yang membuka aplikasi di Chrome
+  /// atau Windows — yaitu cara aplikasi ini paling sering dibuka — tidak punya
+  /// satu pun cara mengganti RT yang dilihatnya.
+  ///
+  /// [ringkasSaja] memilih rupanya. Di ponsel hanya KODE RT-nya, tiga
+  /// karakter: AppBar 360px sudah memuat judul, tiga tombol, dan menu akun,
+  /// dan menambahkan "RT 003 Kampung Melati" di situ adalah cara paling pasti
+  /// membuatnya meluber. Di layar lebar ruangnya ada, jadi yang tampil adalah
+  /// label utuh — "Semua RT (RW 005)" menjawab pertanyaan "ini data siapa"
+  /// tanpa perlu diklik dulu.
+  Widget? _pemilihRt({bool ringkasSaja = true}) {
     final rt = context.watch<RtProvider>();
     if (!rt.bolehMemilih) return null;
 
     final aktif = rt.rtTerpilih;
-    final ringkas = aktif?.kode ?? 'RW';
+    final ringkas = ringkasSaja ? (aktif?.kode ?? 'RW') : rt.labelLingkup;
 
     return PopupMenuButton<String>(
       tooltip: 'Lingkup data: ${rt.labelLingkup}',
@@ -1322,16 +1334,35 @@ class _MainDashboardState extends State<MainDashboard> {
       ],
       child: Container(
         constraints: const BoxConstraints(minHeight: AppTheme.sasaranSentuh),
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        padding: EdgeInsets.symmetric(horizontal: ringkasSaja ? 8 : 12),
         alignment: Alignment.center,
+        decoration: ringkasSaja
+            ? null
+            : BoxDecoration(
+                color: context.latarLembut,
+                borderRadius: AppTheme.borderRadiusS,
+              ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.apartment_rounded, size: 18),
+            Icon(Icons.apartment_rounded,
+                size: 18, color: ringkasSaja ? null : context.teksKedua),
             const SizedBox(width: 4),
-            Text(
-              ringkas,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            // Dibatasi lebarnya: nama RT ditulis pengurus dan tidak ada yang
+            // membatasi panjangnya, jadi satu nama panjang tidak boleh
+            // mendorong tombol tema dan menu akun keluar dari bilah.
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: ringkasSaja ? 64 : 180),
+              child: Text(
+                ringkas,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: ringkasSaja ? null : context.teksUtama,
+                ),
+              ),
             ),
             const Icon(Icons.arrow_drop_down_rounded, size: 18),
           ],
@@ -1481,6 +1512,15 @@ class _MainDashboardState extends State<MainDashboard> {
               ],
             ),
           ),
+
+          // Pemilih RT — hanya muncul bagi peran yang boleh lintas RT dan
+          // hanya bila memang ada lebih dari satu RT untuk dipilih.
+          ...(() {
+            final p = _pemilihRt(ringkasSaja: false);
+            return p == null
+                ? const <Widget>[]
+                : <Widget>[p, SizedBox(width: sempit ? 8 : 12)];
+          })(),
 
           // Tombol layar penuh (fullscreen)
           const TombolFullscreen(),
@@ -1698,6 +1738,8 @@ class _MainDashboardState extends State<MainDashboard> {
         return const MenuAksesScreen();
       case 86:
         return const ResetSistemScreen();
+      case 87:
+        return const KelolaRtScreen();
 
       default:
         return _buildDashboardContent(auth);

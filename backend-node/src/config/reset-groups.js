@@ -27,8 +27,17 @@
  * pratinjau bisa menampilkannya terpisah. Tidak ada penghapusan diam-diam.
  */
 
-/** Akun yang tidak pernah boleh terhapus, agar admin tidak mungkin terkunci. */
-const ROLE_DILINDUNGI = ['admin', 'ketua_rt', 'sekretaris', 'bendahara'];
+/**
+ * Akun yang tidak pernah boleh terhapus, agar admin tidak mungkin terkunci.
+ *
+ * `ketua_rw` masuk daftar ini karena alasan yang sama persis dengan tiga peran
+ * pengurus di sebelahnya, dan alasan itu menjadi LEBIH kuat sejak satu
+ * pemasangan melayani beberapa RT: ia satu-satunya peran selain administrator
+ * yang melihat seluruh RW, jadi kehilangannya berarti kehilangan satu-satunya
+ * sudut pandang lintas RT yang bukan administrator. Ia sempat tertinggal di
+ * sini setelah perannya ditambahkan, dan Reset Total akan menghapusnya.
+ */
+const ROLE_DILINDUNGI = ['admin', 'ketua_rw', 'ketua_rt', 'sekretaris', 'bendahara'];
 
 /** Dipakai berulang untuk membatasi penghapusan hanya pada milik warga. */
 const AKUN_WARGA = "(SELECT id FROM users WHERE role = 'warga')";

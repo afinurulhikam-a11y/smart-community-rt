@@ -3,7 +3,7 @@ const { logActivity, rupiah, ringkas, TIPE } = require('../services/log.service'
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit-table');
 const dispatcher = require('../services/notification.dispatcher');
-const { kondisiRt } = require('../utils/lingkup-rt');
+const { kondisiRt, klausaRt, tolakLuarRt, rtUntukSimpan } = require('../utils/lingkup-rt');
 
 const STATUS_DIPINJAM = 'Dipinjam';
 const STATUS_KEMBALI = 'Dikembalikan';
@@ -277,6 +277,7 @@ async function getInventoryStats(req, res) {
 async function getInventoryDetail(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'inventory', id)) return;
     const barang = await pool.query(`${SELECT_BARANG} WHERE i.id = $1 AND i.deleted_at IS NULL`, [id]);
     if (barang.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Barang tidak ditemukan.' });
@@ -317,12 +318,12 @@ async function createInventory(req, res) {
 
     const result = await pool.query(
       `INSERT INTO inventory (nama_barang, kategori, jumlah, kondisi, lokasi, keterangan,
-                              nilai_barang, tanggal_perolehan, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+                              nilai_barang, tanggal_perolehan, created_by, rt_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
       [
         nama_barang.trim(), kategori || null, jumlah ?? 1, kondisi || 'Baik',
         lokasi || null, keterangan || null, nilai_barang || 0,
-        tanggal_perolehan || null, req.user.id,
+        tanggal_perolehan || null, req.user.id, rtUntukSimpan(req),
       ]
     );
     const b = result.rows[0];
@@ -338,6 +339,7 @@ async function createInventory(req, res) {
 async function updateInventory(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'inventory', id)) return;
     const { nama_barang, kategori, jumlah, kondisi, lokasi, keterangan,
       nilai_barang, tanggal_perolehan } = req.body;
 
@@ -394,6 +396,7 @@ async function updateInventory(req, res) {
 async function deleteInventory(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'inventory', id)) return;
 
     // Penjagaan ini sebelumnya tidak ada sama sekali: barang bisa dihapus
     // walau sedang berada di tangan warga, dan borrowings ikut terhapus
@@ -506,7 +509,16 @@ async function getBorrowingStats(req, res) {
   try {
     // Ikut disaring seperti daftarnya, atau kartu statistik warga akan
     // bercerita tentang peminjaman tetangga yang tidak boleh ia lihat.
-    const milikSendiri = req.user.role === 'warga';
+    const params = [];
+    let where = 'WHERE 1=1';
+    if (req.user.role === 'warga') {
+      params.push(req.user.id);
+      where += ` AND b.user_id = $${params.length}`;
+    }
+    // Dan disaring per RT seperti getBorrowings, atau kartu "Dipinjam"
+    // menghitung barang RT tetangga yang tidak muncul di tabel di bawahnya.
+    where += klausaRt(req, 'b', params);
+
     const result = await pool.query(`
       SELECT
         COUNT(*)::int AS total,
@@ -518,8 +530,8 @@ async function getBorrowingStats(req, res) {
             AND b.tanggal_rencana_kembali < CURRENT_DATE
         )::int AS terlambat
       FROM borrowings b
-      ${milikSendiri ? 'WHERE b.user_id = $1' : ''}
-    `, milikSendiri ? [req.user.id] : []);
+      ${where}
+    `, params);
     return res.status(200).json({ success: true, data: result.rows[0] });
   } catch (err) {
     console.error('GetBorrowingStats Error:', err.message);
@@ -661,6 +673,7 @@ async function updateBorrowing(req, res) {
   const client = await pool.connect();
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'borrowings', id)) return;
     const { jumlah, keterangan, tanggal_pinjam, tanggal_rencana_kembali, user_id } = req.body;
 
     const lama = await client.query('SELECT * FROM borrowings WHERE id = $1', [id]);
@@ -734,6 +747,7 @@ async function updateBorrowing(req, res) {
 async function returnBorrowing(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'borrowings', id)) return;
     const { tanggal_kembali } = req.body || {};
 
     const pinjam = await pool.query('SELECT * FROM borrowings WHERE id = $1', [id]);
@@ -768,6 +782,7 @@ async function returnBorrowing(req, res) {
 async function deleteBorrowing(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'borrowings', id)) return;
     const pinjam = await pool.query('SELECT status FROM borrowings WHERE id = $1', [id]);
     if (pinjam.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Peminjaman tidak ditemukan.' });
@@ -896,6 +911,7 @@ async function exportBorrowings(req, res) {
 async function approveBorrowing(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'borrowings', id)) return;
     const pinjam = await pool.query('SELECT * FROM borrowings WHERE id = $1', [id]);
     if (pinjam.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Peminjaman tidak ditemukan.' });
@@ -924,6 +940,7 @@ async function approveBorrowing(req, res) {
 async function rejectBorrowing(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'borrowings', id)) return;
     const pinjam = await pool.query('SELECT * FROM borrowings WHERE id = $1', [id]);
     if (pinjam.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Peminjaman tidak ditemukan.' });

@@ -14,6 +14,7 @@ import 'package:smart_community/screens/admin/peminjaman_screen.dart';
 import 'package:smart_community/screens/admin/pengaduan_screen.dart';
 import 'package:smart_community/screens/admin/polling_warga_screen.dart';
 import 'package:smart_community/screens/admin/reset_sistem_screen.dart';
+import 'package:smart_community/screens/admin/kelola_rt_screen.dart';
 import 'package:smart_community/screens/admin/statistik_kependudukan_screen.dart';
 import 'package:smart_community/screens/admin/status_darurat_screen.dart';
 import 'package:smart_community/screens/admin/surat_menyurat_screen.dart';
@@ -51,6 +52,7 @@ void main() {
     'Status Darurat': () => const StatusDaruratScreen(),
     'Log Aktivitas': () => const LogAktivitasScreen(),
     'Reset Sistem': () => const ResetSistemScreen(),
+    'Kelola RT': () => const KelolaRtScreen(),
   };
 
   group('setiap layar dirender dalam tema gelap', () {

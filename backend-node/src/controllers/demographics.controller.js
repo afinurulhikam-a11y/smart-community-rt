@@ -1,5 +1,6 @@
 const { pool } = require('../config/database');
 const { SUMBER_WARGA, SUMBER_KELUARGA } = require('../utils/lingkup-warga');
+const { klausaRt } = require('../utils/lingkup-rt');
 
 const LABEL_KOSONG = 'Tidak Diisi';
 
@@ -26,12 +27,44 @@ function urutkanKategori(rows) {
 
 async function getDemographicsSummary(req, res) {
   try {
-    // Filter RT opsional. Sebelumnya memakai req.user.no_rt, padahal JWT hanya
-    // memuat id/email/role sehingga filternya tidak pernah aktif.
-    const { rt } = req.query;
-    const filterRt = rt ? 'AND k.rt = $1' : '';
-    const filterRtKk = rt ? 'AND rt = $1' : '';
-    const params = rt ? [rt] : [];
+    // ===================================================================
+    // Kenapa parameternya berganti nama menjadi `no_rt`
+    // ===================================================================
+    //
+    // Berkas ini sudah lebih dulu punya `?rt=`, dan artinya NOMOR RT — sebuah
+    // varchar(3) yang dicocokkan ke `keluarga.rt`. Sejak pelingkupan per RT,
+    // `?rt=` dipakai untuk hal yang sama sekali berbeda: id RT berbentuk UUID,
+    // disisipkan otomatis oleh ApiService pada SETIAP permintaan.
+    //
+    // Keduanya bertabrakan di sini, dan cara gagalnya adalah yang terburuk.
+    // Bukan galat: `'a614bf90-…' = keluarga.rt` sah secara SQL, hanya tidak
+    // pernah cocok. Jadi begitu administrator menekan pemilih RT, seluruh
+    // layar Statistik menampilkan 0 warga, 0 KK, semua grafik kosong — dengan
+    // HTTP 200 dan tanpa satu pun baris log. Terukur: 41 warga menjadi 0.
+    //
+    // Nama lama tidak dipertahankan sebagai cadangan justru karena itu: selama
+    // `rt` masih dibaca di sini, tabrakannya tetap ada. Tidak ada klien yang
+    // pernah mengirimnya — DemographicProvider memanggil endpoint ini tanpa
+    // parameter sama sekali — jadi penggantian nama ini tidak merusak apa pun.
+    const noRt = (req.query.no_rt ?? '').toString().trim();
+
+    // Pelingkupan RT yang sesungguhnya, dari sumber yang sama dengan seluruh
+    // pengendali lain. Tanpa ini kartu "Total Warga" menjumlahkan seluruh RW
+    // sementara layar Data Warga di sebelahnya sudah per RT — dua angka
+    // berdampingan yang menjawab pertanyaan berbeda dengan label yang sama,
+    // persis kesalahan yang lingkup-warga.js dibuat untuk mencegah.
+    //
+    // Dua array parameter terpisah karena kueri tingkat-jiwa memakai alias `k`
+    // sedangkan kueri tingkat-KK memilih langsung dari `keluarga` tanpa alias.
+    // Menyatukannya berarti nomor $n harus kebetulan sama di kedua sisi, dan
+    // "kebetulan sama" berhenti benar begitu salah satu filternya berubah.
+    const paramsWarga = [];
+    let filterRt = noRt ? ` AND k.rt = $${paramsWarga.push(noRt)}` : '';
+    filterRt += klausaRt(req, 'k', paramsWarga);
+
+    const paramsKk = [];
+    let filterRtKk = noRt ? ` AND rt = $${paramsKk.push(noRt)}` : '';
+    filterRtKk += klausaRt(req, '', paramsKk);
 
     // Lingkupnya datang dari src/utils/lingkup-warga.js dan TIDAK ditulis ulang
     // di sini. Dua hal yang dulu berbeda antara berkas ini dan Data Warga, dan
@@ -61,7 +94,7 @@ async function getDemographicsSummary(req, res) {
       ${SUMBER_WARGA} ${filterRt}
       GROUP BY 1
       ORDER BY jumlah DESC, label ASC
-    `, params);
+    `, paramsWarga);
 
     const [
       wargaRes,
@@ -124,13 +157,13 @@ async function getDemographicsSummary(req, res) {
             WHERE ak.status_pernikahan IN ('Cerai Hidup', 'Cerai Mati')
           )::int AS janda_duda
         ${SUMBER_WARGA} ${filterRt}
-      `, params),
+      `, paramsWarga),
 
       // Statistik tingkat keluarga dihitung per KK, bukan per jiwa.
       pool.query(`
         SELECT COUNT(*)::int AS total_kk
         ${SUMBER_KELUARGA} ${filterRtKk}
-      `, params),
+      `, paramsKk),
 
       pool.query(`
         SELECT COALESCE(NULLIF(TRIM(status_rumah), ''), '${LABEL_KOSONG}') AS label,
@@ -138,7 +171,7 @@ async function getDemographicsSummary(req, res) {
         ${SUMBER_KELUARGA} ${filterRtKk}
         GROUP BY 1
         ORDER BY jumlah DESC, label ASC
-      `, params),
+      `, paramsKk),
 
       kategoriWarga('status_pernikahan'),
       kategoriWarga('pendidikan'),

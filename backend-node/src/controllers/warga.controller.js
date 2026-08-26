@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit-table');
 const { jenisKelamin: normalJk, labelJenisKelamin } = require('../utils/normalisasi');
-const { klausaRt } = require('../utils/lingkup-rt');
+const { klausaRt, rtUntukSimpan } = require('../utils/lingkup-rt');
 
 /**
  * Tata letak kolom Excel/PDF. Export menulis dengan urutan ini dan import
@@ -351,8 +351,8 @@ async function tambahWargaLengkap(req, res) {
       // Untuk membedakan mana yang sementara, pembaca memakai kolom turunan
       // kepala_terkonfirmasi — bukan menebak dari isi nama.
       const newKk = await client.query(
-        'INSERT INTO keluarga (no_kk, kepala_keluarga, alamat, rt, rw, kelurahan, kecamatan, status_rumah) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
-        [no_kk, nama, alamat || '-', '001', '001', '-', '-', statusRumah || 'Milik Sendiri']
+        'INSERT INTO keluarga (no_kk, kepala_keluarga, alamat, rt, rw, kelurahan, kecamatan, status_rumah, rt_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id',
+        [no_kk, nama, alamat || '-', '001', '001', '-', '-', statusRumah || 'Milik Sendiri', rtUntukSimpan(req)]
       );
       keluargaId = newKk.rows[0].id;
     }
@@ -392,8 +392,9 @@ async function tambahWargaLengkap(req, res) {
 
       // Email dikosongkan (null) secara bawaan agar warga bisa mengisinya sendiri di Profil Saya
       await client.query(
-        'INSERT INTO users (username, email, password_hash, nama, no_hp, no_kk, alamat, role, is_active, nik, must_change_password) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true)',
-        [nik, null, passwordHash, nama, (no_hp && no_hp.trim() !== '') ? no_hp.trim() : null, no_kk, alamat, 'warga', true, nik]
+        'INSERT INTO users (username, email, password_hash, nama, no_hp, no_kk, alamat, role, is_active, nik, must_change_password, rt_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, $11)',
+        [nik, null, passwordHash, nama, (no_hp && no_hp.trim() !== '') ? no_hp.trim() : null, no_kk, alamat, 'warga', true, nik,
+          rtUntukSimpan(req)]
       );
     }
 
@@ -471,8 +472,8 @@ async function updateWargaLengkap(req, res) {
         keluargaId = resKeluarga.rows[0].id;
       } else {
         const newKk = await client.query(
-          'INSERT INTO keluarga (no_kk, kepala_keluarga, alamat, rt, rw, kelurahan, kecamatan, status_rumah) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
-          [noKkBaru, namaFinal, alamat || '-', '001', '001', '-', '-', statusRumah || 'Milik Sendiri']
+          'INSERT INTO keluarga (no_kk, kepala_keluarga, alamat, rt, rw, kelurahan, kecamatan, status_rumah, rt_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id',
+          [noKkBaru, namaFinal, alamat || '-', '001', '001', '-', '-', statusRumah || 'Milik Sendiri', rtUntukSimpan(req)]
         );
         keluargaId = newKk.rows[0].id;
       }
@@ -706,8 +707,8 @@ async function importWargaExcel(req, res) {
           }
         } else {
           const newKk = await client.query(
-            'INSERT INTO keluarga (no_kk, kepala_keluarga, alamat, rt, rw, kelurahan, kecamatan, status_rumah) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
-            [no_kk, nama, '-', '001', '001', '-', '-', status_rumah || 'Milik Sendiri']
+            'INSERT INTO keluarga (no_kk, kepala_keluarga, alamat, rt, rw, kelurahan, kecamatan, status_rumah, rt_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id',
+            [no_kk, nama, '-', '001', '001', '-', '-', status_rumah || 'Milik Sendiri', rtUntukSimpan(req)]
           );
           keluargaId = newKk.rows[0].id;
         }
@@ -729,8 +730,9 @@ async function importWargaExcel(req, res) {
           const salt = await bcrypt.genSalt(10);
           const passwordHash = await bcrypt.hash(sandiAwal, salt);
           await client.query(
-            'INSERT INTO users (username, email, password_hash, nama, no_hp, no_kk, alamat, role, is_active, nik, must_change_password) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true)',
-            [nik, null, passwordHash, nama, (no_hp && no_hp.trim() !== '' && no_hp !== '-') ? no_hp.trim() : null, no_kk, '-', 'warga', true, nik]
+            'INSERT INTO users (username, email, password_hash, nama, no_hp, no_kk, alamat, role, is_active, nik, must_change_password, rt_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, $11)',
+            [nik, null, passwordHash, nama, (no_hp && no_hp.trim() !== '' && no_hp !== '-') ? no_hp.trim() : null, no_kk, '-', 'warga', true, nik,
+              rtUntukSimpan(req)]
           );
           // Dikumpulkan untuk dikembalikan sekali di akhir impor. Inilah
           // satu-satunya kesempatan sandi ini terbaca — setelah respons ini

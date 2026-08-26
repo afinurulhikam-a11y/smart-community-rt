@@ -78,6 +78,8 @@ String judulMenu(int indeks, {required bool warga}) {
       return 'Menu & Akses';
     case 86:
       return 'Reset Sistem';
+    case 87:
+      return 'Kelola RT';
     default:
       return 'Dashboard';
   }

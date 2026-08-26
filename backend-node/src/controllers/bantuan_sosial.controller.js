@@ -3,7 +3,7 @@ const { logActivity, rupiah, bandingkan, TIPE } = require('../services/log.servi
 const dispatcher = require('../services/notification.dispatcher');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit-table');
-const { klausaRt } = require('../utils/lingkup-rt');
+const { klausaRt, tolakLuarRt } = require('../utils/lingkup-rt');
 
 const UUID_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 function isUUID(val) {
@@ -278,23 +278,30 @@ async function getBantuanSosial(req, res) {
 
 async function getBantuanSosialStats(req, res) {
   try {
-    const milikWarga = req.user.role === 'warga';
-    const p = milikWarga ? [req.user.id] : [];
-    const filter = milikWarga ? ' AND user_id = $1' : '';
+    // Satu kueri, bukan empat — alasannya sama dengan getVisitorStats:
+    // penyaring yang ditulis empat kali adalah penyaring yang cepat atau
+    // lambat berbeda di salah satunya, dan kartu yang salah hitung tidak
+    // punya gejala apa pun selain angkanya.
+    const params = [];
+    let where = 'WHERE 1=1';
+    if (req.user.role === 'warga') {
+      params.push(req.user.id);
+      where += ` AND user_id = $${params.length}`;
+    }
+    where += klausaRt(req, '', params);
 
-    const totalResult = await pool.query(`SELECT COUNT(*) as count FROM bantuan_sosial WHERE 1=1${filter}`, p);
-    const aktifResult = await pool.query(`SELECT COUNT(*) as count FROM bantuan_sosial WHERE status = 'Aktif'${filter}`, p);
-    const reviewResult = await pool.query(`SELECT COUNT(*) as count FROM bantuan_sosial WHERE status = 'Selesai'${filter}`, p);
-    const jenisResult = await pool.query(`SELECT COUNT(DISTINCT jenis_bantuan) as count FROM bantuan_sosial WHERE status = 'Aktif'${filter}`, p);
-    return res.status(200).json({
-      success: true,
-      data: {
-        total_penerima: parseInt(totalResult.rows[0].count),
-        aktif: parseInt(aktifResult.rows[0].count),
-        selesai: parseInt(reviewResult.rows[0].count),
-        jenis_aktif: parseInt(jenisResult.rows[0].count),
-      }
-    });
+    const hasil = await pool.query(`
+      SELECT
+        COUNT(*)::int AS total_penerima,
+        COUNT(*) FILTER (WHERE status = 'Aktif')::int AS aktif,
+        COUNT(*) FILTER (WHERE status = 'Selesai')::int AS selesai,
+        COUNT(DISTINCT jenis_bantuan)
+          FILTER (WHERE status = 'Aktif')::int AS jenis_aktif
+      FROM bantuan_sosial
+      ${where}
+    `, params);
+
+    return res.status(200).json({ success: true, data: hasil.rows[0] });
   } catch (err) {
     console.error('GetBantuanSosialStats Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
@@ -417,6 +424,7 @@ async function updateBantuanSosial(req, res) {
     if (isNaN(numId) || numId <= 0) {
       return res.status(400).json({ success: false, message: 'ID Bantuan Sosial tidak valid.' });
     }
+    if (await tolakLuarRt(pool, req, res, 'bantuan_sosial', numId)) return;
 
     const {
       jenis_bantuan,
@@ -550,6 +558,7 @@ async function getBantuanSosialHistory(req, res) {
     if (isNaN(numId) || numId <= 0) {
       return res.status(400).json({ success: false, message: 'ID Bantuan Sosial tidak valid.' });
     }
+    if (await tolakLuarRt(pool, req, res, 'bantuan_sosial', numId)) return;
 
     const result = await pool.query(
       `SELECT log.*, u.nama AS changed_by_name 
@@ -576,6 +585,7 @@ async function deleteBantuanSosial(req, res) {
     if (isNaN(numId) || numId <= 0) {
       return res.status(400).json({ success: false, message: 'ID Bantuan Sosial tidak valid.' });
     }
+    if (await tolakLuarRt(pool, req, res, 'bantuan_sosial', numId)) return;
 
     const item = await pool.query(
       'SELECT bs.*, u.nama FROM bantuan_sosial bs JOIN users u ON bs.user_id = u.id WHERE bs.id = $1',
@@ -606,6 +616,14 @@ async function exportBantuanSosial(req, res) {
     const { tahun, tanggal_mulai, tanggal_selesai, jenis_bantuan, status, search, format = 'excel' } = req.query;
     let where = '';
     const params = [];
+
+    // Sama seperti getBantuanSosial. Daftar dan ekspornya adalah dua jalur
+    // untuk operasi yang sama, dan penjagaan yang hanya dipasang di salah
+    // satunya adalah pola yang sudah pernah menggigit proyek ini — `payBill`
+    // terkunci sementara `payBillsBulk` tidak. Di sini akibatnya justru lebih
+    // besar: daftar yang tersaring tetapi ekspor yang tidak berarti seluruh
+    // penerima bantuan se-RW terunduh menjadi satu berkas Excel.
+    where += klausaRt(req, 'bs', params);
 
     const dateClause = buildDateFilter(tahun, tanggal_mulai, tanggal_selesai, params);
     where += dateClause;

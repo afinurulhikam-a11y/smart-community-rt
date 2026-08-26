@@ -333,6 +333,17 @@ class _SidebarMenuState extends State<SidebarMenu> {
                           isViewOnly: _hanyaLihat('pengaturan.log'),
                         ),
                       if (isAdmin)
+                        // Tidak dijaga PermissionProvider melainkan peran,
+                        // sama seperti dua entri di bawahnya: RT adalah batas
+                        // yang menentukan seluruh pelingkupan data, jadi
+                        // kewenangan menggesernya tidak boleh bergantung pada
+                        // tabel izin yang batas itu ikut menjaganya.
+                        _buildSubMenuItem(
+                          index: 87,
+                          icon: Icons.apartment_rounded,
+                          label: 'Kelola RT',
+                        ),
+                      if (isAdmin)
                         _buildSubMenuItem(
                           index: 85,
                           icon: Icons.security_rounded,

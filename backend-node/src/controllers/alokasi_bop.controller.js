@@ -1,5 +1,6 @@
 const { pool } = require('../config/database');
 const { logActivity, rupiah } = require('../services/log.service');
+const { klausaRt, whereRt, rtUntukSimpan, tolakLuarRt } = require('../utils/lingkup-rt');
 
 /**
  * Alokasi (pagu) dana BOP per periode.
@@ -19,7 +20,19 @@ async function getAlokasiBop(req, res) {
       params.push(tahun);
       where = `WHERE a.tahun = $${params.length}`;
     }
+    where += where ? klausaRt(req, 'a', params) : whereRt(req, 'a', params);
 
+    // Kedua subkueri IKUT dilingkupi, dan itu bukan kerapian.
+    //
+    // `realisasi_tahun` dan `total_pagu_tahun` dipakai layar BOP untuk
+    // menyimpulkan pagu terlampaui atau tidak. Melingkupi baris luarnya saja
+    // menghasilkan baris milik satu RT yang realisasinya dijumlah dari
+    // SELURUH RW — angka yang tidak menjawab pertanyaan mana pun, dan yang
+    // membuat bendahara membaca pagunya jebol karena belanja RT tetangga.
+    //
+    // Dipakai `a.rt_id` sebagai acuan, bukan RT pemanggil, supaya barisnya
+    // tetap konsisten dengan dirinya sendiri saat administrator melihat
+    // seluruh RW: tiap baris melaporkan realisasi RT-nya masing-masing.
     const result = await pool.query(`
       SELECT a.*,
              u.nama AS created_by_nama,
@@ -27,9 +40,12 @@ async function getAlokasiBop(req, res) {
                SELECT SUM(b.jumlah) FROM bop_finances b
                WHERE b.tipe = 'pengeluaran'
                  AND date_part('year', b.tanggal) = a.tahun
+                 AND b.rt_id IS NOT DISTINCT FROM a.rt_id
              ), 0)::float8 AS realisasi_tahun,
              COALESCE((
-               SELECT SUM(x.nominal) FROM alokasi_bop x WHERE x.tahun = a.tahun
+               SELECT SUM(x.nominal) FROM alokasi_bop x
+                WHERE x.tahun = a.tahun
+                  AND x.rt_id IS NOT DISTINCT FROM a.rt_id
              ), 0)::float8 AS total_pagu_tahun
       FROM alokasi_bop a
       LEFT JOIN users u ON a.created_by = u.id
@@ -69,11 +85,11 @@ async function createAlokasiBop(req, res) {
     if (salah) return res.status(400).json({ success: false, message: salah });
 
     const result = await pool.query(
-      `INSERT INTO alokasi_bop (tahun, termin, nominal, sumber_dana, keterangan, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      `INSERT INTO alokasi_bop (tahun, termin, nominal, sumber_dana, keterangan, created_by, rt_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
       [
         parseInt(tahun, 10), (termin || 'Tahunan').trim(), nominal,
-        sumber_dana || null, keterangan || null, req.user.id,
+        sumber_dana || null, keterangan || null, req.user.id, rtUntukSimpan(req),
       ]
     );
     const dibuat = result.rows[0];
@@ -100,6 +116,7 @@ async function createAlokasiBop(req, res) {
 async function updateAlokasiBop(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'alokasi_bop', id)) return;
     const { tahun, termin, nominal, sumber_dana, keterangan } = req.body;
 
     if (nominal !== undefined && Number(nominal) <= 0) {
@@ -151,6 +168,7 @@ async function updateAlokasiBop(req, res) {
 async function deleteAlokasiBop(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'alokasi_bop', id)) return;
 
     const alokasi = await pool.query('SELECT tahun FROM alokasi_bop WHERE id = $1', [id]);
     if (alokasi.rows.length === 0) {
@@ -159,10 +177,17 @@ async function deleteAlokasiBop(req, res) {
 
     // Menghapus pagu yang sudah ada belanjanya memutus jejak pertanggungjawaban:
     // realisasi jadi tidak punya pembanding.
+    //
+    // Ikut dilingkupi, kalau tidak penjagaannya salah sasaran: pagu RT 002
+    // menjadi tidak bisa dihapus hanya karena RT 001 punya belanja di tahun
+    // yang sama — sebuah penolakan yang pesannya menyebut angka yang tidak
+    // ada di layar orang yang membacanya.
+    const paramsBelanja = [alokasi.rows[0].tahun];
     const belanja = await pool.query(
       `SELECT COUNT(*)::int AS c FROM bop_finances
-       WHERE tipe = 'pengeluaran' AND date_part('year', tanggal) = $1`,
-      [alokasi.rows[0].tahun]
+       WHERE tipe = 'pengeluaran' AND date_part('year', tanggal) = $1
+       ${klausaRt(req, '', paramsBelanja)}`,
+      paramsBelanja
     );
     if (belanja.rows[0].c > 0) {
       return res.status(409).json({

@@ -11,7 +11,7 @@ const {
   STATUS_TERISI, STATUS_ANOMALI,
 } = require('../utils/tagihan-air');
 const { terbitkanTagihanPeriode } = require('../services/tagihan-air.service');
-const { rtAktif } = require('../utils/lingkup-rt');
+const { rtAktif, tolakLuarRt } = require('../utils/lingkup-rt');
 
 const STATUS_BELUM = 'unpaid';
 const STATUS_LUNAS = 'lunas';
@@ -338,6 +338,7 @@ async function getBillStats(req, res) {
 async function updateBill(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'bills', id)) return;
     const { nominal, keterangan, jatuh_tempo, meteran_lalu, meteran_sekarang, alasan } = req.body;
 
     const tagihan = await pool.query(
@@ -961,6 +962,7 @@ async function payBill(req, res) {
   const client = await pool.connect();
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'bills', id)) return;
     const { metode_bayar } = req.body;
 
     // Kunci barisnya DI DALAM transaksi, lalu periksa ulang statusnya di sana.
@@ -1133,6 +1135,7 @@ async function deleteBill(req, res) {
   const client = await pool.connect();
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'bills', id)) return;
 
     // Satu transaksi untuk ketiga penghapusan.
     //
@@ -1301,6 +1304,7 @@ async function exportBills(req, res) {
 async function downloadReceipt(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'bills', id)) return;
     const result = await pool.query(
       `SELECT bp.*, b.bulan, b.nominal, b.keluarga_id,
               b.meteran_lalu, b.meteran_sekarang, b.tarif_per_m3, b.abondement, b.biaya_sampah, b.langganan_sampah,

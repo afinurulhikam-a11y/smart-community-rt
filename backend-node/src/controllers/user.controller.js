@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { pool } = require('../config/database');
 const { logActivity, TIPE } = require('../services/log.service');
+const { klausaRt, rtUntukSimpan, tolakLuarRt } = require('../utils/lingkup-rt');
 
 async function getUsers(req, res) {
   try {
@@ -15,11 +16,19 @@ async function getUsers(req, res) {
     let query = `SELECT id, nama, email, no_hp, no_kk, alamat, no_rt, role, is_active, created_at FROM users WHERE deleted_at IS NULL`;
     const params = [];
 
-    const pengurusRoles = ['ketua_rt', 'sekretaris', 'bendahara'];
-    if (pengurusRoles.includes(req.user.role)) {
-      params.push(req.user.no_rt || '001');
-      query += ` AND no_rt = $${params.length}`;
-    }
+    // Pelingkupan RT lewat `rt_id`, bukan lewat `no_rt`.
+    //
+    // Penyaring lamanya membandingkan `no_rt` varchar dengan `req.user.no_rt`
+    // — dan nilai itu berasal dari MUATAN TOKEN, bukan dari baris `users`.
+    // Token berumur tujuh hari, jadi pengurus yang dipindahkan ke RT lain
+    // tetap melihat daftar akun RT lamanya sepanjang sisa umur token; ini
+    // alasan yang sama yang membuat `authMiddleware` membaca peran dari basis
+    // data. Ia juga hanya berlaku untuk tiga peran, sehingga administrator dan
+    // ketua RW yang sudah memilih sebuah RT tetap menerima seluruh RW.
+    //
+    // `klausaRt` menutup ketiganya sekaligus: nilainya dari basis data,
+    // berlaku untuk semua peran, dan mengikuti pemilih RT.
+    query += klausaRt(req, '', params);
     if (role) { params.push(role); query += ` AND role = $${params.length}`; }
     if (no_rt && req.user.role === 'admin') { params.push(no_rt); query += ` AND no_rt = $${params.length}`; }
     if (search) { params.push(`%${search}%`); query += ` AND (nama ILIKE $${params.length} OR email ILIKE $${params.length})`; }
@@ -55,6 +64,7 @@ async function getUsers(req, res) {
 async function updateUserStatus(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'users', id)) return;
     const { is_active } = req.body;
     if (typeof is_active !== 'boolean') {
       return res.status(400).json({ success: false, message: 'is_active harus boolean (true/false).' });
@@ -98,8 +108,11 @@ async function createUser(req, res) {
     const userRole = validRoles.includes(role) ? role : 'warga';
 
     const result = await pool.query(
-      `INSERT INTO users (nama, email, password_hash, role, no_hp, no_kk, alamat, no_rt) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, nama, email, no_hp, no_kk, alamat, no_rt, role, created_at`,
-      [nama, email, passwordHash, userRole, no_hp || null, no_kk || null, alamat || null, no_rt || '001']
+      `INSERT INTO users (nama, email, password_hash, role, no_hp, no_kk, alamat, no_rt, rt_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id, nama, email, no_hp, no_kk, alamat, no_rt, role, created_at`,
+      [nama, email, passwordHash, userRole, no_hp || null, no_kk || null, alamat || null, no_rt || '001',
+        rtUntukSimpan(req)]
     );
 
     // AKSES, bukan CREATE: membuat akun berarti menciptakan wewenang baru —
@@ -120,11 +133,14 @@ async function createUser(req, res) {
 
 async function getPendingUsers(req, res) {
   try {
+    const params = [];
     const result = await pool.query(
-      `SELECT id, nama, email, no_hp, no_kk, alamat, no_rt, role, created_at 
-       FROM users 
+      `SELECT id, nama, email, no_hp, no_kk, alamat, no_rt, role, created_at
+       FROM users
        WHERE is_active = false AND deleted_at IS NULL
-       ORDER BY created_at ASC`
+       ${klausaRt(req, '', params)}
+       ORDER BY created_at ASC`,
+      params
     );
     return res.status(200).json({ success: true, count: result.rows.length, data: result.rows });
   } catch (err) {
@@ -136,6 +152,7 @@ async function getPendingUsers(req, res) {
 async function deleteUser(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'users', id)) return;
     
     // Pastikan user ada dan proteksi akun Administrator Developer
     const checkUser = await pool.query('SELECT username, role, is_active FROM users WHERE id = $1', [id]);
@@ -174,11 +191,16 @@ async function deleteUser(req, res) {
 async function getUserByNik(req, res) {
   try {
     const { nik } = req.params;
+    // NIK tercetak di banyak dokumen dan beredar luas di lingkungan. Endpoint
+    // ini menukarnya menjadi identitas akun, jadi tanpa pelingkupan ia menjadi
+    // cara termudah menelusuri warga RT lain satu per satu.
+    const params = [nik];
     const result = await pool.query(
       `SELECT u.id, u.username, u.email, u.nama, u.no_hp, u.no_kk, u.role, u.is_active, u.nik
        FROM users u
-       WHERE (u.nik = $1 OR u.username = $1) AND u.deleted_at IS NULL`,
-      [nik]
+       WHERE (u.nik = $1 OR u.username = $1) AND u.deleted_at IS NULL
+       ${klausaRt(req, 'u', params)}`,
+      params
     );
 
     if (result.rows.length === 0) {
@@ -271,8 +293,8 @@ async function updateUserCredentials(req, res) {
       const noHpAwal = (no_hp && no_hp.trim() !== '') ? no_hp.trim() : (akRes.rows[0]?.no_hp || null);
 
       const newU = await client.query(
-        'INSERT INTO users (username, email, password_hash, nama, no_hp, no_kk, alamat, role, is_active, nik, must_change_password) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, $9, true) RETURNING id',
-        [nik, null, hash, nama, noHpAwal, noKk, alamat, 'warga', nik]
+        'INSERT INTO users (username, email, password_hash, nama, no_hp, no_kk, alamat, role, is_active, nik, must_change_password, rt_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, $9, true, $10) RETURNING id',
+        [nik, null, hash, nama, noHpAwal, noKk, alamat, 'warga', nik, rtUntukSimpan(req)]
       );
       userId = newU.rows[0].id;
     } else {

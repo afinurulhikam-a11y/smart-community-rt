@@ -107,6 +107,64 @@ class RtProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Menambah RT baru. Hanya administrator yang diizinkan server.
+  ///
+  /// Mengembalikan pesan galat, atau `null` bila berhasil. Bentuk ini dipilih
+  /// alih-alih `bool` karena server punya satu penolakan yang harus terbaca
+  /// apa adanya: nomor RT yang sudah terpakai dibalas 409 dengan kalimatnya
+  /// sendiri, dan menggantinya dengan "gagal menambah" menghilangkan satu-
+  /// satunya keterangan yang berguna.
+  Future<String?> tambah({
+    required String kode,
+    String? nama,
+    String? rwKode,
+    String? alamatSekretariat,
+  }) async {
+    final response = await ApiService.post(ApiConstants.rt, body: {
+      'kode': kode,
+      if (nama != null && nama.isNotEmpty) 'nama': nama,
+      if (rwKode != null && rwKode.isNotEmpty) 'rw_kode': rwKode,
+      if (alamatSekretariat != null && alamatSekretariat.isNotEmpty)
+        'alamat_sekretariat': alamatSekretariat,
+    });
+    if (response['success'] == true) {
+      await muat();
+      return null;
+    }
+    return (response['message'] as String?) ?? 'Gagal menambah RT.';
+  }
+
+  /// Mengubah nama dan alamat sekretariat. Nomor RT sengaja tidak bisa diubah
+  /// — ia sudah tertanam pada topik MQTT setiap perangkat alarm yang terpasang.
+  Future<String?> ubah(
+    String id, {
+    String? nama,
+    String? alamatSekretariat,
+  }) async {
+    final response = await ApiService.put(ApiConstants.rtDetail(id), body: {
+      if (nama != null) 'nama': nama,
+      if (alamatSekretariat != null) 'alamat_sekretariat': alamatSekretariat,
+    });
+    if (response['success'] == true) {
+      await muat();
+      return null;
+    }
+    return (response['message'] as String?) ?? 'Gagal memperbarui RT.';
+  }
+
+  /// Menghapus RT. Server menolak bila masih ada kartu keluarga atau akun di
+  /// dalamnya, dan pesannya menyebutkan berapa banyak — jadi diteruskan utuh.
+  Future<String?> hapus(String id) async {
+    final response = await ApiService.delete(ApiConstants.rtDetail(id));
+    if (response['success'] == true) {
+      // RT yang sedang dilihat bisa saja RT yang baru dihapus; `muat()`
+      // mengembalikan lingkupnya ke seluruh RW bila itu terjadi.
+      await muat();
+      return null;
+    }
+    return (response['message'] as String?) ?? 'Gagal menghapus RT.';
+  }
+
   /// Mengganti RT yang dilihat. `null` berarti seluruh RW.
   void pilih(String? idRt) {
     _terpilih = idRt;

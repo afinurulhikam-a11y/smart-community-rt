@@ -1,7 +1,7 @@
 const { pool } = require('../config/database');
 const { logActivity, ringkas, TIPE } = require('../services/log.service');
 const dispatcher = require('../services/notification.dispatcher');
-const { klausaRt } = require('../utils/lingkup-rt');
+const { klausaRt, tolakLuarRt, rtUntukSimpan } = require('../utils/lingkup-rt');
 
 /**
  * Mengirim notifikasi push FCM kepada seluruh warga/pengurus aktif saat pengumuman baru diterbitkan.
@@ -75,8 +75,13 @@ async function createAnnouncement(req, res) {
     const { judul, isi, kategori, status } = req.body;
     if (!judul || !isi) return res.status(400).json({ success: false, message: 'Judul dan isi wajib diisi.' });
     const result = await pool.query(
-      `INSERT INTO announcements (judul, isi, kategori, status, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [judul, isi, kategori || 'Umum', status || 'publish', req.user.id]
+      // Ketua RW boleh menerbitkan pengumuman, dan ia satu-satunya peran yang
+      // rutin berpindah lingkup. Tanpa `rt_id` eksplisit, pengumuman yang ia
+      // buat selagi melihat RT 002 tersimpan di RT-nya sendiri dan langsung
+      // hilang dari layar yang baru saja dipakai membuatnya.
+      `INSERT INTO announcements (judul, isi, kategori, status, created_by, rt_id)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [judul, isi, kategori || 'Umum', status || 'publish', req.user.id, rtUntukSimpan(req)]
     );
     const p = result.rows[0];
     await logActivity(req, TIPE.CREATE, `Membuat pengumuman "${ringkas(p.judul)}" — kategori ${p.kategori || '-'}, status ${p.status}`);
@@ -94,6 +99,7 @@ async function createAnnouncement(req, res) {
 async function updateAnnouncement(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'announcements', id)) return;
     const { judul, isi, kategori, status } = req.body;
     const result = await pool.query(
       `UPDATE announcements SET judul = COALESCE($1, judul), isi = COALESCE($2, isi), kategori = COALESCE($3, kategori), status = COALESCE($4, status), updated_at = NOW() WHERE id = $5 RETURNING *`,
@@ -113,6 +119,7 @@ async function updateAnnouncement(req, res) {
 async function deleteAnnouncement(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'announcements', id)) return;
     const result = await pool.query('DELETE FROM announcements WHERE id = $1 RETURNING id, judul', [id]);
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Pengumuman tidak ditemukan.' });
     await logActivity(req, TIPE.DELETE, `Menghapus pengumuman "${ringkas(result.rows[0].judul)}"`);

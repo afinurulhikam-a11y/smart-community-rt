@@ -3,7 +3,7 @@ const { logActivity, ringkas, TIPE } = require('../services/log.service');
 const { broadcast } = require('../config/websocket');
 const mqttAlarm = require('../config/mqtt');
 const dispatcher = require('../services/notification.dispatcher');
-const { klausaRt } = require('../utils/lingkup-rt');
+const { klausaRt, tolakLuarRt } = require('../utils/lingkup-rt');
 const {
   WAJIBKAN_KETERANGAN_DARURAT,
   PENANDA_LEGACY,
@@ -479,6 +479,7 @@ async function triggerAlarm(req, res) {
 async function dismissAlarm(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'emergency_alerts', id)) return;
     const { pin } = req.body;
 
     // Verifikasi 2-Langkah: PIN Keamanan (Default: 1234 bila tidak disetel)
@@ -656,15 +657,26 @@ async function getAlerts(req, res) {
 
 async function getActiveAlerts(req, res) {
   try {
+    // Dilingkupi per RT seperti getAlerts, dan di sini taruhannya paling
+    // tinggi di seluruh aplikasi: baris ini membawa NAMA, ALAMAT RUMAH, dan
+    // NOMOR TELEPON orang yang sedang menekan tombol darurat. Tanpa
+    // penyaringan, setiap pengurus di setiap RT menerima ketiganya — pada
+    // saat orang itu paling rentan.
+    //
+    // Sirene fisiknya sudah dialamatkan per RT lewat topik MQTT sejak awal;
+    // yang tertinggal justru sisi yang membawa data pribadinya.
+    const params = [];
     const result = await pool.query(
       `SELECT ${KOLOM_ALERT},
         COALESCE(u.nama, 'Administrator') AS nama_warga,
         COALESCE(u.alamat, '') AS alamat,
         u.no_hp
         FROM emergency_alerts ea
-        LEFT JOIN users u ON ea.user_id = u.id 
-        WHERE ea.status = 'active' 
-        ORDER BY ea.created_at DESC`
+        LEFT JOIN users u ON ea.user_id = u.id
+        WHERE ea.status = 'active'
+        ${klausaRt(req, 'ea', params)}
+        ORDER BY ea.created_at DESC`,
+      params
     );
     return res.status(200).json({ success: true, count: result.rows.length, data: result.rows });
   } catch (err) {

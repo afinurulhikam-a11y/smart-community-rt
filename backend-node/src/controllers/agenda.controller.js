@@ -1,7 +1,7 @@
 const { pool } = require('../config/database');
 const { logActivity, ringkas, TIPE } = require('../services/log.service');
 const dispatcher = require('../services/notification.dispatcher');
-const { klausaRt } = require('../utils/lingkup-rt');
+const { klausaRt, tolakLuarRt, rtUntukSimpan } = require('../utils/lingkup-rt');
 
 const STATUS_AKTIF_AGENDA = ['Akan Datang', 'Terjadwal', 'Berjalan', 'publish', 'aktif'];
 
@@ -180,10 +180,11 @@ async function createAgenda(req, res) {
     const cleanStatus = (status && typeof status === 'string' && status.trim()) || 'Akan Datang';
 
     const result = await pool.query(
-      `INSERT INTO agenda (judul, deskripsi, tipe, tanggal, waktu_mulai, waktu_selesai, lokasi, status, created_by) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+      `INSERT INTO agenda (judul, deskripsi, tipe, tanggal, waktu_mulai, waktu_selesai, lokasi, status, created_by, rt_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *, tanggal::text AS tanggal`,
-      [judul.trim(), cleanDeskripsi, cleanTipe, tanggal, cleanMulai, cleanSelesai, cleanLokasi, cleanStatus, req.user.id]
+      [judul.trim(), cleanDeskripsi, cleanTipe, tanggal, cleanMulai, cleanSelesai, cleanLokasi, cleanStatus,
+        req.user.id, rtUntukSimpan(req)]
     );
     const a = result.rows[0];
     await logActivity(req, TIPE.CREATE, `Membuat agenda "${ringkas(a.judul)}" — ${a.tipe || '-'}, tanggal ${a.tanggal ? String(a.tanggal).slice(0, 10) : '-'}`);
@@ -204,6 +205,7 @@ async function createAgenda(req, res) {
 async function updateAgenda(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'agenda', id)) return;
     const { judul, deskripsi, tipe, tanggal, waktu_mulai, waktu_selesai, lokasi, status, notulen_url } = req.body;
 
     const cleanMulai = waktu_mulai !== undefined ? ((waktu_mulai && typeof waktu_mulai === 'string' && waktu_mulai.trim()) || null) : undefined;
@@ -257,6 +259,7 @@ async function updateAgenda(req, res) {
 async function deleteAgenda(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'agenda', id)) return;
     const result = await pool.query('UPDATE agenda SET deleted_at = NOW() WHERE id = $1 RETURNING id, judul', [id]);
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Agenda tidak ditemukan.' });
     await logActivity(req, TIPE.DELETE, `Menghapus agenda "${ringkas(result.rows[0].judul)}"`);

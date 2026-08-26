@@ -2,7 +2,7 @@ const { pool } = require('../config/database');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit-table');
 const { logActivity, rupiah } = require('../services/log.service');
-const { kondisiRt } = require('../utils/lingkup-rt');
+const { kondisiRt, klausaRt, whereRt, tolakLuarRt, rtUntukSimpan } = require('../utils/lingkup-rt');
 
 /**
  * Tata letak kolom export, dibaca Excel dan PDF sekaligus supaya keduanya
@@ -154,6 +154,14 @@ async function getSummary(req, res) {
     const tahun = parseInt(req.query.tahun, 10) || sekarang.getFullYear();
     const periode = req.query.bulan || `${sekarang.getFullYear()}-${pad(sekarang.getMonth() + 1)}`;
 
+    // Pagu dan realisasinya harus dilingkupi BERSAMA. Melingkupi salah satu
+    // saja menghasilkan angka yang lebih buruk daripada dua-duanya tidak
+    // dilingkupi: `sisa_pagu` = alokasi − terpakai, jadi alokasi satu RT
+    // dikurangi belanja seluruh RW akan tampil minus, dan bendahara membaca
+    // pagunya jebol padahal tidak.
+    const paramsKas = [`${periode}%`, tahun];
+    const paramsPagu = [tahun];
+
     const [kas, pagu] = await Promise.all([
       pool.query(`
         SELECT
@@ -164,10 +172,12 @@ async function getSummary(req, res) {
           COALESCE(SUM(CASE WHEN tipe = 'pengeluaran' AND tanggal::TEXT LIKE $1 THEN jumlah ELSE 0 END), 0)::float8 AS pengeluaran_bulan,
           COALESCE(SUM(CASE WHEN tipe = 'pengeluaran' AND date_part('year', tanggal) = $2 THEN jumlah ELSE 0 END), 0)::float8 AS terpakai
         FROM bop_finances
-      `, [`${periode}%`, tahun]),
+        ${whereRt(req, '', paramsKas)}
+      `, paramsKas),
       pool.query(
-        `SELECT COALESCE(SUM(nominal), 0)::float8 AS alokasi FROM alokasi_bop WHERE tahun = $1`,
-        [tahun]
+        `SELECT COALESCE(SUM(nominal), 0)::float8 AS alokasi FROM alokasi_bop
+          WHERE tahun = $1 ${klausaRt(req, '', paramsPagu)}`,
+        paramsPagu
       ),
     ]);
 
@@ -203,6 +213,7 @@ async function getBulanan(req, res) {
   try {
     const tahun = parseInt(req.query.tahun, 10);
     if (tahun && tahun >= 2000 && tahun <= 2100) {
+      const params = [tahun];
       const result = await pool.query(`
         SELECT
           to_char(f.tanggal, 'YYYY-MM') AS bulan,
@@ -210,9 +221,10 @@ async function getBulanan(req, res) {
           COALESCE(SUM(CASE WHEN f.tipe = 'pengeluaran' THEN f.jumlah ELSE 0 END), 0)::float8 AS pengeluaran
         FROM bop_finances f
         WHERE EXTRACT(YEAR FROM f.tanggal) = $1
+          ${klausaRt(req, 'f', params)}
         GROUP BY 1
         ORDER BY 1
-      `, [tahun]);
+      `, params);
 
       return res.status(200).json({ success: true, data: result.rows });
     }
@@ -220,6 +232,7 @@ async function getBulanan(req, res) {
     const rentang = parseInt(req.query.rentang, 10) || 12;
     const dibatasi = Math.min(Math.max(rentang, 1), 24);
 
+    const params = [dibatasi];
     const result = await pool.query(`
       SELECT
         to_char(f.tanggal, 'YYYY-MM') AS bulan,
@@ -227,9 +240,10 @@ async function getBulanan(req, res) {
         COALESCE(SUM(CASE WHEN f.tipe = 'pengeluaran' THEN f.jumlah ELSE 0 END), 0)::float8 AS pengeluaran
       FROM bop_finances f
       WHERE f.tanggal >= date_trunc('month', CURRENT_DATE - make_interval(months => $1 - 1))
+        ${klausaRt(req, 'f', params)}
       GROUP BY 1
       ORDER BY 1
-    `, [dibatasi]);
+    `, params);
 
     return res.status(200).json({ success: true, data: result.rows });
   } catch (err) {
@@ -263,14 +277,24 @@ async function validasiKategori(kategoriId, tipe) {
  * Sengaja TIDAK memblokir: bendahara harus tetap bisa mencatat kenyataan yang
  * sudah terjadi. Yang penting pelampauannya terlihat jelas.
  */
-async function cekPagu(tahun, tambahan = 0, kecualikanId = null) {
+async function cekPagu(req, tahun, tambahan = 0, kecualikanId = null) {
+  // `req` adalah argumen PERTAMA, bukan tambahan di ujung, supaya pemanggil
+  // yang lupa mengirimnya gagal seketika alih-alih diam-diam membandingkan
+  // pagu satu RT dengan belanja seluruh RW.
+  const pParamsPagu = [tahun];
+  const pParamsPakai = [tahun, kecualikanId];
   const [pagu, pakai] = await Promise.all([
-    pool.query('SELECT COALESCE(SUM(nominal), 0)::float8 AS n FROM alokasi_bop WHERE tahun = $1', [tahun]),
+    pool.query(
+      `SELECT COALESCE(SUM(nominal), 0)::float8 AS n FROM alokasi_bop
+        WHERE tahun = $1 ${klausaRt(req, '', pParamsPagu)}`,
+      pParamsPagu
+    ),
     pool.query(
       `SELECT COALESCE(SUM(jumlah), 0)::float8 AS n FROM bop_finances
        WHERE tipe = 'pengeluaran' AND date_part('year', tanggal) = $1
-         AND ($2::uuid IS NULL OR id <> $2::uuid)`,
-      [tahun, kecualikanId]
+         AND ($2::uuid IS NULL OR id <> $2::uuid)
+         ${klausaRt(req, '', pParamsPakai)}`,
+      pParamsPakai
     ),
   ]);
 
@@ -309,13 +333,13 @@ async function createTransaction(req, res) {
     const tgl = tanggal || new Date().toISOString().split('T')[0];
 
     const result = await pool.query(
-      `INSERT INTO bop_finances (tipe, jumlah, deskripsi, kategori, kategori_id, tanggal, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [tipe, jumlah, deskripsi, namaKategori, kategori_id || null, tgl, req.user.id]
+      `INSERT INTO bop_finances (tipe, jumlah, deskripsi, kategori, kategori_id, tanggal, created_by, rt_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [tipe, jumlah, deskripsi, namaKategori, kategori_id || null, tgl, req.user.id, rtUntukSimpan(req)]
     );
 
     const peringatan = tipe === 'pengeluaran'
-      ? await cekPagu(new Date(tgl).getFullYear(), 0)
+      ? await cekPagu(req, new Date(tgl).getFullYear(), 0)
       : null;
 
     await logActivity(
@@ -339,6 +363,7 @@ async function createTransaction(req, res) {
 async function updateTransaction(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'bop_finances', id)) return;
     const { tipe, jumlah, deskripsi, kategori_id, tanggal } = req.body;
 
     const lama = await pool.query('SELECT * FROM bop_finances WHERE id = $1', [id]);
@@ -375,7 +400,7 @@ async function updateTransaction(req, res) {
 
     const baru = result.rows[0];
     const peringatan = baru.tipe === 'pengeluaran'
-      ? await cekPagu(new Date(baru.tanggal).getFullYear(), 0)
+      ? await cekPagu(req, new Date(baru.tanggal).getFullYear(), 0)
       : null;
 
     await logActivity(
@@ -398,6 +423,7 @@ async function updateTransaction(req, res) {
 async function deleteTransaction(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'bop_finances', id)) return;
     const result = await pool.query(
       'DELETE FROM bop_finances WHERE id = $1 RETURNING id, deskripsi, jumlah, tipe',
       [id]

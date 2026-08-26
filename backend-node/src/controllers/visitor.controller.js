@@ -1,7 +1,7 @@
 const { pool } = require('../config/database');
 const { logActivity, ringkas, TIPE } = require('../services/log.service');
 const dispatcher = require('../services/notification.dispatcher');
-const { klausaRt } = require('../utils/lingkup-rt');
+const { klausaRt, tolakLuarRt, rtUntukSimpan } = require('../utils/lingkup-rt');
 
 /**
  * Mengirim notifikasi push FCM ke warga tujuan saat tamu tiba / dicatat di pos keamanan.
@@ -156,25 +156,40 @@ async function getVisitors(req, res) {
 
 async function getVisitorStats(req, res) {
   try {
+    // Satu kueri, bukan empat.
+    //
+    // Keempatnya sebelumnya menuliskan penyaringnya sendiri, dengan nomor $n
+    // yang berbeda-beda karena kebetulan jumlah parameternya berbeda: `$2`
+    // pada yang pertama, `$1` pada tiga sisanya. Bentuk itu benar hanya
+    // selama tidak ada penyaring baru — dan pelingkupan RT adalah penyaring
+    // baru yang harus masuk ke keempatnya sekaligus. Menambahkannya empat
+    // kali berarti empat kesempatan untuk salah menomori, dan satu kartu yang
+    // luput menghitung seluruh RW terlihat persis seperti kartu yang benar.
+    //
+    // Digabung menjadi satu lintasan tabel dengan FILTER, jadi penyaringnya
+    // ditulis SEKALI dan tidak mungkin berbeda antar kartu.
     const today = new Date().toISOString().split('T')[0];
-    const isWarga = req.user.role === 'warga';
-    const filter = isWarga ? ' AND created_by = $2' : '';
-    const p = isWarga ? [null, req.user.id] : [null];
-    p[0] = today;
+    const params = [today];
+    let where = 'WHERE 1=1';
+    if (req.user.role === 'warga') {
+      params.push(req.user.id);
+      where += ` AND created_by = $${params.length}`;
+    }
+    where += klausaRt(req, '', params);
 
-    const todayResult = await pool.query(`SELECT COUNT(*) as count FROM visitors WHERE jam_masuk::DATE = $1::DATE${filter}`, p);
-    const insideResult = await pool.query(`SELECT COUNT(*) as count FROM visitors WHERE status = 'Di Dalam'${isWarga ? ' AND created_by = $1' : ''}`, isWarga ? [req.user.id] : []);
-    const stayingResult = await pool.query(`SELECT COUNT(*) as count FROM visitors WHERE tipe_keperluan = 'Menginap' AND status = 'Di Dalam'${isWarga ? ' AND created_by = $1' : ''}`, isWarga ? [req.user.id] : []);
-    const totalResult = await pool.query(`SELECT COUNT(*) as count FROM visitors${isWarga ? ' WHERE created_by = $1' : ''}`, isWarga ? [req.user.id] : []);
-    return res.status(200).json({
-      success: true,
-      data: {
-        tamu_hari_ini: parseInt(todayResult.rows[0].count),
-        sedang_di_dalam: parseInt(insideResult.rows[0].count),
-        tamu_menginap: parseInt(stayingResult.rows[0].count),
-        total_semua: parseInt(totalResult.rows[0].count),
-      }
-    });
+    const hasil = await pool.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE jam_masuk::DATE = $1::DATE)::int AS tamu_hari_ini,
+        COUNT(*) FILTER (WHERE status = 'Di Dalam')::int AS sedang_di_dalam,
+        COUNT(*) FILTER (
+          WHERE tipe_keperluan = 'Menginap' AND status = 'Di Dalam'
+        )::int AS tamu_menginap,
+        COUNT(*)::int AS total_semua
+      FROM visitors
+      ${where}
+    `, params);
+
+    return res.status(200).json({ success: true, data: hasil.rows[0] });
   } catch (err) {
     console.error('GetVisitorStats Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
@@ -215,9 +230,10 @@ async function createVisitor(req, res) {
     const creatorId = (req.user.role === 'warga') ? req.user.id : (created_by || user_id || req.user.id);
 
     const result = await pool.query(
-      `INSERT INTO visitors (nama_tamu, no_hp_tamu, blok_tujuan, no_hp_tujuan, tipe_keperluan, detail_keperluan, plat_nomor, jenis_kendaraan, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [nama_tamu.trim(), no_hp_tamu.trim(), blok_tujuan.trim(), no_hp_tujuan.trim(), tipe_keperluan || 'Kunjungan', detail_keperluan.trim(), plat_nomor ? plat_nomor.trim() : null, jenisK || null, creatorId]
+      `INSERT INTO visitors (nama_tamu, no_hp_tamu, blok_tujuan, no_hp_tujuan, tipe_keperluan, detail_keperluan, plat_nomor, jenis_kendaraan, created_by, rt_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      [nama_tamu.trim(), no_hp_tamu.trim(), blok_tujuan.trim(), no_hp_tujuan.trim(), tipe_keperluan || 'Kunjungan', detail_keperluan.trim(), plat_nomor ? plat_nomor.trim() : null, jenisK || null, creatorId,
+        rtUntukSimpan(req)]
     );
     const t = result.rows[0];
     await logActivity(req, TIPE.CREATE, `Mencatat tamu masuk: ${ringkas(t.nama_tamu)} → ${t.blok_tujuan || '-'}, keperluan ${t.tipe_keperluan || '-'}${t.plat_nomor ? `, kendaraan ${t.plat_nomor}` : ''}`);
@@ -235,6 +251,7 @@ async function createVisitor(req, res) {
 async function checkoutVisitor(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'visitors', id)) return;
     const result = await pool.query(
       "UPDATE visitors SET status = 'Checkout', jam_keluar = NOW() WHERE id = $1 AND status = 'Di Dalam' RETURNING *", [id]
     );
@@ -251,6 +268,7 @@ async function checkoutVisitor(req, res) {
 async function deleteVisitor(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'visitors', id)) return;
     // RETURNING lengkap: catatan tamu adalah catatan keamanan lingkungan.
     // Menghapusnya berarti menghilangkan bukti siapa masuk dan kapan, jadi
     // seluruh isinya ikut disalin ke log sebelum barisnya lenyap.

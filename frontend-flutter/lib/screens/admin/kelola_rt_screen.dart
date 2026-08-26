@@ -1,0 +1,378 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../core/izin_layar.dart';
+import '../../core/pesan.dart';
+import '../../core/responsif.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/theme/warna_konteks.dart';
+import '../../providers/rt_provider.dart';
+import '../../widgets/keadaan_daftar.dart';
+import '../../widgets/tabel_responsif.dart';
+
+/// Daftar RT dalam satu RW, beserta penambahan dan penyuntingannya.
+///
+/// ===================================================================
+/// Kenapa layar ini ada
+/// ===================================================================
+///
+/// `POST/PUT/DELETE /api/rt` sudah ada sejak modul RT dibuat, tetapi tidak ada
+/// satu pun layar yang memanggilnya. Artinya menambah RT ketiga hanya bisa
+/// lewat SQL atau Postman — sebuah kemampuan yang secara teknis ada dan secara
+/// praktis tidak dimiliki siapa pun yang memakai aplikasi ini.
+///
+/// ===================================================================
+/// Kenapa penjaganya `role`, bukan izin modul
+/// ===================================================================
+///
+/// Rutenya memakai `roleGuard('admin')`, sama seperti Menu & Akses dan Reset
+/// Sistem, dan alasannya sama: RT adalah batas yang menentukan seluruh
+/// pelingkupan data. Kewenangan menggeser batas itu tidak boleh bergantung
+/// pada tabel izin yang batas itu ikut menjaganya.
+///
+/// Karena itu layar ini juga tidak punya baris di `permissions.js`. Saklar
+/// yang tidak mengubah apa pun lebih berbahaya daripada tidak ada saklar — ia
+/// membuat administrator yakin sudah menutup sesuatu.
+///
+/// ===================================================================
+/// Nomor RT tidak bisa diubah setelah dibuat
+/// ===================================================================
+///
+/// Nomornya tertanam pada topik MQTT di setiap perangkat alarm yang sudah
+/// terpasang (`smart-community/rt/{kode}/alarm/command`). Menggantinya dari
+/// layar akan membuat sirene RT itu berhenti berbunyi tanpa satu pun pesan
+/// galat — kegagalan paling buruk yang bisa dihasilkan aplikasi ini. Server
+/// pun sudah menolaknya; kolomnya di sini dinonaktifkan supaya penolakan itu
+/// tidak datang sebagai kejutan setelah seseorang selesai mengetik.
+class KelolaRtScreen extends StatefulWidget {
+  const KelolaRtScreen({super.key});
+
+  @override
+  State<KelolaRtScreen> createState() => _KelolaRtScreenState();
+}
+
+class _KelolaRtScreenState extends State<KelolaRtScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<RtProvider>().muat();
+    });
+  }
+
+  Future<void> _formRt({RtModel? rt}) async {
+    final ubah = rt != null;
+    final kodeC = TextEditingController(text: rt?.kode ?? '');
+    final namaC = TextEditingController(text: rt?.nama ?? '');
+    final alamatC = TextEditingController(text: '');
+    final rwC = TextEditingController(text: rt?.rwKode ?? '');
+    final kunciForm = GlobalKey<FormState>();
+
+    final simpan = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ctx.latarKartu,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusL),
+        ),
+        title: Text(
+          ubah ? 'Ubah RT ${rt.kode}' : 'Tambah RT',
+          style: TextStyle(color: ctx.teksUtama, fontWeight: FontWeight.bold),
+        ),
+        content: SizedBox(
+          width: lebarDialog(ctx),
+          child: SingleChildScrollView(
+            child: Form(
+              key: kunciForm,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: kodeC,
+                    enabled: !ubah,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Nomor RT *',
+                      hintText: '003',
+                      helperText: ubah
+                          ? 'Nomor RT tidak bisa diubah — sudah dipakai perangkat alarm.'
+                          : 'Boleh diketik "3"; disimpan sebagai "003".',
+                      helperMaxLines: 2,
+                    ),
+                    validator: (v) {
+                      if (ubah) return null;
+                      if ((v ?? '').trim().isEmpty) return 'Nomor RT wajib diisi.';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: AppTheme.spasiM),
+                  TextFormField(
+                    controller: namaC,
+                    decoration: const InputDecoration(
+                      labelText: 'Nama RT',
+                      hintText: 'RT 003 Kampung Melati',
+                    ),
+                  ),
+                  const SizedBox(height: AppTheme.spasiM),
+                  if (!ubah) ...[
+                    TextFormField(
+                      controller: rwC,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Nomor RW',
+                        hintText: 'Kosongkan untuk mengikuti RW Anda',
+                      ),
+                    ),
+                    const SizedBox(height: AppTheme.spasiM),
+                  ],
+                  TextFormField(
+                    controller: alamatC,
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      labelText: 'Alamat sekretariat',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Batal', style: TextStyle(color: ctx.teksKedua)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (kunciForm.currentState?.validate() ?? false) {
+                Navigator.pop(ctx, true);
+              }
+            },
+            child: Text(ubah ? 'Simpan' : 'Tambah'),
+          ),
+        ],
+      ),
+    );
+
+    if (simpan != true || !mounted) return;
+
+    final provider = context.read<RtProvider>();
+    final galat = ubah
+        ? await provider.ubah(
+            rt.id,
+            nama: namaC.text.trim(),
+            alamatSekretariat: alamatC.text.trim(),
+          )
+        : await provider.tambah(
+            kode: kodeC.text.trim(),
+            nama: namaC.text.trim(),
+            rwKode: rwC.text.trim(),
+            alamatSekretariat: alamatC.text.trim(),
+          );
+
+    if (!mounted) return;
+    _pesan(
+      galat ?? (ubah ? 'Data RT berhasil diperbarui.' : 'RT berhasil ditambahkan.'),
+      gagal: galat != null,
+    );
+  }
+
+  Future<void> _hapusRt(RtModel rt) async {
+    // Penolakan server ("masih memiliki N kartu keluarga dan M akun")
+    // ditampilkan apa adanya, tetapi jumlahnya sudah terlihat di tabel — jadi
+    // konfirmasinya menyebutkan lebih dulu apa yang akan menghalangi.
+    final terisi = rt.jumlahKk > 0 || rt.jumlahAkun > 0;
+    final ok = await konfirmasiHapus(
+      context,
+      judul: 'Hapus ${rt.label}?',
+      pesan: terisi
+          ? '${rt.label} masih memiliki ${rt.jumlahKk} kartu keluarga dan '
+              '${rt.jumlahAkun} akun. Selama masih ada isinya, penghapusan akan '
+              'ditolak — pindahkan atau hapus datanya lebih dulu.'
+          : '${rt.label} akan dihapus dari daftar RT. Tindakan ini tidak bisa dibatalkan.',
+    );
+    if (!ok || !mounted) return;
+
+    final galat = await context.read<RtProvider>().hapus(rt.id);
+    if (!mounted) return;
+    _pesan(galat ?? 'RT berhasil dihapus.', gagal: galat != null);
+  }
+
+  void _pesan(String teks, {bool gagal = false}) {
+    // Lewat `core/pesan.dart`, tidak pernah memanggil messenger sendiri:
+    // warnanya ditentukan di satu tempat, dan `pesan_test.dart` menyapu
+    // seluruh `lib/` untuk memastikan tidak ada jalur kedua. Sapuan itu
+    // bekerja atas teks berkas, jadi menyebut nama metodenya di komentar pun
+    // ikut tertangkap — dan itu memang lebih baik daripada penjaga yang harus
+    // menebak mana teks yang sungguhan kode.
+    tampilkanPesan(context, teks, sukses: !gagal);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rt = context.watch<RtProvider>();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Judul internal disembunyikan di ponsel: AppBar sudah menamai layar
+        // ini, dan blok ikon + judul memakan ~90px di puncak setiap halaman.
+        if (!pakaiKartu(context)) ...[
+          Row(
+            children: [
+              const Icon(Icons.apartment_rounded, color: AppTheme.primaryColor),
+              const SizedBox(width: AppTheme.spasiS),
+              Text(
+                'Kelola RT',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: context.teksUtama,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spasiM),
+        ],
+
+        _kartuPenjelasan(context, rt),
+        const SizedBox(height: AppTheme.spasiM),
+
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: context.latarKartu,
+            borderRadius: BorderRadius.circular(AppTheme.radiusL),
+            border: Border.all(color: context.garis),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: EdgeInsets.all(paddingKartu(context)),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: AppTheme.spasiM,
+                    runSpacing: AppTheme.spasiS,
+                    children: [
+                      Text(
+                        'Daftar RT (${rt.daftar.length})',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: context.teksUtama,
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: () => _formRt(),
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: const Text('Tambah RT'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (rt.isLoading && rt.daftar.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else
+                TabelResponsif(
+                  kolom: const ['NO', 'NOMOR RT', 'NAMA', 'KETUA', 'KK', 'AKUN'],
+                  baris: [
+                    for (var i = 0; i < rt.daftar.length; i++)
+                      _baris(context, rt.daftar[i], i),
+                  ],
+                  kosong: KeadaanDaftar(
+                    kosong: 'Belum ada RT yang terdaftar.',
+                    galat: rt.errorMessage,
+                    ikonKosong: Icons.apartment_outlined,
+                    onCobaLagi: () => context.read<RtProvider>().muat(),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  BarisTabel _baris(BuildContext context, RtModel r, int i) {
+    return BarisTabel(
+      sel: [
+        SelTabel.teks('NO', '${i + 1}', sembunyiDiKartu: true),
+        SelTabel.teks('NOMOR RT', 'RT ${r.kode} / RW ${r.rwKode}'),
+        SelTabel.teks('NAMA', r.nama.isEmpty ? '-' : r.nama, utama: true),
+        SelTabel.teks('KETUA', r.ketuaNama ?? '-'),
+        SelTabel.teks('KK', '${r.jumlahKk}'),
+        SelTabel.teks('AKUN', '${r.jumlahAkun}'),
+      ],
+      aksi: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: 'Ubah',
+            icon: const Icon(Icons.edit_outlined, size: 18),
+            onPressed: () => _formRt(rt: r),
+          ),
+          IconButton(
+            tooltip: 'Hapus',
+            icon: const Icon(Icons.delete_outline_rounded, size: 18),
+            color: const Color(0xFFEF4444),
+            onPressed: () => _hapusRt(r),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Menjelaskan akibat menambah RT, di tempat orang akan menambahnya.
+  ///
+  /// Keduanya adalah hal yang tidak terlihat dari layar mana pun dan hanya
+  /// ketahuan setelah salah: perangkat alarm baru mendengarkan topik yang
+  /// berbeda, dan RT yang baru dibuat tidak punya pengurus sampai ada akun
+  /// yang dipindahkan ke sana.
+  Widget _kartuPenjelasan(BuildContext context, RtProvider rt) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(paddingKartu(context)),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppTheme.radiusM),
+        border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.info_outline_rounded,
+                  size: 18, color: AppTheme.primaryColor),
+              const SizedBox(width: AppTheme.spasiS),
+              Expanded(
+                child: Text(
+                  'Setiap RT punya data, kas, dan alarmnya sendiri',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: context.teksUtama,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppTheme.spasiS),
+          Text(
+            'Perangkat alarm RT baru harus diflash dengan KODE_RT yang sama '
+            'persis dengan nomor di sini, termasuk angka nolnya. RT yang baru '
+            'dibuat juga belum punya pengurus — pindahkan atau buat akunnya '
+            'lewat Data Warga setelah ini.',
+            style: TextStyle(color: context.teksKedua, height: 1.4),
+          ),
+        ],
+      ),
+    );
+  }
+}

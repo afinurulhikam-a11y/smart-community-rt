@@ -2,7 +2,7 @@ const { pool } = require('../config/database');
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit-table');
 const { logActivity, rupiah } = require('../services/log.service');
-const { kondisiRt } = require('../utils/lingkup-rt');
+const { kondisiRt, klausaRt, tolakLuarRt, rtUntukSimpan } = require('../utils/lingkup-rt');
 
 /**
  * Tata letak kolom export. Excel dan PDF sama-sama membacanya supaya keduanya
@@ -143,13 +143,18 @@ async function getSummary(req, res) {
     // berasal dari iuran — hanya menampilkan non-iuran di sini justru
     // melaporkan saldo yang lebih rendah dari kenyataan.
     //
-    // Parameter memakai indeks eksplisit ($1, $2, ...) karena kedua query
-    // menggabungkan beberapa klausa; menghitung indeks "dari sisa" rapuh.
-    const sumberKondisi = (pos) => {
-      if (sumber === 'non_iuran') return `COALESCE(sumber, 'manual') <> 'iuran'`;
-      if (sumber) return `sumber = $${pos}`;
-      return '';
-    };
+    // Setiap klausa MENDORONG nilainya ke array parameternya sendiri dan
+    // memakai panjang array itu sebagai nomor $n. Sebelumnya nomornya ditulis
+    // tangan ($2 untuk sumber) dengan nilainya disambung terpisah saat query
+    // dipanggil — bentuk yang benar hanya selama jumlah klausanya tidak
+    // pernah bertambah. Ia bertambah: pelingkupan RT adalah klausa ketiga,
+    // dan menomorinya dengan tangan berarti menebak apakah `sumber` terisi.
+    //
+    // Bentuk dorong-lalu-hitung inilah yang dipakai `buildFilter` di berkas
+    // yang sama, dan yang diandalkan `klausaRt` — ia menambahkan nilainya ke
+    // array yang diberikan, sehingga nomornya selalu benar berapa pun panjang
+    // klausa sebelumnya.
+    const periode = bulan || `${new Date().getFullYear()}-${pad(new Date().getMonth() + 1)}`;
 
     // Query LAMA: total sepanjang filter bulan (+ sumber), dipakai field
     // total_pemasukan/total_pengeluaran/saldo.
@@ -159,18 +164,28 @@ async function getSummary(req, res) {
       lmp.push(`${bulan}%`);
       lmwhere += ` AND tanggal::TEXT LIKE $${lmp.length}`;
     }
-    const lms = sumberKondisi(lmp.length + 1);
-    if (lms) lmwhere += ` AND ${lms}`;
+    if (sumber === 'non_iuran') {
+      lmwhere += ` AND COALESCE(sumber, 'manual') <> 'iuran'`;
+    } else if (sumber) {
+      lmp.push(sumber);
+      lmwhere += ` AND sumber = $${lmp.length}`;
+    }
+    // Tanpa baris ini kartu "SALDO KAS SAAT INI" menjumlahkan seluruh RW
+    // sementara tabel tepat di bawahnya sudah per RT — dan tidak ada yang
+    // memberi tahu mana dari dua angka itu yang dimaksud.
+    lmwhere += klausaRt(req, '', lmp);
 
     // Query BARU: pemasukan/pengeluaran "bulan ini" + saldo sepanjang masa.
-    // Parameter pertama ($1) selalu periode; sumber eksplisit (bila ada)
-    // menempati $2.
-    const bsource = (sumber && sumber !== 'non_iuran') ? sumber : null;
+    // Parameter pertama ($1) selalu periode.
+    const bp = [`${periode}%`];
     let bwhere = 'WHERE deleted_at IS NULL';
-    if (sumber === 'non_iuran') bwhere += ` AND COALESCE(sumber, 'manual') <> 'iuran'`;
-    if (bsource) bwhere += ` AND sumber = $2`;
-
-    const periode = bulan || `${new Date().getFullYear()}-${pad(new Date().getMonth() + 1)}`;
+    if (sumber === 'non_iuran') {
+      bwhere += ` AND COALESCE(sumber, 'manual') <> 'iuran'`;
+    } else if (sumber) {
+      bp.push(sumber);
+      bwhere += ` AND sumber = $${bp.length}`;
+    }
+    bwhere += klausaRt(req, '', bp);
 
     const [lama, baru] = await Promise.all([
       pool.query(`
@@ -179,7 +194,7 @@ async function getSummary(req, res) {
           COALESCE(SUM(CASE WHEN tipe = 'pengeluaran' THEN jumlah ELSE 0 END), 0)::float8 AS total_pengeluaran,
           COALESCE(SUM(CASE WHEN tipe = 'pemasukan' THEN jumlah ELSE -jumlah END), 0)::float8 AS saldo
         FROM finances ${lmwhere}
-      `, [...lmp, ...(sumber && sumber !== 'non_iuran' ? [sumber] : [])]),
+      `, lmp),
       pool.query(`
         SELECT
           COALESCE(SUM(CASE WHEN tipe = 'pemasukan' AND tanggal::TEXT LIKE $1 THEN jumlah ELSE 0 END), 0)::float8 AS pemasukan_bulan,
@@ -189,7 +204,7 @@ async function getSummary(req, res) {
           COUNT(*)::int AS jumlah_transaksi
         FROM finances
         ${bwhere}
-      `, [`${periode}%`, ...(bsource ? [bsource] : [])]),
+      `, bp),
     ]);
 
     return res.status(200).json({
@@ -214,6 +229,11 @@ async function getBulanan(req, res) {
   try {
     const tahun = parseInt(req.query.tahun, 10);
     if (tahun && tahun >= 2000 && tahun <= 2100) {
+      // Grafik dashboard membaca hasil ini. Tanpa pelingkupan, batang tiap
+      // bulan menjumlahkan seluruh RW sementara Kas RT di layar sebelah sudah
+      // per RT — dan grafik yang lebih tinggi dari tabelnya sendiri terbaca
+      // sebagai kesalahan pembukuan, bukan sebagai kesalahan penyaringan.
+      const params = [tahun];
       const result = await pool.query(`
         SELECT
           to_char(f.tanggal, 'YYYY-MM') AS bulan,
@@ -222,9 +242,10 @@ async function getBulanan(req, res) {
         FROM finances f
         WHERE f.deleted_at IS NULL
           AND EXTRACT(YEAR FROM f.tanggal) = $1
+          ${klausaRt(req, 'f', params)}
         GROUP BY 1
         ORDER BY 1
-      `, [tahun]);
+      `, params);
 
       return res.status(200).json({ success: true, data: result.rows });
     }
@@ -232,6 +253,7 @@ async function getBulanan(req, res) {
     const rentang = parseInt(req.query.rentang, 10) || 12;
     const dibatasi = Math.min(Math.max(rentang, 1), 24);
 
+    const params = [dibatasi];
     const result = await pool.query(`
       SELECT
         to_char(f.tanggal, 'YYYY-MM') AS bulan,
@@ -240,9 +262,10 @@ async function getBulanan(req, res) {
       FROM finances f
       WHERE f.deleted_at IS NULL
         AND f.tanggal >= date_trunc('month', CURRENT_DATE - make_interval(months => $1 - 1))
+        ${klausaRt(req, 'f', params)}
       GROUP BY 1
       ORDER BY 1
-    `, [dibatasi]);
+    `, params);
 
     return res.status(200).json({ success: true, data: result.rows });
   } catch (err) {
@@ -297,11 +320,12 @@ async function createTransaction(req, res) {
     const namaKategori = cek.kategori ? cek.kategori.nama_kategori : (kategori || 'Umum');
 
     const result = await pool.query(
-      `INSERT INTO finances (tipe, jumlah, deskripsi, kategori, kategori_id, tanggal, created_by, sumber)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'manual') RETURNING *`,
+      `INSERT INTO finances (tipe, jumlah, deskripsi, kategori, kategori_id, tanggal, created_by, sumber, rt_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'manual', $8) RETURNING *`,
       [
         tipe, jumlah, deskripsi, namaKategori, kategori_id || null,
         tanggal || new Date().toISOString().split('T')[0], req.user.id,
+        rtUntukSimpan(req),
       ]
     );
     await logActivity(
@@ -333,6 +357,7 @@ async function pastikanManual(id) {
 async function updateTransaction(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'finances', id)) return;
     const { tipe, jumlah, deskripsi, kategori_id, tanggal } = req.body;
 
     const boleh = await pastikanManual(id);
@@ -483,6 +508,7 @@ async function exportFinances(req, res) {
 async function deleteTransaction(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'finances', id)) return;
 
     const boleh = await pastikanManual(id);
     if (!boleh.ok) return res.status(boleh.kode).json({ success: false, message: boleh.pesan });

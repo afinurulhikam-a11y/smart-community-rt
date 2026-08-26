@@ -140,7 +140,7 @@ async function tukarTiket(req, res) {
          AND u.is_active = true
          AND u.token_versi = t.token_versi
        RETURNING t.jenis, t.parameter,
-                 u.id, u.email, u.role, u.nama, u.username, u.no_rt`,
+                 u.id, u.email, u.role, u.nama, u.username, u.no_rt, u.rt_id`,
       [hash(tiket)]
     );
 
@@ -171,6 +171,16 @@ async function tukarTiket(req, res) {
       else query[k] = v;
     }
 
+    // `rt_id` WAJIB ikut. Tanpanya `rtAktif()` membaca undefined, mengembalikan
+    // null, dan null berarti SELURUH RW — bukan galat, melainkan sebuah berkas
+    // Excel berisi seluruh warga RW yang terunduh tanpa satu pun tanda bahwa
+    // ada yang salah. Terukur: Ketua RT 001 mendapat 41 baris lewat jalur ini
+    // sementara jalur Bearer memberinya 36.
+    //
+    // Diambil dari baris `users` yang baru saja dibaca, bukan dari tiketnya:
+    // warga yang dipindahkan ke RT lain harus mengunduh data RT barunya, dan
+    // tiket yang membekukan RT akan menyalahi hal yang sama seperti token yang
+    // membekukan peran.
     req.user = {
       id: baris.id,
       email: baris.email,
@@ -178,6 +188,7 @@ async function tukarTiket(req, res) {
       nama: baris.nama,
       username: baris.username,
       no_rt: baris.no_rt,
+      rt_id: baris.rt_id,
     };
     req.params = params;
     req.query = query;

@@ -3,7 +3,7 @@ const PDFDocument = require('pdfkit-table');
 const { pool } = require('../config/database');
 const { logActivity } = require('../services/log.service');
 const { jenisKelamin } = require('../utils/normalisasi');
-const { klausaRt } = require('../utils/lingkup-rt');
+const { klausaRt, tolakLuarRt, rtUntukSimpan } = require('../utils/lingkup-rt');
 
 function buildFamilyQuery(req) {
   const { search } = req.query;
@@ -152,6 +152,7 @@ async function exportFamiliesPdf(req, res) {
 async function getFamilyDetail(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'keluarga', id)) return;
     // Rute detail ikut disempitkan. Menyaring daftar tetapi membiarkan
     // `/:id` terbuka adalah kelalaian yang paling sering terjadi: id-nya
     // bisa ditebak atau didapat dari tempat lain, dan seluruh penyaringan
@@ -196,8 +197,20 @@ async function createFamily(req, res) {
     try {
       await client.query('BEGIN');
       const familyResult = await client.query(
-        `INSERT INTO keluarga (no_kk, kepala_keluarga, alamat, rt, rw, kelurahan, kecamatan) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-        [no_kk, kepala_keluarga, alamat || null, rt || '001', rw || '001', kelurahan || null, kecamatan || null]
+        // `rt_id` disebut eksplisit, tidak diserahkan ke pemicu v44.
+        //
+        // `keluarga` tidak punya kolom pemilik, jadi pemicu itu jatuh ke
+        // cadangan terakhirnya: RT dengan kode terkecil. Artinya kartu
+        // keluarga yang didaftarkan administrator selagi melihat RT 002 akan
+        // tersimpan di RT 001 — lalu lenyap dari layarnya sendiri, karena
+        // daftarnya sudah tersaring per RT.
+        //
+        // Kolom `rt` varchar di sebelahnya tetap ditulis apa adanya: ia label
+        // yang ikut tercetak di ekspor, bukan kunci pelingkupan.
+        `INSERT INTO keluarga (no_kk, kepala_keluarga, alamat, rt, rw, kelurahan, kecamatan, rt_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+        [no_kk, kepala_keluarga, alamat || null, rt || '001', rw || '001', kelurahan || null, kecamatan || null,
+          rtUntukSimpan(req)]
       );
       const family = familyResult.rows[0];
       if (anggota && Array.isArray(anggota)) {
@@ -225,6 +238,7 @@ async function createFamily(req, res) {
 async function updateFamily(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'keluarga', id)) return;
     const { kepala_keluarga, alamat, rt, rw, kelurahan, kecamatan, status_rumah, langganan_sampah } = req.body;
     const result = await pool.query(
       `UPDATE keluarga SET 
@@ -263,6 +277,7 @@ async function updateFamily(req, res) {
 async function deleteFamily(req, res) {
   try {
     const { id } = req.params;
+    if (await tolakLuarRt(pool, req, res, 'keluarga', id)) return;
     const result = await pool.query('UPDATE keluarga SET deleted_at = NOW() WHERE id = $1 RETURNING id, no_kk', [id]);
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Kartu Keluarga tidak ditemukan.' });
     await logActivity(req, 'DELETE', `Menghapus kartu keluarga ${result.rows[0].no_kk}`);
