@@ -882,7 +882,7 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
               onPressed: () => Navigator.pop(c),
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                foregroundColor: context.teksKedua,
+                foregroundColor: context.warnaTombolTutup,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               child: const Text('Batal', style: TextStyle(fontWeight: FontWeight.w600)),

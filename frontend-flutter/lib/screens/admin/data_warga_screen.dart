@@ -1804,7 +1804,7 @@ aksi: Transform.translate(
             onPressed: () => Navigator.pop(ctx),
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              foregroundColor: context.teksKedua,
+              foregroundColor: context.warnaTombolTutup,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             child: const Text('Batal', style: TextStyle(fontWeight: FontWeight.w600)),
@@ -2312,7 +2312,7 @@ aksi: Transform.translate(
             onPressed: () => Navigator.pop(ctx),
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              foregroundColor: context.teksKedua,
+              foregroundColor: context.warnaTombolTutup,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             child: const Text('Batal', style: TextStyle(fontWeight: FontWeight.w600)),

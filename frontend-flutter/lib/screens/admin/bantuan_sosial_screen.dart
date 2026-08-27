@@ -826,7 +826,7 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                                     horizontal: 20,
                                     vertical: 14,
                                   ),
-                                  foregroundColor: c.teksKedua,
+                                  foregroundColor: c.warnaTombolTutup,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -1397,7 +1397,7 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                       horizontal: 20,
                       vertical: 14,
                     ),
-                    foregroundColor: context.teksKedua,
+                    foregroundColor: context.warnaTombolTutup,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
