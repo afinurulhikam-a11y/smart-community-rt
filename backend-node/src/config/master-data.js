@@ -95,9 +95,28 @@ const ADMIN_AWAL = {
 };
 
 /**
- * Akun pengurus RT bawaan untuk mempermudah login & pengujian peran.
+ * Akun pengurus bawaan untuk mempermudah login & pengujian peran.
  */
 const PENGURUS_AWAL = [
+  {
+    // Ketua RW ada di daftar BAWAAN, bukan di seeder demo.
+    //
+    // Sejak satu pemasangan melayani beberapa RT, peran ini bagian dari
+    // struktur — bukan data contoh. Sebelumnya ia hanya dibuat
+    // `seed-demo-rt2.js`, sehingga pemasangan dari nol menghasilkan sistem
+    // yang punya peran lintas RT lengkap dengan matriks izinnya tetapi tidak
+    // punya satu pun akun yang bisa memakainya, dan tidak ada layar mana pun
+    // yang memberi tahu bahwa itu sedang terjadi.
+    //
+    // `rt_id`-nya diisi pemicu v44 ke RT bawaan, dan itu tidak berpengaruh:
+    // `rtAktif()` mengabaikan `rt_id` milik peran lintas RT dan mengikuti
+    // pemilih RT. Kolom itu hanya menyatakan di RT mana akunnya terdaftar.
+    nama: 'Ketua RW',
+    email: 'ketuarw@example.com',
+    username: 'ketuarw',
+    password: 'ketuarw123',
+    role: 'ketua_rw',
+  },
   {
     nama: 'Ketua RT',
     email: 'ketua@example.com',

@@ -64,8 +64,10 @@ async function hapus(client) {
     'DELETE FROM anggota_keluarga WHERE keluarga_id IN (SELECT id FROM keluarga WHERE rt_id = $1)', [id]);
   await client.query('DELETE FROM keluarga WHERE rt_id = $1', [id]);
   await client.query("DELETE FROM users WHERE rt_id = $1 AND username LIKE 'demo_%'", [id]);
-  await client.query("UPDATE users SET rt_id = NULL WHERE username = 'ketuarw'");
-  await client.query("DELETE FROM users WHERE username = 'ketuarw'");
+  // `ketuarw` sengaja TIDAK dihapus: sejak ia menjadi akun bawaan, membuangnya
+  // di sini berarti `--hapus` melenyapkan satu-satunya akun lintas RT yang
+  // bukan administrator — dan tidak ada yang mengembalikannya selain
+  // menjalankan ulang seed-master.
   await client.query('DELETE FROM rt WHERE id = $1', [id]);
   return 'RT 002 beserta seluruh data demonya dihapus';
 }
@@ -102,16 +104,19 @@ async function isi(client) {
     + `${master.kategori_kas} kategori kas, ${master.kategori_bop} kategori BOP`;
 
   // --- Ketua RW ------------------------------------------------------
-  await client.query(
-    `INSERT INTO users (nama, username, email, password_hash, role, no_rt, rt_id, is_active)
-     VALUES ($1, 'ketuarw', 'ketuarw@example.com', $2, 'ketua_rw', $3, $4, true)
-     ON CONFLICT (username) DO UPDATE SET
-       password_hash = EXCLUDED.password_hash,
-       role = EXCLUDED.role,
-       rt_id = EXCLUDED.rt_id`,
-    [`Ketua RW ${RW}`, hash, rt1.rows[0].id ? null : null, rt1.rows[0].id]
+  //
+  // TIDAK dibuat di sini lagi. Ia sudah menjadi akun bawaan di
+  // `master-data.js`, dibuat `seed-master.js` pada setiap pemasangan —
+  // karena peran lintas RT adalah bagian dari struktur, bukan data contoh.
+  //
+  // Membuatnya di dua tempat berarti dua kata sandi untuk satu akun,
+  // bergantung pada seeder mana yang terakhir dijalankan.
+  const adaKetuaRw = await client.query(
+    "SELECT username FROM users WHERE role = 'ketua_rw' AND deleted_at IS NULL LIMIT 1"
   );
-  ringkas['Ketua RW'] = `ketuarw / ${SANDI}`;
+  ringkas['Ketua RW'] = adaKetuaRw.rows.length
+    ? `${adaKetuaRw.rows[0].username} (dari seed-master)`
+    : 'BELUM ADA — jalankan seed-master.js lebih dulu';
 
   // --- Ketua RT 002 --------------------------------------------------
   await client.query(
