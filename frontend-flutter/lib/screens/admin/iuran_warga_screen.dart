@@ -118,8 +118,6 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
         const SizedBox(height: 24),
         _buildActionButtons(),
         const SizedBox(height: 24),
-        _buildFilters(),
-        const SizedBox(height: 24),
         _buildTableCard(provider, semua, halamanIni, totalHalaman),
         const SizedBox(height: 32),
       ],
@@ -362,140 +360,32 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
 
   // --------------------------------------------------------------- filters
 
-  Widget _buildFilters() {
-    final jenisList = context.watch<JenisIuranProvider>().aktif;
-    return Container(
-      padding: EdgeInsets.all(paddingKartu(context)),
-      decoration: BoxDecoration(
-        color: context.latarKartu,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: context.garis),
-      ),
-      child: Wrap(
-        spacing: 16,
-        runSpacing: 16,
-        crossAxisAlignment: WrapCrossAlignment.end,
-        children: [
-          _dropdownFilter<String>(
-            'Status',
-            _status,
-            const [
-              'Semua Status',
-              'Lunas',
-              'Belum Bayar',
-            ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-            (v) {
-              setState(() => _status = v!);
-              _loadData();
-            },
-          ),
-          _dropdownFilter<int?>(
-            'Master Iuran',
-            _jenisIuranId,
-            [
-              const DropdownMenuItem<int?>(value: null, child: Text('Semua Jenis')),
-              ...jenisList.map(
-                (j) => DropdownMenuItem<int?>(value: j.id, child: Text(j.namaIuran)),
-              ),
-            ],
-            (v) {
-              setState(() => _jenisIuranId = v);
-              _loadData();
-            },
-          ),
-          _dropdownFilter<String>(
-            'Bulan',
-            _bulan,
-            [
-              'Semua Bulan',
-              ..._namaBulan,
-            ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-            (v) {
-              setState(() => _bulan = v!);
-              _loadData();
-            },
-          ),
-          _dropdownFilter<String>(
-            'Tahun',
-            _tahun,
-            List.generate(
-              5,
-              (i) => (DateTime.now().year - 2 + i).toString(),
-            ).map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-            (v) {
-              setState(() => _tahun = v!);
-              _loadData();
-            },
-          ),
-          // Tanpa tombol "Filter": setiap dropdown langsung memuat ulang saat
-          // nilainya berubah, jadi tombol itu hanya duplikasi. Yang tersisa
-          // hanyalah Reset untuk mengembalikan semua filter ke awal.
-          OutlinedButton.icon(
-            onPressed: () {
-              setState(() {
-                _status = 'Semua Status';
-                _jenisIuranId = null;
-                _bulan = 'Semua Bulan';
-                _tahun = DateTime.now().year.toString();
-                _searchQuery = '';
-                _searchController.clear();
-              });
-              _loadData();
-            },
-            icon: const Icon(Icons.refresh, size: 16),
-            label: const Text(
-              'Reset',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-            ),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: context.teksKedua,
-              side: BorderSide(color: context.garis),
-              visualDensity: VisualDensity.standard,
-              minimumSize: const Size(0, AppTheme.sasaranSentuh),
-              maximumSize: const Size(double.infinity, AppTheme.sasaranSentuh),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _dropdownFilter<T>(
-    String label,
     T value,
     List<DropdownMenuItem<T>> items,
-    ValueChanged<T?> onChanged,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: TextStyle(fontSize: 12, color: context.teksKedua)),
-        const SizedBox(height: 8),
-        Container(
-          constraints: const BoxConstraints(
-            minHeight: AppTheme.sasaranSentuh,
-            maxHeight: AppTheme.sasaranSentuh,
-          ),
-          width: lebarKolomFilter(context),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            border: Border.all(color: context.garis),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<T>(
-              value: value,
-              isExpanded: true,
-              icon: Icon(Icons.keyboard_arrow_down, size: 16, color: context.teksKedua),
-              style: TextStyle(fontSize: 13, color: context.teksUtama),
-              items: items,
-              onChanged: onChanged,
-            ),
+    ValueChanged<T?> onChanged, {
+    double? lebar,
+  }) {
+    return SizedBox(
+      width: lebar ?? lebarKolomFilter(context, maksimal: 160),
+      height: AppTheme.sasaranSentuh,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          border: Border.all(color: context.garis),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<T>(
+            value: value,
+            isExpanded: true,
+            icon: Icon(Icons.keyboard_arrow_down, size: 16, color: context.teksKedua),
+            style: TextStyle(fontSize: 13, color: context.teksUtama),
+            items: items,
+            onChanged: onChanged,
           ),
         ),
-      ],
+      ),
     );
   }
 
@@ -507,50 +397,42 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
     List<BillModel> halamanIni,
     int totalHalaman,
   ) {
+    final jenisList = context.watch<JenisIuranProvider>().aktif;
+
     return Container(
       padding: EdgeInsets.all(paddingKartu(context)),
       decoration: BoxDecoration(
         color: context.latarKartu,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: context.garis),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: double.infinity,
+          // Header: Ikon + Judul Data Penerima Iuran (Center)
+          Center(
             child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
+              alignment: WrapAlignment.center,
               crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 12,
-              runSpacing: 12,
+              spacing: 8,
               children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.list_alt, color: Color(0xFF10B981), size: 20),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        'Semua Data Iuran',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: context.teksUtama,
-                        ),
-                      ),
-                    ),
-                  ],
+                const Icon(
+                  Icons.receipt_long_rounded,
+                  color: Color(0xFF10B981),
                 ),
                 Text(
-                  '${provider.totalData} data',
-                  style: TextStyle(fontSize: 12, color: context.teksKedua),
+                  'Data Penerima Iuran',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: context.teksUtama,
+                  ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 20),
+
+          // Baris 1: Pencarian & Reset (Center)
           Wrap(
             alignment: WrapAlignment.center,
             crossAxisAlignment: WrapCrossAlignment.center,
@@ -599,15 +481,19 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFF1B7A6A), width: 1.5),
+                      borderSide: const BorderSide(color: Color(0xFF1B7A6A)),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                 ),
               ),
               OutlinedButton.icon(
                 onPressed: () {
                   setState(() {
+                    _status = 'Semua Status';
+                    _jenisIuranId = null;
+                    _bulan = 'Semua Bulan';
+                    _tahun = DateTime.now().year.toString();
                     _searchQuery = '';
                     _searchController.clear();
                   });
@@ -629,9 +515,71 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
-          // Tabel di dalam container bergaris (seragam dengan Data Warga & Data KK)
+          // Baris 2: Dropdown Filter Status, Master Iuran, Bulan, Tahun (Center)
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              _dropdownFilter<String>(
+                _status,
+                const [
+                  'Semua Status',
+                  'Lunas',
+                  'Belum Bayar',
+                ].map((e) => DropdownMenuItem(value: e, child: Text(e, overflow: TextOverflow.ellipsis))).toList(),
+                (v) {
+                  setState(() => _status = v!);
+                  _loadData();
+                },
+                lebar: lebarKolomFilter(context, maksimal: 160),
+              ),
+              _dropdownFilter<int?>(
+                _jenisIuranId,
+                [
+                  const DropdownMenuItem<int?>(value: null, child: Text('Semua Jenis', overflow: TextOverflow.ellipsis)),
+                  ...jenisList.map(
+                    (j) => DropdownMenuItem<int?>(value: j.id, child: Text(j.namaIuran, overflow: TextOverflow.ellipsis)),
+                  ),
+                ],
+                (v) {
+                  setState(() => _jenisIuranId = v);
+                  _loadData();
+                },
+                lebar: lebarKolomFilter(context, maksimal: 200),
+              ),
+              _dropdownFilter<String>(
+                _bulan,
+                [
+                  'Semua Bulan',
+                  ..._namaBulan,
+                ].map((e) => DropdownMenuItem(value: e, child: Text(e, overflow: TextOverflow.ellipsis))).toList(),
+                (v) {
+                  setState(() => _bulan = v!);
+                  _loadData();
+                },
+                lebar: lebarKolomFilter(context, maksimal: 160),
+              ),
+              _dropdownFilter<String>(
+                _tahun,
+                List.generate(
+                  5,
+                  (i) => (DateTime.now().year - 2 + i).toString(),
+                ).map((e) => DropdownMenuItem(value: e, child: Text(e, overflow: TextOverflow.ellipsis))).toList(),
+                (v) {
+                  setState(() => _tahun = v!);
+                  _loadData();
+                },
+                lebar: lebarKolomFilter(context, maksimal: 140),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Tabel di dalam container bergaris
           Container(
             width: double.infinity,
             decoration: BoxDecoration(
@@ -639,73 +587,68 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: context.garis),
             ),
-            child: Column(
-              children: [
-                Container(
-                  constraints: pakaiKartu(context)
-                      ? const BoxConstraints()
-                      : const BoxConstraints(minHeight: 560),
-                  child: provider.isLoading && semua.isEmpty
-                      ? const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 40),
-                          child: Center(child: CircularProgressIndicator()),
-                        )
-                      : (semua.isEmpty
-                          ? Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 40),
-                              child: Center(
-                                child: Column(
-                                  children: [
-                                    Icon(Icons.receipt_long_outlined, size: 40, color: context.garis),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      'Belum ada data iuran',
-                                      style: TextStyle(color: context.teksTersier, fontSize: 13),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Gunakan tombol "Terbitkan Tagihan" untuk membuat tagihan satu periode.',
-                                      style: TextStyle(color: context.garis, fontSize: 11),
-                                    ),
-                                  ],
+            child: provider.isLoading && semua.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                : (semua.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 40),
+                        child: Center(
+                          child: Column(
+                            children: [
+                              Icon(Icons.receipt_long_outlined, size: 40, color: context.garis),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Belum Ada Data Iuran',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: context.teksUtama,
                                 ),
                               ),
-                            )
-                          : Builder(builder: (context) {
-                              final adaMeteran = halamanIni.any((b) => b.pakaiMeteran);
-                              return Padding(
-                                padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
-                                child: TabelResponsif(
-                                  tinggiBarisMaks: 70,
-                                  kolom: [
-                                    'NO',
-                                    'KEPALA KELUARGA',
-                                    'MASTER IURAN',
-                                    'PERIODE',
-                                    if (adaMeteran) ...['METERAN LALU', 'METERAN KINI', 'TERPAKAI'],
-                                    'NOMINAL',
-                                    'STATUS',
-                                    'TGL BAYAR',
-                                  ],
-                                  baris: List.generate(halamanIni.length, (i) {
-                                    final b = halamanIni[i];
-                                    return _buildRow(
-                                      b,
-                                      ((provider.currentPage - 1) * provider.perPage) + i + 1,
-                                      adaMeteran,
-                                    );
-                                  }),
-                                  currentPage: provider.currentPage,
-                                  totalPages: provider.totalPages,
-                                  totalData: provider.totalData,
-                                  perPage: provider.perPage,
-                                  onPageChanged: (page) => _loadData(page: page),
-                                ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Tagihan iuran warga akan muncul di sini.',
+                                style: TextStyle(fontSize: 13, color: context.teksKedua),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : Builder(builder: (context) {
+                        final adaMeteran = halamanIni.any((b) => b.pakaiMeteran);
+                        return Padding(
+                          padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
+                          child: TabelResponsif(
+                            tinggiBarisMaks: 70,
+                            kolom: [
+                              'NO',
+                              'KEPALA KELUARGA',
+                              'MASTER IURAN',
+                              'PERIODE',
+                              if (adaMeteran) ...['METERAN LALU', 'METERAN KINI', 'TERPAKAI'],
+                              'NOMINAL',
+                              'STATUS',
+                              'TGL BAYAR',
+                            ],
+                            baris: List.generate(halamanIni.length, (i) {
+                              final b = halamanIni[i];
+                              return _buildRow(
+                                b,
+                                ((provider.currentPage - 1) * provider.perPage) + i + 1,
+                                adaMeteran,
                               );
-                            })),
-                ),
-              ],
-            ),
+                            }),
+                            currentPage: provider.currentPage,
+                            totalPages: provider.totalPages,
+                            totalData: provider.totalData,
+                            perPage: provider.perPage,
+                            onPageChanged: (page) => _loadData(page: page),
+                          ),
+                        );
+                      })),
           ),
         ],
       ),
