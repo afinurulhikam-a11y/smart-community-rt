@@ -1002,10 +1002,30 @@ class _MainDashboardState extends State<MainDashboard> {
     final tujuan = tujuanNavigasi(warga: warga, izin: izin);
     final namaMenu = judulMenu(_selectedMenuIndex, warga: warga);
 
-    return Title(
-      title: '$namaMenu | Auto RT',
-      color: const Color(0xFF1B7A6A),
-      child: Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+
+        // Jika laci (drawer) sedang terbuka, tutup laci terlebih dahulu
+        if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
+          _scaffoldKey.currentState?.closeDrawer();
+          return;
+        }
+
+        // Jika sedang di halaman selain Beranda (dashboard)
+        if (_selectedMenuIndex != 0) {
+          _kembaliMenu();
+          return;
+        }
+
+        // Jika sedang di Beranda (dashboard), tampilkan dialog konfirmasi keluar aplikasi
+        await _konfirmasiKeluarAplikasi();
+      },
+      child: Title(
+        title: '$namaMenu | Auto RT',
+        color: const Color(0xFF1B7A6A),
+        child: Scaffold(
         key: _scaffoldKey,
         backgroundColor: context.latarHalaman,
 
@@ -1156,7 +1176,82 @@ class _MainDashboardState extends State<MainDashboard> {
           ],
         ),
       ),
+    ),
     );
+  }
+
+  bool _isExitDialogShowing = false;
+
+  /// Konfirmasi keluar dari aplikasi Android saat tombol back ditekan di Beranda.
+  Future<void> _konfirmasiKeluarAplikasi() async {
+    if (_isExitDialogShowing) return;
+    _isExitDialogShowing = true;
+
+    final setuju = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ctx.latarKartu,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusL),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.dangerColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(AppTheme.radiusS),
+              ),
+              child: const Icon(Icons.exit_to_app_rounded, color: AppTheme.dangerColor, size: 22),
+            ),
+            const SizedBox(width: AppTheme.spasiM),
+            Expanded(
+              child: Text(
+                'Keluar Aplikasi?',
+                style: TextStyle(
+                  color: ctx.teksUtama,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: lebarDialog(ctx, maksimal: 400),
+          ),
+          child: Text(
+            'Apakah Anda yakin ingin keluar dan menutup aplikasi?',
+            style: TextStyle(color: ctx.teksKedua, height: 1.4),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Batal', style: TextStyle(color: ctx.teksKedua)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.dangerColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusS),
+              ),
+            ),
+            child: const Text('Keluar'),
+          ),
+        ],
+      ),
+    );
+
+    _isExitDialogShowing = false;
+
+    if (setuju == true) {
+      await SystemNavigator.pop();
+    }
   }
 
   /// Menegaskan bahwa Keluar mengakhiri sesi DI SEMUA PERANGKAT.
@@ -1378,8 +1473,12 @@ class _MainDashboardState extends State<MainDashboard> {
     final pemilihRt = _pemilihRt();
 
     return AppBar(
-      // Di layar selain Beranda, panah kembali ke Beranda lebih sesuai
-      // kebiasaan Android daripada ikon hamburger di setiap halaman.
+      elevation: 0,
+      scrolledUnderElevation: 2,
+      shape: Border(
+        bottom: BorderSide(color: context.garis, width: 1),
+      ),
+      // Di layar selain Beranda, panah kembali ke halaman sebelumnya
       leading: diBeranda
           ? IconButton(
               icon: const Icon(Icons.menu_rounded),
@@ -1389,7 +1488,7 @@ class _MainDashboardState extends State<MainDashboard> {
           : IconButton(
               icon: const Icon(Icons.arrow_back_rounded),
               tooltip: 'Kembali',
-              onPressed: () => _pilihMenu(0),
+              onPressed: _kembaliMenu,
             ),
       title: Text(judulMenu(_selectedMenuIndex, warga: warga)),
       actions: [
@@ -1482,7 +1581,21 @@ class _MainDashboardState extends State<MainDashboard> {
 
     return Container(
       padding: EdgeInsets.symmetric(horizontal: sempit ? 8 : 24, vertical: 16),
-      color: context.latarKartu,
+      decoration: BoxDecoration(
+        color: context.latarKartu,
+        border: Border(
+          bottom: BorderSide(color: context.garis, width: 1),
+        ),
+        boxShadow: _gelap
+            ? []
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+      ),
       child: Row(
         children: [
           // Hamburger Menu (Mobile/Tablet only)

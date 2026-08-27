@@ -98,4 +98,34 @@ void main() {
       expect(tester.takeException(), isNull, reason: 'gagal kembali pada putaran ke-${i + 1}');
     }
   });
+
+  testWidgets('tombol back Android di halaman selain dashboard kembali ke halaman sebelumnya', (tester) async {
+    await bukaDasbor(tester);
+    await bukaProfil(tester);
+
+    // Kirim sinyal pop navigasi sistem (back button Android)
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Profil Saya'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('tombol back Android di dashboard memunculkan dialog konfirmasi keluar aplikasi', (tester) async {
+    await bukaDasbor(tester);
+
+    // Kirim sinyal pop navigasi sistem dari dashboard
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Keluar Aplikasi?'), findsOneWidget);
+    expect(find.text('Batal'), findsOneWidget);
+    expect(find.text('Keluar'), findsOneWidget);
+
+    // Batalkan dialog
+    await tester.tap(find.text('Batal'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Keluar Aplikasi?'), findsNothing);
+  });
 }

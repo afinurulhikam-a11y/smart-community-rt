@@ -171,6 +171,9 @@ class AppTheme {
         centerTitle: false,
         titleTextStyle: teks.titleLarge,
         iconTheme: IconThemeData(color: teksUtama),
+        shape: Border(
+          bottom: BorderSide(color: garis, width: 1),
+        ),
       ),
 
       cardTheme: CardThemeData(
