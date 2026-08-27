@@ -55,8 +55,16 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
   String _status = 'Semua Status';
   int? _jenisIuranId;
   String _bulan = 'Semua Bulan';
-  String _tahun = DateTime.now().year.toString();
+  String _tahun = 'Semua Tahun';
   final TextEditingController _searchController = TextEditingController();
+  final List<String> _tahunList = [
+    'Semua Tahun',
+    '2026',
+    '2027',
+    '2028',
+    '2029',
+    '2030',
+  ];
 
   @override
   void initState() {
@@ -79,14 +87,16 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
     if (_bulan == 'Semua Bulan') return null;
     final idx = _namaBulan.indexOf(_bulan);
     if (idx < 0) return null;
-    return '$_tahun-${(idx + 1).toString().padLeft(2, '0')}';
+    final thn = (_tahun == 'Semua Tahun' || _tahun == 'Semua') ? DateTime.now().year.toString() : _tahun;
+    return '$thn-${(idx + 1).toString().padLeft(2, '0')}';
   }
 
   void _loadData({int page = 1}) {
+    final thnParam = (_tahun == 'Semua Tahun' || _tahun == 'Semua') ? null : _tahun;
     context.read<BillProvider>().fetchBills(
       status: _status == 'Semua Status' ? null : (_status == 'Lunas' ? 'lunas' : 'unpaid'),
       bulan: _periodeFilter,
-      tahun: _periodeFilter == null ? _tahun : null,
+      tahun: _periodeFilter == null ? thnParam : null,
       jenisIuranId: _jenisIuranId,
       search: _searchQuery.isEmpty ? null : _searchQuery,
       page: page,
@@ -493,7 +503,7 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                     _status = 'Semua Status';
                     _jenisIuranId = null;
                     _bulan = 'Semua Bulan';
-                    _tahun = DateTime.now().year.toString();
+                    _tahun = 'Semua Tahun';
                     _searchQuery = '';
                     _searchController.clear();
                   });
@@ -565,15 +575,16 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
               ),
               _dropdownFilter<String>(
                 _tahun,
-                List.generate(
-                  5,
-                  (i) => (DateTime.now().year - 2 + i).toString(),
-                ).map((e) => DropdownMenuItem(value: e, child: Text(e, overflow: TextOverflow.ellipsis))).toList(),
+                _tahunList
+                    .map((e) => DropdownMenuItem(value: e, child: Text(e, overflow: TextOverflow.ellipsis)))
+                    .toList(),
                 (v) {
-                  setState(() => _tahun = v!);
-                  _loadData();
+                  if (v != null) {
+                    setState(() => _tahun = v);
+                    _loadData();
+                  }
                 },
-                lebar: lebarKolomFilter(context, maksimal: 140),
+                lebar: lebarKolomFilter(context, maksimal: 160),
               ),
             ],
           ),
