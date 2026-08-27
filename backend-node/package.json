@@ -16,7 +16,7 @@
     "db:seed:demo": "node database/seeds/seed-demo-lengkap.js",
     "db:setup": "node scripts/init-db.js && node database/seeds/seed-master.js",
     "db:kosongkan": "node scripts/kosongkan-data.js",
-    "lint": "eslint src/",
+    "lint": "eslint .",
     "test:isolasi": "node tests/test-isolasi-rt.js",
     "db:seed:rt2": "node database/seeds/seed-demo-rt2.js",
     "db:seed:rt2:hapus": "node database/seeds/seed-demo-rt2.js --hapus"

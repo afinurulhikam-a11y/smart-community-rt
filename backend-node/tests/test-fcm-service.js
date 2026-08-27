@@ -10,7 +10,6 @@ const {
   sendToUsers,
   buildFcmPayload,
   sanitizeDataPayload,
-  deactivateInvalidToken,
   isInvalidTokenError,
 } = require('../src/services/fcm.service');
 const { setMockMessaging } = require('../src/config/firebase');

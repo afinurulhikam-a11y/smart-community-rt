@@ -6,7 +6,6 @@ const { pool } = require('../src/config/database');
 const {
   triggerAlarm,
   dismissAlarm,
-  kendaliAlarm,
   sendEmergencyPushNotification,
 } = require('../src/controllers/emergency.controller');
 const { setMockMessaging } = require('../src/config/firebase');

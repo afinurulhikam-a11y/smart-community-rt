@@ -26,7 +26,7 @@ async function httpReq(method, path, body = null, token = null) {
   }
 
   const res = await fetch(url, options);
-  let data = null;
+  let data;
   try {
     data = await res.json();
   } catch (e) {
@@ -42,14 +42,14 @@ async function runPhase2Tests() {
   console.log('🚀 MEMULAI INTEGRATION TEST SUITE - PHASE 2 IURAN AIR\n');
 
   const client = await pool.connect();
-  let testWargaId = null;
-  let testAdminId = null;
-  let testKkId = null;
-  let testJenisId = null;
+  let testWargaId;
+  let testAdminId;
+  let testKkId;
+  let testJenisId;
   let testNoKk = 'TEST-KK-P2-99';
 
-  let wargaToken = null;
-  let adminToken = null;
+  let wargaToken;
+  let adminToken;
 
   try {
     // 0. Setup Dummy Test Data di Database

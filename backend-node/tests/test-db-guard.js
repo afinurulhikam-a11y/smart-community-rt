@@ -17,7 +17,6 @@ const assert = require('assert');
 const {
   sanitizeDbUrl,
   inspectDatabaseTarget,
-  hasExplicitConfirmation,
   assertCanRunTest,
   assertCanRunMigration,
   assertCanRunDestructive,

@@ -19,7 +19,13 @@ module.exports = [
         clearInterval: "readonly",
         __dirname: "readonly",
         __filename: "readonly",
-        fetch: "readonly"
+        fetch: "readonly",
+        // Global Node sejak v10, dipakai `new URL(...)` di beberapa berkas uji.
+        // Daftar ini ditulis tangan, jadi setiap global yang benar-benar
+        // dipakai harus disebut — kalau tidak, kode yang sah dilaporkan
+        // sebagai galat, dan galat palsu adalah cara tercepat membuat orang
+        // berhenti membaca keluaran lint.
+        URL: "readonly"
       }
     },
     rules: {

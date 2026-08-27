@@ -53,13 +53,13 @@ async function runTests() {
   console.log('================================================================\n');
 
   let testUser1 = null;
-  let testUser2 = null;
+  let testUser2;
   let testPollingId = null;
   let expiredPollingId = null;
   let futurePollingId = null;
   let timezonePollingId = null;
   let optA = null;
-  let optB = null;
+  let optB;
   let optC = null;
 
   try {
@@ -373,7 +373,10 @@ async function runTests() {
           CURRENT_DATE AS today_utc,
           TO_CHAR(NOW(), 'YYYY-MM-DD HH24:MI:SS') AS now_utc
       `);
-      const { today_wib, now_wib, today_utc, now_utc } = tzInfo.rows[0];
+      // `today_wib` sengaja tidak diambil: tanggal WIB diturunkan dari
+      // `now_wib` beberapa baris di bawah, dan dua sumber untuk satu tanggal
+      // adalah dua sumber yang bisa berbeda.
+      const { now_wib, today_utc, now_utc } = tzInfo.rows[0];
       const todayWibStr = now_wib.slice(0, 10);
       console.log(`   [Simulasi Server UTC Aktif]`);
       console.log(`   Waktu Bisnis WIB (Asia/Jakarta): ${now_wib} (Tanggal: ${todayWibStr})`);

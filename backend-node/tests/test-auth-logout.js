@@ -4,7 +4,7 @@ assertCanRunTest('test-auth-logout');
 
 const jwt = require('jsonwebtoken');
 const { pool } = require('../src/config/database');
-const { logout, login } = require('../src/controllers/auth.controller');
+const { logout } = require('../src/controllers/auth.controller');
 const { authMiddleware } = require('../src/middleware/auth.middleware');
 
 function assert(condition, message) {
