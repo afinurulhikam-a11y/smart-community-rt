@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -194,7 +195,7 @@ class _DialogBacaanMeteranState extends State<DialogBacaanMeteran> {
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             style: TextButton.styleFrom(
-              foregroundColor: ctx.gelap ? Colors.white : Colors.black,
+              foregroundColor: ctx.warnaTombolTutup,
             ),
             child: const Text('Batal'),
           ),
@@ -239,6 +240,10 @@ class _DialogBacaanMeteranState extends State<DialogBacaanMeteran> {
   @override
   Widget build(BuildContext context) {
     final prov = context.watch<MeteranProvider>();
+    final tinggiKonten = math.min(
+      math.max(MediaQuery.of(context).size.height * 0.7, 400.0),
+      540.0,
+    );
 
     return AlertDialog(
       shape: RoundedRectangleBorder(
@@ -247,8 +252,8 @@ class _DialogBacaanMeteranState extends State<DialogBacaanMeteran> {
       title: const Text('Bacaan Meteran Air'),
       content: SizedBox(
         width: lebarDialog(context, maksimal: 640),
+        height: tinggiKonten,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _pemilihPeriode(context),
@@ -302,14 +307,7 @@ class _DialogBacaanMeteranState extends State<DialogBacaanMeteran> {
             const SizedBox(height: AppTheme.spasiS),
             _ringkasan(context, prov.list),
             const Divider(height: AppTheme.spasiXl),
-            // `Flexible` sendirian tidak cukup: ia longgar, jadi anaknya boleh
-            // lebih tinggi daripada ruang sisanya dan meluber. Terbukti di
-            // 320×568 — tiga baris bacaan meluber 196px, dan keadaan kosong
-            // (padding 40 + ikon + dua kalimat) meluber 113px. Scroll di sini
-            // membuat tinggi berapa pun aman, sedangkan daftarnya sendiri
-            // memakai NeverScrollableScrollPhysics supaya tidak ada dua
-            // penggulir bersarang yang saling berebut gestur.
-            Flexible(child: SingleChildScrollView(child: _daftar(context, prov))),
+            Expanded(child: _daftar(context, prov)),
           ],
         ),
       ),
@@ -317,7 +315,7 @@ class _DialogBacaanMeteranState extends State<DialogBacaanMeteran> {
         TextButton(
           onPressed: () => Navigator.pop(context),
           style: TextButton.styleFrom(
-            foregroundColor: context.gelap ? Colors.white : Colors.black,
+            foregroundColor: context.warnaTombolTutup,
           ),
           child: const Text('Tutup'),
         ),
@@ -396,28 +394,27 @@ class _DialogBacaanMeteranState extends State<DialogBacaanMeteran> {
 
   Widget _daftar(BuildContext context, MeteranProvider prov) {
     if (prov.isLoading && prov.list.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(AppTheme.spasiXl),
-        child: Center(child: CircularProgressIndicator()),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     // Permintaan yang gagal TIDAK boleh tampil sebagai daftar kosong: pengurus
     // akan menyimpulkan tidak ada yang melapor, padahal servernya tak terjangkau.
     if (prov.list.isEmpty) {
-      return KeadaanDaftar(
-        galat: prov.errorMessage,
-        offline: prov.offline,
-        kosong: 'Belum ada bacaan meteran periode $_periode.\n'
-            'Warga mengisi meterannya sendiri pada tanggal 1–5.',
-        ikonKosong: Icons.water_drop_outlined,
-        onCobaLagi: _muat,
+      return Center(
+        child: SingleChildScrollView(
+          child: KeadaanDaftar(
+            galat: prov.errorMessage,
+            offline: prov.offline,
+            kosong: 'Belum ada bacaan meteran periode $_periode.\n'
+                'Warga mengisi meterannya sendiri pada tanggal 1–5.',
+            ikonKosong: Icons.water_drop_outlined,
+            onCobaLagi: _muat,
+          ),
+        ),
       );
     }
 
     return ListView.separated(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
       padding: EdgeInsets.zero,
       itemCount: prov.list.length,
       separatorBuilder: (_, _) => const SizedBox(height: AppTheme.spasiS),

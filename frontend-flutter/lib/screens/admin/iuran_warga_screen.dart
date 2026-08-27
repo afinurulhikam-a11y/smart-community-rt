@@ -1492,7 +1492,7 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
             TextButton(
               onPressed: () => Navigator.pop(c),
               style: TextButton.styleFrom(
-                foregroundColor: c2.gelap ? Colors.white : Colors.black,
+                foregroundColor: c2.warnaTombolTutup,
               ),
               child: const Text('Tutup'),
             ),
@@ -1630,7 +1630,7 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
               TextButton(
                 onPressed: () => Navigator.pop(c),
                 style: TextButton.styleFrom(
-                  foregroundColor: c.gelap ? Colors.white : Colors.black,
+                  foregroundColor: c2.warnaTombolTutup,
                 ),
                 child: const Text('Batal'),
               ),
@@ -1762,7 +1762,7 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
                         controller: sampahCtrl,
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
-                          labelText: 'Biaya Sampah (Rp)',
+                          labelText: 'Biaya Sampah (Rp) (opsional)',
                           helperText: 'Hanya untuk rumah yang berlangganan',
                         ),
                       ),
@@ -1813,7 +1813,7 @@ class _IuranWargaScreenState extends State<IuranWargaScreen> {
               TextButton(
                 onPressed: () => Navigator.pop(c),
                 style: TextButton.styleFrom(
-                  foregroundColor: c.gelap ? Colors.white : Colors.black,
+                  foregroundColor: c.warnaTombolTutup,
                 ),
                 child: const Text('Batal'),
               ),
