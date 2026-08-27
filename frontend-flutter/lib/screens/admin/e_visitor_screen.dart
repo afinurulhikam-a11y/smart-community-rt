@@ -24,12 +24,20 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
   String _status = 'Semua Status';
   String _tipe = 'Semua Tipe';
 
+  final TextEditingController _searchController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _loadData({int page = 1}) {
@@ -45,292 +53,448 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<VisitorProvider>();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header
-        SizedBox(
-          width: double.infinity,
-          child: Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            runSpacing: 16,
-            children: [
-              if (!pakaiKartu(context))
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TombolKembali(onPressed: widget.onBack),
-                    const SizedBox(width: 10),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1B7A6A).withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.badge_outlined, color: Color(0xFF1B7A6A), size: 20),
-                    ),
-                    const SizedBox(width: 10),
-                    Flexible(
-                      child: Text(
-                        widget.isWarga ? 'Layanan Warga / Buku Tamu Saya' : 'Layanan Warga / E-Visitor',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: context.teksKedua,
-                        ),
-                      ),
-                    ),
-                  ],
+        _buildHeader(),
+        const SizedBox(height: 24),
+        _buildStatCards(provider),
+        const SizedBox(height: 24),
+        _buildActionButtons(),
+        const SizedBox(height: 24),
+        _buildTableCard(provider),
+        const SizedBox(height: 32),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------- header
+
+  Widget _buildHeader() {
+    return SizedBox(
+      width: double.infinity,
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        runSpacing: 16,
+        children: [
+          if (!pakaiKartu(context))
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TombolKembali(onPressed: widget.onBack),
+                const SizedBox(width: 10),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1B7A6A).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.badge_outlined, color: Color(0xFF1B7A6A), size: 20),
                 ),
-              ElevatedButton.icon(
-                onPressed: () => _showFormRegistrasi(),
-                icon: const Icon(Icons.add, size: 16),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text(
+                    widget.isWarga ? 'Layanan Warga / Buku Tamu Saya' : 'Layanan Warga / E-Visitor',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: context.teksKedua,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------ stat cards
+
+  Widget _buildStatCards(VisitorProvider provider) {
+    final stats = provider.stats;
+    final w = widget.isWarga;
+    final kartu = [
+      _statCard(
+        w ? 'Tamu Hari Ini' : 'Tamu Hari Ini',
+        '${stats['tamu_hari_ini'] ?? 0}',
+        w ? 'Tamu Anda hari ini' : 'Kunjungan tercatat',
+        Icons.book_outlined,
+        const Color(0xFF0D9488),
+      ),
+      _statCard(
+        w ? 'Sedang Di Dalam' : 'Sedang Di Dalam',
+        '${stats['sedang_di_dalam'] ?? 0}',
+        w ? 'Tamu Anda belum checkout' : 'Belum checkout',
+        Icons.door_front_door_outlined,
+        const Color(0xFF10B981),
+      ),
+      _statCard(
+        w ? 'Tamu Menginap' : 'Tamu Menginap',
+        '${stats['tamu_menginap'] ?? 0}',
+        w ? 'Tamu Anda menginap' : 'Sedang menginap',
+        Icons.house_outlined,
+        const Color(0xFFF59E0B),
+      ),
+      _statCard(
+        w ? 'Total Tamu' : 'Total Semua',
+        '${stats['total_semua'] ?? 0}',
+        w ? 'Seluruh riwayat tamu Anda' : 'Riwayat lengkap',
+        Icons.library_books_outlined,
+        const Color(0xFF3B82F6),
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, c) {
+        final kolom = c.maxWidth > 900 ? 4 : (c.maxWidth > 500 ? 2 : 1);
+        final lebar = (c.maxWidth - (16 * (kolom - 1))) / kolom;
+        return Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: [for (final k in kartu) SizedBox(width: lebar, child: k)],
+        );
+      },
+    );
+  }
+
+  Widget _statCard(String label, String nilai, String sub, IconData ikon, Color warna) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: context.latarKartu,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.garis),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: warna.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(ikon, color: warna, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: context.teksKedua,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  nilai,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: context.teksUtama,
+                  ),
+                ),
+                Text(
+                  sub,
+                  style: TextStyle(fontSize: 11, color: context.teksTersier),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // -------------------------------------------------------- action buttons
+
+  Widget _buildActionButtons() {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        ElevatedButton.icon(
+          onPressed: () => _showFormRegistrasi(),
+          icon: const Icon(Icons.add, size: 16),
+          label: const Text(
+            'Registrasi Tamu',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF10B981),
+            foregroundColor: Colors.white,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _dropdownFilter<T>(
+    T value,
+    List<DropdownMenuItem<T>> items,
+    ValueChanged<T?> onChanged, {
+    double? lebar,
+  }) {
+    return SizedBox(
+      width: lebar ?? lebarKolomFilter(context, maksimal: 160),
+      height: AppTheme.sasaranSentuh,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          border: Border.all(color: context.garis),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<T>(
+            value: value,
+            isExpanded: true,
+            icon: Icon(Icons.keyboard_arrow_down, size: 16, color: context.teksKedua),
+            style: TextStyle(fontSize: 13, color: context.teksUtama),
+            items: items,
+            onChanged: onChanged,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ----------------------------------------------------------------- table
+
+  Widget _buildTableCard(VisitorProvider provider) {
+    return Container(
+      padding: EdgeInsets.all(paddingKartu(context)),
+      decoration: BoxDecoration(
+        color: context.latarKartu,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: context.garis),
+      ),
+      child: Column(
+        children: [
+          // Header: Ikon + Judul Daftar Kunjungan / Daftar Tamu Saya (Center)
+          Center(
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              children: [
+                const Icon(
+                  Icons.assignment_rounded,
+                  color: Color(0xFF10B981),
+                ),
+                Text(
+                  widget.isWarga ? 'Daftar Tamu Saya' : 'Daftar Kunjungan',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: context.teksUtama,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Baris 1: Pencarian & Reset (Center)
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              Text(
+                'Pencarian',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: context.teksKedua,
+                ),
+              ),
+              SizedBox(
+                width: 280,
+                child: TextField(
+                  controller: _searchController,
+                  style: TextStyle(color: context.teksUtama, fontSize: 13),
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (v) {
+                    _searchQuery = v.trim();
+                    _loadData();
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Cari nama, blok, plat nomor...',
+                    hintStyle: TextStyle(fontSize: 12, color: context.teksTersier),
+                    prefixIcon: Icon(Icons.search, size: 18, color: context.teksKedua),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.arrow_forward, size: 16),
+                      tooltip: 'Cari',
+                      onPressed: () {
+                        _searchQuery = _searchController.text.trim();
+                        _loadData();
+                      },
+                    ),
+                    filled: true,
+                    fillColor: context.latarLembut,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: context.garis),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: context.garis),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFF1B7A6A)),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _status = 'Semua Status';
+                    _tipe = 'Semua Tipe';
+                    _searchQuery = '';
+                    _searchController.clear();
+                  });
+                  _loadData();
+                },
+                icon: const Icon(Icons.refresh, size: 16),
                 label: const Text(
-                  'Registrasi Tamu',
+                  'Reset',
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0F766E),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: context.teksKedua,
+                  side: BorderSide(color: context.garis),
+                  visualDensity: VisualDensity.standard,
+                  minimumSize: const Size(0, AppTheme.sasaranSentuh),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 12),
 
-        const SizedBox(height: 24),
-
-        // Stat Cards
-        Consumer<VisitorProvider>(
-          builder: (context, provider, _) {
-            final stats = provider.stats;
-            // Jumlah kolom mengikuti lebar layar. Dipaksa empat sejajar, tiap
-            // kartu hanya kebagian ~75px di ponsel dan isinya meluber.
-            return LayoutBuilder(
-              builder: (context, c) {
-                final kolom = c.maxWidth > 900 ? 4 : (c.maxWidth > 500 ? 2 : 1);
-                final lebar = (c.maxWidth - (12 * (kolom - 1))) / kolom;
-                final w = widget.isWarga;
-                final kartu = [
-                  _buildStatCard(
-                    w ? 'TAMU SAYA HARI INI' : 'TAMU HARI INI',
-                    '${stats['tamu_hari_ini']}',
-                    w ? 'Tamu Anda hari ini' : 'Kunjungan tercatat',
-                    Icons.book,
-                    const [Color(0xFF0D9488), Color(0xFF14B8A6)],
-                  ),
-                  _buildStatCard(
-                    w ? 'TAMU SAYA DI DALAM' : 'SEDANG DI DALAM',
-                    '${stats['sedang_di_dalam']}',
-                    w ? 'Tamu Anda belum checkout' : 'Belum checkout',
-                    Icons.door_front_door_outlined,
-                    const [Color(0xFF059669), Color(0xFF34D399)],
-                  ),
-                  _buildStatCard(
-                    w ? 'TAMU SAYA MENGINAP' : 'TAMU MENGINAP',
-                    '${stats['tamu_menginap']}',
-                    w ? 'Tamu Anda menginap' : 'Sedang menginap',
-                    Icons.house_outlined,
-                    const [Color(0xFFD97706), Color(0xFFF59E0B)],
-                  ),
-                  _buildStatCard(
-                    w ? 'TOTAL TAMU SAYA' : 'TOTAL SEMUA',
-                    '${stats['total_semua']}',
-                    w ? 'Seluruh riwayat tamu Anda' : 'Riwayat lengkap',
-                    Icons.library_books,
-                    const [Color(0xFF3B82F6), Color(0xFF60A5FA)],
-                  ),
-                ];
-                return Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [for (final k in kartu) SizedBox(width: lebar, child: k)],
-                );
-              },
-            );
-          },
-        ),
-
-        const SizedBox(height: 24),
-
-        // Filter Bar
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: context.latarKartu,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: context.garis),
-          ),
-          child: Wrap(
-            spacing: 12,
-            runSpacing: 12,
+          // Baris 2: Dropdown Filter Status, Tipe (Center)
+          Wrap(
+            alignment: WrapAlignment.center,
             crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
             children: [
-              const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.filter_alt, size: 18, color: Color(0xFF10B981)),
-                  SizedBox(width: 4),
-                  Text(
-                    'Filter',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                      color: Color(0xFF10B981),
-                    ),
-                  ),
-                ],
+              _dropdownFilter<String>(
+                _status,
+                const ['Semua Status', 'Di Dalam', 'Checkout']
+                    .map((e) => DropdownMenuItem(value: e, child: Text(e, overflow: TextOverflow.ellipsis)))
+                    .toList(),
+                (v) {
+                  if (v != null) {
+                    setState(() => _status = v);
+                    _loadData(page: 1);
+                  }
+                },
+                lebar: lebarKolomFilter(context, maksimal: 160),
               ),
-              // Bukan Expanded: induknya Wrap, dan Expanded hanya sah di Flex.
-              SizedBox(
-                width: lebarKolomFilter(context, maksimal: 240),
-                child: Container(
-                  constraints: const BoxConstraints(minHeight: AppTheme.sasaranSentuh),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: context.garis),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: TextField(
-                    onChanged: (v) => setState(() => _searchQuery = v),
-                    onSubmitted: (_) => _loadData(),
-                    decoration: InputDecoration(
-                      hintText: 'Cari nama, blok, plat nomor...',
-                      hintStyle: TextStyle(fontSize: 13, color: context.teksTersier),
-                      prefixIcon: Icon(Icons.search, size: 18, color: context.teksTersier),
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(vertical: 10),
-                    ),
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                ),
-              ),
-              // Tanpa SizedBox pemisah di antaranya: Wrap sudah mengatur jarak
-              // lewat `spacing`, dan menyisipkan SizedBox sebagai ANAK Wrap
-              // membuatnya diperlakukan sebagai satu unsur tersendiri — jaraknya
-              // jadi berganda dan tidak rata.
-              _buildDropdown(_status, ['Semua Status', 'Di Dalam', 'Checkout'], (v) {
-                setState(() => _status = v!);
-                _loadData(page: 1);
-              }),
-              _buildDropdown(_tipe, ['Semua Tipe', 'Kunjungan', 'Menginap'], (v) {
-                setState(() => _tipe = v!);
-                _loadData(page: 1);
-              }),
-              TextButton.icon(
-                onPressed: () => _loadData(page: 1),
-                icon: const Icon(Icons.refresh, size: 18),
-                label: const Text('Refresh'),
-                style: TextButton.styleFrom(foregroundColor: context.teksKedua),
+              _dropdownFilter<String>(
+                _tipe,
+                const ['Semua Tipe', 'Kunjungan', 'Menginap']
+                    .map((e) => DropdownMenuItem(value: e, child: Text(e, overflow: TextOverflow.ellipsis)))
+                    .toList(),
+                (v) {
+                  if (v != null) {
+                    setState(() => _tipe = v);
+                    _loadData(page: 1);
+                  }
+                },
+                lebar: lebarKolomFilter(context, maksimal: 160),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 20),
 
-        const SizedBox(height: 24),
-
-        // Data Table
-        Consumer<VisitorProvider>(
-          builder: (context, provider, _) {
-            if (provider.isLoading && provider.visitors.isEmpty) {
-              return const Center(
-                child: Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()),
-              );
-            }
-
-            return Container(
-              decoration: BoxDecoration(
-                color: context.latarKartu,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: context.garis),
-              ),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 12,
-                        runSpacing: 12,
-                        children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
+          // Tabel di dalam container bergaris
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: context.latarKartu,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: context.garis),
+            ),
+            child: provider.isLoading && provider.visitors.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                : (provider.visitors.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 40),
+                        child: Center(
+                          child: Column(
                             children: [
-                              Icon(Icons.assignment, color: Color(0xFF10B981), size: 18),
-                              SizedBox(width: 8),
-                              // Flexible + ellipsis: judul ini meluber begitu
-                              // pengguna memperbesar font sistem Android.
-                              Flexible(
-                                child: Text(
-                                  widget.isWarga ? 'Daftar Tamu Saya' : 'Daftar Kunjungan',
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                    color: context.teksUtama,
-                                  ),
+                              Icon(Icons.badge_outlined, size: 40, color: context.garis),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Belum Ada Data Pengunjung',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: context.teksUtama,
                                 ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Data tamu dan kunjungan warga akan muncul di sini.',
+                                style: TextStyle(fontSize: 13, color: context.teksKedua),
                               ),
                             ],
                           ),
-                          Text(
-                            '${provider.totalData} data',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF10B981),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const Divider(height: 1),
-
-                  Padding(
-                    padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
-                    child: TabelResponsif(
-                      labelAksi: 'MANAJEMEN CHECK',
-                      kolom: const [
-                        'NO',
-                        'JAM / TGL',
-                        'IDENTITAS TAMU',
-                        'TUJUAN',
-                        'KEPERLUAN',
-                        'KENDARAAN',
-                        'STATUS',
-                      ],
-                      kosong: const Padding(
-                        padding: EdgeInsets.all(40),
-                        child: Center(child: Text('Tidak ada data pengunjung')),
-                      ),
-                      baris: provider.visitors.asMap().entries.map((entry) {
-                        return _buildDataRow(
-                          (((provider.currentPage - 1) * provider.perPage) + entry.key + 1),
-                          entry.value,
-                          context,
-                          provider,
-                        );
-                      }).toList(),
-                      currentPage: provider.currentPage,
-                      totalPages: provider.totalPages,
-                      totalData: provider.totalData,
-                      perPage: provider.perPage,
-                      onPageChanged: (page) => _loadData(page: page),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-      ],
+                        ),
+                      )
+                    : Padding(
+                        padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
+                        child: TabelResponsif(
+                          labelAksi: 'MANAJEMEN CHECK',
+                          kolom: const [
+                            'NO',
+                            'JAM / TGL',
+                            'IDENTITAS TAMU',
+                            'TUJUAN',
+                            'KEPERLUAN',
+                            'KENDARAAN',
+                            'STATUS',
+                          ],
+                          baris: provider.visitors.asMap().entries.map((entry) {
+                            return _buildDataRow(
+                              (((provider.currentPage - 1) * provider.perPage) + entry.key + 1),
+                              entry.value,
+                              context,
+                              provider,
+                            );
+                          }).toList(),
+                          currentPage: provider.currentPage,
+                          totalPages: provider.totalPages,
+                          totalData: provider.totalData,
+                          perPage: provider.perPage,
+                          onPageChanged: (page) => _loadData(page: page),
+                        ),
+                      )),
+          ),
+        ],
+      ),
     );
   }
 
@@ -581,10 +745,20 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
                       title: const Text('Hapus'),
                       content: const Text('Yakin hapus data pengunjung ini?'),
                       actions: [
-                        TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Batal')),
                         TextButton(
+                          onPressed: () => Navigator.pop(c, false),
+                          style: TextButton.styleFrom(
+                            foregroundColor: c.warnaTombolTutup,
+                          ),
+                          child: const Text('Batal'),
+                        ),
+                        ElevatedButton(
                           onPressed: () => Navigator.pop(c, true),
-                          child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFEF4444),
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('Hapus'),
                         ),
                       ],
                     ),
@@ -740,6 +914,9 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
           actions: [
             TextButton(
               onPressed: isSaving ? null : () => Navigator.pop(ctx),
+              style: TextButton.styleFrom(
+                foregroundColor: ctx.warnaTombolTutup,
+              ),
               child: const Text('Batal'),
             ),
             ElevatedButton(
@@ -790,7 +967,7 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
                       }
                     },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0F766E),
+                backgroundColor: const Color(0xFF10B981),
                 foregroundColor: Colors.white,
               ),
               child: isSaving
@@ -800,99 +977,6 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
                       child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                     )
                   : const Text('Simpan'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDropdown(String value, List<String> items, Function(String?) onChanged) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: AppTheme.sasaranSentuh),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        border: Border.all(color: context.garis),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          icon: Icon(Icons.keyboard_arrow_down, size: 16, color: context.teksKedua),
-          style: TextStyle(fontSize: 13, color: context.teksUtama),
-          items: items.map((v) => DropdownMenuItem<String>(value: v, child: Text(v))).toList(),
-          onChanged: onChanged,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatCard(
-    String label,
-    String value,
-    String subtitle,
-    IconData icon,
-    List<Color> colors,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: colors),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      // Tetap Row, bukan Wrap: Expanded hanya sah di dalam Flex, dan di sini
-      // ia justru yang membuat teks menyusut mengikuti lebar kartu.
-      child: SizedBox(
-        width: double.infinity,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.crop_square, color: Colors.white.withValues(alpha: 0.7), size: 10),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          label,
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.9),
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    value,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: Colors.white, size: 24),
             ),
           ],
         ),
