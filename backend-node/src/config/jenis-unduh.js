@@ -39,6 +39,19 @@
  */
 
 const JENIS_UNDUH = {
+  // Rekap satu baris per RT untuk laporan pertanggungjawaban RW.
+  //
+  // Dijaga PERAN, bukan izin modul — sama seperti `reset.cadangan`. Berkasnya
+  // memuat rekap keuangan SELURUH RT, jadi yang menentukan boleh atau tidak
+  // adalah kewenangan lintas RT itu sendiri, bukan izin pada satu modul yang
+  // kebetulan dimiliki setiap pengurus RT.
+  'rt.rekap': {
+    label: 'Rekap Perbandingan RT se-RW',
+    peran: ['admin', 'ketua_rw'],
+    modul: '../controllers/rt.controller',
+    fungsi: 'exportPerbandinganRt',
+    paramJalur: [],
+  },
   'iuran.export': {
     label: 'Ekspor Iuran',
     izin: { kode: 'keuangan.iuran', aksi: 'view' },

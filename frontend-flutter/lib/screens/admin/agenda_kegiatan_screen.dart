@@ -8,6 +8,8 @@ import '../../providers/permission_provider.dart';
 import '../../widgets/tombol_kembali.dart';
 import '../../core/theme/warna_konteks.dart';
 import '../../core/pesan.dart';
+import '../../core/peran.dart';
+import '../../core/services/auth_service.dart';
 
 /// Kode modul di tabel izin. Bendahara dan warga hanya punya `view`.
 const String _kodeIzin = 'kegiatan.agenda';
@@ -734,6 +736,10 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
     TimeOfDay startTime = const TimeOfDay(hour: 8, minute: 0);
     TimeOfDay endTime = const TimeOfDay(hour: 10, minute: 0);
 
+    // Pengumuman/agenda se-RW. Bawaannya FALSE: menerbitkan ke seluruh RW
+    // adalah tindakan yang harus disengaja, bukan yang kebetulan terjadi
+    // karena lingkup di bilah atas sedang "Semua RT".
+    bool keSemuaRt = false;
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -818,6 +824,34 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
                       prefixIcon: Icon(Icons.description),
                     ),
                   ),
+
+                  // Pilihan lingkup — HANYA untuk peran yang memang melihat
+                  // lebih dari satu RT.
+                  //
+                  // Tanpa ini, Ketua RW yang menerbitkan pengumuman se-RW
+                  // sebenarnya hanya mengirimkannya ke RT tempat akunnya
+                  // terdaftar, tanpa satu pun pesan yang mengatakan demikian.
+                  //
+                  // Bawaannya tidak dicentang: menerbitkan ke seluruh RW harus
+                  // menjadi tindakan yang disengaja, bukan yang kebetulan
+                  // terjadi karena lingkup di bilah atas sedang "Semua RT".
+                  if (Peran.bolehLintasRt(context.read<AuthService>().userRole)) ...[
+                    const SizedBox(height: AppTheme.spasiM),
+                    CheckboxListTile(
+                      value: keSemuaRt,
+                      onChanged: (v) => setDialogState(() => keSemuaRt = v ?? false),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      title: const Text('Terbitkan ke seluruh RT dalam RW'),
+                      subtitle: Text(
+                        keSemuaRt
+                            ? 'Satu salinan dibuat untuk tiap RT, dan tiap RT bisa menghapus salinannya sendiri.'
+                            : 'Hanya untuk RT yang sedang dilihat.',
+                        style: TextStyle(fontSize: 11, color: context.teksKedua),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -847,13 +881,19 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
                   waktuMulai: formattedStart,
                   waktuSelesai: formattedEnd,
                   lokasi: lokasiController.text.trim(),
+                  semuaRt: keSemuaRt,
                 );
 
                 if (!ctx.mounted) return;
                 if (success) {
                   Navigator.pop(ctx);
                   if (mounted) {
-                    pesanSukses(context, 'Agenda berhasil dibuat!');
+                    pesanSukses(
+                      context,
+                      keSemuaRt
+                          ? 'Agenda diterbitkan ke seluruh RT dalam RW.'
+                          : 'Agenda berhasil dibuat!',
+                    );
                   }
                 } else {
                   if (mounted) {

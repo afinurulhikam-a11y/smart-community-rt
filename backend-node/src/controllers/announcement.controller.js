@@ -1,7 +1,7 @@
 const { pool } = require('../config/database');
 const { logActivity, ringkas, TIPE } = require('../services/log.service');
 const dispatcher = require('../services/notification.dispatcher');
-const { klausaRt, tolakLuarRt, rtUntukSimpan } = require('../utils/lingkup-rt');
+const { klausaRt, tolakLuarRt, rtUntukSimpan, bolehLintasRt } = require('../utils/lingkup-rt');
 
 /**
  * Mengirim notifikasi push FCM kepada seluruh warga/pengurus aktif saat pengumuman baru diterbitkan.
@@ -77,29 +77,112 @@ async function getAnnouncements(req, res) {
   }
 }
 
+/**
+ * Menerbitkan pengumuman — untuk satu RT, atau untuk SELURUH RT sekaligus.
+ *
+ * ===================================================================
+ * Cacat yang ditutup `semua_rt`
+ * ===================================================================
+ *
+ * Pengumuman adalah SATU-SATUNYA modul yang boleh diisi Ketua RW, dan ia
+ * rusak justru pada pemakaian yang paling wajar. Ketika lingkupnya "Semua
+ * RT", `rtUntukSimpan()` jatuh ke `rt_id` akun pembuatnya — jadi pengumuman
+ * se-RW sebenarnya hanya mendarat di RT tempat akun Ketua RW terdaftar.
+ *
+ * Terukur: dari dua RT, pengumumannya hanya muncul di RT 001. Warga RT 002
+ * tidak pernah melihatnya, dan tidak ada satu pun pesan yang mengatakan
+ * demikian. Pembuatnya melihat "berhasil".
+ *
+ * ===================================================================
+ * Kenapa SATU BARIS PER RT, bukan satu baris ber-`rt_id` NULL
+ * ===================================================================
+ *
+ * `rt_id` NULL akan berarti "milik semua RT", dan itu menuntut SETIAP kueri
+ * daftar berubah dari `rt_id = $n` menjadi `(rt_id = $n OR rt_id IS NULL)` —
+ * di pengendali, di ekspor, di reset, dan di penghitungan kartu. Satu klausa
+ * yang terlewat menghilangkan pengumuman RW dari layar tanpa gejala.
+ *
+ * Lebih buruk lagi, NULL sudah punya arti lain di kolom itu: baris yang lahir
+ * sebelum v43. Satu nilai untuk dua maksud adalah cara tercepat membuat kedua
+ * maksud itu salah.
+ *
+ * Satu baris per RT membuat seluruh pelingkupan yang sudah ada tetap berlaku
+ * apa adanya, dan pengurus tiap RT bisa menghapus salinan RT-nya sendiri
+ * tanpa menyentuh RT lain.
+ *
+ * Seluruhnya dalam SATU transaksi: pengumuman yang terbit di separuh RT lebih
+ * membingungkan daripada yang gagal seluruhnya.
+ */
 async function createAnnouncement(req, res) {
+  const client = await pool.connect();
   try {
     const { judul, isi, kategori, status } = req.body;
-    if (!judul || !isi) return res.status(400).json({ success: false, message: 'Judul dan isi wajib diisi.' });
-    const result = await pool.query(
-      // Ketua RW boleh menerbitkan pengumuman, dan ia satu-satunya peran yang
-      // rutin berpindah lingkup. Tanpa `rt_id` eksplisit, pengumuman yang ia
-      // buat selagi melihat RT 002 tersimpan di RT-nya sendiri dan langsung
-      // hilang dari layar yang baru saja dipakai membuatnya.
-      `INSERT INTO announcements (judul, isi, kategori, status, created_by, rt_id)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [judul, isi, kategori || 'Umum', status || 'publish', req.user.id, rtUntukSimpan(req)]
+    if (!judul || !isi) {
+      return res.status(400).json({ success: false, message: 'Judul dan isi wajib diisi.' });
+    }
+
+    // Hanya peran lintas RT yang boleh menerbitkan ke seluruh RT. Untuk peran
+    // lain nilainya diabaikan diam-diam, sama seperti `?rt=` — menolaknya
+    // dengan galat hanya memberi tahu bahwa parameternya berarti sesuatu.
+    const keSemuaRt = req.body.semua_rt === true && bolehLintasRt(req);
+
+    let sasaran;
+    if (keSemuaRt) {
+      sasaran = (await client.query(
+        'SELECT id, kode FROM rt WHERE deleted_at IS NULL ORDER BY kode'
+      )).rows;
+      if (sasaran.length === 0) {
+        return res.status(400).json({
+          success: false, message: 'Belum ada RT yang terdaftar.',
+        });
+      }
+    } else {
+      sasaran = [{ id: rtUntukSimpan(req), kode: null }];
+    }
+
+    await client.query('BEGIN');
+    const dibuat = [];
+    for (const rt of sasaran) {
+      const r = await client.query(
+        `INSERT INTO announcements (judul, isi, kategori, status, created_by, rt_id)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        [judul, isi, kategori || 'Umum', status || 'publish', req.user.id, rt.id]
+      );
+      dibuat.push(r.rows[0]);
+    }
+    await client.query('COMMIT');
+
+    const p = dibuat[0];
+    await logActivity(
+      req, TIPE.CREATE,
+      `Membuat pengumuman "${ringkas(p.judul)}" — kategori ${p.kategori || '-'}, `
+      + `status ${p.status}`
+      + (keSemuaRt ? `, diterbitkan ke ${dibuat.length} RT sekaligus` : '')
     );
-    const p = result.rows[0];
-    await logActivity(req, TIPE.CREATE, `Membuat pengumuman "${ringkas(p.judul)}" — kategori ${p.kategori || '-'}, status ${p.status}`);
 
-    // Siaran push notifikasi FCM secara non-blocking di latar
-    dispatcher.dispatchAsync(() => sendAnnouncementPushNotification(p), 'Announcement');
+    // Siaran push notifikasi FCM secara non-blocking di latar.
+    //
+    // Satu siaran PER BARIS, bukan satu untuk semuanya: penerimanya dilingkupi
+    // lewat `rt_id` baris itu, jadi menyiarkan sekali hanya akan memberi tahu
+    // warga satu RT tentang pengumuman yang sebenarnya milik semua.
+    for (const baris of dibuat) {
+      dispatcher.dispatchAsync(() => sendAnnouncementPushNotification(baris), 'Announcement');
+    }
 
-    return res.status(201).json({ success: true, message: 'Pengumuman berhasil dibuat.', data: result.rows[0] });
+    return res.status(201).json({
+      success: true,
+      message: keSemuaRt
+        ? `Pengumuman berhasil diterbitkan ke ${dibuat.length} RT.`
+        : 'Pengumuman berhasil dibuat.',
+      data: p,
+      jumlah_rt: dibuat.length,
+    });
   } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
     console.error('CreateAnnouncement Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+  } finally {
+    client.release();
   }
 }
 

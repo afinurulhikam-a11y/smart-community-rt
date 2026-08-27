@@ -60,6 +60,11 @@ class AgendaProvider extends ChangeNotifier {
     String? waktuMulai,
     String? waktuSelesai,
     String? lokasi,
+    /// Terbitkan ke SELURUH RT dalam RW, bukan hanya RT yang sedang dilihat.
+    ///
+    /// Hanya berarti bagi peran lintas RT; server mengabaikannya untuk peran
+    /// lain — pemeriksaan yang sesungguhnya ada di sana, bukan di sini.
+    bool semuaRt = false,
   }) async {
     _isLoading = true;
     notifyListeners();
@@ -68,6 +73,7 @@ class AgendaProvider extends ChangeNotifier {
       body: {
         'judul': judul,
         'tanggal': tanggal,
+        if (semuaRt) 'semua_rt': true,
         if (deskripsi != null) 'deskripsi': deskripsi,
         if (tipe != null) 'tipe': tipe,
         if (waktuMulai != null) 'waktu_mulai': waktuMulai,

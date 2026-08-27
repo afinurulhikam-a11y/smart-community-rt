@@ -49,9 +49,23 @@ class LetterModel {
     );
   }
 
+  /// Sudah diteruskan pengurus RT, menunggu pengesahan Ketua RW.
+  ///
+  /// Tahap ini lahir bersama alur surat bertingkat: di Indonesia surat
+  /// pengantar mengalir RT → RW → Kelurahan, dan sebelumnya sistem hanya
+  /// memodelkan satu tahap.
+  bool get isMenungguRw => status.toLowerCase() == 'menunggu_rw';
+
+  /// Belum selesai — termasuk yang sedang menunggu Ketua RW.
+  ///
+  /// `menunggu_rw` WAJIB ikut di sini. Tanpa itu surat yang sudah diteruskan
+  /// tidak terhitung "pending" maupun "selesai", sehingga ia lenyap dari
+  /// setiap penyaring dan setiap kartu hitungan — tersimpan rapi dan tidak
+  /// terlihat oleh siapa pun, persis kelas cacat yang paling sulit disadari.
   bool get isPending {
     final s = status.toLowerCase();
-    return s == 'pending' || s == 'diproses' || s == 'diajukan' || s == 'menunggu';
+    return s == 'pending' || s == 'diproses' || s == 'diajukan'
+        || s == 'menunggu' || s == 'menunggu_rw';
   }
 
   bool get isDisetujui {
@@ -67,6 +81,7 @@ class LetterModel {
   String get statusLabel {
     if (isDisetujui) return 'Disetujui';
     if (isDitolak) return 'Ditolak';
+    if (isMenungguRw) return 'Menunggu RW';
     if (status.toLowerCase() == 'diproses') return 'Diproses';
     return 'Diajukan';
   }

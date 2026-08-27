@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
+import '../core/peran.dart';
 
 class SidebarMenu extends StatefulWidget {
   final int selectedIndex;
@@ -332,12 +333,28 @@ class _SidebarMenuState extends State<SidebarMenu> {
                           label: 'Log Aktivitas',
                           isViewOnly: _hanyaLihat('pengaturan.log'),
                         ),
-                      if (isAdmin)
-                        // Tidak dijaga PermissionProvider melainkan peran,
-                        // sama seperti dua entri di bawahnya: RT adalah batas
-                        // yang menentukan seluruh pelingkupan data, jadi
-                        // kewenangan menggesernya tidak boleh bergantung pada
-                        // tabel izin yang batas itu ikut menjaganya.
+                      // Perbandingan RT — untuk peran yang memang melihat
+                      // lebih dari satu RT. Bagi pengurus RT layar ini hanya
+                      // akan berisi satu baris: RT-nya sendiri, yang sudah ia
+                      // lihat di Beranda.
+                      if (Peran.bolehLintasRt(widget.role))
+                        _buildSubMenuItem(
+                          index: 88,
+                          icon: Icons.compare_arrows_rounded,
+                          label: 'Perbandingan RT',
+                        ),
+                      // Tidak dijaga PermissionProvider melainkan peran, sama
+                      // seperti dua entri di bawahnya: RT adalah batas yang
+                      // menentukan seluruh pelingkupan data, jadi kewenangan
+                      // menggesernya tidak boleh bergantung pada tabel izin
+                      // yang batas itu ikut menjaganya.
+                      //
+                      // Ketua RW ikut melihatnya karena ia boleh MENGUBAH data
+                      // RT dalam RW-nya — nama, alamat sekretariat, dan siapa
+                      // ketuanya. Yang tetap tertutup baginya adalah menambah
+                      // dan menghapus RT, dan layarnya sendiri yang
+                      // menyembunyikan kedua tombol itu.
+                      if (Peran.bolehLintasRt(widget.role))
                         _buildSubMenuItem(
                           index: 87,
                           icon: Icons.apartment_rounded,

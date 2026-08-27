@@ -10,6 +10,7 @@ import 'package:smart_community/screens/admin/iuran_warga_screen.dart';
 import 'package:smart_community/screens/admin/kas_rt_screen.dart';
 import 'package:smart_community/screens/admin/log_aktivitas_screen.dart';
 import 'package:smart_community/screens/admin/kelola_rt_screen.dart';
+import 'package:smart_community/screens/admin/perbandingan_rt_screen.dart';
 import 'package:smart_community/screens/admin/peminjaman_screen.dart';
 import 'package:smart_community/screens/admin/pengaduan_screen.dart';
 import 'package:smart_community/screens/admin/polling_warga_screen.dart';
@@ -53,6 +54,7 @@ void main() {
     'Status Darurat': () => const StatusDaruratScreen(),
     'Log Aktivitas': () => const LogAktivitasScreen(),
     'Kelola RT': () => const KelolaRtScreen(),
+    'Perbandingan RT': () => const PerbandinganRtScreen(),
   };
 
   // Kondisi uji ada di `bantuan_uji.dart` — termasuk dua varian yang meniru

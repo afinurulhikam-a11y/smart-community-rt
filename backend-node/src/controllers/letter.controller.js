@@ -4,6 +4,15 @@ const dispatcher = require('../services/notification.dispatcher');
 const { klausaRt, tolakLuarRt } = require('../utils/lingkup-rt');
 
 /**
+ * Tahap antara: sudah diteruskan pengurus RT, menunggu pengesahan Ketua RW.
+ *
+ * Ditulis sebagai konstanta karena nilainya muncul di tiga tempat — kueri,
+ * pesan, dan penyaring daftar — dan status yang salah ketik di salah satunya
+ * menghasilkan surat yang tidak pernah muncul di daftar siapa pun.
+ */
+const STATUS_MENUNGGU_RW = 'menunggu_rw';
+
+/**
  * Mengirim notifikasi push FCM ke seluruh Pengurus/Admin RT saat ada Permohonan Surat Baru.
  *
  * Menggunakan Durable Database Idempotency (letters.fcm_dispatch_status).
@@ -280,9 +289,61 @@ async function updateLetterStatus(req, res) {
     const { status, response_note } = req.body;
     const validStatus = ['diproses', 'disetujui', 'ditolak', 'approved', 'rejected'];
     if (!status || !validStatus.includes(status)) return res.status(400).json({ success: false, message: `status harus salah satu dari: ${validStatus.join(', ')}` });
+
+    // ===================================================================
+    // Persetujuan bertingkat: RT meneruskan, RW mengesahkan
+    // ===================================================================
+    //
+    // Surat pengantar mengalir RT → RW → Kelurahan. Sebelum ini modelnya satu
+    // tahap, sehingga separuh alur yang sebenarnya tidak ada di sistem — dan
+    // Ketua RW tidak punya apa pun untuk dikerjakan pada modul yang justru
+    // paling membutuhkannya.
+    //
+    // Yang menentukan cabangnya adalah PERAN pemanggil, bukan sesuatu yang
+    // dikirim klien: pengurus RT yang menyetujui berarti MENERUSKAN, Ketua RW
+    // yang menyetujui berarti MENGESAHKAN.
+    const disetujui = status === 'disetujui' || status === 'approved';
+    const olehRw = req.user.role === 'ketua_rw';
+
+    // ===================================================================
+    // Kalau tidak ada Ketua RW, surat TIDAK boleh tersangkut
+    // ===================================================================
+    //
+    // Pemasangan yang belum punya akun ketua_rw — atau yang akunnya sedang
+    // dinonaktifkan — akan menahan setiap surat di `menunggu_rw` selamanya,
+    // tanpa satu pun layar yang bisa memberi tahu sebabnya. Warga hanya
+    // melihat permohonannya tidak pernah selesai.
+    //
+    // Karena itu tahap RW hanya disisipkan ketika memang ADA yang bisa
+    // mengerjakannya. Diperiksa saat itu juga, bukan lewat saklar konfigurasi:
+    // sebuah saklar menuntut seseorang ingat mengubahnya ketika akun Ketua RW
+    // dibuat, dan yang lupa tidak akan tahu apa yang tertahan.
+    let statusBaru = status;
+    if (disetujui && !olehRw) {
+      const adaRw = await pool.query(
+        `SELECT 1 FROM users
+          WHERE role = 'ketua_rw' AND is_active = true AND deleted_at IS NULL
+          LIMIT 1`
+      );
+      if (adaRw.rowCount > 0) statusBaru = STATUS_MENUNGGU_RW;
+    }
+
+    // Kolom RW hanya ditulis oleh Ketua RW. `approved_by` sengaja TIDAK ditimpa
+    // olehnya: ia mencatat pengurus RT yang meneruskan, dan pada dokumen yang
+    // dipakai mengurus keperluan resmi "siapa yang meloloskan lebih dulu"
+    // adalah pertanyaan yang paling mungkin ditanyakan belakangan.
     const result = await pool.query(
-      `UPDATE letters SET status = $1, approved_by = $2, response_note = $3, tanggal_respon = NOW(), updated_at = NOW() WHERE id = $4 RETURNING *`,
-      [status, req.user.id, response_note || null, id]
+      `UPDATE letters SET
+         status = $1,
+         approved_by = CASE WHEN $5::boolean THEN approved_by ELSE $2 END,
+         response_note = COALESCE($3, response_note),
+         catatan_rw = CASE WHEN $5::boolean THEN $3 ELSE catatan_rw END,
+         disetujui_rw_oleh = CASE WHEN $5::boolean THEN $2 ELSE disetujui_rw_oleh END,
+         disetujui_rw_pada = CASE WHEN $5::boolean THEN NOW() ELSE disetujui_rw_pada END,
+         tanggal_respon = NOW(),
+         updated_at = NOW()
+       WHERE id = $4 RETURNING *`,
+      [statusBaru, req.user.id, response_note || null, id, olehRw]
     );
     if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Surat tidak ditemukan.' });
 
@@ -294,13 +355,17 @@ async function updateLetterStatus(req, res) {
       const userRes = await pool.query('SELECT nama, no_hp FROM users WHERE id = $1', [updatedLetter.user_id]);
       if (userRes.rows.length > 0) {
         const u = userRes.rows[0];
-        if (status === 'disetujui' || status === 'approved') {
+        // Memakai `statusBaru`, bukan `status`: ketika RT meneruskan ke RW,
+        // suratnya BELUM disetujui, dan mengirim "permohonan disetujui"
+        // pada saat itu adalah kabar yang salah — warga akan datang
+        // mengambil surat yang belum ada.
+        if (statusBaru === 'disetujui' || statusBaru === 'approved') {
           await sendLetterApprovedWA({
             userNama: u.nama,
             noHp: u.no_hp,
             jenisSurat: updatedLetter.jenis_surat,
           });
-        } else if (status === 'ditolak' || status === 'rejected') {
+        } else if (statusBaru === 'ditolak' || statusBaru === 'rejected') {
           await sendWA({
             target: u.no_hp,
             message: `📄 *PERMOHONAN SURAT DITOLAK*\n\nHalo Bpk/Ibu *${u.nama}*,\n\nPermohonan *${updatedLetter.jenis_surat}* Anda belum dapat disetujui.\nCatatan: ${response_note || 'Harap lengkapi persyaratan'}\n\n— *Pengurus RT*`,
@@ -310,11 +375,17 @@ async function updateLetterStatus(req, res) {
     })().catch((e) => console.log('ℹ️ Catatan WA Surat:', e.message));
 
     // Siaran push notifikasi FCM ke Pemohon secara non-blocking
-    dispatcher.dispatchAsync(() => sendLetterStatusPushNotification(updatedLetter, { status, response_note }), 'LetterStatus');
+    dispatcher.dispatchAsync(() => sendLetterStatusPushNotification(updatedLetter, { status: statusBaru, response_note }), 'LetterStatus');
 
-    await logActivity(req, TIPE.UPDATE, `Memproses surat "${ringkas(updatedLetter.jenis_surat)}" milik ${updatedLetter.nama_pemohon || "-"} — status menjadi "${status}"`);
+    await logActivity(req, TIPE.UPDATE, `${olehRw ? 'Mengesahkan' : 'Memproses'} surat "${ringkas(updatedLetter.jenis_surat)}" milik ${updatedLetter.nama_pemohon || "-"} — status menjadi "${statusBaru}"`);
 
-    return res.status(200).json({ success: true, message: `Surat berhasil di-${status}.`, data: updatedLetter });
+    return res.status(200).json({
+      success: true,
+      message: statusBaru === STATUS_MENUNGGU_RW
+        ? 'Surat diteruskan ke Ketua RW untuk pengesahan.'
+        : `Surat berhasil di-${statusBaru}.`,
+      data: updatedLetter,
+    });
   } catch (err) {
     console.error('UpdateLetterStatus Error:', err.message);
     return res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });

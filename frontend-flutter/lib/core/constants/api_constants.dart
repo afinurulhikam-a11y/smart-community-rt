@@ -124,6 +124,10 @@ class ApiConstants {
   static String get rt => '$baseUrl/rt';
   static String rtDetail(String id) => '$baseUrl/rt/$id';
 
+  /// Rekap satu baris per RT — bahan layar Perbandingan RT milik Ketua RW.
+  static String get rtPerbandingan => '$baseUrl/rt/perbandingan';
+  static String get rtPerbandinganEkspor => '$baseUrl/rt/perbandingan/ekspor';
+
   static String get menuAkses => '$baseUrl/menu-akses';
   static String get menuAksesSaya => '$baseUrl/menu-akses/me';
   static String get menuAksesReset => '$baseUrl/menu-akses/reset';

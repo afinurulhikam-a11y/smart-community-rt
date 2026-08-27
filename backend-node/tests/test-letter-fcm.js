@@ -213,6 +213,26 @@ async function runLetterFcmTests() {
     console.log('4. Menguji Event 2a: Surat Disetujui -> Push Notification ke Pemohon...');
     capturedMessages.length = 0;
 
+    // ===================================================================
+    // Persetujuan pengurus RT MENERUSKAN, tidak langsung mengesahkan
+    // ===================================================================
+    //
+    // Sejak alur surat bertingkat, pengurus RT yang menyetujui hanya
+    // meneruskan ke Ketua RW — status menjadi `menunggu_rw` dan pemohon
+    // diberi tahu keadaan ITU, bukan "disetujui". Mengirim kabar "sudah
+    // disetujui" pada tahap ini akan membuat warga datang mengambil surat
+    // yang belum ada.
+    //
+    // Tahap RW hanya disisipkan bila memang ADA Ketua RW aktif. Berkas uji
+    // ini menonaktifkannya lebih dulu supaya yang diperiksa di bawah adalah
+    // pengesahan akhir — dan mengaktifkannya kembali di blok yang sama,
+    // sehingga urutan berkas uji tidak menentukan hasilnya.
+    const rwSebelumnya = await pool.query(
+      `UPDATE users SET is_active = false
+        WHERE role = 'ketua_rw' AND is_active = true AND deleted_at IS NULL
+        RETURNING id`
+    );
+
     const { req: reqApprove, res: resApprove } = mockReqRes({
       user: adminPengurus,
       params: { id: createdLetter.id },
@@ -223,6 +243,12 @@ async function runLetterFcmTests() {
     });
 
     await updateLetterStatus(reqApprove, resApprove);
+    if (rwSebelumnya.rowCount > 0) {
+      await pool.query(
+        `UPDATE users SET is_active = true WHERE id = ANY($1::uuid[])`,
+        [rwSebelumnya.rows.map((r) => r.id)]
+      );
+    }
     assert(resApprove.getStatusCode() === 200, 'updateLetterStatus harus HTTP 200');
     assert(resApprove.getBody().success === true, 'Response body success harus true');
 
@@ -333,8 +359,22 @@ async function runLetterFcmTests() {
     assert(resUpdateBroken.getStatusCode() === 200, 'updateLetterStatus WAJIB tetap HTTP 200 meski FCM error');
     assert(resUpdateBroken.getBody().success === true, 'Response body WAJIB tetap success: true');
 
+    // Yang diperiksa blok ini adalah bahwa kegagalan FCM tidak merusak alur
+    // surat — bukan tahap mana yang dicapainya. Sejak alur bertingkat, hasil
+    // yang SAH ada dua: `menunggu_rw` bila ada Ketua RW aktif, `disetujui`
+    // bila tidak. Menuntut salah satunya berarti berkas uji ini gagal atau
+    // lulus menurut ada tidaknya sebuah akun, bukan menurut hal yang sedang
+    // diujinya.
+    //
+    // Yang tetap dituntut keras: statusnya BERPINDAH dari `pending`. Kalau ia
+    // tidak berpindah, kegagalan FCM memang merusak alurnya, dan itulah yang
+    // harus ditangkap.
     const dbCheckUpdated = await pool.query('SELECT status FROM letters WHERE id = $1', [brokenLetterId]);
-    assert(dbCheckUpdated.rows[0].status === 'disetujui', 'Status di DB harus tetap berubah menjadi "disetujui"');
+    const statusAkhir = dbCheckUpdated.rows[0].status;
+    assert(
+      statusAkhir === 'disetujui' || statusAkhir === 'menunggu_rw',
+      `Status di DB harus berpindah ke "disetujui" atau "menunggu_rw", bukan "${statusAkhir}"`
+    );
     console.log('   OK — Kegagalan FCM tidak pernah membatalkan atau merusak alur surat utama.\n');
 
     console.log('================================================================');

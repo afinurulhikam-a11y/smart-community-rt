@@ -259,6 +259,15 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
                           statusColor = const Color(0xFFEF4444);
                           statusBg = const Color(0xFFFEE2E2);
                           statusLabel = 'Ditolak';
+                        } else if (status == 'menunggu_rw') {
+                          // Tahap antara: pengurus RT sudah meneruskan, Ketua
+                          // RW belum mengesahkan. Diberi warna dan label
+                          // sendiri — kalau ia jatuh ke cabang "Diajukan",
+                          // pengurus RT akan mengira permohonannya belum
+                          // disentuh siapa pun dan memprosesnya dua kali.
+                          statusColor = const Color(0xFF7C3AED);
+                          statusBg = const Color(0xFFEDE9FE);
+                          statusLabel = 'Menunggu RW';
                         } else if (status == 'diproses') {
                           statusColor = const Color(0xFF2563EB);
                           statusBg = const Color(0xFFDBEAFE);
@@ -332,7 +341,16 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
                                       size: 20,
                                       color: Color(0xFF10B981),
                                     ),
-                                    tooltip: 'Setujui',
+                                    // Kata kerjanya berbeda menurut siapa yang
+                                    // menekan: pengurus RT MENERUSKAN, Ketua RW
+                                    // MENGESAHKAN. Yang memutuskan tetap server
+                                    // — ia melihat peran pemanggil — tetapi
+                                    // tombol yang menjanjikan "Setujui" lalu
+                                    // menghasilkan "menunggu RW" adalah tombol
+                                    // yang berbohong pada penekannya.
+                                    tooltip: status == 'menunggu_rw'
+                                        ? 'Sahkan (Ketua RW)'
+                                        : 'Setujui / teruskan ke RW',
                                     style: gayaAksiTabel(const Color(0xFF10B981)),
                                     onPressed: () =>
                                         provider.updateLetterStatus(data.id, 'disetujui'),
@@ -545,6 +563,10 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
                           statusColor = const Color(0xFFEF4444);
                           statusBg = const Color(0xFFFEE2E2);
                           statusLabel = 'Ditolak';
+                        } else if (data.status == 'menunggu_rw') {
+                          statusColor = const Color(0xFF7C3AED);
+                          statusBg = const Color(0xFFEDE9FE);
+                          statusLabel = 'Menunggu RW';
                         } else {
                           statusColor = const Color(0xFFD97706);
                           statusBg = const Color(0xFFFEF3C7);

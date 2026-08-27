@@ -9,6 +9,8 @@ import '../../core/theme/warna_konteks.dart';
 import '../../providers/rt_provider.dart';
 import '../../widgets/keadaan_daftar.dart';
 import '../../widgets/tabel_responsif.dart';
+import '../../core/peran.dart';
+import '../../core/services/auth_service.dart';
 
 /// Daftar RT dalam satu RW, beserta penambahan dan penyuntingannya.
 ///
@@ -52,6 +54,23 @@ class KelolaRtScreen extends StatefulWidget {
 }
 
 class _KelolaRtScreenState extends State<KelolaRtScreen> {
+  /// Menambah dan menghapus RT tetap milik administrator.
+  ///
+  /// Keduanya MENGGESER BATAS yang menentukan seluruh pelingkupan data, dan
+  /// nomor RT-nya tertanam di topik MQTT setiap perangkat alarm yang sudah
+  /// terpasang. Menambah RT tanpa memflash perangkatnya menghasilkan RT yang
+  /// sirenenya tidak pernah berbunyi — dan tidak ada layar yang bisa memberi
+  /// tahu hal itu.
+  ///
+  /// Mengubah nama, alamat sekretariat, dan siapa ketuanya tidak menggeser
+  /// batas apa pun, dan justru itu pekerjaan Ketua RW yang paling biasa.
+  ///
+  /// Server tetap penjaga sesungguhnya: `POST` dan `DELETE /api/rt` dijaga
+  /// `roleGuard('admin')`. Yang dilakukan di sini hanya menyembunyikan tombol
+  /// yang pasti ditolak — tombol yang selalu berakhir 403 lebih buruk
+  /// daripada tombol yang tidak ada.
+  bool get _bolehTambahHapus => context.watch<AuthService>().userRole == Peran.admin;
+
   @override
   void initState() {
     super.initState();
@@ -265,11 +284,12 @@ class _KelolaRtScreenState extends State<KelolaRtScreen> {
                           color: context.teksUtama,
                         ),
                       ),
-                      ElevatedButton.icon(
-                        onPressed: () => _formRt(),
-                        icon: const Icon(Icons.add_rounded, size: 18),
-                        label: const Text('Tambah RT'),
-                      ),
+                      if (_bolehTambahHapus)
+                        ElevatedButton.icon(
+                          onPressed: () => _formRt(),
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: const Text('Tambah RT'),
+                        ),
                     ],
                   ),
                 ),
@@ -318,12 +338,13 @@ class _KelolaRtScreenState extends State<KelolaRtScreen> {
             icon: const Icon(Icons.edit_outlined, size: 18),
             onPressed: () => _formRt(rt: r),
           ),
-          IconButton(
-            tooltip: 'Hapus',
-            icon: const Icon(Icons.delete_outline_rounded, size: 18),
-            color: const Color(0xFFEF4444),
-            onPressed: () => _hapusRt(r),
-          ),
+          if (_bolehTambahHapus)
+            IconButton(
+              tooltip: 'Hapus',
+              icon: const Icon(Icons.delete_outline_rounded, size: 18),
+              color: const Color(0xFFEF4444),
+              onPressed: () => _hapusRt(r),
+            ),
         ],
       ),
     );

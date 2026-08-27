@@ -37,6 +37,74 @@ class RtModel {
   String get label => nama.isNotEmpty ? nama : 'RT $kode';
 }
 
+
+/// Satu baris rekap RT untuk layar Perbandingan RT.
+///
+/// Dipisah dari [RtModel] karena isinya menjawab pertanyaan yang berbeda:
+/// [RtModel] adalah identitas sebuah RT, ini adalah keadaannya hari ini.
+/// Menggabungkannya berarti setiap pemakaian [RtModel] — pemilih lingkup di
+/// bilah atas, misalnya — ikut menyeret enam agregat yang tidak dipakainya.
+class BandingRt {
+  final String id;
+  final String kode;
+  final String nama;
+  final String? ketuaNama;
+  final int jumlahKk;
+  final int jumlahWarga;
+  final double saldoKas;
+  final double tunggakanNominal;
+  final int tunggakanJumlah;
+  final int pengaduanTerbuka;
+  final int suratTertunda;
+  final int daruratAktif;
+
+  const BandingRt({
+    required this.id,
+    required this.kode,
+    required this.nama,
+    this.ketuaNama,
+    this.jumlahKk = 0,
+    this.jumlahWarga = 0,
+    this.saldoKas = 0,
+    this.tunggakanNominal = 0,
+    this.tunggakanJumlah = 0,
+    this.pengaduanTerbuka = 0,
+    this.suratTertunda = 0,
+    this.daruratAktif = 0,
+  });
+
+  /// Postgres mengirim NUMERIC sebagai STRING, jadi `as double` akan melempar.
+  /// Kesalahan yang sama pernah terjadi di sisi web dan menghasilkan
+  /// penggabungan teks alih-alih penjumlahan.
+  static double _angka(dynamic v) =>
+      v is num ? v.toDouble() : (double.tryParse('${v ?? 0}') ?? 0);
+  static int _bulat(dynamic v) =>
+      v is num ? v.toInt() : (int.tryParse('${v ?? 0}') ?? 0);
+
+  factory BandingRt.fromJson(Map<String, dynamic> j) => BandingRt(
+        id: (j['id'] ?? '').toString(),
+        kode: (j['kode'] ?? '').toString(),
+        nama: (j['nama'] ?? '').toString(),
+        ketuaNama: j['ketua_nama'] as String?,
+        jumlahKk: _bulat(j['jumlah_kk']),
+        jumlahWarga: _bulat(j['jumlah_warga']),
+        saldoKas: _angka(j['saldo_kas']),
+        tunggakanNominal: _angka(j['tunggakan_nominal']),
+        tunggakanJumlah: _bulat(j['tunggakan_jumlah']),
+        pengaduanTerbuka: _bulat(j['pengaduan_terbuka']),
+        suratTertunda: _bulat(j['surat_tertunda']),
+        daruratAktif: _bulat(j['darurat_aktif']),
+      );
+
+  String get label => nama.isNotEmpty ? nama : 'RT $kode';
+
+  /// Benar bila RT ini punya sesuatu yang menuntut perhatian sekarang.
+  /// Dipakai menandai barisnya, supaya Ketua RW tidak perlu membaca enam
+  /// kolom untuk menemukan satu RT yang bermasalah.
+  bool get perluPerhatian =>
+      daruratAktif > 0 || tunggakanJumlah > 0 || pengaduanTerbuka > 0 || suratTertunda > 0;
+}
+
 /// RT mana yang sedang dilihat, dan daftar RT yang boleh dipilih.
 ///
 /// Provider ini TIDAK menentukan hak akses. Ia hanya menyimpan pilihan dan
@@ -89,6 +157,44 @@ class RtProvider extends ChangeNotifier {
   void isiUntukUji(List<RtModel> daftar, {String? terpilih}) {
     _daftar = daftar;
     _terpilih = terpilih;
+    notifyListeners();
+  }
+
+
+  List<BandingRt> _banding = [];
+  BandingRt? _totalBanding;
+  bool _memuatBanding = false;
+  String? _galatBanding;
+
+  List<BandingRt> get banding => _banding;
+
+  /// Baris TOTAL se-RW. Dihitung SERVER dari baris yang sama, bukan dijumlah
+  /// ulang di sini — dua sumber untuk satu angka pada layar yang gunanya
+  /// membandingkan adalah dua angka yang cepat atau lambat berbeda.
+  BandingRt? get totalBanding => _totalBanding;
+  bool get memuatBanding => _memuatBanding;
+  String? get galatBanding => _galatBanding;
+
+  Future<void> muatPerbandingan() async {
+    _memuatBanding = true;
+    _galatBanding = null;
+    notifyListeners();
+
+    final r = await ApiService.get(ApiConstants.rtPerbandingan);
+    if (r['success'] == true) {
+      _banding = (r['data'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(BandingRt.fromJson)
+          .toList();
+      final t = r['total'] as Map<String, dynamic>?;
+      _totalBanding = t == null
+          ? null
+          : BandingRt.fromJson({...t, 'id': '', 'kode': '', 'nama': 'TOTAL'});
+    } else {
+      _galatBanding = r['message'] as String?;
+    }
+
+    _memuatBanding = false;
     notifyListeners();
   }
 
@@ -191,6 +297,9 @@ class RtProvider extends ChangeNotifier {
   /// mewarisi lingkup RT milik pengguna sebelumnya.
   void bersihkan() {
     _daftar = [];
+    _banding = [];
+    _totalBanding = null;
+    _galatBanding = null;
     _terpilih = null;
     _errorMessage = null;
     _isLoading = false;

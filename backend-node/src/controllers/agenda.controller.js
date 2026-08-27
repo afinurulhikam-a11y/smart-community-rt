@@ -1,7 +1,7 @@
 const { pool } = require('../config/database');
 const { logActivity, ringkas, TIPE } = require('../services/log.service');
 const dispatcher = require('../services/notification.dispatcher');
-const { klausaRt, tolakLuarRt, rtUntukSimpan } = require('../utils/lingkup-rt');
+const { klausaRt, tolakLuarRt, rtUntukSimpan, bolehLintasRt } = require('../utils/lingkup-rt');
 
 const STATUS_AKTIF_AGENDA = ['Akan Datang', 'Terjadwal', 'Berjalan', 'publish', 'aktif'];
 
@@ -186,15 +186,65 @@ async function createAgenda(req, res) {
     const cleanTipe = (tipe && typeof tipe === 'string' && tipe.trim()) || 'Kegiatan';
     const cleanStatus = (status && typeof status === 'string' && status.trim()) || 'Akan Datang';
 
+    // ===================================================================
+    // Pengumuman se-RW: satu baris PER RT
+    // ===================================================================
+    //
+    // Yang diterbitkan lewat layar sebagai "Pengumuman" adalah baris `agenda`
+    // bertipe Pengumuman, bukan tabel `announcements` — dan inilah satu-satunya
+    // modul yang boleh diisi Ketua RW.
+    //
+    // Tanpa `semua_rt`, `rtUntukSimpan()` jatuh ke RT akun pembuatnya ketika
+    // lingkupnya "Semua RT", sehingga pengumuman se-RW sebenarnya hanya
+    // mendarat di satu RT. Warga RT lain tidak pernah melihatnya, dan
+    // pembuatnya melihat "berhasil".
+    //
+    // Diterbitkan sebagai satu baris per RT lewat `SELECT ... FROM rt`, bukan
+    // satu baris ber-`rt_id` NULL: NULL akan menuntut SETIAP kueri daftar,
+    // ekspor, reset, dan kartu berubah menjadi `(rt_id = $n OR rt_id IS NULL)`,
+    // dan satu klausa yang terlewat menghilangkan pengumuman RW tanpa gejala.
+    //
+    // `$10::boolean` yang bernilai true membuat penyaringnya lolos untuk setiap
+    // RT; yang false menyisakan satu RT saja. Satu kueri untuk dua perilaku,
+    // jadi tidak ada dua jalur yang bisa menyimpang.
+    const keSemuaRt = req.body?.semua_rt === true && bolehLintasRt(req);
+
     const result = await pool.query(
       `INSERT INTO agenda (judul, deskripsi, tipe, tanggal, waktu_mulai, waktu_selesai, lokasi, status, created_by, rt_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, r.id
+         FROM rt r
+        WHERE r.deleted_at IS NULL
+          AND ($10::boolean OR r.id = COALESCE(
+                $11::uuid,
+                -- Cadangan yang MENIRU pemicu v44 isi_rt_id: RT dengan kode
+                -- terkecil. Wajib ada karena bentuk SELECT ... FROM rt ini
+                -- tidak lagi memicu pengisian otomatis itu; rt_id yang kosong
+                -- dulu diisi pemicu, sekarang ia tidak cocok dengan baris mana
+                -- pun dan agendanya TIDAK TERSIMPAN SAMA SEKALI, dengan galat
+                -- yang menunjuk ke result.rows[0] alih-alih ke sebabnya.
+                -- Tertangkap test-agenda-crud, bukan dengan membaca kode.
+                --
+                -- CATATAN: jangan pakai backtick di komentar ini. Seluruh kueri
+                -- berada di dalam template literal JavaScript, dan satu backtick
+                -- menutupnya di tengah jalan.
+                (SELECT id FROM rt WHERE deleted_at IS NULL ORDER BY kode LIMIT 1)
+              ))
        RETURNING *, tanggal::text AS tanggal`,
       [judul.trim(), cleanDeskripsi, cleanTipe, tanggal, cleanMulai, cleanSelesai, cleanLokasi, cleanStatus,
-        req.user.id, rtUntukSimpan(req)]
+        req.user.id, keSemuaRt, rtUntukSimpan(req)]
     );
+    if (result.rows.length === 0) {
+      // Hanya mungkin bila tabel `rt` benar-benar kosong. Dikatakan terus
+      // terang: "Terjadi kesalahan server" pada layar yang baru saja diisi
+      // orang tidak memberi satu pun petunjuk untuk memperbaikinya.
+      return res.status(400).json({
+        success: false,
+        message: 'Belum ada RT yang terdaftar, jadi agenda tidak punya tempat untuk disimpan.',
+      });
+    }
+
     const a = result.rows[0];
-    await logActivity(req, TIPE.CREATE, `Membuat agenda "${ringkas(a.judul)}" — ${a.tipe || '-'}, tanggal ${a.tanggal ? String(a.tanggal).slice(0, 10) : '-'}`);
+    await logActivity(req, TIPE.CREATE, `Membuat agenda "${ringkas(a.judul)}"" — ${a.tipe || '-'}, tanggal ${a.tanggal ? String(a.tanggal).slice(0, 10) : '-'}`);
 
     // Siaran push notifikasi FCM ke seluruh warga secara non-blocking jika agenda aktif/publish
     const isActive = STATUS_AKTIF_AGENDA.some((s) => s.toLowerCase() === (cleanStatus || '').toLowerCase());
