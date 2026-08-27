@@ -262,11 +262,12 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
     final totalData = provider.totalData;
     final currentPage = provider.currentPage;
     final totalPages = provider.totalPages;
-    final mulai = (currentPage - 1) * 25;
-    final akhir = (mulai + provider.agendaList.length).clamp(0, totalData);
+    const perPage = 25;
+    final mulai = totalData == 0 ? 0 : (currentPage - 1) * perPage + 1;
+    final akhir = (currentPage * perPage).clamp(0, totalData);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      padding: EdgeInsets.all(paddingKartu(context)),
       child: Wrap(
         alignment: WrapAlignment.spaceBetween,
         crossAxisAlignment: WrapCrossAlignment.center,
@@ -276,10 +277,11 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
           Text(
             totalData == 0
                 ? 'Tidak ada data'
-                : 'Menampilkan ${mulai + 1} – $akhir dari $totalData agenda',
+                : 'Menampilkan $mulai – $akhir dari $totalData agenda',
             style: TextStyle(fontSize: 13, color: context.teksKedua),
           ),
           Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
             spacing: 4,
             runSpacing: 4,
             children: [
@@ -312,6 +314,7 @@ class _AgendaKegiatanScreenState extends State<AgendaKegiatanScreen> {
     final mati = onTap == null;
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(

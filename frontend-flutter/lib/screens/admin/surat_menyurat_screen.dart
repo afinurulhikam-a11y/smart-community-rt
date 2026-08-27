@@ -672,7 +672,7 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
           Text(
             totalData == 0
                 ? 'Tidak ada data'
-                : 'Menampilkan ${mulai + 1} – $akhir dari $totalData surat',
+                : 'Menampilkan $mulai – $akhir dari $totalData surat',
             style: TextStyle(fontSize: 13, color: context.teksKedua),
           ),
           Wrap(
