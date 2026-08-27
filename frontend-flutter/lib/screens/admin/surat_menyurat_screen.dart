@@ -94,6 +94,9 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
+            style: TextButton.styleFrom(
+              foregroundColor: ctx.warnaTombolTutup,
+            ),
             child: const Text('Batal'),
           ),
           ElevatedButton(
@@ -749,38 +752,35 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Header
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1B7A6A),
-                borderRadius: BorderRadius.circular(12),
+        SizedBox(
+          width: double.infinity,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TombolKembali(onPressed: () => setState(() => _isFormView = false)),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1B7A6A).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.description_outlined, color: Color(0xFF1B7A6A), size: 20),
               ),
-              child: const Icon(Icons.description_outlined, color: Colors.white, size: 24),
-            ),
-            const SizedBox(width: 12),
-            Flexible(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Ajukan Permohonan Surat',
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: context.teksUtama,
-                    ),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  'Layanan Warga / Surat Menyurat / Ajukan Permohonan Surat',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: context.teksKedua,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Layanan Warga / Surat Menyurat / Ajukan',
-                    style: TextStyle(fontSize: 12, color: context.teksKedua),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
 
         const SizedBox(height: 24),
@@ -898,9 +898,12 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
                             children: [
                               TextButton(
                                 onPressed: () => setState(() => _isFormView = false),
-                                child: Text(
+                                style: TextButton.styleFrom(
+                                  foregroundColor: context.warnaTombolTutup,
+                                ),
+                                child: const Text(
                                   'Batal',
-                                  style: TextStyle(color: context.teksKedua),
+                                  style: TextStyle(fontWeight: FontWeight.w600),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -1001,7 +1004,13 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
               foregroundColor: Colors.white,
             ),
           ),
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Tutup')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: TextButton.styleFrom(
+              foregroundColor: ctx.warnaTombolTutup,
+            ),
+            child: const Text('Tutup'),
+          ),
         ],
       ),
     );
