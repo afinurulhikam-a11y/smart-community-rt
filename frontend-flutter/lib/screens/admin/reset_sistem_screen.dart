@@ -736,7 +736,6 @@ class _DialogKonfirmasiState extends State<_DialogKonfirmasi> {
       actions: [
         TextButton(
           onPressed: _sedangKirim ? null : () => Navigator.of(context).pop(),
-          style: TextButton.styleFrom(foregroundColor: context.teksKedua),
           child: const Text('Batal'),
         ),
         ElevatedButton.icon(

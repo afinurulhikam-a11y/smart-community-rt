@@ -94,7 +94,7 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Batal', style: TextStyle(color: context.teksKedua)),
+            child: const Text('Batal'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/theme/app_theme.dart';
+import '../core/theme/warna_konteks.dart';
 import '../models/notification_intent.dart';
 import '../providers/notification_provider.dart';
 
@@ -192,7 +193,7 @@ class InAppNotificationBanner extends StatelessWidget {
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
             splashRadius: 16,
-            color: gelap ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+            color: context.warnaTombolTutup,
             tooltip: 'Tutup',
             onPressed: () {
               context.read<NotificationProvider>().tutupForegroundNotification();

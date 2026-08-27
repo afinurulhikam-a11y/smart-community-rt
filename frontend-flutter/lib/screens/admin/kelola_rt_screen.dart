@@ -160,7 +160,7 @@ class _KelolaRtScreenState extends State<KelolaRtScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Batal', style: TextStyle(color: ctx.teksKedua)),
+            child: const Text('Batal'),
           ),
           ElevatedButton(
             onPressed: () {

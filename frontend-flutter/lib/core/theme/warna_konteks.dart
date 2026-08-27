@@ -41,4 +41,9 @@ extension WarnaTema on BuildContext {
   /// Latar isian lembut — kotak isian, chip netral, baris tabel bergantian.
   Color get latarLembut =>
       gelap ? _tema.colorScheme.surfaceContainerHighest : const Color(0xFFF8FAFC);
+
+  /// Warna tombol/ikon penutup (Batal, Tutup, Kembali, dsb.).
+  /// Putih (#FFFFFF) pada mode gelap, Hitam (#000000) pada mode terang.
+  Color get warnaTombolTutup =>
+      gelap ? const Color(0xFFFFFFFF) : const Color(0xFF000000);
 }

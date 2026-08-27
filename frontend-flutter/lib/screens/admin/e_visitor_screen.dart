@@ -740,7 +740,7 @@ class _EVisitorScreenState extends State<EVisitorScreen> {
           actions: [
             TextButton(
               onPressed: isSaving ? null : () => Navigator.pop(ctx),
-              child: Text('Batal', style: TextStyle(color: context.teksKedua)),
+              child: const Text('Batal'),
             ),
             ElevatedButton(
               onPressed: isSaving

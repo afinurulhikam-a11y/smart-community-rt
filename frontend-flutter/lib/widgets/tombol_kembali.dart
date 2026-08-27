@@ -28,7 +28,7 @@ class TombolKembali extends StatelessWidget {
           ),
           child: Icon(
             Icons.arrow_back_rounded,
-            color: context.teksUtama,
+            color: context.warnaTombolTutup,
             size: 18,
           ),
         ),

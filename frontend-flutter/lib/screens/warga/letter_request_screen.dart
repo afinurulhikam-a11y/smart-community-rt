@@ -379,7 +379,7 @@ class _LetterRequestScreenState extends State<LetterRequestScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Tidak', style: TextStyle(color: context.teksKedua)),
+            child: const Text('Tidak'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(

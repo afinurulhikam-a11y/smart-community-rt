@@ -212,7 +212,7 @@ class _BillListScreenState extends State<BillListScreen> with SingleTickerProvid
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
                 style: TextButton.styleFrom(
-                  foregroundColor: ctx.teksKedua,
+                  foregroundColor: ctx.warnaTombolTutup,
                   padding: const EdgeInsets.symmetric(vertical: 10),
                 ),
                 child: const Text('Tutup'),

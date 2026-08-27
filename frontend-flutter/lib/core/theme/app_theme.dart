@@ -230,7 +230,7 @@ class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: primaryColor,
+          foregroundColor: gelap ? const Color(0xFFFFFFFF) : const Color(0xFF000000),
           side: BorderSide(color: garis),
           minimumSize: const Size(0, sasaranSentuh),
           padding: const EdgeInsets.symmetric(horizontal: spasiL),
@@ -240,7 +240,7 @@ class AppTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: primaryColor,
+          foregroundColor: gelap ? const Color(0xFFFFFFFF) : const Color(0xFF000000),
           minimumSize: const Size(0, sasaranSentuh),
           textStyle: teks.labelLarge,
         ),
