@@ -1885,7 +1885,9 @@ class _MainDashboardState extends State<MainDashboard> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (izin.bolehLihat('aspirasi.darurat'))
-                  Expanded(child: _buildStatusDaruratCard()),
+                  // `lebarPasti` — kartu ini separuh area konten di sini, dan
+                  // LayoutBuilder tidak boleh berada di bawah IntrinsicHeight.
+                  Expanded(child: _buildStatusDaruratCard(lebarPasti: true)),
 
                 if (izin.bolehLihat('aspirasi.darurat') &&
                     izin.bolehLihat('aspirasi.pengaduan'))
@@ -2326,11 +2328,96 @@ class _MainDashboardState extends State<MainDashboard> {
   }
 
   // === STATUS & KENDALI DARURAT (KARTU TERPADU) ===
-  Widget _buildStatusDaruratCard() {
+  Widget _buildStatusDaruratCard({bool lebarPasti = false}) {
     final emergency = context.watch<EmergencyProvider>();
     final activeAlerts = emergency.alerts.where((a) => a.isActive).toList();
     final menyala = emergency.alarmMenyala || activeAlerts.isNotEmpty;
     final sibuk = emergency.mengirimAlarm;
+
+    // Disusun sebagai fungsi lokal supaya kedua jalur di bawah — dengan dan
+    // tanpa LayoutBuilder — memakai tombol yang sama persis, bukan dua
+    // salinan yang bisa berbeda diam-diam.
+    Widget susunTombolDarurat(bool isNarrow) {
+
+            final btnAction = SizedBox(
+              height: 38,
+              child: ElevatedButton.icon(
+                onPressed: sibuk
+                    ? null
+                    : () => _mintaPinAlarm(menyala ? 'OFF' : 'ON'),
+                icon: sibuk
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Icon(
+                        menyala
+                            ? Icons.notifications_off_rounded
+                            : Icons.campaign_rounded,
+                        size: 16,
+                      ),
+                label: Text(
+                  menyala ? 'MATIKAN ALARM' : 'BUNYIKAN ALARM',
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFEF4444),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            );
+
+            final btnDetail = SizedBox(
+              height: 38,
+              child: OutlinedButton.icon(
+                onPressed: () => _pilihMenu(60),
+                icon: const Icon(Icons.history_rounded, size: 16),
+                label: const Text(
+                  'Riwayat',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: context.teksUtama,
+                  side: BorderSide(color: context.garis),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            );
+
+            if (isNarrow) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [btnAction, const SizedBox(height: 8), btnDetail],
+              );
+            }
+
+            return Row(
+              children: [
+                Expanded(flex: 3, child: btnAction),
+                const SizedBox(width: 8),
+                Expanded(flex: 2, child: btnDetail),
+              ],
+            );
+    }
 
     return Container(
       padding: EdgeInsets.all(paddingKartu(context)),
@@ -2565,90 +2652,37 @@ class _MainDashboardState extends State<MainDashboard> {
           const SizedBox(height: 14),
 
           // Action Buttons
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isNarrow = constraints.maxWidth < 280;
-
-              final btnAction = SizedBox(
-                height: 38,
-                child: ElevatedButton.icon(
-                  onPressed: sibuk
-                      ? null
-                      : () => _mintaPinAlarm(menyala ? 'OFF' : 'ON'),
-                  icon: sibuk
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Icon(
-                          menyala
-                              ? Icons.notifications_off_rounded
-                              : Icons.campaign_rounded,
-                          size: 16,
-                        ),
-                  label: Text(
-                    menyala ? 'MATIKAN ALARM' : 'BUNYIKAN ALARM',
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFEF4444),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
+          // Tombol aksi.
+          //
+          // TIDAK memakai LayoutBuilder ketika lebarnya sudah pasti, dan itu
+          // bukan optimisasi melainkan syarat supaya kartunya bisa dirender
+          // sama sekali.
+          //
+          // Di layar lebar kartu ini duduk di dalam `IntrinsicHeight` — satu-
+          // satunya cara membuat dua kartu bersebelahan sama tingginya.
+          // `IntrinsicHeight` harus menanyakan tinggi alami anaknya, dan
+          // `LayoutBuilder` TIDAK BISA menjawabnya: ia baru tahu isinya setelah
+          // menerima batasan. Flutter melempar
+          // "LayoutBuilder does not support returning intrinsic dimensions".
+          //
+          // Akibatnya bukan satu pesan di konsol. Di mode debug pengecualiannya
+          // terlempar pada SETIAP frame, sehingga dasbor tampil rusak dan
+          // perambannya berat sampai tidak bisa ditekan; di mode rilis
+          // assertion-nya mati dan tingginya dihitung nol, jadi kartunya
+          // sekadar lenyap. Dua-duanya terlihat seperti aplikasi yang hang,
+          // bukan seperti kesalahan tata letak.
+          //
+          // `lebarPasti` dikirim pemanggil yang memang tahu lebarnya: susunan
+          // dua kolom di layar lebar memberi kartu ini separuh area konten,
+          // yang bahkan pada jendela 1024px masih jauh di atas ambang 280.
+          // Di ponsel kartunya bertumpuk tanpa `IntrinsicHeight`, jadi
+          // LayoutBuilder tetap dipakai dan tetap benar di sana.
+          lebarPasti
+              ? susunTombolDarurat(false)
+              : LayoutBuilder(
+                  builder: (context, constraints) =>
+                      susunTombolDarurat(constraints.maxWidth < 280),
                 ),
-              );
-
-              final btnDetail = SizedBox(
-                height: 38,
-                child: OutlinedButton.icon(
-                  onPressed: () => _pilihMenu(60),
-                  icon: const Icon(Icons.history_rounded, size: 16),
-                  label: const Text(
-                    'Riwayat',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: context.teksUtama,
-                    side: BorderSide(color: context.garis),
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-              );
-
-              if (isNarrow) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [btnAction, const SizedBox(height: 8), btnDetail],
-                );
-              }
-
-              return Row(
-                children: [
-                  Expanded(flex: 3, child: btnAction),
-                  const SizedBox(width: 8),
-                  Expanded(flex: 2, child: btnDetail),
-                ],
-              );
-            },
-          ),
         ],
       ),
     );
