@@ -219,34 +219,24 @@ class _TabelResponsifState extends State<TabelResponsif> {
     // Layar yang tidak mengirim totalData memakai pagination lama di bawah.
     if (widget.totalData != null && widget.currentPage != null && widget.totalPages != null) {
       return Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           content,
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Divider(height: 1),
-              _buildFooter(context),
-            ],
-          ),
+          const Divider(height: 1),
+          _buildFooter(context),
         ],
       );
     }
 
     if (widget.currentPage != null && widget.totalPages != null) {
       return Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           content,
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 16),
-              _buildPagination(context),
-            ],
-          ),
+          const SizedBox(height: 16),
+          _buildPagination(context),
         ],
       );
     }

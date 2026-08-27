@@ -313,147 +313,7 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
 
         const SizedBox(height: 16),
 
-        // Filters: Tahun -> Jenis Bantuan -> Status
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            SizedBox(
-              width: lebarKolomFilter(context, maksimal: 160),
-              height: AppTheme.sasaranSentuh,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: context.garis),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _selectedTahun,
-                    isExpanded: true,
-                    icon: Icon(
-                      Icons.keyboard_arrow_down,
-                      size: 16,
-                      color: context.teksKedua,
-                    ),
-                    style: TextStyle(fontSize: 13, color: context.teksUtama),
-                    items: _tahunList
-                        .map(
-                          (v) => DropdownMenuItem<String>(
-                            value: v,
-                            child: Text(v, overflow: TextOverflow.ellipsis),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (v) {
-                      if (v != null) {
-                        setState(() => _selectedTahun = v);
-                        _loadData();
-                      }
-                    },
-                  ),
-                ),
-              ),
-            ),
-
-            SizedBox(
-              width: lebarKolomFilter(context, maksimal: 220),
-              height: AppTheme.sasaranSentuh,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: context.garis),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _jenisBantuan,
-                    isExpanded: true,
-                    icon: Icon(
-                      Icons.keyboard_arrow_down,
-                      size: 16,
-                      color: context.teksKedua,
-                    ),
-                    style: TextStyle(fontSize: 13, color: context.teksUtama),
-                    items: [
-                      'Semua Jenis',
-                      'Program Sembako (BPNT)',
-                      'PKH',
-                      'PBI-JK',
-                      'BLT Desa',
-                      'Bantuan Kesehatan',
-                      'Bantuan Pendidikan',
-                      'Bantuan Perumahan',
-                      'Bantuan Tunai/Lainnya',
-                      'Sembako',
-                      'BLT',
-                      'BPNT',
-                      'BST',
-                      'PBI-JKN',
-                      'Lainnya',
-                    ]
-                        .map(
-                          (v) => DropdownMenuItem<String>(
-                            value: v,
-                            child: Text(v, overflow: TextOverflow.ellipsis),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (v) {
-                      if (v != null) {
-                        setState(() => _jenisBantuan = v);
-                        _loadData();
-                      }
-                    },
-                  ),
-                ),
-              ),
-            ),
-
-            SizedBox(
-              width: lebarKolomFilter(context, maksimal: 160),
-              height: AppTheme.sasaranSentuh,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: context.garis),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _status,
-                    isExpanded: true,
-                    icon: Icon(
-                      Icons.keyboard_arrow_down,
-                      size: 16,
-                      color: context.teksKedua,
-                    ),
-                    style: TextStyle(fontSize: 13, color: context.teksUtama),
-                    items: ['Semua Status', 'Aktif', 'Selesai']
-                        .map(
-                          (v) => DropdownMenuItem<String>(
-                            value: v,
-                            child: Text(v, overflow: TextOverflow.ellipsis),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (v) {
-                      if (v != null) {
-                        setState(() => _status = v);
-                        _loadData();
-                      }
-                    },
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 16),
-
-        // SECTION: DATA TABLE
+        // SECTION: DATA TABLE CARD
         Container(
           padding: EdgeInsets.all(paddingKartu(context)),
           decoration: BoxDecoration(
@@ -485,6 +345,8 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                 ),
               ),
               const SizedBox(height: 20),
+
+              // Baris Pencarian & Tombol Reset (Center)
               Wrap(
                 alignment: WrapAlignment.center,
                 crossAxisAlignment: WrapCrossAlignment.center,
@@ -575,9 +437,149 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
 
-              // Tabel di dalam container bergaris (seragam dengan Data Warga & Data KK)
+              // Baris Dropdown Filter (Center di bawah Pencarian & Reset)
+              Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 12,
+                runSpacing: 8,
+                children: [
+                  SizedBox(
+                    width: lebarKolomFilter(context, maksimal: 160),
+                    height: AppTheme.sasaranSentuh,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: context.garis),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedTahun,
+                          isExpanded: true,
+                          icon: Icon(
+                            Icons.keyboard_arrow_down,
+                            size: 16,
+                            color: context.teksKedua,
+                          ),
+                          style: TextStyle(fontSize: 13, color: context.teksUtama),
+                          items: _tahunList
+                              .map(
+                                (v) => DropdownMenuItem<String>(
+                                  value: v,
+                                  child: Text(v, overflow: TextOverflow.ellipsis),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (v) {
+                            if (v != null) {
+                              setState(() => _selectedTahun = v);
+                              _loadData();
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  SizedBox(
+                    width: lebarKolomFilter(context, maksimal: 220),
+                    height: AppTheme.sasaranSentuh,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: context.garis),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _jenisBantuan,
+                          isExpanded: true,
+                          icon: Icon(
+                            Icons.keyboard_arrow_down,
+                            size: 16,
+                            color: context.teksKedua,
+                          ),
+                          style: TextStyle(fontSize: 13, color: context.teksUtama),
+                          items: [
+                            'Semua Jenis',
+                            'Program Sembako (BPNT)',
+                            'PKH',
+                            'PBI-JK',
+                            'BLT Desa',
+                            'Bantuan Kesehatan',
+                            'Bantuan Pendidikan',
+                            'Bantuan Perumahan',
+                            'Bantuan Tunai/Lainnya',
+                            'Sembako',
+                            'BLT',
+                            'BPNT',
+                            'BST',
+                            'PBI-JKN',
+                            'Lainnya',
+                          ]
+                              .map(
+                                (v) => DropdownMenuItem<String>(
+                                  value: v,
+                                  child: Text(v, overflow: TextOverflow.ellipsis),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (v) {
+                            if (v != null) {
+                              setState(() => _jenisBantuan = v);
+                              _loadData();
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  SizedBox(
+                    width: lebarKolomFilter(context, maksimal: 160),
+                    height: AppTheme.sasaranSentuh,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: context.garis),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _status,
+                          isExpanded: true,
+                          icon: Icon(
+                            Icons.keyboard_arrow_down,
+                            size: 16,
+                            color: context.teksKedua,
+                          ),
+                          style: TextStyle(fontSize: 13, color: context.teksUtama),
+                          items: ['Semua Status', 'Aktif', 'Selesai']
+                              .map(
+                                (v) => DropdownMenuItem<String>(
+                                  value: v,
+                                  child: Text(v, overflow: TextOverflow.ellipsis),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (v) {
+                            if (v != null) {
+                              setState(() => _status = v);
+                              _loadData();
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Tabel di dalam container bergaris
               Consumer<BantuanSosialProvider>(
                 builder: (context, provider, _) {
                   return Container(
@@ -587,21 +589,12 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: context.garis),
                     ),
-                    child: Column(
-                      children: [
-                        Container(
-                          constraints: pakaiKartu(context)
-                              ? const BoxConstraints()
-                              : const BoxConstraints(minHeight: 560),
-                          child: provider.isLoading && provider.bantuanList.isEmpty
-                              ? const Padding(
-                                  padding: EdgeInsets.all(40),
-                                  child: Center(child: CircularProgressIndicator()),
-                                )
-                              : _buildBansosTable(provider),
-                        ),
-                      ],
-                    ),
+                    child: provider.isLoading && provider.bantuanList.isEmpty
+                        ? const Padding(
+                            padding: EdgeInsets.all(40),
+                            child: Center(child: CircularProgressIndicator()),
+                          )
+                        : _buildBansosTable(provider),
                   );
                 },
               ),
