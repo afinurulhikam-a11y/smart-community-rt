@@ -65,7 +65,6 @@ import 'log_aktivitas_screen.dart';
 import 'menu_akses_screen.dart';
 import 'reset_sistem_screen.dart';
 import 'kelola_rt_screen.dart';
-import 'perbandingan_rt_screen.dart';
 
 import '../warga/warga_dashboard_content.dart';
 import '../warga/bill_list_screen.dart';
@@ -317,8 +316,6 @@ class _MainDashboardState extends State<MainDashboard> {
         await context.read<ResetProvider>().muatRingkasan();
       case 87:
         await context.read<RtProvider>().muat();
-      case 88:
-        await context.read<RtProvider>().muatPerbandingan();
 
       // ─────────────────────────────────────────────────────────────
       // Profil Saya (81) dan Menu & Akses (85) SENGAJA tidak punya case
@@ -1732,8 +1729,6 @@ class _MainDashboardState extends State<MainDashboard> {
         return const ResetSistemScreen();
       case 87:
         return const KelolaRtScreen();
-      case 88:
-        return const PerbandinganRtScreen();
 
       default:
         return _buildDashboardContent(auth);

@@ -333,16 +333,6 @@ class _SidebarMenuState extends State<SidebarMenu> {
                           label: 'Log Aktivitas',
                           isViewOnly: _hanyaLihat('pengaturan.log'),
                         ),
-                      // Perbandingan RT — untuk peran yang memang melihat
-                      // lebih dari satu RT. Bagi pengurus RT layar ini hanya
-                      // akan berisi satu baris: RT-nya sendiri, yang sudah ia
-                      // lihat di Beranda.
-                      if (Peran.bolehLintasRt(widget.role))
-                        _buildSubMenuItem(
-                          index: 88,
-                          icon: Icons.compare_arrows_rounded,
-                          label: 'Perbandingan RT',
-                        ),
                       // Tidak dijaga PermissionProvider melainkan peran, sama
                       // seperti dua entri di bawahnya: RT adalah batas yang
                       // menentukan seluruh pelingkupan data, jadi kewenangan

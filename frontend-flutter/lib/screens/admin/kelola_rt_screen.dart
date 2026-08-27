@@ -11,6 +11,7 @@ import '../../widgets/keadaan_daftar.dart';
 import '../../widgets/tabel_responsif.dart';
 import '../../core/peran.dart';
 import '../../core/services/auth_service.dart';
+import 'data_warga_screen.dart';
 
 /// Daftar RT dalam satu RW, beserta penambahan dan penyuntingannya.
 ///
@@ -231,92 +232,64 @@ class _KelolaRtScreenState extends State<KelolaRtScreen> {
   Widget build(BuildContext context) {
     final rt = context.watch<RtProvider>();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Judul internal disembunyikan di ponsel: AppBar sudah menamai layar
-        // ini, dan blok ikon + judul memakan ~90px di puncak setiap halaman.
-        if (!pakaiKartu(context)) ...[
-          Row(
-            children: [
-              const Icon(Icons.apartment_rounded, color: AppTheme.primaryColor),
-              const SizedBox(width: AppTheme.spasiS),
-              Text(
-                'Kelola RT',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: context.teksUtama,
-                ),
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: context.latarKartu,
+        borderRadius: BorderRadius.circular(AppTheme.radiusL),
+        border: Border.all(color: context.garis),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.all(paddingKartu(context)),
+            child: SizedBox(
+              width: double.infinity,
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: AppTheme.spasiM,
+                runSpacing: AppTheme.spasiS,
+                children: [
+                  Text(
+                    'Daftar RT (${rt.daftar.length})',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: context.teksUtama,
+                    ),
+                  ),
+                  if (_bolehTambahHapus)
+                    ElevatedButton.icon(
+                      onPressed: () => _formRt(),
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: const Text('Tambah RT'),
+                    ),
+                ],
               ),
-            ],
+            ),
           ),
-          const SizedBox(height: AppTheme.spasiM),
+          if (rt.isLoading && rt.daftar.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(32),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else
+            TabelResponsif(
+              kolom: const ['NO', 'NOMOR RT', 'NAMA', 'KETUA', 'KK', 'AKUN'],
+              baris: [
+                for (var i = 0; i < rt.daftar.length; i++)
+                  _baris(context, rt.daftar[i], i),
+              ],
+              kosong: KeadaanDaftar(
+                kosong: 'Belum ada RT yang terdaftar.',
+                galat: rt.errorMessage,
+                ikonKosong: Icons.apartment_outlined,
+                onCobaLagi: () => context.read<RtProvider>().muat(),
+              ),
+            ),
         ],
-
-        _kartuPenjelasan(context, rt),
-        const SizedBox(height: AppTheme.spasiM),
-
-        Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: context.latarKartu,
-            borderRadius: BorderRadius.circular(AppTheme.radiusL),
-            border: Border.all(color: context.garis),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: EdgeInsets.all(paddingKartu(context)),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: Wrap(
-                    alignment: WrapAlignment.spaceBetween,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: AppTheme.spasiM,
-                    runSpacing: AppTheme.spasiS,
-                    children: [
-                      Text(
-                        'Daftar RT (${rt.daftar.length})',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: context.teksUtama,
-                        ),
-                      ),
-                      if (_bolehTambahHapus)
-                        ElevatedButton.icon(
-                          onPressed: () => _formRt(),
-                          icon: const Icon(Icons.add_rounded, size: 18),
-                          label: const Text('Tambah RT'),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              if (rt.isLoading && rt.daftar.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else
-                TabelResponsif(
-                  kolom: const ['NO', 'NOMOR RT', 'NAMA', 'KETUA', 'KK', 'AKUN'],
-                  baris: [
-                    for (var i = 0; i < rt.daftar.length; i++)
-                      _baris(context, rt.daftar[i], i),
-                  ],
-                  kosong: KeadaanDaftar(
-                    kosong: 'Belum ada RT yang terdaftar.',
-                    galat: rt.errorMessage,
-                    ikonKosong: Icons.apartment_outlined,
-                    onCobaLagi: () => context.read<RtProvider>().muat(),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ],
+      ),
     );
   }
 
@@ -330,69 +303,26 @@ class _KelolaRtScreenState extends State<KelolaRtScreen> {
         SelTabel.teks('KK', '${r.jumlahKk}'),
         SelTabel.teks('AKUN', '${r.jumlahAkun}'),
       ],
-      aksi: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            tooltip: 'Ubah',
-            icon: const Icon(Icons.edit_outlined, size: 18),
-            onPressed: () => _formRt(rt: r),
-          ),
-          if (_bolehTambahHapus)
+      aksi: Transform.translate(
+        offset: const Offset(geserAksiTabel, 0),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
             IconButton(
-              tooltip: 'Hapus',
-              icon: const Icon(Icons.delete_outline_rounded, size: 18),
-              color: const Color(0xFFEF4444),
-              onPressed: () => _hapusRt(r),
+              tooltip: 'Ubah',
+              icon: const Icon(Icons.edit_outlined, size: 20, color: Color(0xFF3B82F6)),
+              style: gayaAksiTabel(const Color(0xFF3B82F6)),
+              onPressed: () => _formRt(rt: r),
             ),
-        ],
-      ),
-    );
-  }
-
-  /// Menjelaskan akibat menambah RT, di tempat orang akan menambahnya.
-  ///
-  /// Keduanya adalah hal yang tidak terlihat dari layar mana pun dan hanya
-  /// ketahuan setelah salah: perangkat alarm baru mendengarkan topik yang
-  /// berbeda, dan RT yang baru dibuat tidak punya pengurus sampai ada akun
-  /// yang dipindahkan ke sana.
-  Widget _kartuPenjelasan(BuildContext context, RtProvider rt) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(paddingKartu(context)),
-      decoration: BoxDecoration(
-        color: AppTheme.primaryColor.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(AppTheme.radiusM),
-        border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.25)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.info_outline_rounded,
-                  size: 18, color: AppTheme.primaryColor),
-              const SizedBox(width: AppTheme.spasiS),
-              Expanded(
-                child: Text(
-                  'Setiap RT punya data, kas, dan alarmnya sendiri',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: context.teksUtama,
-                  ),
-                ),
+            if (_bolehTambahHapus)
+              IconButton(
+                tooltip: 'Hapus',
+                icon: const Icon(Icons.delete_outline, size: 20, color: Color(0xFFEF4444)),
+                style: gayaAksiTabel(const Color(0xFFEF4444)),
+                onPressed: () => _hapusRt(r),
               ),
-            ],
-          ),
-          const SizedBox(height: AppTheme.spasiS),
-          Text(
-            'Perangkat alarm RT baru harus diflash dengan KODE_RT yang sama '
-            'persis dengan nomor di sini, termasuk angka nolnya. RT yang baru '
-            'dibuat juga belum punya pengurus — pindahkan atau buat akunnya '
-            'lewat Data Warga setelah ini.',
-            style: TextStyle(color: context.teksKedua, height: 1.4),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
