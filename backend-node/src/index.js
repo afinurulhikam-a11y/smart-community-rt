@@ -107,58 +107,90 @@ const HEADER_DIIZINKAN =
  * Asal yang boleh memanggil API
  * ===================================================================
  *
- * Bentuk lamanya satu nilai yang dipantulkan mentah, dengan cadangan `*`.
+ * Bentuk lamanya satu nilai yang dipantulkan mentah dengan cadangan `*`.
  * Dua akibatnya:
  *
- *   1. Tanpa CORS_ORIGIN, API terbuka untuk SETIAP situs di internet. Halaman
- *      mana pun yang dibuka warga bisa memanggil API ini dari peramban mereka.
- *      Token ada di header, bukan cookie, jadi ini bukan CSRF klasik — tetapi
- *      seluruh endpoint tanpa autentikasi tetap terjangkau siapa saja.
+ *   1. Tanpa CORS_ORIGIN, API terbuka untuk SETIAP situs di internet.
+ *   2. Menyetelnya justru memutus pengembangan: `flutter run -d chrome`
+ *      memilih PORT ACAK setiap kali dijalankan, jadi satu origin tetap akan
+ *      salah pada pemanggilan berikutnya.
  *
- *   2. Menyetelnya justru memutus pengembangan. `flutter run -d chrome`
- *      memilih PORT ACAK setiap kali dijalankan (53380 hari ini, lain besok),
- *      jadi satu origin tetap akan salah pada pemanggilan berikutnya — dan
- *      gagalnya berbentuk "Failed to fetch", yang terbaca sebagai server mati.
+ * Karena itu daftarnya kini JAMAK, dan origin pemanggil dipantulkan setelah
+ * dicocokkan — peramban hanya menerima satu nilai pada
+ * `Access-Control-Allow-Origin`, bukan sebuah daftar.
  *
- * Karena itu daftarnya kini jamak, dan cadangannya bukan `*` melainkan
- * "localhost port berapa pun". Peramban hanya menerima SATU origin pada
- * `Access-Control-Allow-Origin`, jadi yang dipantulkan adalah origin pemanggil
- * — setelah dicocokkan — bukan seluruh daftarnya.
+ * ===================================================================
+ * Kenapa cadangannya TETAP `*`, bukan "localhost saja"
+ * ===================================================================
  *
- * `*` masih bisa dipakai, tetapi harus disebut dengan sengaja:
+ * Percobaan pertama mengganti cadangannya menjadi "localhost port berapa
+ * pun". Itu lebih aman di atas kertas dan **langsung mematikan produksi**:
+ * pemasangan di Railway tidak menyetel CORS_ORIGIN karena selama ini `*`
+ * memang cukup, sehingga klien di Vercel mendadak tidak menerima satu pun
+ * header dan setiap permintaan diblokir peramban. Gejalanya "Failed to
+ * fetch" — yang terbaca sebagai server mati, padahal servernya sehat.
  *
- *   CORS_ORIGIN=*                                     terbuka, sadar risikonya
- *   CORS_ORIGIN=https://rt.example.com                satu domain
- *   CORS_ORIGIN=https://a.example.com,https://b.id    beberapa domain
- *   (tidak disetel)                                   localhost saja
+ * Aturannya sudah tertulis di repo ini untuk `IZINKAN_TOKEN_QUERY`:
+ * **sebuah deploy yang lupa menyetel variabel tidak boleh mematikan klien
+ * yang sudah jalan.** Pengetatan yang mengubah bawaan dari permisif menjadi
+ * ketat melanggarnya, dan kerusakannya baru terlihat di produksi.
+ *
+ * Jadi bawaannya kembali permisif dan pengetatannya menjadi TINDAKAN SADAR:
+ *
+ *   (tidak disetel)                             terbuka + peringatan keras
+ *   CORS_ORIGIN=https://rt.example.com          satu domain
+ *   CORS_ORIGIN=https://a.example.com,https://b.id  beberapa domain
+ *   CORS_ORIGIN=lokal                           localhost port berapa pun
+ *
+ * `lokal` disediakan supaya pengembangan bisa diketatkan tanpa harus menebak
+ * port acak Flutter — nilai yang dulu menjadi cadangan, kini menjadi pilihan.
  */
 const CORS_DAFTAR = (process.env.CORS_ORIGIN || '')
   .split(',')
   .map((o) => o.trim())
   .filter(Boolean);
 
-const CORS_TERBUKA = CORS_DAFTAR.includes('*');
+/** Tidak disetel sama sekali, atau disetel `*` — dua-duanya berarti terbuka. */
+const CORS_TERBUKA = CORS_DAFTAR.length === 0 || CORS_DAFTAR.includes('*');
+
+/** Kata kunci untuk "localhost port berapa pun". */
+const CORS_LOKAL = CORS_DAFTAR.includes('lokal');
 
 /** Origin pengembangan: localhost / 127.0.0.1 / [::1] pada port berapa pun. */
 const POLA_LOKAL = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
+
+/**
+ * Origin yang PERNAH ditolak, supaya tiap origin hanya dicatat sekali.
+ *
+ * Tanpa ini satu klien yang salah konfigurasi membanjiri log dengan baris
+ * yang sama pada setiap permintaan, dan baris yang membanjir adalah baris
+ * yang berhenti dibaca — padahal justru inilah satu-satunya petunjuk ketika
+ * sebuah klien mendadak tidak bisa memanggil API.
+ */
+const asalDitolak = new Set();
 
 /**
  * Nilai `Access-Control-Allow-Origin` untuk sebuah permintaan.
  *
  * `null` berarti tidak ada header yang dipasang — permintaan tanpa `Origin`
  * (curl, aplikasi Flutter di Android/Windows, webhook Midtrans) memang tidak
- * melakukan CORS sama sekali, dan memasang header untuk mereka tidak berarti
- * apa-apa.
+ * melakukan CORS sama sekali.
  */
 function asalDiizinkan(req) {
   if (CORS_TERBUKA) return '*';
   const asal = req.headers.origin;
   if (!asal) return null;
   if (CORS_DAFTAR.includes(asal)) return asal;
-  // Cadangan pengembangan hanya berlaku ketika daftarnya memang kosong.
-  // Setelah administrator menyetel CORS_ORIGIN, localhost tidak lagi
-  // istimewa — kalau tidak, produksi diam-diam tetap menerima localhost.
-  if (CORS_DAFTAR.length === 0 && POLA_LOKAL.test(asal)) return asal;
+  if (CORS_LOKAL && POLA_LOKAL.test(asal)) return asal;
+
+  if (!asalDitolak.has(asal)) {
+    asalDitolak.add(asal);
+    console.warn(
+      `⚠️  CORS menolak origin "${asal}" — tidak ada di CORS_ORIGIN. `
+      + 'Klien dari asal itu akan melihat "Failed to fetch". '
+      + `Tambahkan ke CORS_ORIGIN bila memang sah. Daftar saat ini: ${CORS_DAFTAR.join(', ')}`
+    );
+  }
   return null;
 }
 
@@ -168,8 +200,7 @@ function asalDiizinkan(req) {
  *
  * `Vary: Origin` wajib begitu nilainya bergantung pada pemanggil: tanpa itu
  * perantara boleh menyimpan jawaban untuk satu origin lalu menyajikannya ke
- * origin lain, dan penjagaannya jadi tergantung siapa yang kebetulan lebih
- * dulu memanggil.
+ * origin lain.
  */
 function pasangHeaderCors(req, res) {
   const asal = asalDiizinkan(req);
@@ -180,6 +211,7 @@ function pasangHeaderCors(req, res) {
   res.header('Access-Control-Allow-Private-Network', 'true');
   return asal;
 }
+
 
 // Menangani preflight OPTIONS request SEBELUM middleware lain
 app.options('*', (req, res) => {

@@ -48,7 +48,7 @@ const FITUR_MATI = {
 /** Sebaiknya ada. Dicatat sebagai peringatan, tidak menghentikan server. */
 const DISARANKAN = {
   CORS_ORIGIN: 'domain yang boleh memanggil API dari peramban, dipisah koma '
-    + '(bawaan: hanya localhost — cukup untuk pengembangan, WAJIB disetel di produksi)',
+    + '(bawaan: TERBUKA untuk semua asal — WAJIB disetel di produksi)',
 };
 
 function periksaEnv() {
