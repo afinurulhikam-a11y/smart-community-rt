@@ -666,12 +666,15 @@ class _BopScreenState extends State<BopScreen> {
                           ],
                           baris: List.generate(
                             halamanIni.length,
-                            (i) => _buildRow(halamanIni[i], mulai + i + 1),
+                            (i) => _buildRow(
+                              halamanIni[i],
+                              ((provider.currentPage - 1) * provider.perPage) + i + 1,
+                            ),
                           ),
                           currentPage: provider.currentPage,
                           totalPages: provider.totalPages,
                           totalData: provider.totalData,
-                          perPage: _itemsPerPage,
+                          perPage: provider.perPage,
                           onPageChanged: (page) => _loadData(page: page),
                         ),
                       )),

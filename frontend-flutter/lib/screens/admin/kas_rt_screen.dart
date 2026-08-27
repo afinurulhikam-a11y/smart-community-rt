@@ -382,7 +382,7 @@ class _KasRtScreenState extends State<KasRtScreen> {
       ),
       child: Column(
         children: [
-          // Header: Ikon + Judul Riwayat Transaksi (Center)
+          // Header: Ikon + Judul Riwayat Transaksi Kas (Center)
           Center(
             child: Wrap(
               alignment: WrapAlignment.center,
@@ -394,7 +394,7 @@ class _KasRtScreenState extends State<KasRtScreen> {
                   color: Color(0xFF10B981),
                 ),
                 Text(
-                  'Riwayat Transaksi',
+                  'Riwayat Transaksi Kas',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -593,7 +593,10 @@ class _KasRtScreenState extends State<KasRtScreen> {
                           ],
                           baris: List.generate(
                             halamanIni.length,
-                            (i) => _buildRow(halamanIni[i], mulai + i + 1),
+                            (i) => _buildRow(
+                              halamanIni[i],
+                              ((provider.currentPage - 1) * provider.perPage) + i + 1,
+                            ),
                           ),
                           currentPage: provider.currentPage,
                           totalPages: provider.totalPages,

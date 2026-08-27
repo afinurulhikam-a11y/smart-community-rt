@@ -27,6 +27,7 @@ class BopProvider extends ChangeNotifier {
   int _currentPage = 1;
   int _totalPages = 1;
   int _totalData = 0;
+  int _perPage = 10;
 
   List<FinanceModel> get transactions => _transactions;
   BopSummary? get summary => _summary;
@@ -36,6 +37,7 @@ class BopProvider extends ChangeNotifier {
   int get currentPage => _currentPage;
   int get totalPages => _totalPages;
   int get totalData => _totalData;
+  int get perPage => _perPage;
 
   /// Filter aktif, dipakai bersama daftar, ringkasan, dan export supaya
   /// angkanya tidak pernah berbeda.
@@ -49,7 +51,7 @@ class BopProvider extends ChangeNotifier {
     int? kategoriId,
     String? search,
     int page = 1,
-    int limit = 25,
+    int limit = 10,
     bool silent = false,
   }) async {
     if (!silent) {
@@ -57,6 +59,7 @@ class BopProvider extends ChangeNotifier {
       notifyListeners();
     }
     _currentPage = page;
+    _perPage = limit;
 
     // `page` dan `limit` sengaja TIDAK masuk `_filterAktif`. Peta itu dipakai
     // ulang oleh ringkasan dan export, dan keduanya harus mencakup seluruh
