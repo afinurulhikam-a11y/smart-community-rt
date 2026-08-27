@@ -381,17 +381,6 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
                                     style: gayaAksiTabel(const Color(0xFFEF4444)),
                                     onPressed: () => _konfirmasiHapusSurat(data),
                                   ),
-                                ] else if (data.isDisetujui) ...[
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.download_rounded,
-                                      size: 20,
-                                      color: Color(0xFF3B82F6),
-                                    ),
-                                    tooltip: 'Download PDF',
-                                    style: gayaAksiTabel(const Color(0xFF3B82F6)),
-                                    onPressed: () => PdfService.downloadLetterPdf(data),
-                                  ),
                                 ],
                                 IconButton(
                                   icon: Icon(
@@ -638,13 +627,6 @@ class _SuratMenyuratScreenState extends State<SuratMenyuratScreen> {
                                     tooltip: 'Batalkan Pengajuan',
                                     style: gayaAksiTabel(const Color(0xFFEF4444)),
                                     onPressed: () => _konfirmasiHapusSurat(data),
-                                  ),
-                                if (data.isDisetujui)
-                                  IconButton(
-                                    icon: const Icon(Icons.download_rounded, size: 20, color: Color(0xFF3B82F6)),
-                                    tooltip: 'Download PDF',
-                                    style: gayaAksiTabel(const Color(0xFF3B82F6)),
-                                    onPressed: () => PdfService.downloadLetterPdf(data),
                                   ),
                                 IconButton(
                                   icon: Icon(Icons.remove_red_eye_outlined, size: 20, color: context.teksKedua),
