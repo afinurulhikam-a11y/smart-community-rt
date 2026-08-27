@@ -102,25 +102,93 @@ const limiterKetat = rateLimit({
 const HEADER_DIIZINKAN =
   'Content-Type, Authorization, Origin, Accept, X-Requested-With, ngrok-skip-browser-warning';
 
-// Origin diambil dari environment variable. Selama pengembangan (CORS_ORIGIN
-// tidak disetel), fallback ke '*'. Di produksi, setel CORS_ORIGIN ke domain
-// yang dikenal, misal 'https://smart-community-rt.vercel.app'.
-const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
+/**
+ * ===================================================================
+ * Asal yang boleh memanggil API
+ * ===================================================================
+ *
+ * Bentuk lamanya satu nilai yang dipantulkan mentah, dengan cadangan `*`.
+ * Dua akibatnya:
+ *
+ *   1. Tanpa CORS_ORIGIN, API terbuka untuk SETIAP situs di internet. Halaman
+ *      mana pun yang dibuka warga bisa memanggil API ini dari peramban mereka.
+ *      Token ada di header, bukan cookie, jadi ini bukan CSRF klasik — tetapi
+ *      seluruh endpoint tanpa autentikasi tetap terjangkau siapa saja.
+ *
+ *   2. Menyetelnya justru memutus pengembangan. `flutter run -d chrome`
+ *      memilih PORT ACAK setiap kali dijalankan (53380 hari ini, lain besok),
+ *      jadi satu origin tetap akan salah pada pemanggilan berikutnya — dan
+ *      gagalnya berbentuk "Failed to fetch", yang terbaca sebagai server mati.
+ *
+ * Karena itu daftarnya kini jamak, dan cadangannya bukan `*` melainkan
+ * "localhost port berapa pun". Peramban hanya menerima SATU origin pada
+ * `Access-Control-Allow-Origin`, jadi yang dipantulkan adalah origin pemanggil
+ * — setelah dicocokkan — bukan seluruh daftarnya.
+ *
+ * `*` masih bisa dipakai, tetapi harus disebut dengan sengaja:
+ *
+ *   CORS_ORIGIN=*                                     terbuka, sadar risikonya
+ *   CORS_ORIGIN=https://rt.example.com                satu domain
+ *   CORS_ORIGIN=https://a.example.com,https://b.id    beberapa domain
+ *   (tidak disetel)                                   localhost saja
+ */
+const CORS_DAFTAR = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
 
-// Menangani preflight OPTIONS request SEBELUM middleware lain
-app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', CORS_ORIGIN);
+const CORS_TERBUKA = CORS_DAFTAR.includes('*');
+
+/** Origin pengembangan: localhost / 127.0.0.1 / [::1] pada port berapa pun. */
+const POLA_LOKAL = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
+
+/**
+ * Nilai `Access-Control-Allow-Origin` untuk sebuah permintaan.
+ *
+ * `null` berarti tidak ada header yang dipasang — permintaan tanpa `Origin`
+ * (curl, aplikasi Flutter di Android/Windows, webhook Midtrans) memang tidak
+ * melakukan CORS sama sekali, dan memasang header untuk mereka tidak berarti
+ * apa-apa.
+ */
+function asalDiizinkan(req) {
+  if (CORS_TERBUKA) return '*';
+  const asal = req.headers.origin;
+  if (!asal) return null;
+  if (CORS_DAFTAR.includes(asal)) return asal;
+  // Cadangan pengembangan hanya berlaku ketika daftarnya memang kosong.
+  // Setelah administrator menyetel CORS_ORIGIN, localhost tidak lagi
+  // istimewa — kalau tidak, produksi diam-diam tetap menerima localhost.
+  if (CORS_DAFTAR.length === 0 && POLA_LOKAL.test(asal)) return asal;
+  return null;
+}
+
+/**
+ * Memasang header CORS. Dipakai jalur preflight dan jalur biasa, supaya
+ * keduanya tidak mungkin menjawab berbeda.
+ *
+ * `Vary: Origin` wajib begitu nilainya bergantung pada pemanggil: tanpa itu
+ * perantara boleh menyimpan jawaban untuk satu origin lalu menyajikannya ke
+ * origin lain, dan penjagaannya jadi tergantung siapa yang kebetulan lebih
+ * dulu memanggil.
+ */
+function pasangHeaderCors(req, res) {
+  const asal = asalDiizinkan(req);
+  if (asal) res.header('Access-Control-Allow-Origin', asal);
+  if (!CORS_TERBUKA) res.header('Vary', 'Origin');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
   res.header('Access-Control-Allow-Headers', HEADER_DIIZINKAN);
   res.header('Access-Control-Allow-Private-Network', 'true');
+  return asal;
+}
+
+// Menangani preflight OPTIONS request SEBELUM middleware lain
+app.options('*', (req, res) => {
+  pasangHeaderCors(req, res);
   res.header('Access-Control-Max-Age', '86400');
   return res.sendStatus(204);
 });
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', CORS_ORIGIN);
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  res.header('Access-Control-Allow-Headers', HEADER_DIIZINKAN);
-  res.header('Access-Control-Allow-Private-Network', 'true');
+  pasangHeaderCors(req, res);
   next();
 });
 app.use(compression());

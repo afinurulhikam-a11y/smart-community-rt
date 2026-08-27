@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/api_constants.dart';
+import '../peran.dart';
 import 'api_service.dart';
 import 'fcm_service.dart';
 
@@ -19,22 +20,14 @@ class AuthService extends ChangeNotifier {
   String get userName => _user?['nama'] ?? '';
   String get userId => _user?['id']?.toString() ?? '';
 
-  /// Role yang diterima endpoint berpenjaga `roleGuard('admin', 'pengurus_rt')`.
-  ///
-  /// Cermin dari `auth.middleware.js`: middleware di backend memperluas
-  /// 'pengurus_rt' menjadi ketua_rt, sekretaris, dan bendahara. Efektifnya
-  /// semua role kecuali 'warga'. Bila daftar di backend berubah, ubah di sini.
-  static const Set<String> _rolePengurus = {
-    'admin',
-    'pengurus_rt',
-    'ketua_rt',
-    'sekretaris',
-    'bendahara',
-  };
-
   /// True bila user berhak mengakses endpoint khusus pengurus. Dipakai untuk
   /// tidak menembakkan request yang sudah pasti ditolak 403.
-  bool get isPengurus => _rolePengurus.contains(userRole);
+  ///
+  /// Daftarnya ada di `Peran.pengurus`, bukan di sini. Salinan lokalnya dulu
+  /// melewatkan `ketua_rw`, dan akibatnya halus: layar yang memakai penjaga
+  /// ini membiarkan dirinya kosong tanpa pernah bertanya ke server, padahal
+  /// Ketua RW memegang izin lihat pada hampir seluruh modul.
+  bool get isPengurus => Peran.pengurus.contains(userRole);
 
   String get userRoleLabel {
     switch (userRole) {

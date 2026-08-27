@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../core/responsif.dart';
+import '../../core/peran.dart';
 import '../../core/pesan.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/services/auth_service.dart';
@@ -1652,24 +1653,12 @@ class _MainDashboardState extends State<MainDashboard> {
     );
   }
 
-  String _getRoleDisplayName(String role) {
-    switch (role) {
-      case 'admin':
-        return 'Administrator';
-      case 'pengurus_rt':
-        return 'Pengurus RT';
-      case 'ketua_rt':
-        return 'Ketua RT';
-      case 'sekretaris':
-        return 'Sekretaris';
-      case 'bendahara':
-        return 'Bendahara';
-      case 'warga':
-        return 'Warga RT';
-      default:
-        return 'Pengguna';
-    }
-  }
+  /// Satu daftar nama peran untuk seluruh aplikasi.
+  ///
+  /// Salinan lokalnya dulu tidak mengenal `ketua_rw`, sehingga menu akun
+  /// menampilkan "Pengguna" untuk seorang Ketua RW — benar menurut kodenya,
+  /// dan salah bagi yang membacanya.
+  String _getRoleDisplayName(String role) => Peran.label(role);
 
   Widget _buildBody(AuthService auth) {
     final bool warga = auth.userRole == 'warga';

@@ -6,6 +6,7 @@ import 'package:intl/date_symbol_data_local.dart';
 // Core
 import 'core/theme/app_theme.dart';
 import 'core/services/auth_service.dart';
+import 'core/peran.dart';
 import 'core/services/websocket_service.dart';
 import 'core/services/fcm_service.dart';
 import 'core/pesan.dart';
@@ -453,8 +454,14 @@ class _AuthGateState extends State<AuthGate> {
 
         // Semua role memakai MainDashboard; sidebar menyaring menunya
         // berdasarkan izin yang dimuat di latar belakang.
-        const roleDikenal = {'admin', 'ketua_rt', 'sekretaris', 'bendahara', 'warga'};
-        return roleDikenal.contains(auth.userRole) ? const MainDashboard() : const LoginScreen();
+        //
+        // Daftar perannya dibaca dari `Peran.semua`, bukan ditulis di baris
+        // ini. Bentuk lamanya menyebut lima peran langsung di sini, dan ketika
+        // `ketua_rw` ditambahkan di backend ia tidak ikut — sehingga login
+        // sebagai Ketua RW BERHASIL, tokennya tersimpan, lalu layarnya kembali
+        // ke Login tanpa satu pun pesan. Dari sisi pemakai: menekan Masuk
+        // tidak terjadi apa-apa, dan tidak ada apa pun untuk dibaca.
+        return Peran.dikenal(auth.userRole) ? const MainDashboard() : const LoginScreen();
       },
     );
   }
