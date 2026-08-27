@@ -58,9 +58,17 @@ class _KasRtScreenState extends State<KasRtScreen> {
   String _searchQuery = '';
   String _tipe = 'Semua Jenis';
   String _bulan = 'Semua Bulan';
-  String _tahun = DateTime.now().year.toString();
+  String _tahun = 'Semua Tahun';
 
   final TextEditingController _searchController = TextEditingController();
+  final List<String> _tahunList = [
+    'Semua Tahun',
+    '2026',
+    '2027',
+    '2028',
+    '2029',
+    '2030',
+  ];
 
   @override
   void initState() {
@@ -82,17 +90,19 @@ class _KasRtScreenState extends State<KasRtScreen> {
     if (_bulan == 'Semua Bulan') return null;
     final idx = _namaBulan.indexOf(_bulan);
     if (idx < 0) return null;
-    return '$_tahun-${(idx + 1).toString().padLeft(2, '0')}';
+    final thn = (_tahun == 'Semua Tahun' || _tahun == 'Semua') ? DateTime.now().year.toString() : _tahun;
+    return '$thn-${(idx + 1).toString().padLeft(2, '0')}';
   }
 
   void _loadData({int page = 1}) {
+    final thnParam = (_tahun == 'Semua Tahun' || _tahun == 'Semua') ? null : _tahun;
     context.read<FinanceProvider>().fetchTransactions(
       tipe: _tipe == 'Semua Jenis' || _tipe == 'Non Iuran'
           ? null
           : (_tipe == 'Pemasukan' ? 'pemasukan' : 'pengeluaran'),
       sumber: _tipe == 'Non Iuran' ? 'non_iuran' : null,
       bulan: _periodeFilter,
-      tahun: _periodeFilter == null ? _tahun : null,
+      tahun: _periodeFilter == null ? thnParam : null,
       search: _searchQuery.isEmpty ? null : _searchQuery,
       page: page,
     );
@@ -111,9 +121,7 @@ class _KasRtScreenState extends State<KasRtScreen> {
     final halamanIni = provider.transactions;
     final totalHalaman = provider.totalPages;
     final currentPage = provider.currentPage;
-    final totalData = provider.totalData;
     final mulai = (currentPage - 1) * provider.perPage;
-    final akhir = (mulai + halamanIni.length).clamp(0, totalData);
 
     // Aksi utama layar ini: mencatat pemasukan. Kerangka aplikasi yang
     // menggambarnya sebagai FAB — lihat AksiUtamaProvider.
@@ -136,9 +144,9 @@ class _KasRtScreenState extends State<KasRtScreen> {
         const SizedBox(height: 24),
         _buildSummaryCards(provider),
         const SizedBox(height: 24),
-        _buildFilters(),
+        _buildActionButtons(),
         const SizedBox(height: 24),
-        _buildTableCard(provider, halamanIni, totalHalaman, mulai, akhir, totalData, currentPage),
+        _buildTableCard(provider, halamanIni, totalHalaman, mulai),
         const SizedBox(height: 32),
       ],
     );
@@ -181,35 +189,6 @@ class _KasRtScreenState extends State<KasRtScreen> {
                 ),
               ],
             ),
-          // Tombol "Transfer Kas" sengaja tidak ada: RT ini hanya punya satu
-          // kantong kas, jadi tidak ada tujuan pemindahan dana.
-          Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            children: [
-              if (_bolehTambah)
-                _filledBtn(
-                  Icons.arrow_downward,
-                  'Pemasukan',
-                  _hijauTerang,
-                  () => _showFormTransaksi('pemasukan'),
-                ),
-              if (_bolehTambah)
-                _filledBtn(
-                  Icons.arrow_upward,
-                  'Pengeluaran',
-                  _merah,
-                  () => _showFormTransaksi('pengeluaran'),
-                ),
-              if (_bolehUbah)
-                _outlinedBtn(
-                  Icons.account_balance_wallet,
-                  'Master Kas',
-                  _hijau,
-                  _showMasterKasDialog,
-                ),
-            ],
-          ),
         ],
       ),
     );
@@ -219,28 +198,36 @@ class _KasRtScreenState extends State<KasRtScreen> {
 
   Widget _buildSummaryCards(FinanceProvider provider) {
     final s = provider.summary;
-    final labelPeriode = _periodeFilter == null ? 'BULAN INI' : 'PERIODE DIPILIH';
+    final labelPeriode = _periodeFilter == null ? 'Bulan Ini' : 'Periode Dipilih';
+
+    final kartu = [
+      _statCard(
+        'Pemasukan $labelPeriode',
+        _rupiah(s?.pemasukanBulan ?? 0),
+        'Total pemasukan kas',
+        Icons.trending_up,
+        const Color(0xFF10B981),
+      ),
+      _statCard(
+        'Pengeluaran $labelPeriode',
+        _rupiah(s?.pengeluaranBulan ?? 0),
+        'Total pengeluaran kas',
+        Icons.trending_down,
+        const Color(0xFFEF4444),
+      ),
+      _statCard(
+        'Saldo Kas Saat Ini',
+        _rupiah(s?.saldoTotal ?? 0),
+        'Saldo kumulatif kas RT',
+        Icons.account_balance_wallet,
+        const Color(0xFF3B82F6),
+      ),
+    ];
 
     return LayoutBuilder(
       builder: (context, c) {
-        final kolom = c.maxWidth > 900 ? 3 : 1;
+        final kolom = c.maxWidth > 900 ? 3 : (c.maxWidth > 500 ? 2 : 1);
         final lebar = (c.maxWidth - (16 * (kolom - 1))) / kolom;
-        final kartu = [
-          _summaryCard('PEMASUKAN $labelPeriode', _rupiah(s?.pemasukanBulan ?? 0), const [
-            Color(0xFF0D9488),
-            Color(0xFF14B8A6),
-          ], Icons.trending_up),
-          _summaryCard('PENGELUARAN $labelPeriode', _rupiah(s?.pengeluaranBulan ?? 0), const [
-            Color(0xFFDC2626),
-            Color(0xFFEF4444),
-          ], Icons.trending_down),
-          // Saldo selalu sepanjang masa — tidak ikut tersaring periode, sesuai
-          // labelnya "SAAT INI".
-          _summaryCard('SALDO KAS SAAT INI', _rupiah(s?.saldoTotal ?? 0), const [
-            Color(0xFF1E3A5F),
-            Color(0xFF334155),
-          ], Icons.account_balance_wallet),
-        ];
         return Wrap(
           spacing: 16,
           runSpacing: 16,
@@ -250,15 +237,25 @@ class _KasRtScreenState extends State<KasRtScreen> {
     );
   }
 
-  Widget _summaryCard(String label, String value, List<Color> colors, IconData icon) {
+  Widget _statCard(String label, String nilai, String sub, IconData ikon, Color warna) {
     return Container(
-      padding: EdgeInsets.all(paddingKartu(context)),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: colors),
+        color: context.latarKartu,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.garis),
       ),
       child: Row(
         children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: warna.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(ikon, color: warna, size: 20),
+          ),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -267,138 +264,104 @@ class _KasRtScreenState extends State<KasRtScreen> {
                   label,
                   style: TextStyle(
                     fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white.withValues(alpha: 0.85),
+                    color: context.teksKedua,
+                    fontWeight: FontWeight.w600,
                   ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  nilai,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: context.teksUtama,
+                  ),
+                ),
+                Text(
+                  sub,
+                  style: TextStyle(fontSize: 11, color: context.teksTersier),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
                 ),
               ],
             ),
           ),
-          Icon(icon, color: Colors.white.withValues(alpha: 0.4), size: 32),
         ],
       ),
     );
   }
 
-  // --------------------------------------------------------------- filters
+  // -------------------------------------------------------- action buttons
 
-  Widget _buildFilters() {
-    return Container(
-      padding: EdgeInsets.all(paddingKartu(context)),
-      decoration: BoxDecoration(
-        color: context.latarKartu,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: context.garis),
-      ),
-      child: Wrap(
-        spacing: 16,
-        runSpacing: 16,
-        crossAxisAlignment: WrapCrossAlignment.end,
-        children: [
-          _dropdownFilter(
-            'Jenis',
-            _tipe,
-            const ['Semua Jenis', 'Pemasukan', 'Pengeluaran', 'Non Iuran'],
-            (v) {
-              setState(() => _tipe = v!);
-              _loadData();
-            },
-          ),
-          _dropdownFilter('Bulan', _bulan, ['Semua Bulan', ..._namaBulan], (v) {
-            setState(() => _bulan = v!);
-            _loadData();
-          }),
-          _dropdownFilter(
-            'Tahun',
-            _tahun,
-            List.generate(5, (i) => (DateTime.now().year - 2 + i).toString()),
-            (v) {
-              setState(() => _tahun = v!);
-              _loadData();
-            },
-          ),
-          // Tanpa tombol "Filter": setiap dropdown langsung memuat ulang saat
-          // nilainya berubah, jadi tombol itu hanya duplikasi. Yang tersisa
-          // hanyalah Reset untuk mengembalikan semua filter ke awal.
-          OutlinedButton.icon(
-            onPressed: () {
-              setState(() {
-                _tipe = 'Semua Jenis';
-                _bulan = 'Semua Bulan';
-                _tahun = DateTime.now().year.toString();
-                _searchQuery = '';
-                _searchController.clear();
-              });
-              _loadData();
-            },
-            icon: const Icon(Icons.refresh, size: 16),
-            label: const Text(
-              'Reset',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-            ),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: context.teksKedua,
-              side: BorderSide(color: context.garis),
-              visualDensity: VisualDensity.standard,
-              minimumSize: const Size(0, AppTheme.sasaranSentuh),
-              maximumSize: const Size(double.infinity, AppTheme.sasaranSentuh),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _dropdownFilter(
-    String label,
-    String value,
-    List<String> items,
-    ValueChanged<String?> onChanged,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildActionButtons() {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Text(label, style: TextStyle(fontSize: 12, color: context.teksKedua)),
-        const SizedBox(height: 8),
-        Container(
-          constraints: const BoxConstraints(
-            minHeight: AppTheme.sasaranSentuh,
-            maxHeight: AppTheme.sasaranSentuh,
+        if (_bolehTambah)
+          _filledBtn(
+            Icons.arrow_downward,
+            'Pemasukan',
+            _hijauTerang,
+            () => _showFormTransaksi('pemasukan'),
           ),
-          // Selebar layar di ponsel: dengan 180 tetap, tiap filter tetap
-          // turun ke barisnya sendiri tetapi menyisakan ruang kosong di
-          // kanannya — itu yang membuat tampilan terlihat berserakan.
-          width: lebarKolomFilter(context),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            border: Border.all(color: context.garis),
-            borderRadius: BorderRadius.circular(8),
+        if (_bolehTambah)
+          _filledBtn(
+            Icons.arrow_upward,
+            'Pengeluaran',
+            _merah,
+            () => _showFormTransaksi('pengeluaran'),
           ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: value,
-              isExpanded: true,
-              icon: Icon(Icons.keyboard_arrow_down, size: 16, color: context.teksKedua),
-              style: TextStyle(fontSize: 13, color: context.teksUtama),
-              items: items.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
-              onChanged: onChanged,
-            ),
+        if (_bolehUbah)
+          _outlinedBtn(
+            Icons.category_outlined,
+            'Master Kas',
+            _hijau,
+            _showMasterKasDialog,
           ),
+        _filledBtn(
+          Icons.table_chart_outlined,
+          'Laporan Excel',
+          const Color(0xFF10B981),
+          () => context.read<FinanceProvider>().downloadExport(format: 'excel'),
+        ),
+        _filledBtn(
+          Icons.picture_as_pdf_outlined,
+          'Laporan PDF',
+          _merah,
+          () => context.read<FinanceProvider>().downloadExport(format: 'pdf'),
         ),
       ],
+    );
+  }
+
+  Widget _dropdownFilter<T>(
+    T value,
+    List<DropdownMenuItem<T>> items,
+    ValueChanged<T?> onChanged, {
+    double? lebar,
+  }) {
+    return SizedBox(
+      width: lebar ?? lebarKolomFilter(context, maksimal: 160),
+      height: AppTheme.sasaranSentuh,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          border: Border.all(color: context.garis),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<T>(
+            value: value,
+            isExpanded: true,
+            icon: Icon(Icons.keyboard_arrow_down, size: 16, color: context.teksKedua),
+            style: TextStyle(fontSize: 13, color: context.teksUtama),
+            items: items,
+            onChanged: onChanged,
+          ),
+        ),
+      ),
     );
   }
 
@@ -409,247 +372,236 @@ class _KasRtScreenState extends State<KasRtScreen> {
     List<FinanceModel> halamanIni,
     int totalHalaman,
     int mulai,
-    int akhir,
-    int totalData,
-    int currentPage,
   ) {
     return Container(
+      padding: EdgeInsets.all(paddingKartu(context)),
       decoration: BoxDecoration(
         color: context.latarKartu,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: context.garis),
       ),
       child: Column(
         children: [
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: paddingKartu(context), vertical: 16),
-            // Label di tengah, tombol laporan di kanan atas sejajar labelnya —
-            // pada layar lebar. Di layar sempit keduanya tidak muat satu baris,
-            // jadi tombol turun ke barisnya sendiri (LayoutBuilder memilih).
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final label = Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.history, color: Color(0xFF10B981), size: 20),
-                    const SizedBox(width: 8),
-                    // Flexible + ellipsis: di layar 320px judul ini bersama
-                    // ikonnya melampaui lebar kartu.
-                    Flexible(
-                      child: Text(
-                        'Riwayat Transaksi',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: context.teksUtama,
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-                final tombol = Wrap(
-                  spacing: 8,
-                  children: [
-                    _outlinedBtn(
-                      Icons.table_chart_outlined,
-                      'Laporan Excel',
-                      const Color(0xFF10B981),
-                      () => provider.downloadExport(format: 'excel'),
-                      kecil: true,
-                    ),
-                    _outlinedBtn(
-                      Icons.picture_as_pdf_outlined,
-                      'Laporan PDF',
-                      _merah,
-                      () => provider.downloadExport(format: 'pdf'),
-                      kecil: true,
-                    ),
-                  ],
-                );
-
-                if (constraints.maxWidth < 560) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Align(alignment: Alignment.centerLeft, child: label),
-                      const SizedBox(height: 8),
-                      Align(alignment: Alignment.centerRight, child: tombol),
-                    ],
-                  );
-                }
-                return Row(
-                  children: [
-                    Expanded(
-                      child: Align(alignment: Alignment.centerLeft, child: label),
-                    ),
-                    const SizedBox(width: 12),
-                    tombol,
-                  ],
-                );
-              },
-            ),
-          ),
-          const Divider(height: 1),
-          Padding(
-            padding: EdgeInsets.all(paddingKartu(context)),
-            // Kolom pencarian diletakkan di tengah dengan label "Pencarian" di
-            // kiri kolomnya. Tidak memakai lebarKolomFilter di sini: nilainya
-            // double.infinity pada mobile, yang tidak aman di dalam Row —
-            // ConstrainedBox + Expanded membuat lebar selalu berhingga.
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 460),
-                child: Row(
-                  children: [
-                    Text(
-                      'Pencarian',
-                      style: TextStyle(fontSize: 13, color: context.teksKedua),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _searchController,
-                        onSubmitted: (v) {
-                          _searchQuery = v;
-                          _loadData();
-                        },
-                        decoration: InputDecoration(
-                          hintText: 'Cari keterangan / kategori...',
-                          hintStyle: TextStyle(fontSize: 12, color: context.teksTersier),
-                          prefixIcon: Icon(Icons.search, size: 18, color: context.teksKedua),
-                          suffixIcon: IconButton(
-                            icon: const Icon(Icons.arrow_forward, size: 16),
-                            onPressed: () {
-                              _searchQuery = _searchController.text;
-                              _loadData();
-                            },
-                          ),
-                          filled: true,
-                          fillColor: context.latarLembut,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: context.garis),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: context.garis),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(color: Color(0xFF1B7A6A), width: 1.5),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                        ),
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          if (provider.isLoading && halamanIni.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 40),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (halamanIni.isEmpty)
-            Padding(
-              padding: EdgeInsets.symmetric(vertical: 40),
-              child: Center(
-                child: Column(
-                  children: [
-                    Icon(Icons.receipt_long_outlined, size: 40, color: context.garis),
-                    SizedBox(height: 12),
-                    Text(
-                      'Belum ada transaksi',
-                      style: TextStyle(color: context.teksTersier, fontSize: 13),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Pembayaran iuran warga akan otomatis muncul di sini.',
-                      style: TextStyle(color: context.garis, fontSize: 11),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          else
-            Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: pakaiKartu(context) ? 12 : 0,
-                vertical: pakaiKartu(context) ? 12 : 0,
-              ),
-              child: TabelResponsif(
-                kolom: const [
-                  'NO',
-                  'TANGGAL',
-                  'JENIS',
-                  'KATEGORI',
-                  'KETERANGAN',
-                  'PEMASUKAN',
-                  'PENGELUARAN',
-                  'SALDO',
-                ],
-                baris: List.generate(
-                  halamanIni.length,
-                  (i) => _buildRow(halamanIni[i], mulai + i + 1),
-                ),
-              ),
-            ),
-          const Divider(height: 1),
-          Padding(
-            padding: EdgeInsets.all(paddingKartu(context)),
-            // Wrap: keterangan jumlah data dan tombol halaman bersama memakan
-            // sekitar 460px, jauh di atas ~296px yang tersedia di ponsel.
+          // Header: Ikon + Judul Riwayat Transaksi (Center)
+          Center(
             child: Wrap(
-              alignment: WrapAlignment.spaceBetween,
+              alignment: WrapAlignment.center,
               crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 16,
-              runSpacing: 12,
+              spacing: 8,
               children: [
-                Text(
-                  totalData == 0
-                      ? 'Tidak ada data'
-                      : 'Menampilkan ${mulai + 1} – $akhir dari $totalData transaksi',
-                  style: TextStyle(fontSize: 13, color: context.teksKedua),
+                const Icon(
+                  Icons.history_rounded,
+                  color: Color(0xFF10B981),
                 ),
-                // Wrap, bukan Row. Tujuh tombol (< 1 2 3 4 5 >) dalam sebuah Row
-                // tidak bisa pindah baris: pada font sistem 1,3x lebarnya
-                // ±358px di ruang 336px, melimpah 8,7px. Dengan Wrap, tombol
-                // yang tidak muat turun ke baris berikutnya.
-                //
-                // Jaraknya diatur `spacing`/`runSpacing`, BUKAN SizedBox di
-                // antara anak-anaknya — sebuah SizedBox di dalam Wrap menjadi
-                // item tersendiri, bukan pemisah, sehingga jaraknya jadi tidak
-                // rata begitu barisnya membungkus.
-                Wrap(
-                  spacing: 4,
-                  runSpacing: 4,
-                  children: [
-                    _pageBtn(
-                      '<',
-                      false,
-                      currentPage > 1 ? () => _loadData(page: currentPage - 1) : null,
-                    ),
-                    ...List.generate(totalHalaman.clamp(0, 5), (i) {
-                      final n = i + 1;
-                      return _pageBtn(
-                        '$n',
-                        n == currentPage,
-                        () => _loadData(page: n),
-                      );
-                    }),
-                    _pageBtn(
-                      '>',
-                      false,
-                      currentPage < totalHalaman ? () => _loadData(page: currentPage + 1) : null,
-                    ),
-                  ],
+                Text(
+                  'Riwayat Transaksi',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: context.teksUtama,
+                  ),
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 20),
+
+          // Baris 1: Pencarian & Reset (Center)
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              Text(
+                'Pencarian',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: context.teksKedua,
+                ),
+              ),
+              SizedBox(
+                width: 280,
+                child: TextField(
+                  controller: _searchController,
+                  style: TextStyle(color: context.teksUtama, fontSize: 13),
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (v) {
+                    _searchQuery = v.trim();
+                    _loadData();
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Cari keterangan / kategori...',
+                    hintStyle: TextStyle(fontSize: 12, color: context.teksTersier),
+                    prefixIcon: Icon(Icons.search, size: 18, color: context.teksKedua),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.arrow_forward, size: 16),
+                      tooltip: 'Cari',
+                      onPressed: () {
+                        _searchQuery = _searchController.text.trim();
+                        _loadData();
+                      },
+                    ),
+                    filled: true,
+                    fillColor: context.latarLembut,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: context.garis),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: context.garis),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFF1B7A6A)),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _tipe = 'Semua Jenis';
+                    _bulan = 'Semua Bulan';
+                    _tahun = 'Semua Tahun';
+                    _searchQuery = '';
+                    _searchController.clear();
+                  });
+                  _loadData();
+                },
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text(
+                  'Reset',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: context.teksKedua,
+                  side: BorderSide(color: context.garis),
+                  visualDensity: VisualDensity.standard,
+                  minimumSize: const Size(0, AppTheme.sasaranSentuh),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Baris 2: Dropdown Filter Jenis, Bulan, Tahun (Center)
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              _dropdownFilter<String>(
+                _tipe,
+                const ['Semua Jenis', 'Pemasukan', 'Pengeluaran', 'Non Iuran']
+                    .map((e) => DropdownMenuItem(value: e, child: Text(e, overflow: TextOverflow.ellipsis)))
+                    .toList(),
+                (v) {
+                  if (v != null) {
+                    setState(() => _tipe = v);
+                    _loadData();
+                  }
+                },
+                lebar: lebarKolomFilter(context, maksimal: 160),
+              ),
+              _dropdownFilter<String>(
+                _bulan,
+                ['Semua Bulan', ..._namaBulan]
+                    .map((e) => DropdownMenuItem(value: e, child: Text(e, overflow: TextOverflow.ellipsis)))
+                    .toList(),
+                (v) {
+                  if (v != null) {
+                    setState(() => _bulan = v);
+                    _loadData();
+                  }
+                },
+                lebar: lebarKolomFilter(context, maksimal: 160),
+              ),
+              _dropdownFilter<String>(
+                _tahun,
+                _tahunList
+                    .map((e) => DropdownMenuItem(value: e, child: Text(e, overflow: TextOverflow.ellipsis)))
+                    .toList(),
+                (v) {
+                  if (v != null) {
+                    setState(() => _tahun = v);
+                    _loadData();
+                  }
+                },
+                lebar: lebarKolomFilter(context, maksimal: 160),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Tabel di dalam container bergaris
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: context.latarKartu,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: context.garis),
+            ),
+            child: provider.isLoading && halamanIni.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                : (halamanIni.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 40),
+                        child: Center(
+                          child: Column(
+                            children: [
+                              Icon(Icons.receipt_long_outlined, size: 40, color: context.garis),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Belum Ada Transaksi',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: context.teksUtama,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Transaksi kas RT akan muncul di sini.',
+                                style: TextStyle(fontSize: 13, color: context.teksKedua),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : Padding(
+                        padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
+                        child: TabelResponsif(
+                          kolom: const [
+                            'NO',
+                            'TANGGAL',
+                            'JENIS',
+                            'KATEGORI',
+                            'KETERANGAN',
+                            'PEMASUKAN',
+                            'PENGELUARAN',
+                            'SALDO',
+                          ],
+                          baris: List.generate(
+                            halamanIni.length,
+                            (i) => _buildRow(halamanIni[i], mulai + i + 1),
+                          ),
+                          currentPage: provider.currentPage,
+                          totalPages: provider.totalPages,
+                          totalData: provider.totalData,
+                          perPage: provider.perPage,
+                          onPageChanged: (page) => _loadData(page: page),
+                        ),
+                      )),
           ),
         ],
       ),
@@ -846,31 +798,6 @@ class _KasRtScreenState extends State<KasRtScreen> {
     );
   }
 
-  Widget _pageBtn(String text, bool aktif, VoidCallback? onTap) {
-    final mati = onTap == null;
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          // `context.latarKartu`, bukan Colors.white — sisa migrasi mode gelap
-          // yang terlewat: tombol halaman yang tidak aktif tetap putih di atas
-          // latar gelap.
-          color: aktif ? const Color(0xFF3B82F6) : (mati ? context.latarLembut : context.latarKartu),
-          border: Border.all(color: aktif ? const Color(0xFF3B82F6) : context.garis),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: 13,
-            color: aktif ? Colors.white : (mati ? context.teksTersier : context.teksKedua),
-            fontWeight: aktif ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-      ),
-    );
-  }
 
   // -------------------------------------------------------------- dialogs
 
@@ -1177,7 +1104,15 @@ class _KasRtScreenState extends State<KasRtScreen> {
                     },
                   ),
           ),
-          actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('Tutup'))],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c),
+              style: TextButton.styleFrom(
+                foregroundColor: c2.warnaTombolTutup,
+              ),
+              child: const Text('Tutup'),
+            ),
+          ],
         ),
       ),
     );
@@ -1230,7 +1165,13 @@ class _KasRtScreenState extends State<KasRtScreen> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(c), child: const Text('Batal')),
+            TextButton(
+              onPressed: () => Navigator.pop(c),
+              style: TextButton.styleFrom(
+                foregroundColor: c2.warnaTombolTutup,
+              ),
+              child: const Text('Batal'),
+            ),
             ElevatedButton(
               onPressed: () async {
                 if (namaCtrl.text.trim().isEmpty) {
