@@ -189,70 +189,40 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const BannerLihatSaja(kode: _kodeIzin),
-        // Header
-        SizedBox(
-          width: double.infinity,
-          child: Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 12,
-            runSpacing: 12,
+        // Header Breadcrumb
+        Container(
+          padding: EdgeInsets.all(paddingKartu(context)),
+          decoration: BoxDecoration(
+            color: context.latarKartu,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: context.garis),
+          ),
+          child: Row(
             children: [
-              if (!pakaiKartu(context))
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TombolKembali(onPressed: widget.onBack),
-                    const SizedBox(width: 10),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1B7A6A).withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.favorite_border_rounded,
-                        color: Color(0xFF1B7A6A),
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Flexible(
-                      child: Text(
-                        'Kependudukan / Bantuan Sosial',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: context.teksKedua,
-                        ),
-                      ),
-                    ),
-                  ],
+              TombolKembali(onPressed: widget.onBack),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1B7A6A).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-              Wrap(
-                spacing: AppTheme.spasiS,
-                runSpacing: AppTheme.spasiS,
-                children: [
-                  if (_bolehTambah)
-                    _buildActionButton(
-                      Icons.person_add,
-                      'Tambah Penerima',
-                      const Color(0xFF1B7A6A),
-                      onTap: () => _showFormDialog(),
-                    ),
-                  _buildActionButton(
-                    Icons.description,
-                    'Export Excel',
-                    const Color(0xFF059669),
-                    onTap: () => _exportData('excel'),
+                child: const Icon(
+                  Icons.favorite_border_rounded,
+                  color: Color(0xFF1B7A6A),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  'Kependudukan / Bantuan Sosial',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: context.teksKedua,
                   ),
-                  _buildActionButton(
-                    Icons.picture_as_pdf,
-                    'Export PDF',
-                    const Color(0xFFDC2626),
-                    onTap: () => _exportData('pdf'),
-                  ),
-                ],
+                ),
               ),
             ],
           ),
@@ -309,6 +279,36 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
               },
             );
           },
+        ),
+
+        const SizedBox(height: 16),
+
+        // Action Buttons
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            if (_bolehTambah)
+              _buildActionButton(
+                Icons.person_add,
+                'Tambah Penerima',
+                const Color(0xFF1B7A6A),
+                onTap: () => _showFormDialog(),
+              ),
+            _buildActionButton(
+              Icons.table_chart_outlined,
+              'Export Excel',
+              const Color(0xFF059669),
+              onTap: () => _exportData('excel'),
+            ),
+            _buildActionButton(
+              Icons.picture_as_pdf_outlined,
+              'Export PDF',
+              const Color(0xFFDC2626),
+              onTap: () => _exportData('pdf'),
+            ),
+          ],
         ),
 
         const SizedBox(height: 16),
@@ -937,14 +937,14 @@ class _BantuanSosialScreenState extends State<BantuanSosialScreen> {
       icon: Icon(icon, size: 16),
       label: Text(
         label,
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
       ),
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
         foregroundColor: Colors.white,
         elevation: 0,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       ),
     );
   }

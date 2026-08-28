@@ -6,6 +6,7 @@ import '../../core/responsif.dart';
 import 'dart:convert';
 import '../../providers/warga_provider.dart';
 import '../../providers/permission_provider.dart';
+import '../../providers/demographic_provider.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/api_service.dart';
 import '../../core/constants/api_constants.dart';
@@ -217,6 +218,7 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<WargaProvider>().fetchWarga();
+      context.read<DemographicProvider>().fetchDemographics(silent: true);
     });
   }
 
@@ -228,104 +230,202 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
 
   bool get _isDarkMode => Theme.of(context).brightness == Brightness.dark;
 
+  Widget _statCard(String label, String nilai, String sub, IconData ikon, Color warna) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: context.latarKartu,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.garis),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: warna.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(ikon, color: warna, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: context.teksKedua,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  nilai,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: context.teksUtama,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  sub,
+                  style: TextStyle(fontSize: 11, color: context.teksTersier),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCards(WargaProvider provider, DemographicProvider demografi) {
+    final totalWarga = provider.totalData > 0 ? provider.totalData : (demografi.data?.summary.totalWarga ?? 0);
+    final laki = demografi.data?.summary.lakiLaki ?? 0;
+    final perempuan = demografi.data?.summary.perempuan ?? 0;
+    final totalKk = demografi.data?.summary.totalKk ?? 0;
+
+    final kartu = [
+      _statCard(
+        'Total Warga',
+        '$totalWarga',
+        'seluruh warga terdata',
+        Icons.people_outline,
+        const Color(0xFF1B7A6A),
+      ),
+      _statCard(
+        'Laki-laki',
+        '$laki',
+        'warga laki-laki',
+        Icons.male_rounded,
+        const Color(0xFF3B82F6),
+      ),
+      _statCard(
+        'Perempuan',
+        '$perempuan',
+        'warga perempuan',
+        Icons.female_rounded,
+        const Color(0xFFEC4899),
+      ),
+      _statCard(
+        'Total KK',
+        '$totalKk',
+        'kartu keluarga',
+        Icons.home_work_outlined,
+        const Color(0xFFF59E0B),
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, c) {
+        final kolom = c.maxWidth > 900 ? 4 : (c.maxWidth > 500 ? 2 : 1);
+        final lebar = (c.maxWidth - (16 * (kolom - 1))) / kolom;
+        return Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: kartu.map((w) => SizedBox(width: lebar, child: w)).toList(),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<WargaProvider>();
+    final demografi = context.watch<DemographicProvider>();
     final paginatedData = provider.wargaList;
-
-    // TIDAK ada `if (isLoading) return spinner` di sini lagi.
-    //
-    // Cabang itu membuang SELURUH layar — header, filter, tabel, dan kotak
-    // pencariannya sendiri. Melepas kotak pencarian dari pohon widget ikut
-    // membuang FocusNode-nya, sehingga papan ketik tertutup dan kursornya
-    // hilang setiap kali data dimuat. Pengguna harus menyentuh kotaknya lagi
-    // untuk melanjutkan mengetik.
-    //
-    // Sekarang kerangkanya tetap terpasang dan hanya bagian tabel yang
-    // digantikan indikator — lihat `_buildIsiTabel` di bawah.
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const BannerLihatSaja(kode: _kodeIzin),
-        // Top Header and Action Buttons
-        SizedBox(
-          width: double.infinity,
-          child: Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 12,
-            runSpacing: 12,
+
+        // Header Breadcrumb
+        Container(
+          padding: EdgeInsets.all(paddingKartu(context)),
+          decoration: BoxDecoration(
+            color: context.latarKartu,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: context.garis),
+          ),
+          child: Row(
             children: [
-              // Breadcrumb internal di layar lebar — nama menu utama sudah ditampilkan di header atas.
-              if (!pakaiKartu(context))
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TombolKembali(onPressed: widget.onBack),
-                    const SizedBox(width: 10),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1B7A6A).withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.people_outline, color: Color(0xFF1B7A6A), size: 20),
-                    ),
-                    const SizedBox(width: 10),
-                    Flexible(
-                      child: Text(
-                        'Kependudukan / Data Warga',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: _isDarkMode ? Colors.white70 : context.teksKedua,
-                        ),
-                      ),
-                    ),
-                  ],
+              TombolKembali(onPressed: widget.onBack),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1B7A6A).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-              Wrap(
-                spacing: AppTheme.spasiS,
-                runSpacing: AppTheme.spasiS,
-                children: [
-                  // Export tetap terbuka untuk role lihat-saja — menyalin data
-                  // yang boleh dibaca bukan perubahan. Tambah dan Import jelas
-                  // menulis, jadi keduanya menuntut izin `create`.
-                  if (_bolehTambah)
-                    _buildActionButton(
-                      Icons.person_add,
-                      'Tambah Warga',
-                      const Color(0xFF1B7A6A),
-                      onTap: () => _showAddWargaDialog(context),
-                    ),
-                  if (_bolehTambah)
-                    _buildActionButton(
-                      Icons.upload_file,
-                      'Import Excel',
-                      const Color(0xFF0284C7),
-                      onTap: () => _importDataWarga(context),
-                    ),
-                  _buildActionButton(
-                    Icons.description,
-                    'Export Excel',
-                    const Color(0xFF059669),
-                    onTap: () {
-                      context.read<WargaProvider>().downloadExcel();
-                    },
+                child: const Icon(Icons.people_outline, color: Color(0xFF1B7A6A), size: 20),
+              ),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  'Kependudukan / Data Warga',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: _isDarkMode ? Colors.white70 : context.teksKedua,
                   ),
-                  _buildActionButton(
-                    Icons.picture_as_pdf,
-                    'Export PDF',
-                    const Color(0xFFDC2626),
-                    onTap: () {
-                      context.read<WargaProvider>().downloadPdf();
-                    },
-                  ),
-                ],
+                ),
               ),
             ],
           ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Stat Cards
+        _buildStatCards(provider, demografi),
+
+        const SizedBox(height: 16),
+
+        // Action Buttons
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            if (_bolehTambah)
+              _buildActionButton(
+                Icons.person_add,
+                'Tambah Warga',
+                const Color(0xFF1B7A6A),
+                onTap: () => _showAddWargaDialog(context),
+              ),
+            if (_bolehTambah)
+              _buildActionButton(
+                Icons.upload_file,
+                'Import Excel',
+                const Color(0xFF0284C7),
+                onTap: () => _importDataWarga(context),
+              ),
+            _buildActionButton(
+              Icons.table_chart_outlined,
+              'Export Excel',
+              const Color(0xFF059669),
+              onTap: () {
+                context.read<WargaProvider>().downloadExcel();
+              },
+            ),
+            _buildActionButton(
+              Icons.picture_as_pdf_outlined,
+              'Export PDF',
+              const Color(0xFFDC2626),
+              onTap: () {
+                context.read<WargaProvider>().downloadPdf();
+              },
+            ),
+          ],
         ),
 
         const SizedBox(height: 16),
@@ -540,32 +640,21 @@ class _DataWargaScreenState extends State<DataWargaScreen> {
   }
 
   Widget _buildActionButton(IconData icon, String label, Color color, {VoidCallback? onTap}) {
-    final tombol = ElevatedButton.icon(
+    return ElevatedButton.icon(
       onPressed: onTap ?? () {},
       icon: Icon(icon, size: 16),
       label: Text(
         label,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
       ),
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
         foregroundColor: Colors.white,
         elevation: 0,
-        padding: const EdgeInsets.symmetric(horizontal: AppTheme.spasiL),
-        shape: RoundedRectangleBorder(borderRadius: AppTheme.borderRadiusS),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       ),
     );
-
-    if (!pakaiKartu(context)) return tombol;
-
-    // Di ponsel keempat tombol turun menjadi dua baris. Dengan lebar mengikuti
-    // panjang label, "Tambah Warga" dan "Import Excel" jadi tidak sama besar
-    // dan barisnya terlihat timpang. Setengah lebar layar membuat keduanya
-    // rata, dan baris kedua sejajar dengan baris pertama.
-    final lebarLayar = MediaQuery.of(context).size.width;
-    final lebarTombol = (lebarLayar - paddingKonten(context) * 2 - AppTheme.spasiS) / 2;
-    return SizedBox(width: lebarTombol, child: tombol);
   }
 
   /// Kembalikan pencarian ke nilai awal (kosong) lalu muat ulang dari halaman 1.

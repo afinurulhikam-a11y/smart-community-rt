@@ -5,6 +5,7 @@ import '../../core/responsif.dart';
 import '../../providers/family_provider.dart';
 import '../../providers/warga_provider.dart';
 import '../../providers/permission_provider.dart';
+import '../../providers/demographic_provider.dart';
 import '../../widgets/banner_lihat_saja.dart';
 import '../../widgets/tabel_responsif.dart';
 import '../../widgets/tombol_kembali.dart';
@@ -98,6 +99,7 @@ class _DataKkScreenState extends State<DataKkScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _muatData();
+      context.read<DemographicProvider>().fetchDemographics(silent: true);
     });
   }
 
@@ -1749,9 +1751,116 @@ class _DataKkScreenState extends State<DataKkScreen> {
     }
   }
 
+  Widget _statCard(String label, String nilai, String sub, IconData ikon, Color warna) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: context.latarKartu,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.garis),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: warna.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(ikon, color: warna, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: context.teksKedua,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  nilai,
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: context.teksUtama,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  sub,
+                  style: TextStyle(fontSize: 11, color: context.teksTersier),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCards(FamilyProvider prov, DemographicProvider demografi) {
+    final totalKk = prov.totalData > 0 ? prov.totalData : (demografi.data?.summary.totalKk ?? 0);
+    final totalWarga = demografi.data?.summary.totalWarga ?? 0;
+    final laki = demografi.data?.summary.lakiLaki ?? 0;
+    final perempuan = demografi.data?.summary.perempuan ?? 0;
+
+    final kartu = [
+      _statCard(
+        'Total KK',
+        '$totalKk',
+        'kartu keluarga',
+        Icons.house_outlined,
+        const Color(0xFF1B7A6A),
+      ),
+      _statCard(
+        'Total Jiwa',
+        '$totalWarga',
+        'anggota keluarga',
+        Icons.people_outline,
+        const Color(0xFF3B82F6),
+      ),
+      _statCard(
+        'Laki-laki',
+        '$laki',
+        'anggota keluarga',
+        Icons.male_rounded,
+        const Color(0xFF10B981),
+      ),
+      _statCard(
+        'Perempuan',
+        '$perempuan',
+        'anggota keluarga',
+        Icons.female_rounded,
+        const Color(0xFFEC4899),
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, c) {
+        final kolom = c.maxWidth > 900 ? 4 : (c.maxWidth > 500 ? 2 : 1);
+        final lebar = (c.maxWidth - (16 * (kolom - 1))) / kolom;
+        return Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: kartu.map((w) => SizedBox(width: lebar, child: w)).toList(),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final prov = context.watch<FamilyProvider>();
+    final demografi = context.watch<DemographicProvider>();
     final permission = context.watch<PermissionProvider>();
     final isBolehUbah = permission.bolehUbah(_kodeIzin);
     final isAdmin = permission.isAdmin;
@@ -1763,72 +1872,78 @@ class _DataKkScreenState extends State<DataKkScreen> {
       children: [
         const BannerLihatSaja(kode: _kodeIzin),
 
-        // Top Header and Breadcrumb
-        SizedBox(
-          width: double.infinity,
-          child: Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 12,
-            runSpacing: 12,
+        // Header Breadcrumb
+        Container(
+          padding: EdgeInsets.all(paddingKartu(context)),
+          decoration: BoxDecoration(
+            color: context.latarKartu,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: context.garis),
+          ),
+          child: Row(
             children: [
-              if (!pakaiKartu(context))
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TombolKembali(onPressed: widget.onBack),
-                    const SizedBox(width: 10),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1B7A6A).withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.house_outlined,
-                        color: Color(0xFF1B7A6A),
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Flexible(
-                      child: Text(
-                        'Kependudukan / Data KK',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: context.teksKedua,
-                        ),
-                      ),
-                    ),
-                  ],
+              TombolKembali(onPressed: widget.onBack),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1B7A6A).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-              Wrap(
-                spacing: AppTheme.spasiS,
-                runSpacing: AppTheme.spasiS,
-                children: [
-                  _buildActionButton(
-                    Icons.description,
-                    'Export Excel',
-                    const Color(0xFF059669),
-                    onTap: () {
-                      context.read<FamilyProvider>().downloadExcel();
-                    },
+                child: const Icon(
+                  Icons.house_outlined,
+                  color: Color(0xFF1B7A6A),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  'Kependudukan / Data KK',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: context.teksKedua,
                   ),
-                  _buildActionButton(
-                    Icons.picture_as_pdf,
-                    'Export PDF',
-                    const Color(0xFFDC2626),
-                    onTap: () {
-                      context.read<FamilyProvider>().downloadPdf();
-                    },
-                  ),
-                ],
+                ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: AppTheme.spasiM),
+
+        const SizedBox(height: 16),
+
+        // Stat Cards
+        _buildStatCards(prov, demografi),
+
+        const SizedBox(height: 16),
+
+        // Action Buttons
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _buildActionButton(
+              Icons.table_chart_outlined,
+              'Export Excel',
+              const Color(0xFF059669),
+              onTap: () {
+                context.read<FamilyProvider>().downloadExcel();
+              },
+            ),
+            _buildActionButton(
+              Icons.picture_as_pdf_outlined,
+              'Export PDF',
+              const Color(0xFFDC2626),
+              onTap: () {
+                context.read<FamilyProvider>().downloadPdf();
+              },
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 16),
 
         // SECTION: DATA TABLE KK
         Container(
@@ -2202,27 +2317,20 @@ class _DataKkScreenState extends State<DataKkScreen> {
   }
 
   Widget _buildActionButton(IconData icon, String label, Color color, {VoidCallback? onTap}) {
-    final tombol = ElevatedButton.icon(
+    return ElevatedButton.icon(
       onPressed: onTap ?? () {},
       icon: Icon(icon, size: 16),
       label: Text(
         label,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
       ),
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
         foregroundColor: Colors.white,
         elevation: 0,
-        padding: const EdgeInsets.symmetric(horizontal: AppTheme.spasiL),
-        shape: RoundedRectangleBorder(borderRadius: AppTheme.borderRadiusS),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       ),
     );
-
-    if (!pakaiKartu(context)) return tombol;
-
-    final lebarLayar = MediaQuery.of(context).size.width;
-    final lebarTombol = (lebarLayar - paddingKonten(context) * 2 - AppTheme.spasiS) / 2;
-    return SizedBox(width: lebarTombol, child: tombol);
   }
 }
