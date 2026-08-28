@@ -202,7 +202,7 @@ async function autoSetupCloud() {
     console.log('ℹ️ Catatan Master Categories:', e.message);
   }
 
-  // 6. Bersihkan Akun Demo Duplikat & Seed Akun Pengurus Bawaan (Ketua RT, Sekretaris, Bendahara)
+  // 6. Bersihkan Akun Demo Duplikat
   try {
     const demoRes = await pool.query(
       `SELECT id FROM users WHERE username IN ('ketua_demo', 'sekretaris_demo', 'bendahara_demo')`
@@ -241,30 +241,39 @@ async function autoSetupCloud() {
       await pool.query(`DELETE FROM users WHERE id = ANY($1)`, [ids]);
       console.log('✅ Akun demo lama (ketua_demo, sekretaris_demo, bendahara_demo) berhasil dibersihkan.');
     }
+  } catch (e) {
+    console.log('ℹ️ Catatan Pembersihan Akun Demo Lama:', e.message);
+  }
 
+  // 7. Seed Akun Pengurus Bawaan (Ketua RW, Ketua RT, Sekretaris, Bendahara, Warga Uji)
+  try {
     const { PENGURUS_AWAL, WARGA_UJI } = require('./master-data');
     const defaultAccounts = [...PENGURUS_AWAL, WARGA_UJI];
     for (const p of defaultAccounts) {
-      const ada = await pool.query(
-        'SELECT id FROM users WHERE username = $1 OR email = $2',
-        [p.username, p.email]
-      );
-      if (ada.rowCount === 0) {
-        const hash = await bcrypt.hash(p.password, 10);
-        await pool.query(
-          `INSERT INTO users (nama, email, username, password_hash, role, is_active)
-           VALUES ($1, $2, $3, $4, $5, true)
-           ON CONFLICT (username) DO NOTHING`,
-          [p.nama, p.email, p.username, hash, p.role]
+      try {
+        const ada = await pool.query(
+          'SELECT id FROM users WHERE username = $1 OR email = $2',
+          [p.username, p.email]
         );
-        console.log(`✅ Akun default ${p.role} (${p.username}) dibuat.`);
-      } else {
-        // Pastikan username dan password_hash terpasang bila ada akun lama
         const hash = await bcrypt.hash(p.password, 10);
-        await pool.query(
-          `UPDATE users SET username = $1, password_hash = $2, nama = $3, is_active = true WHERE id = $4`,
-          [p.username, hash, p.nama, ada.rows[0].id]
-        );
+        if (ada.rowCount === 0) {
+          await pool.query(
+            `INSERT INTO users (nama, email, username, password_hash, role, is_active)
+             VALUES ($1, $2, $3, $4, $5, true)
+             ON CONFLICT (username) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = EXCLUDED.role, is_active = true, deleted_at = NULL`,
+            [p.nama, p.email, p.username, hash, p.role]
+          );
+          console.log(`✅ Akun default ${p.role} (${p.username}) dibuat.`);
+        } else {
+          // Pastikan username, role, password_hash, dan status aktif terpasang
+          await pool.query(
+            `UPDATE users SET username = $1, email = $2, password_hash = $3, nama = $4, role = $5, is_active = true, deleted_at = NULL WHERE id = $6`,
+            [p.username, p.email, hash, p.nama, p.role, ada.rows[0].id]
+          );
+          console.log(`✅ Akun default ${p.role} (${p.username}) terverifikasi aktif.`);
+        }
+      } catch (errAkun) {
+        console.error(`❌ Gagal menyemai akun ${p.username}:`, errAkun.message);
       }
     }
   } catch (e) {

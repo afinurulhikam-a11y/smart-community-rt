@@ -487,11 +487,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 width: double.infinity,
                 height: 44,
                 child: ElevatedButton.icon(
-                  // `_sedangMasuk` ikut dibaca supaya tombol dan spinner berubah
-                  // pada frame yang sama dengan pemicuannya. Bila hanya
-                  // `auth.isLoading`, menekan Enter tidak memberi tanda apa pun
-                  // sampai `notifyListeners()` sempat membangun ulang — dan diam
-                  // sesaat itulah yang membuat orang menekan Enter sekali lagi.
                   onPressed: sedangProses ? null : _handleLogin,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1B7A6A),
@@ -514,45 +509,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             letterSpacing: 0.2,
                           ),
                         ),
-                ),
-              ),
-
-              SizedBox(height: isDesktop ? 16 : 12),
-
-              // Demo Account Chips
-              Center(
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.touch_app_outlined, size: 13, color: Color(0xFF64748B)),
-                        const SizedBox(width: 5),
-                        Text(
-                          'Pilih Akun Demo (Klik untuk Isi):',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF64748B).withValues(alpha: 0.9),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        _chipAkunDemo('Ketua RW', 'ketuarw', 'ketuarw123', const Color(0xFF0D9488)),
-                        _chipAkunDemo('Ketua RT', 'ketua', 'ketua123', const Color(0xFF1B7A6A)),
-                        _chipAkunDemo('Sekretaris', 'sekretaris', 'sekretaris123', const Color(0xFF0284C7)),
-                        _chipAkunDemo('Bendahara', 'bendahara', 'bendahara123', const Color(0xFF059669)),
-                        _chipAkunDemo('Warga', '3201012345670001', '12345678', const Color(0xFF8B5CF6)),
-                        _chipAkunDemo('Admin', 'Developer', 'admin123', const Color(0xFF475569)),
-                      ],
-                    ),
-                  ],
                 ),
               ),
 
@@ -589,36 +545,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _chipAkunDemo(String label, String username, String password, Color warna) {
-    return Material(
-      color: warna.withValues(alpha: 0.08),
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          _emailController.text = username;
-          _passwordController.text = password;
-          pesanSukses(context, 'Akun demo $label ($username) dipilih.');
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-          decoration: BoxDecoration(
-            border: Border.all(color: warna.withValues(alpha: 0.25)),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w600,
-              color: warna,
-            ),
           ),
         ),
       ),
