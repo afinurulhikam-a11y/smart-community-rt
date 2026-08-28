@@ -176,6 +176,9 @@ class _MainDashboardState extends State<MainDashboard> {
       // server sudah menyaring isinya, dan peran biasa menerima tepat satu RT
       // yang dipakai menampilkan "Anda di RT berapa".
       futures.add(context.read<RtProvider>().muat());
+      if (Peran.bolehLintasRt(userRole)) {
+        futures.add(context.read<RtProvider>().muatPerbandingan());
+      }
 
       if (izin.bolehLihat('keuangan.iuran', userRole: userRole)) {
         final billP = context.read<BillProvider>();
@@ -1855,6 +1858,8 @@ class _MainDashboardState extends State<MainDashboard> {
     // tidak pernah berbeda antar layar.
     final demografi = context.watch<DemographicProvider>();
     final izin = context.watch<PermissionProvider>();
+    final rt = context.watch<RtProvider>();
+    final isKetuaRw = auth.userRole == Peran.ketuaRw;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1875,18 +1880,21 @@ class _MainDashboardState extends State<MainDashboard> {
             Row(
               children: [
                 Icon(
-                  Icons.grid_view_rounded,
+                  isKetuaRw ? Icons.apartment_rounded : Icons.grid_view_rounded,
                   color: const Color(0xFF1B7A6A),
                   size: 14,
                 ),
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
-                    'Sistem Manajemen RT Terintegrasi',
+                    isKetuaRw
+                        ? 'Dashboard Eksekutif RW • ${rt.labelLingkup}'
+                        : 'Sistem Manajemen RT Terintegrasi • ${rt.labelLingkup}',
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 13,
-                      color: const Color(0xFF1B7A6A).withValues(alpha: 0.8),
+                      fontWeight: isKetuaRw ? FontWeight.w600 : FontWeight.normal,
+                      color: const Color(0xFF1B7A6A).withValues(alpha: 0.85),
                     ),
                   ),
                 ),
@@ -1904,35 +1912,26 @@ class _MainDashboardState extends State<MainDashboard> {
         _buildResponsiveGrid([
           if (izin.bolehLihat('kependudukan.warga'))
             GradientStatCard(
-              label: 'TOTAL WARGA',
+              label: isKetuaRw ? 'TOTAL PENDUDUK RW' : 'TOTAL WARGA',
               value: (demografi.data?.summary.totalWarga ?? 0).toString(),
-              subtitle: 'Warga terdaftar',
-              icon: Icons.group,
+              subtitle: isKetuaRw
+                  ? '${demografi.data?.summary.totalKk ?? 0} KK di seluruh RT'
+                  : 'Warga terdaftar',
+              icon: isKetuaRw ? Icons.groups_rounded : Icons.group,
               gradientColors: const [Color(0xFF0D9488), Color(0xFF14B8A6)],
               onTap: () => _pilihMenu(12),
             ),
           if (izin.bolehLihat('keuangan.kas'))
             GradientStatCard(
-              label: 'SALDO KAS',
+              label: isKetuaRw ? 'TOTAL KAS RW' : 'SALDO KAS',
               value: _formatRupiah(finance.summary?.saldo ?? 0),
-              subtitle: 'Saldo kas RT',
+              subtitle: isKetuaRw ? 'Akumulasi kas RT' : 'Saldo kas RT',
               icon: Icons.savings,
               gradientColors: const [Color(0xFF059669), Color(0xFF34D399)],
               onTap: () => _pilihMenu(22),
             ),
           if (izin.bolehLihat('keuangan.bop'))
             GradientStatCard(
-              // "PAGU", bukan "DANA". Angkanya adalah sisa jatah belanja
-              // (alokasi − terpakai), sedangkan kata "dana" terbaca sebagai
-              // uang yang ada di kas — dan itu angka yang berbeda.
-              //
-              // Keduanya kebetulan sama besar selama seluruh alokasi sudah
-              // cair penuh, jadi tidak ada apa pun di layar yang membantah
-              // salah baca itu. Bedanya baru muncul saat pencairan bertahap:
-              // pagu bisa menyisakan Rp 4 juta sementara kasnya sudah minus.
-              //
-              // Layar BOP menampilkan keduanya berdampingan sebagai "SISA
-              // PAGU" dan "SALDO KAS BOP"; nama di sini kini mengikutinya.
               label: 'SISA PAGU BOP',
               value: _formatRupiah(
                 context.watch<BopProvider>().summary?.sisaPagu ?? 0,
@@ -1945,6 +1944,12 @@ class _MainDashboardState extends State<MainDashboard> {
         ], defaultCrossAxisCount: 3),
 
         const SizedBox(height: 24),
+
+        // === REKAP & KOMPARASI ANTAR-RT (Khusus Peran Lintas RT / Ketua RW) ===
+        if (Peran.bolehLintasRt(auth.userRole) && rt.terpilih == null) ...[
+          _buildRekapPerbandinganRtWidget(rt),
+          const SizedBox(height: 24),
+        ],
 
         // === FINANCIAL CHART ===
         if (izin.bolehLihat('keuangan.kas') ||
@@ -2013,6 +2018,252 @@ class _MainDashboardState extends State<MainDashboard> {
           ),
         ],
       ],
+    );
+  }
+
+  // === WIDGET REKAP & KOMPARASI KINERJA ANTAR-RT (KETUA RW & ADMIN) ===
+  Widget _buildRekapPerbandinganRtWidget(RtProvider rt) {
+    final list = rt.banding;
+    if (list.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      padding: EdgeInsets.all(paddingKartu(context)),
+      decoration: BoxDecoration(
+        color: context.latarKartu,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: context.garis),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0D9488).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.analytics_rounded,
+                  color: Color(0xFF0D9488),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Rekapitulasi & Komparasi Kinerja Antar-RT',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: context.teksUtama,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Monitoring agregat penduduk, kas, iuran, dan layanan tiap RT di wilayah RW',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: context.teksKedua,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0D9488).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${list.length} RT Aktif',
+                  style: const TextStyle(
+                    color: Color(0xFF0D9488),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                  child: DataTable(
+                    headingRowHeight: 40,
+                    dataRowMinHeight: 48,
+                    dataRowMaxHeight: 52,
+                    horizontalMargin: 12,
+                    columnSpacing: 16,
+                    headingTextStyle: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: context.teksKedua,
+                    ),
+                    columns: const [
+                      DataColumn(label: Text('WILAYAH RT')),
+                      DataColumn(label: Text('KETUA RT')),
+                      DataColumn(label: Text('WARGA & KK')),
+                      DataColumn(label: Text('SALDO KAS')),
+                      DataColumn(label: Text('TUNGGAKAN IURAN')),
+                      DataColumn(label: Text('STATUS LAYANAN')),
+                      DataColumn(label: Text('AKSI')),
+                    ],
+                    rows: list.map((item) {
+                      final isSelected = rt.terpilih == item.id;
+                      return DataRow(
+                        selected: isSelected,
+                        cells: [
+                          DataCell(
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF1B7A6A).withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    'RT ${item.kode}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF1B7A6A),
+                                    ),
+                                  ),
+                                ),
+                                if (item.nama.isNotEmpty && item.nama != 'RT ${item.kode}') ...[
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    item.nama,
+                                    style: TextStyle(fontSize: 12, color: context.teksUtama),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          DataCell(
+                            Text(
+                              item.ketuaNama ?? '-',
+                              style: TextStyle(fontSize: 12, color: context.teksUtama),
+                            ),
+                          ),
+                          DataCell(
+                            Text(
+                              '${item.jumlahWarga} Jiwa (${item.jumlahKk} KK)',
+                              style: TextStyle(fontSize: 12, color: context.teksUtama),
+                            ),
+                          ),
+                          DataCell(
+                            Text(
+                              _formatRupiah(item.saldoKas),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF059669),
+                              ),
+                            ),
+                          ),
+                          DataCell(
+                            item.tunggakanNominal > 0
+                                ? Text(
+                                    '${_formatRupiah(item.tunggakanNominal)} (${item.tunggakanJumlah} tagihan)',
+                                    style: const TextStyle(fontSize: 12, color: Color(0xFFDC2626)),
+                                  )
+                                : const Text(
+                                    'Lunas',
+                                    style: TextStyle(fontSize: 12, color: Color(0xFF10B981), fontWeight: FontWeight.w600),
+                                  ),
+                          ),
+                          DataCell(
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (item.daruratAktif > 0)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    margin: const EdgeInsets.only(right: 6),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFEE2E2),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      '${item.daruratAktif} SOS',
+                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFDC2626)),
+                                    ),
+                                  ),
+                                if (item.pengaduanTerbuka > 0)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    margin: const EdgeInsets.only(right: 6),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFEF3C7),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      '${item.pengaduanTerbuka} Aduan',
+                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFD97706)),
+                                    ),
+                                  ),
+                                if (item.suratTertunda > 0)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFE0E7FF),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      '${item.suratTertunda} Surat',
+                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF4F46E5)),
+                                    ),
+                                  ),
+                                if (item.daruratAktif == 0 && item.pengaduanTerbuka == 0 && item.suratTertunda == 0)
+                                  Text('Aman', style: TextStyle(fontSize: 12, color: context.teksTersier)),
+                              ],
+                            ),
+                          ),
+                          DataCell(
+                            TextButton.icon(
+                              onPressed: () {
+                                rt.pilih(isSelected ? null : item.id);
+                                _loadData();
+                              },
+                              icon: Icon(
+                                isSelected ? Icons.check_circle_rounded : Icons.filter_alt_outlined,
+                                size: 14,
+                              ),
+                              label: Text(
+                                isSelected ? 'Dipilih' : 'Filter RT',
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
+                              style: TextButton.styleFrom(
+                                foregroundColor: isSelected ? const Color(0xFF0D9488) : context.teksKedua,
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
