@@ -5,7 +5,9 @@ import '../../core/responsif.dart';
 import '../../core/theme/app_theme.dart';
 import '../../models/reset_model.dart';
 import '../../providers/reset_provider.dart';
+import '../../providers/rt_provider.dart';
 import '../../widgets/responsive_layout.dart';
+import '../../widgets/tombol_kembali.dart';
 import '../../core/theme/warna_konteks.dart';
 import '../../core/pesan.dart';
 
@@ -14,12 +16,10 @@ import '../../core/pesan.dart';
 /// benar-benar dipakai.
 const Color _hijau = Color(0xFF1B7A6A);
 const Color _hijauMuda = Color(0xFFE8F3F1);
-// Konstanta tingkat berkas tidak punya `context`, jadi tidak bisa memakai
-// token tema. Ketiganya dihapus; pemakaiannya diganti langsung dengan
-// `context.garis` / `context.teksKedua` / `context.teksUtama` di dalam widget.
 
 class ResetSistemScreen extends StatefulWidget {
-  const ResetSistemScreen({super.key});
+  final VoidCallback? onBack;
+  const ResetSistemScreen({super.key, this.onBack});
 
   @override
   State<ResetSistemScreen> createState() => _ResetSistemScreenState();
@@ -93,6 +93,41 @@ class _ResetSistemScreenState extends State<ResetSistemScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header Breadcrumb
+            Container(
+              padding: EdgeInsets.all(paddingKartu(context)),
+              decoration: BoxDecoration(
+                color: context.latarKartu,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: context.garis),
+              ),
+              child: Row(
+                children: [
+                  TombolKembali(onPressed: widget.onBack),
+                  const SizedBox(width: 10),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.dangerColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.restart_alt_rounded, color: AppTheme.dangerColor, size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Text(
+                      'Pengaturan / Reset Sistem',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: context.teksKedua,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
             _bannerLingkup(provider),
             _bannerPeringatan(provider),
             const SizedBox(height: 16),
@@ -137,19 +172,12 @@ class _ResetSistemScreenState extends State<ResetSistemScreen> {
     );
   }
 
-  /// Menuliskan lingkup penghapusan di paling atas layar.
-  ///
-  /// Seluruh angka di layar ini berubah artinya menurut RT yang sedang
-  /// dipilih — kartu "48 baris" bisa berarti seluruh RW atau satu RT saja.
-  /// Sebuah penghapusan yang lingkupnya harus disimpulkan dari pemilih di
-  /// bilah atas adalah penghapusan yang cepat atau lambat dilakukan atas
-  /// data yang salah.
-  ///
-  /// Nilainya datang dari server, bukan dari pemilih RT di klien: yang
-  /// menentukan apa yang benar-benar terhapus adalah keputusan server.
+  /// Menuliskan lingkup penghapusan di paling atas layar dengan dropdown pemilih RT inline.
   Widget _bannerLingkup(ResetProvider provider) {
     final perRt = provider.rtKode != null;
     final warna = perRt ? AppTheme.primaryColor : AppTheme.dangerColor;
+    final rtProv = context.watch<RtProvider>();
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 12),
@@ -159,21 +187,83 @@ class _ResetSistemScreenState extends State<ResetSistemScreen> {
         borderRadius: BorderRadius.circular(AppTheme.radiusM),
         border: Border.all(color: warna.withValues(alpha: 0.35)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(perRt ? Icons.apartment_rounded : Icons.public_rounded,
-              size: 18, color: warna),
-          const SizedBox(width: AppTheme.spasiS),
-          Expanded(
-            child: Text(
-              perRt
-                  ? 'Yang dihapus hanya data RT ${provider.rtKode}. '
-                      'RT lain dalam RW ini tidak tersentuh.'
-                  : 'Yang dihapus adalah data SELURUH RW — semua RT sekaligus. '
-                      'Pilih satu RT di bilah atas bila hanya satu yang dimaksud.',
-              style: TextStyle(color: context.teksUtama, height: 1.4),
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Icon(
+                  perRt ? Icons.apartment_rounded : Icons.public_rounded,
+                  size: 20,
+                  color: warna,
+                ),
+              ),
+              const SizedBox(width: AppTheme.spasiS),
+              Expanded(
+                child: Text(
+                  perRt
+                      ? 'Yang dihapus hanya data RT ${provider.rtKode}. '
+                          'RT lain dalam RW ini tidak tersentuh.'
+                      : 'Yang dihapus adalah data SELURUH RW — semua RT sekaligus. '
+                          'Pilih lingkup RT di bawah bila hanya satu RT yang dimaksud.',
+                  style: TextStyle(color: context.teksUtama, height: 1.4, fontSize: 13),
+                ),
+              ),
+            ],
           ),
+          if (rtProv.bolehMemilih) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 10,
+              runSpacing: 8,
+              children: [
+                Text(
+                  'Lingkup RT:',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: context.teksKedua,
+                  ),
+                ),
+                Container(
+                  height: 38,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: context.latarKartu,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: context.garis),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: rtProv.terpilih ?? '',
+                      icon: const Icon(Icons.keyboard_arrow_down, size: 16),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: context.teksUtama,
+                      ),
+                      items: [
+                        const DropdownMenuItem(value: '', child: Text('Seluruh RW (Semua RT)')),
+                        ...rtProv.daftar.map(
+                          (r) => DropdownMenuItem(value: r.id, child: Text(r.label)),
+                        ),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          context.read<RtProvider>().pilih(val.isEmpty ? null : val);
+                          context.read<ResetProvider>().muatRingkasan();
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -736,6 +826,7 @@ class _DialogKonfirmasiState extends State<_DialogKonfirmasi> {
       actions: [
         TextButton(
           onPressed: _sedangKirim ? null : () => Navigator.of(context).pop(),
+          style: TextButton.styleFrom(foregroundColor: context.warnaTombolTutup),
           child: const Text('Batal'),
         ),
         ElevatedButton.icon(

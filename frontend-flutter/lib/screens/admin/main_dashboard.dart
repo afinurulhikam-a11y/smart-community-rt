@@ -1835,13 +1835,13 @@ class _MainDashboardState extends State<MainDashboard> {
         return const ProfilSayaScreen();
 
       case 84:
-        return const LogAktivitasScreen();
+        return LogAktivitasScreen(onBack: _kembaliMenu);
       case 85:
         return const MenuAksesScreen();
       case 86:
-        return const ResetSistemScreen();
+        return ResetSistemScreen(onBack: _kembaliMenu);
       case 87:
-        return const KelolaRtScreen();
+        return KelolaRtScreen(onBack: _kembaliMenu);
 
       default:
         return _buildDashboardContent(auth);

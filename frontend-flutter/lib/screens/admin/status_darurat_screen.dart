@@ -94,8 +94,8 @@ class _StatusDaruratScreenState extends State<StatusDaruratScreen> {
             ),
           ],
         ),
-        content: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: lebarDialog(ctx, maksimal: 460)),
+        content: SizedBox(
+          width: lebarDialog(ctx, maksimal: 460),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -160,6 +160,7 @@ class _StatusDaruratScreenState extends State<StatusDaruratScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
+            style: TextButton.styleFrom(foregroundColor: ctx.warnaTombolTutup),
             child: const Text('Tutup'),
           ),
         ],
@@ -394,19 +395,23 @@ class _StatusDaruratScreenState extends State<StatusDaruratScreen> {
               // Table Header Title
               Padding(
                 padding: EdgeInsets.all(paddingKartu(context)),
-                child: Row(
-                  children: [
-                    const Icon(Icons.history, color: Color(0xFFEF4444), size: 18),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Riwayat Darurat',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: context.teksUtama,
+                child: Center(
+                  child: Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    children: [
+                      const Icon(Icons.history, color: Color(0xFFEF4444), size: 20),
+                      Text(
+                        'Riwayat Darurat',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: context.teksUtama,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               Divider(height: 1, color: context.garis),
@@ -414,45 +419,50 @@ class _StatusDaruratScreenState extends State<StatusDaruratScreen> {
               // Table Controls (Status filter)
               Padding(
                 padding: EdgeInsets.all(paddingKartu(context)),
-                // Label DI ATAS kontrolnya, bukan di sampingnya.
-                //
-                // Jaraknya dulu hanya mengandalkan satu spasi di dalam string
-                // 'Status: ' — dan begitu Wrap membungkusnya ke baris baru,
-                // spasi itu hilang sama sekali sehingga label menempel ke
-                // kotak. Bentuk bertumpuk ini sama dengan filter Kas RT dan
-                // Dana BOP, jadi ketiganya kini konsisten.
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Status',
-                      style: TextStyle(fontSize: 12, color: context.teksKedua),
-                    ),
-                    const SizedBox(height: AppTheme.spasiS),
-                    Container(
-                      width: lebarKolomFilter(context, maksimal: 200),
-                      constraints: const BoxConstraints(minHeight: AppTheme.sasaranSentuh),
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: context.garis),
-                        borderRadius: AppTheme.borderRadiusS,
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _status,
-                          icon: const Icon(Icons.keyboard_arrow_down, size: 16),
-                          style: TextStyle(fontSize: 13, color: context.teksUtama),
-                          items: ['Semua Status', 'Aktif', 'Selesai'].map((String val) {
-                            return DropdownMenuItem<String>(value: val, child: Text(val));
-                          }).toList(),
-                          onChanged: (val) {
-                            setState(() => _status = val!);
-                            _loadData();
-                          },
+                child: Center(
+                  child: Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    children: [
+                      Text(
+                        'Status:',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: context.teksKedua,
                         ),
                       ),
-                    ),
-                  ],
+                      SizedBox(
+                        width: lebarKolomFilter(context, maksimal: 180),
+                        height: AppTheme.sasaranSentuh,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: context.garis),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: _status,
+                              isExpanded: true,
+                              icon: const Icon(Icons.keyboard_arrow_down, size: 16),
+                              style: TextStyle(fontSize: 13, color: context.teksUtama),
+                              items: ['Semua Status', 'Aktif', 'Selesai'].map((String val) {
+                                return DropdownMenuItem<String>(value: val, child: Text(val));
+                              }).toList(),
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setState(() => _status = val);
+                                  _loadData();
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
 
@@ -482,12 +492,25 @@ class _StatusDaruratScreenState extends State<StatusDaruratScreen> {
                     padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
                     child: TabelResponsif(
                       labelAksi: 'Aksi',
-                      kolom: const ['Waktu', 'Pelapor', 'Pesan', 'Status'],
-                      baris: emergency.alerts.map((alert) {
+                      kolom: const ['NO', 'Waktu', 'Pelapor', 'Pesan', 'Status'],
+                      baris: emergency.alerts.asMap().entries.map((entry) {
+                        final nomor = entry.key + 1 + ((emergency.currentPage - 1) * emergency.perPage);
+                        final alert = entry.value;
                         final isActive = alert.isActive;
                         return BarisTabel(
                           onTap: () => _showDetailDialog(alert),
                           sel: [
+                            SelTabel(
+                              'NO',
+                              Text(
+                                '$nomor',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: context.teksKedua,
+                                ),
+                              ),
+                            ),
                             SelTabel.teks(
                               'Waktu',
                               DateFormat('dd MMM yyyy, HH:mm').format(alert.createdAt),
@@ -682,6 +705,8 @@ class _StatusDaruratScreenState extends State<StatusDaruratScreen> {
                       }).toList(),
                       currentPage: emergency.currentPage,
                       totalPages: emergency.totalPages,
+                      totalData: emergency.totalData,
+                      perPage: emergency.perPage,
                       onPageChanged: (page) => _loadData(page: page),
                     ),
                   );

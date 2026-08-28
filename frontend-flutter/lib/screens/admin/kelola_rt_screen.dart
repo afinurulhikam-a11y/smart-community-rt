@@ -11,6 +11,7 @@ import '../../widgets/keadaan_daftar.dart';
 import '../../widgets/tabel_responsif.dart';
 import '../../core/peran.dart';
 import '../../core/services/auth_service.dart';
+import '../../widgets/tombol_kembali.dart';
 import 'data_warga_screen.dart';
 
 /// Daftar RT dalam satu RW, beserta penambahan dan penyuntingannya.
@@ -48,7 +49,8 @@ import 'data_warga_screen.dart';
 /// pun sudah menolaknya; kolomnya di sini dinonaktifkan supaya penolakan itu
 /// tidak datang sebagai kejutan setelah seseorang selesai mengetik.
 class KelolaRtScreen extends StatefulWidget {
-  const KelolaRtScreen({super.key});
+  final VoidCallback? onBack;
+  const KelolaRtScreen({super.key, this.onBack});
 
   @override
   State<KelolaRtScreen> createState() => _KelolaRtScreenState();
@@ -160,6 +162,7 @@ class _KelolaRtScreenState extends State<KelolaRtScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
+            style: TextButton.styleFrom(foregroundColor: ctx.warnaTombolTutup),
             child: const Text('Batal'),
           ),
           ElevatedButton(
@@ -232,64 +235,132 @@ class _KelolaRtScreenState extends State<KelolaRtScreen> {
   Widget build(BuildContext context) {
     final rt = context.watch<RtProvider>();
 
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: context.latarKartu,
-        borderRadius: BorderRadius.circular(AppTheme.radiusL),
-        border: Border.all(color: context.garis),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: EdgeInsets.all(paddingKartu(context)),
-            child: SizedBox(
-              width: double.infinity,
-              child: Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: AppTheme.spasiM,
-                runSpacing: AppTheme.spasiS,
-                children: [
-                  Text(
-                    'Daftar RT (${rt.daftar.length})',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: context.teksUtama,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header Breadcrumb
+        Container(
+          padding: EdgeInsets.all(paddingKartu(context)),
+          decoration: BoxDecoration(
+            color: context.latarKartu,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: context.garis),
+          ),
+          child: Row(
+            children: [
+              TombolKembali(onPressed: widget.onBack),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F766E).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.apartment_outlined, color: Color(0xFF0F766E), size: 20),
+              ),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  'Pengaturan / Kelola RT',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: context.teksKedua,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Baris Tombol Aksi
+        if (_bolehTambahHapus) ...[
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              ElevatedButton.icon(
+                onPressed: () => _formRt(),
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('Tambah RT', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F766E),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // Data Table Card
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: context.latarKartu,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: context.garis),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header Center: Ikon + Judul
+              Padding(
+                padding: EdgeInsets.all(paddingKartu(context)),
+                child: Center(
+                  child: Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    children: [
+                      const Icon(Icons.apartment_outlined, color: Color(0xFF0F766E), size: 20),
+                      Text(
+                        'Daftar Rukun Tetangga (RT)',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: context.teksUtama,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Divider(height: 1, color: context.garis),
+
+              if (rt.isLoading && rt.daftar.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(40),
+                  child: Center(child: CircularProgressIndicator(color: Color(0xFF0F766E))),
+                )
+              else
+                Padding(
+                  padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
+                  child: TabelResponsif(
+                    kolom: const ['NO', 'NOMOR RT', 'NAMA', 'KETUA', 'KK', 'AKUN'],
+                    baris: [
+                      for (var i = 0; i < rt.daftar.length; i++)
+                        _baris(context, rt.daftar[i], i),
+                    ],
+                    kosong: KeadaanDaftar(
+                      kosong: 'Belum ada RT yang terdaftar.',
+                      galat: rt.errorMessage,
+                      ikonKosong: Icons.apartment_outlined,
+                      onCobaLagi: () => context.read<RtProvider>().muat(),
                     ),
                   ),
-                  if (_bolehTambahHapus)
-                    ElevatedButton.icon(
-                      onPressed: () => _formRt(),
-                      icon: const Icon(Icons.add_rounded, size: 18),
-                      label: const Text('Tambah RT'),
-                    ),
-                ],
-              ),
-            ),
+                ),
+              const SizedBox(height: 16),
+            ],
           ),
-          if (rt.isLoading && rt.daftar.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(32),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else
-            TabelResponsif(
-              kolom: const ['NO', 'NOMOR RT', 'NAMA', 'KETUA', 'KK', 'AKUN'],
-              baris: [
-                for (var i = 0; i < rt.daftar.length; i++)
-                  _baris(context, rt.daftar[i], i),
-              ],
-              kosong: KeadaanDaftar(
-                kosong: 'Belum ada RT yang terdaftar.',
-                galat: rt.errorMessage,
-                ikonKosong: Icons.apartment_outlined,
-                onCobaLagi: () => context.read<RtProvider>().muat(),
-              ),
-            ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 32),
+      ],
     );
   }
 

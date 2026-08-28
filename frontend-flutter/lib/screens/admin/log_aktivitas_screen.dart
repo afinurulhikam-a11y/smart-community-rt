@@ -5,19 +5,20 @@ import 'package:intl/intl.dart';
 import '../../core/responsif.dart';
 import '../../widgets/tabel_responsif.dart';
 import '../../widgets/keadaan_daftar.dart';
+import '../../widgets/tombol_kembali.dart';
 import '../../providers/log_provider.dart';
-import '../../core/theme/app_theme.dart';
 import '../../core/theme/warna_konteks.dart';
 
 class LogAktivitasScreen extends StatefulWidget {
-  const LogAktivitasScreen({super.key});
+  final VoidCallback? onBack;
+  const LogAktivitasScreen({super.key, this.onBack});
 
   @override
   State<LogAktivitasScreen> createState() => _LogAktivitasScreenState();
 }
 
 class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
-  int _limit = 25;
+  final int _limit = 25;
   int _halaman = 1;
   String _tipe = 'Semua';
   DateTime? _dari;
@@ -26,10 +27,6 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
   Timer? _autoRefreshTimer;
 
   /// Harus tetap sama persis dengan `TIPE` di `src/services/log.service.js`.
-  ///
-  /// Sebuah tipe yang ditambahkan hanya di satu sisi tetap tercatat di database
-  /// tetapi tidak pernah bisa ditemukan dari layar ini — dan justru tipe-tipe
-  /// baru itulah yang biasanya paling perlu dicari (LOGIN_GAGAL, RESET).
   static const List<String> _daftarTipe = [
     'Semua',
     'LOGIN',
@@ -87,9 +84,6 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
   }
 
   /// Setiap perubahan penyaring mengembalikan ke halaman 1.
-  ///
-  /// Tanpa ini, menyaring saat berada di halaman 8 menghasilkan layar kosong
-  /// walau datanya ada — offset-nya sudah melewati ujung hasil yang baru.
   void _ubahPenyaring(VoidCallback ubah) {
     setState(() {
       ubah();
@@ -111,8 +105,6 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
     _ubahPenyaring(() {
       if (awal) {
         _dari = terpilih;
-        // Rentang terbalik tidak pernah mengembalikan apa pun. Daripada
-        // menampilkan hasil kosong yang membingungkan, batas satunya digeser.
         if (_sampai != null && _sampai!.isBefore(terpilih)) _sampai = terpilih;
       } else {
         _sampai = terpilih;
@@ -123,7 +115,6 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
 
   int _totalHalaman(int total) => total <= 0 ? 1 : ((total - 1) ~/ _limit) + 1;
 
-
   void _bersihkanPenyaring() {
     _searchController.clear();
     _ubahPenyaring(() {
@@ -133,21 +124,11 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
     });
   }
 
-  /// Menjelaskan kenapa jejak audit tidak bisa dibersihkan.
-  ///
-  /// Menggantikan tombol "Bersihkan Log" yang dulu ada di sini. Tombol itu
-  /// memanggil `DELETE /api/activity-logs`, yang berarti satu-satunya peran
-  /// yang paling perlu diawasi justru dibolehkan menghapus catatan
-  /// pengawasannya sendiri. Endpoint-nya sudah dihapus dan `activity_logs`
-  /// kini menolak DELETE maupun TRUNCATE di tingkat database.
-  ///
-  /// Dialog penjelasan ini sengaja dipertahankan alih-alih menghilangkan
-  /// tombolnya begitu saja: seorang admin yang mencarinya berhak tahu ke mana
-  /// perginya, bukan sekadar mendapati menunya lenyap.
   void _showInfoLogPermanen() {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Log Aktivitas bersifat permanen'),
         content: const Text(
           'Jejak audit tidak dapat dihapus oleh siapa pun, termasuk Administrator.\n\n'
@@ -157,7 +138,11 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
           'perintah hapus terhadap tabel ini.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Mengerti')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: TextButton.styleFrom(foregroundColor: ctx.warnaTombolTutup),
+            child: const Text('Mengerti'),
+          ),
         ],
       ),
     );
@@ -171,15 +156,11 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
         return const Color(0xFF10B981);
       case 'UPDATE':
         return const Color(0xFFF59E0B);
-      // Merah untuk empat jenis yang pertama dicari saat memeriksa
-      // penyalahgunaan: penghapusan, percobaan pembobolan, reset massal,
-      // dan alarm darurat.
       case 'DELETE':
       case 'LOGIN_GAGAL':
       case 'RESET':
       case 'DARURAT':
         return const Color(0xFFEF4444);
-      // Perubahan wewenang: peran, status akun, hak akses menu.
       case 'AKSES':
         return const Color(0xFFD97706);
       case 'PEMBAYARAN':
@@ -191,28 +172,54 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Content Card
+        // Header Breadcrumb
+        Container(
+          padding: EdgeInsets.all(paddingKartu(context)),
+          decoration: BoxDecoration(
+            color: context.latarKartu,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: context.garis),
+          ),
+          child: Row(
+            children: [
+              TombolKembali(onPressed: widget.onBack),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF3B82F6).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.history_rounded, color: Color(0xFF3B82F6), size: 20),
+              ),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                  'Pengaturan / Log Aktivitas',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: context.teksKedua,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Table Card
         Container(
           width: double.infinity,
           decoration: BoxDecoration(
             color: context.latarKartu,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: context.garis,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            border: Border.all(color: context.garis),
           ),
           child: Consumer<LogProvider>(
             builder: (context, provider, _) {
@@ -222,187 +229,133 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Toolbar & Filter Controls
+                  // Table Header Title (Center)
                   Padding(
                     padding: EdgeInsets.all(paddingKartu(context)),
-                    child: Wrap(
-                      alignment: WrapAlignment.spaceBetween,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 16,
-                      runSpacing: 12,
-                      children: [
-                        Wrap(
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: [
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'Tampilkan',
-                                  style: TextStyle(fontSize: 13, color: context.teksKedua),
-                                ),
-                                const SizedBox(width: 8),
-                                Container(
-                                  constraints: const BoxConstraints(minHeight: AppTheme.sasaranSentuh),
-                                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                                  decoration: BoxDecoration(
-                                    border: Border.all(color: context.garis),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: DropdownButtonHideUnderline(
-                                    child: DropdownButton<int>(
-                                      value: _limit,
-                                      icon: Icon(
-                                        Icons.keyboard_arrow_down,
-                                        size: 16,
-                                        color: context.teksKedua,
-                                      ),
-                                      items: [10, 25, 50, 100].map((int val) {
-                                        return DropdownMenuItem<int>(
-                                          value: val,
-                                          child: Text('$val', style: const TextStyle(fontSize: 13)),
-                                        );
-                                      }).toList(),
-                                      // Lewat _ubahPenyaring supaya halaman ikut
-                                      // kembali ke 1. Mengubah ukuran halaman
-                                      // sambil berada di halaman 8 membuat
-                                      // offset-nya melewati ujung data.
-                                      onChanged: (val) {
-                                        if (val != null) _ubahPenyaring(() => _limit = val);
-                                      },
-                                    ),
-                                  ),
-                                ),
-                              ],
+                    child: Center(
+                      child: Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        children: [
+                          const Icon(Icons.history_rounded, color: Color(0xFF3B82F6), size: 20),
+                          Text(
+                            'Log Aktivitas Sistem',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: context.teksUtama,
                             ),
-                            SizedBox(
-                              width: lebarKolomFilter(context, maksimal: 288),
-                              child: Row(
-                                children: [
-                                  Text(
-                                    'Cari Log:',
-                                    style: TextStyle(fontSize: 13, color: context.teksKedua),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Container(
-                                      constraints: const BoxConstraints(minHeight: AppTheme.sasaranSentuh),
-                                      decoration: BoxDecoration(
-                                        border: Border.all(color: context.garis),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: TextField(
-                                        controller: _searchController,
-                                        onSubmitted: (_) => _loadData(),
-                                        decoration: InputDecoration(
-                                          hintText: 'Ketik lalu Enter...',
-                                          hintStyle: TextStyle(
-                                            fontSize: 12,
-                                            color: context.teksTersier,
-                                          ),
-                                          suffixIcon: IconButton(
-                                            icon: Icon(
-                                              Icons.search,
-                                              size: 16,
-                                              color: context.teksKedua,
-                                            ),
-                                            onPressed: () => _loadData(),
-                                          ),
-                                          border: InputBorder.none,
-                                          contentPadding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 10,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                          ),
+                          const SizedBox(width: 4),
+                          OutlinedButton.icon(
+                            onPressed: _showInfoLogPermanen,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: context.teksKedua,
+                              side: BorderSide(color: context.garis),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
                               ),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
-                          ],
-                        ),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            OutlinedButton.icon(
-                              onPressed: () => _loadData(),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF3B82F6),
-                                side: const BorderSide(color: Color(0xFFDBEAFE)),
-                                backgroundColor: const Color(0xFFEFF6FF),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              ),
-                              icon: const Icon(Icons.refresh, size: 15),
-                              // Dulu berbunyi "$_limit Terakhir". Setelah ada
-                              // pagination itu keliru: yang dimuat adalah
-                              // halaman yang sedang dibuka, bukan N terbaru.
-                              label: const Text(
-                                'Muat Ulang',
-                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                              ),
+                            icon: const Icon(Icons.lock_outline, size: 13),
+                            label: const Text(
+                              'Permanen',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                             ),
-                            // Dulu di sini ada tombol "Bersihkan Log" berwarna
-                            // merah. Diganti penanda bahwa jejaknya permanen —
-                            // lihat _showInfoLogPermanen untuk alasannya.
-                            OutlinedButton.icon(
-                              onPressed: _showInfoLogPermanen,
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: context.teksKedua,
-                                side: BorderSide(color: context.garis),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              ),
-                              icon: const Icon(Icons.lock_outline, size: 15),
-                              label: const Text(
-                                'Permanen',
-                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
+                  Divider(height: 1, color: context.garis),
+                  const SizedBox(height: 16),
 
-                  // Penyaring tipe + rentang tanggal.
-                  //
-                  // Jejak audit tidak pernah dihapus, jadi tabelnya hanya
-                  // bertambah selamanya. Tanpa penyaring, sebulan lagi layar
-                  // ini berisi ribuan baris dan tidak ada cara menemukan satu
-                  // kejadian tertentu — datanya lengkap tetapi tidak terpakai.
+                  // Baris 1: Pencarian & Refresh (Center)
                   Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      paddingKartu(context),
-                      0,
-                      paddingKartu(context),
-                      paddingKartu(context),
+                    padding: EdgeInsets.symmetric(horizontal: paddingKartu(context)),
+                    child: Center(
+                      child: Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 12,
+                        runSpacing: 8,
+                        children: [
+                          Text(
+                            'Pencarian',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: context.teksKedua,
+                            ),
+                          ),
+                          SizedBox(
+                            width: 280,
+                            child: TextField(
+                              controller: _searchController,
+                              style: TextStyle(color: context.teksUtama, fontSize: 13),
+                              textInputAction: TextInputAction.search,
+                              onSubmitted: (_) => _loadData(),
+                              decoration: InputDecoration(
+                                hintText: 'Cari aktivitas, user, IP...',
+                                hintStyle: TextStyle(fontSize: 12, color: context.teksTersier),
+                                prefixIcon: Icon(Icons.search, size: 18, color: context.teksKedua),
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.arrow_forward, size: 16),
+                                  tooltip: 'Cari',
+                                  onPressed: () => _loadData(),
+                                ),
+                                filled: true,
+                                fillColor: context.latarLembut,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(color: context.garis),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: BorderSide(color: context.garis),
+                                ),
+                                focusedBorder: const OutlineInputBorder(
+                                  borderRadius: BorderRadius.all(Radius.circular(8)),
+                                  borderSide: BorderSide(color: Color(0xFF3B82F6)),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              ),
+                            ),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () => _loadData(),
+                            icon: const Icon(Icons.refresh, size: 16),
+                            label: const Text('Muat Ulang', style: TextStyle(fontSize: 13)),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: context.teksKedua,
+                              side: BorderSide(color: context.garis),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Chip menggulir mendatar di layar sempit, tidak
-                        // membungkus: sebelas chip yang membungkus memakan
-                        // empat baris penuh di ponsel.
-                        SizedBox(
-                          height: 40,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: _daftarTipe.length,
-                            separatorBuilder: (_, __) => const SizedBox(width: 8),
-                            itemBuilder: (_, i) {
-                              final t = _daftarTipe[i];
-                              final aktif = _tipe == t;
-                              final warna = t == 'Semua' ? context.teksKedua : _getTipeColor(t);
-                              return ChoiceChip(
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Baris 2: Tipe Log Chips (Center)
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: paddingKartu(context)),
+                    child: Center(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: _daftarTipe.map((t) {
+                            final aktif = _tipe == t;
+                            final warna = t == 'Semua' ? context.teksKedua : _getTipeColor(t);
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: ChoiceChip(
                                 label: Text(
                                   t,
                                   style: TextStyle(
@@ -417,65 +370,82 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
                                 backgroundColor: context.latarLembut,
                                 side: BorderSide(color: aktif ? warna : context.garis),
                                 onSelected: (_) => _ubahPenyaring(() => _tipe = t),
-                              );
-                            },
-                          ),
+                              ),
+                            );
+                          }).toList(),
                         ),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            OutlinedButton.icon(
-                              onPressed: () => _pilihTanggal(awal: true),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: context.teksUtama,
-                                side: BorderSide(color: context.garis),
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
-                              ),
-                              icon: const Icon(Icons.event, size: 15),
-                              label: Text(
-                                _dari == null ? 'Dari tanggal' : DateFormat('dd MMM yyyy').format(_dari!),
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: () => _pilihTanggal(awal: false),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: context.teksUtama,
-                                side: BorderSide(color: context.garis),
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
-                              ),
-                              icon: const Icon(Icons.event_available, size: 15),
-                              label: Text(
-                                _sampai == null ? 'Sampai tanggal' : DateFormat('dd MMM yyyy').format(_sampai!),
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                            if (_adaPenyaring)
-                              TextButton.icon(
-                                onPressed: _bersihkanPenyaring,
-                                icon: const Icon(Icons.close, size: 15),
-                                label: const Text('Bersihkan', style: TextStyle(fontSize: 12)),
-                              ),
-                          ],
-                        ),
-                      ],
+                      ),
                     ),
                   ),
+                  const SizedBox(height: 16),
 
-                  // Data Table or Loader (hanya muncul spinner penuh jika data belum ada)
+                  // Baris 3: Rentang Tanggal & Bersihkan (Center)
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: paddingKartu(context)),
+                    child: Center(
+                      child: Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 12,
+                        runSpacing: 8,
+                        children: [
+                          Text(
+                            'Rentang:',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: context.teksKedua,
+                            ),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () => _pilihTanggal(awal: true),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: context.teksUtama,
+                              side: BorderSide(color: context.garis),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.event, size: 16),
+                            label: Text(
+                              _dari == null ? 'Dari tanggal' : DateFormat('dd MMM yyyy').format(_dari!),
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () => _pilihTanggal(awal: false),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: context.teksUtama,
+                              side: BorderSide(color: context.garis),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.event_available, size: 16),
+                            label: Text(
+                              _sampai == null ? 'Sampai tanggal' : DateFormat('dd MMM yyyy').format(_sampai!),
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                          if (_adaPenyaring)
+                            TextButton.icon(
+                              onPressed: _bersihkanPenyaring,
+                              icon: const Icon(Icons.close, size: 15),
+                              label: const Text('Bersihkan Filter', style: TextStyle(fontSize: 12)),
+                              style: TextButton.styleFrom(
+                                foregroundColor: context.warnaTombolTutup,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Data Table or Loader
                   if (isLoading && logs.isEmpty)
                     const Padding(
                       padding: EdgeInsets.all(40.0),
                       child: Center(child: CircularProgressIndicator(color: Color(0xFF3B82F6))),
                     )
-                  // Galat dibedakan dari kosong. Sebelumnya kegagalan memuat
-                  // jatuh ke cabang `logs.isEmpty` dan layar mengatakan "belum
-                  // ada log aktivitas sistem yang tercatat" — persis kebalikan
-                  // dari kenyataannya, pada layar yang justru ada untuk
-                  // membuktikan sesuatu pernah terjadi.
                   else if (logs.isEmpty)
                     KeadaanDaftar(
                       kosong: _adaPenyaring
@@ -492,8 +462,10 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
                       child: TabelResponsif(
                         tinggiBarisMin: 64,
                         tinggiBarisMaks: 64,
-                        kolom: const ['WAKTU', 'USER', 'TIPE', 'AKTIVITAS', 'IP ADDRESS'],
-                        baris: logs.map((log) {
+                        kolom: const ['NO', 'WAKTU', 'USER', 'TIPE', 'AKTIVITAS', 'IP ADDRESS'],
+                        baris: logs.asMap().entries.map((entry) {
+                          final nomor = entry.key + 1 + ((_halaman - 1) * _limit);
+                          final log = entry.value;
                           DateTime? dt;
                           if (log['created_at'] != null) {
                             dt = DateTime.tryParse(log['created_at'].toString())?.toLocal();
@@ -505,6 +477,17 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
 
                           return BarisTabel(
                             sel: [
+                              SelTabel(
+                                'NO',
+                                Text(
+                                  '$nomor',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: context.teksKedua,
+                                  ),
+                                ),
+                              ),
                               SelTabel(
                                 'WAKTU',
                                 Column(
@@ -602,18 +585,20 @@ class _LogAktivitasScreenState extends State<LogAktivitasScreen> {
                         currentPage: _halaman,
                         totalPages: _totalHalaman(provider.total),
                         totalData: provider.total,
-                        perPage: 10,
+                        perPage: _limit,
                         onPageChanged: (p) {
                           setState(() => _halaman = p);
                           _loadData();
                         },
                       ),
                     ),
+                  const SizedBox(height: 16),
                 ],
               );
             },
           ),
         ),
+        const SizedBox(height: 32),
       ],
     );
   }

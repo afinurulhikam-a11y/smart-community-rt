@@ -84,102 +84,80 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const BannerLihatSaja(kode: _kodeIzin),
-        _buildHeader(provider),
-        const SizedBox(height: 24),
+        _buildHeader(),
+        const SizedBox(height: 16),
         _buildStatCards(provider),
-        const SizedBox(height: 24),
-        _buildFilters(),
-        const SizedBox(height: 24),
-        if (provider.isLoading && provider.items.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 60),
-            child: Center(child: CircularProgressIndicator()),
-          )
-        else if (provider.items.isEmpty)
-          _buildKosong()
-        else
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isMobile = constraints.maxWidth < 650;
-              final itemWidth = isMobile
-                  ? constraints.maxWidth
-                  : (constraints.maxWidth > 950
-                      ? (constraints.maxWidth - 32) / 3
-                      : (constraints.maxWidth - 16) / 2);
-              return Wrap(
-                spacing: 16,
-                runSpacing: 16,
-                children: provider.items
-                    .map((item) => SizedBox(
-                          width: itemWidth,
-                          child: _buildBarangCard(item),
-                        ))
-                    .toList(),
-              );
-            },
-          ),
+        const SizedBox(height: 16),
+        _buildActionButtons(provider),
+        const SizedBox(height: 16),
+        _buildDataCard(provider),
         const SizedBox(height: 32),
       ],
     );
   }
 
-  Widget _buildHeader(InventoryProvider provider) {
-    return SizedBox(
-      width: double.infinity,
-      child: Wrap(
-        alignment: WrapAlignment.spaceBetween,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        runSpacing: 16,
+  Widget _buildHeader() {
+    return Container(
+      padding: EdgeInsets.all(paddingKartu(context)),
+      decoration: BoxDecoration(
+        color: context.latarKartu,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: context.garis),
+      ),
+      child: Row(
         children: [
-          if (!pakaiKartu(context))
-            Row(
- mainAxisSize: MainAxisSize.min,
-              children: [
-                TombolKembali(onPressed: widget.onBack),
-                const SizedBox(width: 10),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: _hijau.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(Icons.grid_view_rounded, color: _hijau, size: 20),
-                ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Text(
-                    'Inventaris / Data Barang',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: context.teksKedua,
-                    ),
-                  ),
-                ),
-              ],
+          TombolKembali(onPressed: widget.onBack),
+          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _hijau.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
             ),
-          Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            children: [
-              _outlinedBtn(
-                Icons.table_chart_outlined,
-                'Excel',
-                const Color(0xFF10B981),
-                () => provider.downloadExport(format: 'excel', peminjaman: false),
+            child: const Icon(Icons.grid_view_rounded, color: _hijau, size: 20),
+          ),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(
+              'Inventaris / Data Barang',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: context.teksKedua,
               ),
-              _outlinedBtn(
-                Icons.picture_as_pdf_outlined,
-                'PDF',
-                _merah,
-                () => provider.downloadExport(format: 'pdf', peminjaman: false),
-              ),
-              if (_bolehTambah)
-                _filledBtn(Icons.add, 'Tambah Barang', _hijauTerang, () => _showFormBarang(null)),
-            ],
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildActionButtons(InventoryProvider provider) {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _filledBtn(
+          Icons.table_chart_outlined,
+          'Laporan Excel',
+          const Color(0xFF10B981),
+          () => provider.downloadExport(format: 'excel', peminjaman: false),
+        ),
+        _filledBtn(
+          Icons.picture_as_pdf_outlined,
+          'Laporan PDF',
+          _merah,
+          () => provider.downloadExport(format: 'pdf', peminjaman: false),
+        ),
+        if (_bolehTambah)
+          _filledBtn(
+            Icons.add,
+            'Tambah Barang',
+            _hijauTerang,
+            () => _showFormBarang(null),
+          ),
+      ],
     );
   }
 
@@ -196,7 +174,6 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
             '${s.totalUnit} unit',
             Icons.inventory_2_outlined,
             _hijau,
-            const Color(0xFFF0FDF4),
           ),
           _statCard(
             'Kondisi Baik',
@@ -204,7 +181,6 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
             'jenis barang',
             Icons.check_circle_outline,
             const Color(0xFF10B981),
-            const Color(0xFFF0FDF4),
           ),
           _statCard(
             'Perlu Perbaikan',
@@ -212,16 +188,13 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
             'jenis barang',
             Icons.warning_amber_rounded,
             const Color(0xFFF59E0B),
-            const Color(0xFFFEFCE8),
           ),
-          // Dulu selalu Rp 0 karena kolom nilai_barang belum ada di database.
           _statCard(
             'Total Nilai',
             _rupiah(s.totalNilai),
             '${s.unitDipinjam} unit dipinjam',
             Icons.credit_card,
             const Color(0xFF3B82F6),
-            const Color(0xFFEFF6FF),
           ),
         ];
         return Wrap(
@@ -239,7 +212,6 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
     String sub,
     IconData ikon,
     Color warna,
-    Color latar,
   ) {
     return Container(
       padding: const EdgeInsets.all(18),
@@ -252,7 +224,10 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: latar, borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(
+              color: warna.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Icon(ikon, color: warna, size: 20),
           ),
           const SizedBox(width: 14),
@@ -272,7 +247,7 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
                 Text(
                   nilai,
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                     color: context.teksUtama,
                   ),
@@ -293,38 +268,57 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
     );
   }
 
-  Widget _buildFilters() {
+  Widget _buildDataCard(InventoryProvider provider) {
     return Container(
       padding: EdgeInsets.all(paddingKartu(context)),
       decoration: BoxDecoration(
         color: context.latarKartu,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: context.garis),
       ),
-      child: Wrap(
-        spacing: 16,
-        runSpacing: 16,
-        crossAxisAlignment: WrapCrossAlignment.end,
+      child: Column(
         children: [
-          _dropdownFilter('Kategori', _kategori, ['Semua Kategori', ..._opsiKategori], (v) {
-            setState(() => _kategori = v!);
-            _loadData();
-          }),
-          _dropdownFilter('Kondisi', _kondisi, ['Semua Kondisi', ..._opsiKondisi], (v) {
-            setState(() => _kondisi = v!);
-            _loadData();
-          }),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Center(
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              children: [
+                const Icon(Icons.inventory_2_outlined, color: _hijau),
+                Text(
+                  'Data Barang Inventaris',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: context.teksUtama,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
             children: [
-              Text('Cari', style: TextStyle(fontSize: 12, color: context.teksKedua)),
-              const SizedBox(height: 8),
+              Text(
+                'Pencarian',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: context.teksKedua,
+                ),
+              ),
               SizedBox(
-                width: lebarKolomFilter(context, maksimal: 260),
+                width: 250,
                 child: TextField(
                   controller: _searchController,
+                  style: TextStyle(color: context.teksUtama, fontSize: 13),
+                  textInputAction: TextInputAction.search,
                   onSubmitted: (v) {
-                    _searchQuery = v;
+                    _searchQuery = v.trim();
                     _loadData();
                   },
                   decoration: InputDecoration(
@@ -333,41 +327,97 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
                     prefixIcon: Icon(Icons.search, size: 18, color: context.teksKedua),
                     suffixIcon: IconButton(
                       icon: const Icon(Icons.arrow_forward, size: 16),
+                      tooltip: 'Cari',
                       onPressed: () {
-                        _searchQuery = _searchController.text;
+                        _searchQuery = _searchController.text.trim();
                         _loadData();
                       },
                     ),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                    filled: true,
+                    fillColor: context.latarLembut,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: context.garis),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: context.garis),
+                    ),
+                    focusedBorder: const OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                      borderSide: BorderSide(color: _hijau),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
-                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _kategori = 'Semua Kategori';
+                    _kondisi = 'Semua Kondisi';
+                    _searchQuery = '';
+                    _searchController.clear();
+                  });
+                  _loadData();
+                },
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('Reset', style: TextStyle(fontSize: 13)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: context.teksKedua,
+                  side: BorderSide(color: context.garis),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
               ),
             ],
           ),
-          IconButton(
-            tooltip: 'Reset Filter',
-            onPressed: () {
-              setState(() {
-                _kategori = 'Semua Kategori';
-                _kondisi = 'Semua Kondisi';
-                _searchQuery = '';
-                _searchController.clear();
-              });
-              _loadData();
-            },
-            icon: const Icon(Icons.close, size: 16),
-            style: IconButton.styleFrom(
-              foregroundColor: context.teksKedua,
-              side: BorderSide(color: context.garis),
-              visualDensity: VisualDensity.standard,
-              minimumSize: const Size(AppTheme.sasaranSentuh, AppTheme.sasaranSentuh),
-              maximumSize: const Size(AppTheme.sasaranSentuh, AppTheme.sasaranSentuh),
-              padding: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
+          const SizedBox(height: 16),
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              _dropdownFilter('Kategori:', _kategori, ['Semua Kategori', ..._opsiKategori], (v) {
+                setState(() => _kategori = v!);
+                _loadData();
+              }),
+              _dropdownFilter('Kondisi:', _kondisi, ['Semua Kondisi', ..._opsiKondisi], (v) {
+                setState(() => _kondisi = v!);
+                _loadData();
+              }),
+            ],
           ),
+          const SizedBox(height: 20),
+          if (provider.isLoading && provider.items.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 60),
+              child: Center(child: CircularProgressIndicator(color: _hijau)),
+            )
+          else if (provider.items.isEmpty)
+            _buildKosong()
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isMobile = constraints.maxWidth < 650;
+                final itemWidth = isMobile
+                    ? constraints.maxWidth
+                    : (constraints.maxWidth > 950
+                        ? (constraints.maxWidth - 32) / 3
+                        : (constraints.maxWidth - 16) / 2);
+                return Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  children: provider.items
+                      .map((item) => SizedBox(
+                            width: itemWidth,
+                            child: _buildBarangCard(item),
+                          ))
+                      .toList(),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -379,17 +429,17 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
     List<String> items,
     ValueChanged<String?> onChanged,
   ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: TextStyle(fontSize: 12, color: context.teksKedua)),
-        const SizedBox(height: 8),
+        Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: context.teksKedua)),
+        const SizedBox(width: 8),
         Container(
           constraints: const BoxConstraints(
             minHeight: AppTheme.sasaranSentuh,
             maxHeight: AppTheme.sasaranSentuh,
           ),
-          width: lebarKolomFilter(context, maksimal: 190),
+          width: 140,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
             border: Border.all(color: context.garis),
@@ -657,21 +707,6 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
     );
   }
 
-  Widget _outlinedBtn(IconData icon, String label, Color color, VoidCallback onTap) {
-    return OutlinedButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon, size: 14, color: color),
-      label: Text(
-        label,
-        style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
-      ),
-      style: OutlinedButton.styleFrom(
-        side: BorderSide(color: color),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      ),
-    );
-  }
 
   // -------------------------------------------------------------- dialogs
 
@@ -683,7 +718,11 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
         title: const Text('Hapus Barang'),
         content: Text('Hapus "${b.namaBarang}" (${b.jumlahTotal} unit) dari inventaris?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Batal')),
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            style: TextButton.styleFrom(foregroundColor: c.warnaTombolTutup),
+            child: const Text('Batal'),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(c, true),
             style: ElevatedButton.styleFrom(backgroundColor: _merah),
@@ -1035,7 +1074,13 @@ class _DataBarangScreenState extends State<DataBarangScreen> {
             ],
           ),
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('Tutup'))],
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            style: TextButton.styleFrom(foregroundColor: c.warnaTombolTutup),
+            child: const Text('Tutup'),
+          ),
+        ],
       ),
     );
   }

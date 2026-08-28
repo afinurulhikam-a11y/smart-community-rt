@@ -96,6 +96,22 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
 
   String _tgl(DateTime? d) => d == null ? '-' : DateFormat('dd MMM yyyy').format(d);
 
+  Widget _filledBtn(IconData icon, String label, Color color, VoidCallback onTap) {
+    return ElevatedButton.icon(
+      onPressed: onTap,
+      icon: Icon(icon, size: 16),
+      label: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      ),
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<InventoryProvider>();
@@ -115,89 +131,80 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildHeader(provider),
-        const SizedBox(height: 24),
-        _buildStatCards(provider),
-        const SizedBox(height: 24),
-        _buildFilters(),
+        _buildHeader(),
         const SizedBox(height: 16),
-        _buildTabel(provider),
+        _buildStatCards(provider),
+        const SizedBox(height: 16),
+        _buildActionButtons(provider),
+        const SizedBox(height: 16),
+        _buildTableCard(provider),
         const SizedBox(height: 32),
       ],
     );
   }
 
-  Widget _buildHeader(InventoryProvider provider) {
-    return SizedBox(
-      width: double.infinity,
-      child: Wrap(
-        alignment: WrapAlignment.spaceBetween,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        runSpacing: 16,
+  Widget _buildHeader() {
+    return Container(
+      padding: EdgeInsets.all(paddingKartu(context)),
+      decoration: BoxDecoration(
+        color: context.latarKartu,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: context.garis),
+      ),
+      child: Row(
         children: [
-          if (!pakaiKartu(context))
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TombolKembali(onPressed: widget.onBack),
-                const SizedBox(width: 10),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: _hijau.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(Icons.swap_horiz_rounded, color: _hijau, size: 20),
-                ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Text(
-                    'Inventaris / Peminjaman',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: context.teksKedua,
-                    ),
-                  ),
-                ),
-              ],
+          TombolKembali(onPressed: widget.onBack),
+          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _hijau.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
             ),
-          Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            children: [
-              _outlinedBtn(
-                Icons.table_chart_outlined,
-                'Excel',
-                const Color(0xFF10B981),
-                () => provider.downloadExport(format: 'excel', peminjaman: true),
+            child: const Icon(Icons.swap_horiz_rounded, color: _hijau, size: 20),
+          ),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(
+              'Inventaris / Peminjaman',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: context.teksKedua,
               ),
-              _outlinedBtn(
-                Icons.picture_as_pdf_outlined,
-                'PDF',
-                _merah,
-                () => provider.downloadExport(format: 'pdf', peminjaman: true),
-              ),
-              if (_bolehTambah)
-                ElevatedButton.icon(
-                  onPressed: () => _showFormPinjam(null),
-                  icon: const Icon(Icons.add, size: 16),
-                  label: Text(
-                    _sebagaiWarga ? 'Ajukan Pinjam' : 'Catat Peminjaman',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _hijauTerang,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                  ),
-                ),
-            ],
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildActionButtons(InventoryProvider provider) {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _filledBtn(
+          Icons.table_chart_outlined,
+          'Laporan Excel',
+          const Color(0xFF10B981),
+          () => provider.downloadExport(format: 'excel', peminjaman: true),
+        ),
+        _filledBtn(
+          Icons.picture_as_pdf_outlined,
+          'Laporan PDF',
+          _merah,
+          () => provider.downloadExport(format: 'pdf', peminjaman: true),
+        ),
+        if (_bolehTambah)
+          _filledBtn(
+            Icons.add,
+            _sebagaiWarga ? 'Ajukan Pinjam' : 'Catat Peminjaman',
+            _hijauTerang,
+            () => _showFormPinjam(null),
+          ),
+      ],
     );
   }
 
@@ -211,32 +218,30 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
           _statCard(
             'Total Catatan',
             '${s.total}',
+            'semua riwayat',
             Icons.swap_calls,
             const Color(0xFF8B5CF6),
-            const Color(0xFFF3E8FF),
           ),
           _statCard(
             'Sedang Dipinjam',
             '${s.dipinjam}',
+            'belum dikembalikan',
             Icons.outbond_outlined,
             const Color(0xFFF59E0B),
-            const Color(0xFFFEFCE8),
           ),
           _statCard(
             'Dikembalikan',
             '${s.dikembalikan}',
+            'sudah selesai',
             Icons.check_circle_outline,
             const Color(0xFF10B981),
-            const Color(0xFFF0FDF4),
           ),
-          // Dulu selalu 0: tidak ada tanggal jatuh tempo, dan status 'Terlambat'
-          // tidak pernah ditulis ke database. Sekarang dihitung backend.
           _statCard(
             'Terlambat',
             '${s.terlambat}',
+            'lewat jatuh tempo',
             Icons.access_time,
             _merah,
-            const Color(0xFFFEF2F2),
           ),
         ];
         return Wrap(
@@ -248,7 +253,7 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
     );
   }
 
-  Widget _statCard(String label, String nilai, IconData ikon, Color warna, Color latar) {
+  Widget _statCard(String label, String nilai, String sub, IconData ikon, Color warna) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -260,7 +265,10 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: latar, borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(
+              color: warna.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Icon(ikon, color: warna, size: 20),
           ),
           const SizedBox(width: 14),
@@ -285,6 +293,12 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
                     color: context.teksUtama,
                   ),
                 ),
+                Text(
+                  sub,
+                  style: TextStyle(fontSize: 11, color: context.teksTersier),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),
@@ -293,56 +307,181 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
     );
   }
 
-  Widget _buildFilters() {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        _chip('Semua', Icons.menu),
-        _chip('Dipinjam', Icons.outbond_outlined),
-        _chip('Dikembalikan', Icons.check_circle_outline),
-        _chip('Terlambat', Icons.access_time),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: lebarKolomFilter(context, maksimal: 250),
-          child: TextField(
-            controller: _searchController,
-            onSubmitted: (v) {
-              _searchQuery = v;
-              _loadData();
-            },
-            decoration: InputDecoration(
-              hintText: 'Cari barang / peminjam...',
-              hintStyle: TextStyle(fontSize: 12, color: context.teksTersier),
-              prefixIcon: Icon(Icons.search, size: 18, color: context.teksKedua),
-              suffixIcon: IconButton(
-                icon: const Icon(Icons.arrow_forward, size: 16),
+  Widget _buildTableCard(InventoryProvider provider) {
+    return Container(
+      padding: EdgeInsets.all(paddingKartu(context)),
+      decoration: BoxDecoration(
+        color: context.latarKartu,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: context.garis),
+      ),
+      child: Column(
+        children: [
+          // Header: Ikon + Judul Riwayat Peminjaman Barang (Center)
+          Center(
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              children: [
+                const Icon(Icons.swap_horiz_rounded, color: _hijau),
+                Text(
+                  'Riwayat Peminjaman Barang',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: context.teksUtama,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Baris 1: Pencarian & Reset (Center)
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              Text(
+                'Pencarian',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: context.teksKedua,
+                ),
+              ),
+              SizedBox(
+                width: 280,
+                child: TextField(
+                  controller: _searchController,
+                  style: TextStyle(color: context.teksUtama, fontSize: 13),
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (v) {
+                    _searchQuery = v.trim();
+                    _loadData();
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Cari barang / peminjam...',
+                    hintStyle: TextStyle(fontSize: 12, color: context.teksTersier),
+                    prefixIcon: Icon(Icons.search, size: 18, color: context.teksKedua),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.arrow_forward, size: 16),
+                      tooltip: 'Cari',
+                      onPressed: () {
+                        _searchQuery = _searchController.text.trim();
+                        _loadData();
+                      },
+                    ),
+                    filled: true,
+                    fillColor: context.latarLembut,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: context.garis),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: context.garis),
+                    ),
+                    focusedBorder: const OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                      borderSide: BorderSide(color: _hijau),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                ),
+              ),
+              OutlinedButton.icon(
                 onPressed: () {
-                  _searchQuery = _searchController.text;
+                  setState(() {
+                    _selectedFilter = 'Semua';
+                    _searchQuery = '';
+                    _searchController.clear();
+                  });
                   _loadData();
                 },
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('Reset', style: TextStyle(fontSize: 13)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: context.teksKedua,
+                  side: BorderSide(color: context.garis),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
               ),
-              filled: true,
-              fillColor: context.latarLembut,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: context.garis),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: context.garis),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFF1B7A6A), width: 1.5),
-              ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-            ),
-            style: const TextStyle(fontSize: 13),
+            ],
           ),
-        ),
-      ],
+          const SizedBox(height: 16),
+
+          // Baris 2: Filter Status Chips (Center)
+          Center(
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _chip('Semua', Icons.menu),
+                _chip('Dipinjam', Icons.outbond_outlined),
+                _chip('Dikembalikan', Icons.check_circle_outline),
+                _chip('Terlambat', Icons.access_time),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Table / Content
+          if (provider.isLoading && provider.borrowings.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 60),
+              child: Center(child: CircularProgressIndicator(color: _hijau)),
+            )
+          else if (provider.borrowings.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 60),
+              child: Column(
+                children: [
+                  Icon(Icons.swap_horiz, size: 48, color: context.garis),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Belum ada catatan peminjaman',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: context.teksUtama),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Gunakan tombol "Catat Peminjaman" untuk mencatat barang yang keluar.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: context.teksTersier),
+                  ),
+                ],
+              ),
+            )
+          else
+            Padding(
+              padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
+              child: TabelResponsif(
+                tinggiBarisMaks: 76,
+                kolom: const [
+                  'NO',
+                  'BARANG',
+                  'PEMINJAM',
+                  'JUMLAH',
+                  'TGL PINJAM',
+                  'JATUH TEMPO',
+                  'TGL KEMBALI',
+                  'STATUS',
+                ],
+                baris: List.generate(
+                  provider.borrowings.length,
+                  (i) => _buildRow(provider.borrowings[i], i + 1),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -375,70 +514,6 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTabel(InventoryProvider provider) {
-    if (provider.isLoading && provider.borrowings.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 60),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-    if (provider.borrowings.isEmpty) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 60),
-        decoration: BoxDecoration(
-          color: context.latarKartu,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: context.garis),
-        ),
-        child: Column(
-          children: [
-            Icon(Icons.swap_horiz, size: 48, color: context.garis),
-            SizedBox(height: 12),
-            Text(
-              'Belum ada catatan peminjaman',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: context.teksUtama),
-            ),
-            SizedBox(height: 4),
-            Text(
-              'Gunakan tombol "Catat Peminjaman" untuk mencatat barang yang keluar.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: context.teksTersier),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: context.latarKartu,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: context.garis),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(pakaiKartu(context) ? 12 : 0),
-        child: TabelResponsif(
-          tinggiBarisMaks: 76,
-          kolom: const [
-            'NO',
-            'BARANG',
-            'PEMINJAM',
-            'JUMLAH',
-            'TGL PINJAM',
-            'JATUH TEMPO',
-            'TGL KEMBALI',
-            'STATUS',
-          ],
-          baris: List.generate(
-            provider.borrowings.length,
-            (i) => _buildRow(provider.borrowings[i], i + 1),
-          ),
         ),
       ),
     );
@@ -602,21 +677,6 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
     );
   }
 
-  Widget _outlinedBtn(IconData icon, String label, Color color, VoidCallback onTap) {
-    return OutlinedButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon, size: 14, color: color),
-      label: Text(
-        label,
-        style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
-      ),
-      style: OutlinedButton.styleFrom(
-        side: BorderSide(color: color),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      ),
-    );
-  }
 
   // -------------------------------------------------------------- dialogs
 
@@ -631,7 +691,11 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
           'sebagai sudah dikembalikan?',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Batal')),
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            style: TextButton.styleFrom(foregroundColor: c.warnaTombolTutup),
+            child: const Text('Batal'),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(c, true),
             style: ElevatedButton.styleFrom(backgroundColor: _hijauTerang),
@@ -656,7 +720,11 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
           'Gunakan ini hanya bila catatannya keliru.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Batal')),
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            style: TextButton.styleFrom(foregroundColor: c.warnaTombolTutup),
+            child: const Text('Batal'),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(c, true),
             style: ElevatedButton.styleFrom(backgroundColor: _merah),
@@ -865,7 +933,11 @@ class _PeminjamanScreenState extends State<PeminjamanScreen> {
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(c), child: const Text('Batal')),
+              TextButton(
+                onPressed: () => Navigator.pop(c),
+                style: TextButton.styleFrom(foregroundColor: c.warnaTombolTutup),
+                child: const Text('Batal'),
+              ),
               ElevatedButton(
                 onPressed: () async {
                   final jumlah = int.tryParse(jumlahCtrl.text);
