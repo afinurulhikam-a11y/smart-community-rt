@@ -330,7 +330,7 @@ app.get('/api/health', async (req, res) => {
   res.status(sehat ? 200 : 503).json({
     success: sehat,
     message: sehat
-      ? 'Smart Community RT — Backend API is running 🚀'
+      ? 'Sistem Manajemen RT — Backend API is running 🚀'
       : 'Backend hidup, tetapi database tidak dapat dihubungi.',
     database,
     websocket_clients: getConnectedClients(),
@@ -368,7 +368,7 @@ initMqtt();  // Sambungan broker alarm dihangatkan sejak startup.
 server.listen(PORT, () => {
   console.log(`
   ╔═══════════════════════════════════════════════════════════╗
-  ║  Smart Community RT — Backend API                        ║
+  ║  Sistem Manajemen RT — Backend API                        ║
   ║  HTTP Server  : http://localhost:${PORT}                    ║
   ║  WebSocket    : ws://localhost:${PORT}                      ║
   ║  Health check : http://localhost:${PORT}/api/health          ║

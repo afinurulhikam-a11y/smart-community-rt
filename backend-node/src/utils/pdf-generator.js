@@ -40,7 +40,7 @@ function generatePaymentPDF(payment, outputStream) {
   doc.fillColor('#E6F4F1')
     .fontSize(8)
     .font('Helvetica')
-    .text('Smart Community Management Platform RT', 0, 33, { align: 'center', width: PAGE_WIDTH });
+    .text('Sistem Manajemen RT Terintegrasi', 0, 33, { align: 'center', width: PAGE_WIDTH });
 
   let y = 68;
 
@@ -185,7 +185,7 @@ function generatePaymentPDF(payment, outputStream) {
   const stampY = y - 5;
   doc.roundedRect(stampX, stampY, 95, 30, 4).lineWidth(1).strokeColor('#10B981').stroke();
   doc.fillColor('#059669').fontSize(7).font('Helvetica-Bold').text('SELESAI & LUNAS', stampX, stampY + 6, { align: 'center', width: 95 });
-  doc.fillColor('#10B981').fontSize(6).font('Helvetica').text('SMART COMMUNITY RT', stampX, stampY + 16, { align: 'center', width: 95 });
+  doc.fillColor('#10B981').fontSize(6).font('Helvetica').text('SISTEM MANAJEMEN RT', stampX, stampY + 16, { align: 'center', width: 95 });
 
   doc.end();
 }

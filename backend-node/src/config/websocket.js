@@ -73,7 +73,7 @@ function initWebSocket(server) {
 
     ws.send(JSON.stringify({
       type: 'CONNECTED',
-      message: 'Terhubung ke Smart Community RT WebSocket Server',
+      message: 'Terhubung ke Sistem Manajemen RT WebSocket Server',
       timestamp: new Date().toISOString(),
     }));
 

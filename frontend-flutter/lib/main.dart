@@ -390,7 +390,7 @@ class _AuthGateState extends State<AuthGate> {
                 Icon(Icons.location_city_rounded, size: 64, color: Colors.white),
                 SizedBox(height: 16),
                 Text(
-                  'Smart Community RT',
+                  'Sistem Manajemen RT',
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
                 SizedBox(height: 20),

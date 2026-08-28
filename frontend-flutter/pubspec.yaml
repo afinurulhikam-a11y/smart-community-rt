@@ -1,5 +1,5 @@
 name: smart_community
-description: "Smart Community Management Platform RT - Mobile & Web"
+description: "Sistem Manajemen RT Terintegrasi - Mobile & Web"
 publish_to: 'none'
 # versionName + versionCode. Sumber tunggal, ter-commit dan ter-review —
 # BUKAN bendera --build-name/--build-number, yang hanya menulis ke

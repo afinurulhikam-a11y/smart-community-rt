@@ -88,7 +88,7 @@ async function sendCredentialsWA({ userNama, noHp, username, password }) {
   const pesan = 
 `Assalamualaikum, Yth. Bapak/Ibu *${userNama || 'Warga'}*,
 
-Akun akses aplikasi Smart Community RT Anda telah dibuat:
+Akun akses aplikasi Sistem Manajemen RT Anda telah dibuat:
 
 • *Username*: ${username}
 • *Password*: ${password}
